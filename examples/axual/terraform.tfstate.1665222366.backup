@@ -1,0 +1,279 @@
+{
+  "version": 4,
+  "terraform_version": "1.2.4",
+  "serial": 37,
+  "lineage": "12e8d696-2e5f-9495-6712-bdf1b83179f8",
+  "outputs": {},
+  "resources": [
+    {
+      "mode": "managed",
+      "type": "axual_application",
+      "name": "gitops_test_application_2",
+      "provider": "provider[\"axual.com/hackz/axual\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "application_id": "axual.gitops.test2",
+            "application_type": "Custom",
+            "description": "Axual's Test Application for Gitops 2",
+            "id": "57eae1fe76e043dabe1093e986806494",
+            "name": "gitops_test_application_2",
+            "owners": "97cbe548ff904095903850b90d8ad108",
+            "short_name": "gitops_test_application_2",
+            "type": "Java",
+            "visibility": "Public"
+          },
+          "sensitive_attributes": [],
+          "dependencies": [
+            "axual_group.gitops_test",
+            "axual_stream.gitops_test_stream2",
+            "axual_stream_config.gitops_test_stream_config_2",
+            "axual_user.gitops_user"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "axual_application",
+      "name": "gitops_test_application_3",
+      "provider": "provider[\"axual.com/hackz/axual\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "application_id": "axual.gitops.test3",
+            "application_type": "Custom",
+            "description": "Axual's Test Application for Gitops 3",
+            "id": "c2b7c154855d40959c11ee9d32fd3f6f",
+            "name": "gitops_test_application_3",
+            "owners": "97cbe548ff904095903850b90d8ad108",
+            "short_name": "gitops_test_application_3",
+            "type": "Java",
+            "visibility": "Public"
+          },
+          "sensitive_attributes": [],
+          "dependencies": [
+            "axual_group.gitops_test",
+            "axual_stream.gitops_test_stream2",
+            "axual_stream.gitops_test_stream3",
+            "axual_stream_config.gitops_test_stream_config_3",
+            "axual_user.gitops_user"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "axual_application_access_grant",
+      "name": "terra_grant_1",
+      "provider": "provider[\"axual.com/hackz/axual\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "access_type": "Consumer",
+            "application": "57eae1fe76e043dabe1093e986806494",
+            "application_access": "1fe2c983b784460fac4ce671a9b77d2a",
+            "environment": "7237a4093d7948228d431a603c31c904",
+            "id": "65d998446c1542ab8a7ec7af10785630",
+            "status": "Approved",
+            "stream": "14310195df3a4ee7880d09e873baa000"
+          },
+          "sensitive_attributes": [],
+          "dependencies": [
+            "axual_application.gitops_test_application_2",
+            "axual_application_principal.test_application_principal",
+            "axual_group.gitops_test",
+            "axual_stream.gitops_test_stream2",
+            "axual_stream_config.gitops_test_stream_config_2",
+            "axual_user.gitops_user"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "axual_group",
+      "name": "gitops_test",
+      "provider": "provider[\"axual.com/hackz/axual\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "email_address": "gitops.test@axual.com",
+            "id": "97cbe548ff904095903850b90d8ad108",
+            "members": [
+              "7ffedefb5be64295b2166802a0db9a38"
+            ],
+            "name": "Gitops Test Group",
+            "phone_number": "+37253412559"
+          },
+          "sensitive_attributes": [],
+          "dependencies": [
+            "axual_user.gitops_user"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "axual_stream",
+      "name": "gitops_test_stream2",
+      "provider": "provider[\"axual.com/hackz/axual\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "description": null,
+            "id": "14310195df3a4ee7880d09e873baa000",
+            "key_type": "String",
+            "name": "gitops_test_stream2",
+            "owners": "97cbe548ff904095903850b90d8ad108",
+            "properties": {},
+            "retention_policy": "delete",
+            "value_type": "String"
+          },
+          "sensitive_attributes": [],
+          "dependencies": [
+            "axual_group.gitops_test",
+            "axual_user.gitops_user"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "axual_stream",
+      "name": "gitops_test_stream3",
+      "provider": "provider[\"axual.com/hackz/axual\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "description": null,
+            "id": "d538fd310c0543379d87782808d5fe67",
+            "key_type": "String",
+            "name": "gitops_test_stream3",
+            "owners": "97cbe548ff904095903850b90d8ad108",
+            "properties": {},
+            "retention_policy": "delete",
+            "value_type": "String"
+          },
+          "sensitive_attributes": [],
+          "dependencies": [
+            "axual_group.gitops_test",
+            "axual_user.gitops_user"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "axual_stream_config",
+      "name": "gitops_test_stream_config_2",
+      "provider": "provider[\"axual.com/hackz/axual\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "environment": "7237a4093d7948228d431a603c31c904",
+            "id": "aaaeaab791d34b58942d82abec7c79a9",
+            "partitions": 1,
+            "properties": {
+              "retention.bytes": "1",
+              "segment.ms": "600012"
+            },
+            "retention_time": 1000,
+            "stream": "14310195df3a4ee7880d09e873baa000"
+          },
+          "sensitive_attributes": [],
+          "dependencies": [
+            "axual_group.gitops_test",
+            "axual_stream.gitops_test_stream2",
+            "axual_user.gitops_user"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "axual_stream_config",
+      "name": "gitops_test_stream_config_3",
+      "provider": "provider[\"axual.com/hackz/axual\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "environment": "7237a4093d7948228d431a603c31c904",
+            "id": "5cbc59ca181742bb880da138e3d3bdb3",
+            "partitions": 1,
+            "properties": {
+              "retention.bytes": "1",
+              "segment.ms": "60002"
+            },
+            "retention_time": 1001,
+            "stream": "d538fd310c0543379d87782808d5fe67"
+          },
+          "sensitive_attributes": [],
+          "dependencies": [
+            "axual_group.gitops_test",
+            "axual_stream.gitops_test_stream3",
+            "axual_user.gitops_user"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "axual_user",
+      "name": "gitops_user",
+      "provider": "provider[\"axual.com/hackz/axual\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "email_address": "gitops_test@axual.com",
+            "first_name": "Gitops_firstname",
+            "id": "7ffedefb5be64295b2166802a0db9a38",
+            "last_name": "Gitops_lastname",
+            "middle_name": null,
+            "phone_number": "+37253412559",
+            "roles": [
+              {
+                "name": "TENANT_ADMIN"
+              }
+            ]
+          },
+          "sensitive_attributes": []
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "axual_user",
+      "name": "gitops_user2",
+      "provider": "provider[\"axual.com/hackz/axual\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "email_address": "gitops_test2@axual.com",
+            "first_name": "Gitops_firstname2",
+            "id": "979ebc79ccfd413ebe963dabc0b62168",
+            "last_name": "Gitops_lastname2",
+            "middle_name": null,
+            "phone_number": "+37253412550",
+            "roles": [
+              {
+                "name": "TENANT_ADMIN"
+              }
+            ]
+          },
+          "sensitive_attributes": []
+        }
+      ]
+    }
+  ]
+}

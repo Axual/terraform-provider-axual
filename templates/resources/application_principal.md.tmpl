@@ -1,0 +1,20 @@
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+## Limitations
+- Axual Terraform Provider only support these authentication methods:
+	- SSL (MUTUAL TLS) as a Certificate(PEM). To use it please provide a string with PEM certificate as principal property.
+	- SASL (OAUTHBEARER) as a Custom Principal that specifies the ID referenced in URI and tokens. To use it please provide a string with PEM certificate as principal property. For example, 'my-client'.
+- Read more: https://docs.axual.io/axual/2022.2/self-service/application-management.html#configuring-application-securityauthentication
+
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Example Usage
+
+{{ tffile "examples/axual/31_application_principal.tf" }}
+
+## Import
+
+Import is supported using the following syntax:

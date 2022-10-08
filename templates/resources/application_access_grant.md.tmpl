@@ -1,0 +1,13 @@
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Example Usage
+
+{{ tffile "examples/axual/32_application_access_grants.tf" }}
+
+## Import
+
+Import is supported using the following syntax:

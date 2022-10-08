@@ -1,0 +1,18 @@
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Example Usage
+
+{{ tffile "examples/axual/21_groups.tf" }}
+
+## Import
+
+Import is supported using the following syntax:
+
+```shell
+terraform import axual_group.<LOCAL NAME> <GROUP UID>
+terraform import axual_group.test_group b21cf1d63a55436391463cee3f56e393
+```
