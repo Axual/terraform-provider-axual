@@ -56,6 +56,6 @@ resource "axual_user" "gitops_user2" {
 Import is supported using the following syntax:
 
 ```shell
-terraform import axual_user.<LOCAL NAME> <GROUP UID>
+terraform import axual_user.<LOCAL NAME> <USER UID>
 terraform import axual_user.test_user b21cf1d63a55436391463cee3f56e393
 ```

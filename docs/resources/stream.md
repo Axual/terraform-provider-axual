@@ -52,6 +52,6 @@ resource "axual_stream" "gitops_test_stream3" {
 Import is supported using the following syntax:
 
 ```shell
-terraform import axual_stream.<LOCAL NAME> <GROUP UID>
+terraform import axual_stream.<LOCAL NAME> <STREAM UID>
 terraform import axual_stream.test_stream b21cf1d63a55436391463cee3f56e393
 ```

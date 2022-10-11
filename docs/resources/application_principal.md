@@ -46,4 +46,4 @@ resource "axual_application_principal" "test_application_principal" {
 
 ## Import
 
-Import is supported using the following syntax:
+Import is not currently supported.

@@ -33,4 +33,4 @@ resource "axual_application_access_grant" "terra_grant_1" {
 
 ## Import
 
-Import is supported using the following syntax:
+Import is not currently supported.
