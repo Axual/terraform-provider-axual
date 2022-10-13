@@ -1,7 +1,8 @@
 terraform {
   required_providers {
     axual = {
-      source  = "axual.com/hackz/axual"
+      source = "Axual/axual"
+      version = ">= 1.0.0"
     }
   }
 }

@@ -15,6 +15,17 @@ provider_installation {
 }
 ```
 
+Refer to this local binary from 00_provider.tf
+```shell
+terraform {
+  required_providers {
+    axual = {
+      source  = "axual.com/hackz/axual"
+    }
+  }
+}
+```
+
 Make sure `GO111MODULE` is set to `on` by running the command `go env GO111MODULE`. If it is not on, change it with the command `go env -w GO111MODULE="on"`.
 
 Go to `terraform-provider-axual` directory and run `go mod tidy`. This will download the libraries.
