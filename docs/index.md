@@ -23,6 +23,7 @@ Axual Provider allows using Axual's Self-Service for Apache Kafka functionality 
 ## Limitations
 - **The environment that user creates needs to have this setting: Authorization issuer-Auto**
   - Manual approval will be supported in later version of Axual Terraform Provider.
+- As of 2023.1 release **Stream is renamed to Topic in Self-Service UI**. Stream remains unchanged in Platform API. Therefore, the Axual Terraform Provider will continue to use Stream in the API.
 
 # Getting started
 ## Example Usage
