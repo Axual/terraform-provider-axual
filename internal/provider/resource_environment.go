@@ -50,17 +50,19 @@ func (t environmentResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, d
 				Required:            true,
 				Type:                types.StringType,
 			},
-			"auto_approved": {
+			"authorization_issuer": {
 				MarkdownDescription: "Fix (if applicable). Read more: https://docs.axual.io/axual/2022.2/self-service/environment-management.html#key-type",
 				Required:            true,
-				Type:                types.BoolType,
-			},
+				Type:                types.StringType,
+				Validators: []tfsdk.AttributeValidator{
+					validation.Compare(validation.OneOf, []string{"Stream owner", "Auto"}),
+				}},
 			"visibility": {
 				MarkdownDescription: "The value type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2022.2/self-service/environment-management.html#value-type",
 				Required:            true,
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
-					validation.Compare(validation.OneOf, []string{"public", "private"}),
+					validation.Compare(validation.OneOf, []string{"Public", "Private"}),
 				},
 			},
 			"owners": {
@@ -70,7 +72,7 @@ func (t environmentResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, d
 			},
 			"retention_time": {
 				MarkdownDescription: "Determines what to do with messages after a certain period. Read more: https://docs.axual.io/axual/2022.2/self-service/environment-management.html#retention-policy",
-				Required:            true,
+				Optional:            true,
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
 					validation.Compare(validation.OneOf, []string{"compact", "delete"}),
@@ -78,7 +80,7 @@ func (t environmentResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, d
 			},
 			"partitions": {
 				MarkdownDescription: "The nshort ame of the environment. This must be in the format string-string (Needs to contain exactly one dash). The environment name is usually discussed and finalized as part of the Intake session or a follow up.",
-				Required:            true,
+				Optional:            true,
 				Type:                types.Int64Type,
 			},
 			"instance": {
@@ -88,7 +90,7 @@ func (t environmentResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, d
 			},
 			"properties": {
 				MarkdownDescription: "Advanced (Kafka) properties for a environment in a given environment. Read more: https://docs.axual.io/axual/2022.2/self-service/advanced-features.html#configuring-environment-properties",
-				Required:            true,
+				Optional:            true,
 				Type:                types.MapType{ElemType: types.StringType},
 			},
 			"id": {
@@ -116,7 +118,7 @@ type environmentResourceData struct {
 	ShortName           types.String `tfsdk:"short_name"`
 	Description         types.String `tfsdk:"description"`
 	Color               types.String `tfsdk:"color"`
-	AuthorizationIssuer types.String `tfsdk:"auto_approved"`
+	AuthorizationIssuer types.String `tfsdk:"authorization_issuer"`
 	Visibility          types.String `tfsdk:"visibility"`
 	Owners              types.String `tfsdk:"owners"`
 	RetentionTime       types.Int64  `tfsdk:"retention_time"`
