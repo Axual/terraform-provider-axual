@@ -70,27 +70,28 @@ func (t environmentResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, d
 				Required:            true,
 				Type:                types.StringType,
 			},
-			"retention_time": {
-				MarkdownDescription: "Determines what to do with messages after a certain period. Read more: https://docs.axual.io/axual/2022.2/self-service/environment-management.html#retention-policy",
-				Optional:            true,
-				Type:                types.StringType,
-				Validators: []tfsdk.AttributeValidator{
-					validation.Compare(validation.OneOf, []string{"compact", "delete"}),
-				},
-			},
-			"partitions": {
-				MarkdownDescription: "The nshort ame of the environment. This must be in the format string-string (Needs to contain exactly one dash). The environment name is usually discussed and finalized as part of the Intake session or a follow up.",
-				Optional:            true,
-				Type:                types.Int64Type,
-			},
 			"instance": {
 				MarkdownDescription: "The nshort ame of the environment. This must be in the format string-string (Needs to contain exactly one dash). The environment name is usually discussed and finalized as part of the Intake session or a follow up.",
 				Required:            true,
 				Type:                types.StringType,
 			},
+			"retention_time": {
+				MarkdownDescription: "Determines what to do with messages after a certain period. Read more: https://docs.axual.io/axual/2022.2/self-service/environment-management.html#retention-policy",
+				Optional:            true,
+				Computed:            true,
+				Type:                types.Int64Type,
+			},
+			"partitions": {
+				MarkdownDescription: "The nshort ame of the environment. This must be in the format string-string (Needs to contain exactly one dash). The environment name is usually discussed and finalized as part of the Intake session or a follow up.",
+				Optional:            true,
+				Computed:            true,
+				Type:                types.Int64Type,
+			},
+
 			"properties": {
 				MarkdownDescription: "Advanced (Kafka) properties for a environment in a given environment. Read more: https://docs.axual.io/axual/2022.2/self-service/advanced-features.html#configuring-environment-properties",
 				Optional:            true,
+				Computed:            true,
 				Type:                types.MapType{ElemType: types.StringType},
 			},
 			"id": {
@@ -266,6 +267,7 @@ func createEnvironmentRequestFromData(ctx context.Context, data *environmentReso
 		return webclient.EnvironmentRequest{}, err
 	}
 	owners = fmt.Sprintf("%s/groups/%v", r.provider.client.ApiURL, owners)
+	instance := fmt.Sprintf("%s/instances/%v", r.provider.client.ApiURL, data.Instnce.Value)
 
 	environmentRequest := webclient.EnvironmentRequest{
 		Name:                data.Name.Value,
@@ -275,6 +277,7 @@ func createEnvironmentRequestFromData(ctx context.Context, data *environmentReso
 		AuthorizationIssuer: data.AuthorizationIssuer.Value,
 		Visibility:          data.Visibility.Value,
 		Owners:              owners,
+		Instance:            instance,
 		RetentionTime:       int(data.RetentionTime.Value),
 		Partitions:          int(data.Partitions.Value),
 	}
@@ -282,6 +285,12 @@ func createEnvironmentRequestFromData(ctx context.Context, data *environmentReso
 	// optional fields
 	if !data.Description.Null {
 		environmentRequest.Description = data.Description.Value
+	}
+	if !data.RetentionTime.Null {
+		environmentRequest.RetentionTime = int(data.RetentionTime.Value)
+	}
+	if !data.Partitions.Null {
+		environmentRequest.Partitions = int(data.Partitions.Value)
 	}
 	return environmentRequest, nil
 }
