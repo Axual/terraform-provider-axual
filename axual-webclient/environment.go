@@ -28,9 +28,9 @@ func (c *Client) ReadEnvironment(id string) (*EnvironmentResponse, error) {
 	return &o, nil
 }
 
-func (c *Client) UpdateEnvironment(id string, env map[string]interface{}) (*EnvironmentResponse, error) {
+func (c *Client) UpdateEnvironment(id string, environmentRequest EnvironmentRequest) (*EnvironmentResponse, error) {
 	o := EnvironmentResponse{}
-	marshal, err := json.Marshal(env)
+	marshal, err := json.Marshal(environmentRequest)
 	if err != nil {
 		return nil, err
 	}

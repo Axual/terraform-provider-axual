@@ -110,6 +110,7 @@ func (p *provider) GetResources(_ context.Context) (map[string]tfsdk.ResourceTyp
 	return map[string]tfsdk.ResourceType{
 		"axual_user":                     userResourceType{},
 		"axual_group":                    groupResourceType{},
+		"axual_environment":              environmentResourceType{},
 		"axual_stream":                   streamResourceType{},
 		"axual_stream_config":            streamConfigResourceType{},
 		"axual_application":              applicationResourceType{},
