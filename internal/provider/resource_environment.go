@@ -24,72 +24,94 @@ type environmentResourceType struct{}
 func (t environmentResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
 	return tfsdk.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "A environment represents a flow of information (messages), which is continuously updated. Read more: https://docs.axual.io/axual/2022.2/self-service/environment-management.html",
+		MarkdownDescription: "Environments are used typically to support the application lifecycle, as it is moving from Development to Production.  In Self Service, they also allow you to test a feature in isolation, by making the environment Private. Read more: https://docs.axual.io/axual/2022.2/self-service/environment-management.html#managing-environments",
 
 		Attributes: map[string]tfsdk.Attribute{
 			"name": {
-				MarkdownDescription: "The name of the environment. This must be in the format string-string (Needs to contain exactly one dash). The environment name is usually discussed and finalized as part of the Intake session or a follow up.",
+				MarkdownDescription: "A suitable name identifying this environment. This must be in the format string-string (Alphabetical characters, digits and the following characters are allowed: `- `,` _` ,` .`)",
 				Required:            true,
 				Type:                types.StringType,
+				Validators: []tfsdk.AttributeValidator{
+					validation.Length(3, 50),
+					validation.RegexpMatch((`^[a-z0-9\.\-_]+$`)),
+				},
 			},
 			"short_name": {
-				MarkdownDescription: "The nshort ame of the environment. This must be in the format string-string (Needs to contain exactly one dash). The environment name is usually discussed and finalized as part of the Intake session or a follow up.",
+				MarkdownDescription: "A short name that will uniquely identify this environment. The short name should be between 3 and 20 characters. no special characters are allowed.",
 				Required:            true,
 				Type:                types.StringType,
+				Validators: []tfsdk.AttributeValidator{
+					validation.Length(3, 50),
+					validation.RegexpMatch((`^[a-z0-9]+$`)),
+				},
 			},
 			"description": {
 				MarkdownDescription: "A text describing the purpose of the environment.",
 				Optional:            true,
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
-					validation.Length(1, -1),
+					validation.Length(0, 200),
 				},
 			},
 			"color": {
-				MarkdownDescription: "The nshort ame of the environment. This must be in the format string-string (Needs to contain exactly one dash). The environment name is usually discussed and finalized as part of the Intake session or a follow up.",
-				Required:            true,
-				Type:                types.StringType,
-			},
-			"authorization_issuer": {
-				MarkdownDescription: "Fix (if applicable). Read more: https://docs.axual.io/axual/2022.2/self-service/environment-management.html#key-type",
+				MarkdownDescription: "The color used display the environment",
 				Required:            true,
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
-					validation.Compare(validation.OneOf, []string{"Stream owner", "Auto"}),
+					validation.Compare(validation.OneOf, []string{
+						"#80affe", "#4686f0", "#3347e1", "#1a2dbc", "#fee492", "#fbd04e", "#c2a7f9", "#8b58f3",
+						"#e9b105", "#d19e02", "#6bdde0", "#21ccd2", "#19b9be", "#069499", "#532cd", "#3b0d98",
+					}),
 				}},
 			"visibility": {
-				MarkdownDescription: "The value type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2022.2/self-service/environment-management.html#value-type",
+				MarkdownDescription: "Thi Private environments are only visible to the owning group (your team). They are not included in dashboard visualisations.",
 				Required:            true,
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
 					validation.Compare(validation.OneOf, []string{"Public", "Private"}),
 				},
 			},
+			"authorization_issuer": {
+				MarkdownDescription: "This indicates if any deployments on this environment should be AUTO approved or requires approval from Stream Owner. For private environments, only AUTO can be selected.",
+				Required:            true,
+				Type:                types.StringType,
+				Validators: []tfsdk.AttributeValidator{
+					validation.Compare(validation.OneOf, []string{"Stream owner", "Auto"}),
+				},
+			},
 			"owners": {
-				MarkdownDescription: "The team owning this environment. Read more: https://docs.axual.io/axual/2022.2/self-service/environment-management.html#environment-owner",
+				MarkdownDescription: "The id of the team owning this environment.",
 				Required:            true,
 				Type:                types.StringType,
 			},
 			"instance": {
-				MarkdownDescription: "The nshort ame of the environment. This must be in the format string-string (Needs to contain exactly one dash). The environment name is usually discussed and finalized as part of the Intake session or a follow up.",
+				MarkdownDescription: "The id of the instance where this environment should be deployed.",
 				Required:            true,
 				Type:                types.StringType,
 			},
 			"retention_time": {
-				MarkdownDescription: "Determines what to do with messages after a certain period. Read more: https://docs.axual.io/axual/2022.2/self-service/environment-management.html#retention-policy",
+				MarkdownDescription: "The time in milliseconds after which the messages can be deleted from all streams. This is an optional field. If not specified, default value is 7 days (604800000).",
 				Optional:            true,
 				Computed:            true,
 				Type:                types.Int64Type,
-			},
-			"partitions": {
-				MarkdownDescription: "The nshort ame of the environment. This must be in the format string-string (Needs to contain exactly one dash). The environment name is usually discussed and finalized as part of the Intake session or a follow up.",
-				Optional:            true,
-				Computed:            true,
-				Type:                types.Int64Type,
+				Validators: []tfsdk.AttributeValidator{
+					validation.Compare(validation.GreaterThanOrEqualTo, 1000),
+					validation.Compare(validation.LessThanOrEqualTo, 160704000000),
+				},
 			},
 
+			"partitions": {
+				MarkdownDescription: "Defines the number of partitions configured for every stream of this tenant. This is an optional field. If not specified, default value is 12",
+				Optional:            true,
+				Computed:            true,
+				Type:                types.Int64Type,
+				Validators: []tfsdk.AttributeValidator{
+					validation.Compare(validation.GreaterThanOrEqualTo, 1),
+					validation.Compare(validation.LessThanOrEqualTo, 120000),
+				},
+			},
 			"properties": {
-				MarkdownDescription: "Advanced (Kafka) properties for a environment in a given environment. Read more: https://docs.axual.io/axual/2022.2/self-service/advanced-features.html#configuring-environment-properties",
+				MarkdownDescription: "Environment-wide properties for all topics and applications.",
 				Optional:            true,
 				Computed:            true,
 				Type:                types.MapType{ElemType: types.StringType},
