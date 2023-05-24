@@ -25,11 +25,12 @@ resource "axual_environment" "test-env3" {
   short_name = "testenv3"
   description = "This sis a long descripion"
   color = "#3b0d98"
-  visibility = "Private"
-  authorization_issuer = "Auto"
+  visibility = "Public"
+  authorization_issuer = "Stream owner"
   instance = "51be2a6a5eee481198787dc346ab6608"
   owners = "dd84b3ee8e4341fbb58704b18c10ec5c"
-  retention_time = 2000
-  partitions = 6
+  properties = {
+    "segment.ms"="60002"
+  }
 
 }
