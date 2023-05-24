@@ -17,13 +17,13 @@ Environments are used typically to support the application lifecycle, as it is m
 
 ### Required
 
-- `name` (String) A suitable name identifying this environment. This must be in the format string-string (Alphabetical characters, digits and the following characters are allowed: `- `,` _` ,` .`)
-- `short_name` (String) A short name that will uniquely identify this environment. The short name should be between 3 and 20 characters. no special characters are allowed.
-- `color` (String) The color used display the environment
-- `owners` (String) The id of the team owning this environment.
-- `instance` (String) The id of the instance where this environment should be deployed.
-- `visibility` (String) Thi Private environments are only visible to the owning group (your team). They are not included in dashboard visualisations.
 - `authorization_issuer` (String) This indicates if any deployments on this environment should be AUTO approved or requires approval from Stream Owner. For private environments, only AUTO can be selected.
+- `color` (String) The color used display the environment
+- `instance` (String) The id of the instance where this environment should be deployed.
+- `name` (String) A suitable name identifying this environment. This must be in the format string-string (Alphabetical characters, digits and the following characters are allowed: `- `,` _` ,` .`)
+- `owners` (String) The id of the team owning this environment.
+- `short_name` (String) A short name that will uniquely identify this environment. The short name should be between 3 and 20 characters. no special characters are allowed.
+- `visibility` (String) Thi Private environments are only visible to the owning group (your team). They are not included in dashboard visualisations.
 
 ### Optional
 
