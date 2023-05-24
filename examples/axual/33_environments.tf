@@ -1,7 +1,7 @@
 resource "axual_environment" "test-env" {
-  name = "test-env"
-  short_name = "testenv"
-  description = "This sis a long descripion"
+  name = "test"
+  short_name = "test"
+  description = "This is a test environment"
   color = "#19b9be"
   visibility = "Private"
   authorization_issuer = "Auto"
@@ -9,10 +9,10 @@ resource "axual_environment" "test-env" {
   owners = "dd84b3ee8e4341fbb58704b18c10ec5c"
 }
 
-resource "axual_environment" "test-env2" {
-  name = "test-env2"
-  short_name = "testenv2"
-  description = "This sis a long descripion"
+resource "axual_environment" "staging-env" {
+  name = "staging"
+  short_name = "staging"
+  description = "Staging contains close to real world data"
   color = "#3b0d98"
   visibility = "Private"
   authorization_issuer = "Auto"
@@ -20,10 +20,10 @@ resource "axual_environment" "test-env2" {
   owners = "dd84b3ee8e4341fbb58704b18c10ec5c"
 }
 
-resource "axual_environment" "test-env3" {
-  name = "test-env3"
-  short_name = "testenv3"
-  description = "This sis a long descripion"
+resource "axual_environment" "production-env" {
+  name = "production"
+  short_name = "production"
+  description = "Real world production environment"
   color = "#3b0d98"
   visibility = "Public"
   authorization_issuer = "Stream owner"

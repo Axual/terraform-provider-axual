@@ -37,3 +37,26 @@ Environments are used typically to support the application lifecycle, as it is m
 - `id` (String) Environment unique identifier
 
 
+## Example Usage
+
+```terraform
+resource "axual_environment" "staging" {
+  name = "staging"
+  short_name = "staging"
+  description = "This sis a long descripion"
+  color = "#3b0d98"
+  visibility = "Private"
+  authorization_issuer = "Auto"
+  instance = "51be2a6a5eee481198787dc346ab6608"
+  owners = "dd84b3ee8e4341fbb58704b18c10ec5c"
+}
+```
+
+## Import
+
+Import is supported using the following syntax:
+
+```shell
+terraform import axual_environment.<LOCAL NAME> <ENVIRONMENT UID>
+terraform import axual_environment.test_environment a21cf1d63a55436391463cee3f56e393
+```
