@@ -1,6 +1,6 @@
-resource "axual_environment" "test-env" {
-  name = "test"
-  short_name = "test"
+resource "axual_environment" "awesome-env" {
+  name = "team-awesome"
+  short_name = "awesome"
   description = "This is a test environment"
   color = "#19b9be"
   visibility = "Private"
@@ -14,7 +14,7 @@ resource "axual_environment" "staging-env" {
   short_name = "staging"
   description = "Staging contains close to real world data"
   color = "#3b0d98"
-  visibility = "Private"
+  visibility = "Public"
   authorization_issuer = "Auto"
   instance = "51be2a6a5eee481198787dc346ab6608"
   owners = "dd84b3ee8e4341fbb58704b18c10ec5c"
