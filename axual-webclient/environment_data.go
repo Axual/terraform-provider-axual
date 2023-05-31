@@ -61,22 +61,22 @@ type EnvironmentsResponse struct {
 }
 
 type EnvironmentResponse struct {
-	Properties          map[string]string `json:"properties"`
-	Name                string            `json:"name"`
-	ShortName           string            `json:"shortName"`
-	Description         string            `json:"description"`
-	Color               string            `json:"color"`
-	AuthorizationIssuer string            `json:"authorizationIssuer"`
-	Visibility          string            `json:"visibility"`
-	RetentionTime       int               `json:"retentionTime"`
-	Partitions          int               `json:"partitions"`
-	Private             bool              `json:"private"`
-	AutoApproved        bool              `json:"autoApproved"`
-	Uid                 string            `json:"uid"`
-	CreatedAt           string            `json:"created_at"`
-	ModifiedAt          string            `json:"modified_at"`
-	CreatedBy           string            `json:"created_by"`
-	ModifiedBy          string            `json:"modified_by"`
+	Properties          map[string]interface{} `json:"properties"`
+	Name                string                 `json:"name"`
+	ShortName           string                 `json:"shortName"`
+	Description         interface{}            `json:"description"`
+	Color               string                 `json:"color"`
+	AuthorizationIssuer string                 `json:"authorizationIssuer"`
+	Visibility          string                 `json:"visibility"`
+	RetentionTime       int                    `json:"retentionTime"`
+	Partitions          int                    `json:"partitions"`
+	Private             bool                   `json:"private"`
+	AutoApproved        bool                   `json:"autoApproved"`
+	Uid                 string                 `json:"uid"`
+	CreatedAt           string                 `json:"created_at"`
+	ModifiedAt          string                 `json:"modified_at"`
+	CreatedBy           string                 `json:"created_by"`
+	ModifiedBy          string                 `json:"modified_by"`
 	Embedded            struct {
 		Instance struct {
 			Name             string `json:"name"`
@@ -163,15 +163,15 @@ type EnvironmentResponse struct {
 }
 
 type EnvironmentRequest struct {
-	Name                string            `json:"name,omitempty"`
-	ShortName           string            `json:"shortName,omitempty"`
-	Description         string            `json:"description,omitempty"`
-	Color               string            `json:"color,omitempty"`
-	RetentionTime       int               `json:"retentionTime,omitempty"`
-	Partitions          int               `json:"partitions,omitempty"`
-	AuthorizationIssuer string            `json:"authorizationIssuer,omitempty"`
-	Visibility          string            `json:"visibility,omitempty"`
-	Instance            string            `json:"instance,omitempty"`
-	Owners              string            `json:"owners,omitempty"`
-	Properties          map[string]string `json:"properties,omitempty"`
+	Name                string                 `json:"name,omitempty"`
+	ShortName           string                 `json:"shortName,omitempty"`
+	Description         interface{}            `json:"description,omitempty"`
+	Color               string                 `json:"color,omitempty"`
+	RetentionTime       int                    `json:"retentionTime,omitempty"`
+	Partitions          int                    `json:"partitions,omitempty"`
+	AuthorizationIssuer string                 `json:"authorizationIssuer,omitempty"`
+	Visibility          string                 `json:"visibility,omitempty"`
+	Instance            string                 `json:"instance,omitempty"`
+	Owners              string                 `json:"owners,omitempty"`
+	Properties          map[string]interface{} `json:"properties,omitempty"`
 }

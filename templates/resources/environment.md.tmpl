@@ -1,0 +1,18 @@
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Example Usage
+
+{{ tffile "examples/axual/33_environments.tf" }}
+
+## Import
+
+Import is supported using the following syntax:
+
+```shell
+terraform import axual_environment.<LOCAL NAME> <ENVIRONMENT UID>
+terraform import axual_environment.test_env ab1cf1d63a55436391463cee3f56e393
+```
