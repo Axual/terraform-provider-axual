@@ -38,17 +38,17 @@ func (c *Client) DeleteApplicationAccessGrant(applicationAccessId string, enviro
 	return nil
 }
 
-func (c *Client) CreateApplicationAccessGrant(applicationAccessId string, environmentId string) (string, error) {
-	applicationAccessURI := fmt.Sprintf("%s/application_access/%s", c.ApiURL, applicationAccessId)
-	environmentURI := fmt.Sprintf("%s/environments/%v", c.ApiURL, environmentId)
-
-	grantRequestUrl := fmt.Sprintf("%s/grants", applicationAccessURI)
-	accessGrantURI, err := c.doRequestAppGrant("POST", grantRequestUrl, strings.NewReader(environmentURI), nil)
+func (c *Client) CreateApplicationAccessGrant(data ApplicationAccessGrantRequest) (*ApplicationAccessGrantResponse, error) {
+	o := ApplicationAccessGrantResponse{}
+	marshal, err := json.Marshal(data)
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	//Get the Grant UID from the location header returned by the endpoint
-	accessGrantId := strings.ReplaceAll(accessGrantURI, c.ApiURL+"/application_access_grants/", "")
-	return accessGrantId, nil
+
+	err = c.RequestAndMapGrant("POST", fmt.Sprintf("%s/application_access_grants", c.ApiURL), strings.NewReader(string(marshal)), nil, &o)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
 }
