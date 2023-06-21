@@ -4,7 +4,7 @@ type ApplicationAccessGrant struct {
 	Status      string      `json:"status"`
 	RequestedBy string      `json:"requestedBy"`
 	ProcessedBy interface{} `json:"processedBy"`
-	Comment     interface{} `json:"comment"`
+	Comment     string      `json:"comment"`
 	Approved    bool        `json:"approved"`
 	Pending     bool        `json:"pending"`
 	Uid         string      `json:"uid"`
