@@ -12,13 +12,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-var _ tfsdk.ResourceType = GrantAuthorizationResourceType{}
-var _ tfsdk.Resource = GrantAuthorizationResource{}
-var _ tfsdk.ResourceWithImportState = GrantAuthorizationResource{}
+var _ tfsdk.ResourceType = applicationAccessGrantAuthorizationResourceType{}
+var _ tfsdk.Resource = applicationAccessGrantAuthorizationResource{}
+var _ tfsdk.ResourceWithImportState = applicationAccessGrantAuthorizationResource{}
 
-type GrantAuthorizationResourceType struct{}
+type applicationAccessGrantAuthorizationResourceType struct{}
 
-func (t GrantAuthorizationResourceType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
+func (t applicationAccessGrantAuthorizationResourceType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
 
 	return tfsdk.Schema{
 		// This description is used by the documentation generator and the language server.
@@ -56,10 +56,10 @@ func (t GrantAuthorizationResourceType) GetSchema(_ context.Context) (tfsdk.Sche
 	}, nil
 }
 
-func (t GrantAuthorizationResourceType) NewResource(_ context.Context, in tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
+func (t applicationAccessGrantAuthorizationResourceType) NewResource(_ context.Context, in tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
 	provider, diags := convertProviderType(in)
 
-	return GrantAuthorizationResource{
+	return applicationAccessGrantAuthorizationResource{
 		provider: provider,
 	}, diags
 }
@@ -70,11 +70,11 @@ type GrantAuthorizationData struct {
 	Reason                 types.String `tfsdk:"reason"`
 }
 
-type GrantAuthorizationResource struct {
+type applicationAccessGrantAuthorizationResource struct {
 	provider provider
 }
 
-func (r GrantAuthorizationResource) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
+func (r applicationAccessGrantAuthorizationResource) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
 	var data GrantAuthorizationData
 
 	diags := req.Config.Get(ctx, &data)
@@ -143,7 +143,7 @@ func (r GrantAuthorizationResource) Create(ctx context.Context, req tfsdk.Create
 
 }
 
-func (r GrantAuthorizationResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+func (r applicationAccessGrantAuthorizationResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
 	var data GrantAuthorizationData
 
 	diags := req.State.Get(ctx, &data)
@@ -169,7 +169,7 @@ func (r GrantAuthorizationResource) Read(ctx context.Context, req tfsdk.ReadReso
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r GrantAuthorizationResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r applicationAccessGrantAuthorizationResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
 	var data GrantAuthorizationData
 
 	diags := req.Config.Get(ctx, &data)
@@ -238,13 +238,13 @@ func (r GrantAuthorizationResource) Update(ctx context.Context, req tfsdk.Update
 
 }
 
-func (r GrantAuthorizationResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+func (r applicationAccessGrantAuthorizationResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
 	resp.Diagnostics.AddError(
 		"Grant Authorization cannot be deleted",
 		fmt.Sprint("Application Access Grant Authorization cannot be deleted"),
 	)
 }
 
-func (r GrantAuthorizationResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
+func (r applicationAccessGrantAuthorizationResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
 	tfsdk.ResourceImportStatePassthroughID(ctx, tftypes.NewAttributePath().WithAttributeName("application_access_grant"), req, resp)
 }
