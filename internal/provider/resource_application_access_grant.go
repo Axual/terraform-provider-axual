@@ -163,18 +163,38 @@ func (r applicationAccessGrantResource) Read(ctx context.Context, req tfsdk.Read
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r applicationAccessGrantResource) Update(_ context.Context, _ tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r applicationAccessGrantResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
 	resp.Diagnostics.AddError(
-		"Application Access Grant cannot be updated",
-		fmt.Sprint("To update Application Access Grant resource please delete and create new axual_application_access_grant resource"),
+		"Application Access Grant cannot be updated", "If you would like to cancel this request, delete the resource. This is only possible if the request is still pending.",
 	)
 }
 
 func (r applicationAccessGrantResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
-	resp.Diagnostics.AddError(
-		"Application Access Grant cannot be deleted for now",
-		fmt.Sprint("Application Access Grant cannot be deleted for now"),
-	)
+	var data applicationAccessGrantData
+
+	diags := req.State.Get(ctx, &data)
+	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.Id.Value)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
+		return
+	}
+
+	if applicationAccessGrant.Status != "Pending" {
+		resp.Diagnostics.AddError("Wrong State", "Application Access Grant can only be cancelled if it is in a pending state")
+		return
+	}
+
+	err1 := r.provider.client.CancelGrant(data.Id.Value)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to Cancel Application Access Grant, got error: %s", err1))
+		return
+	}
 }
 
 func (r applicationAccessGrantResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
