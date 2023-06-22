@@ -9,7 +9,7 @@ output "dash_consume_logs_example_status" {
 
 resource "axual_application_access_grant_authorization" "scraper_consume_support_example" {
   application_access_grant = axual_application_access_grant.log_scraper_consume_from_support_in_example.id
-  status = "Rejected"
+  status = "Revoked" # Auto approved can be revoked
 }
 
 output "scraper_consume_support_example_status" {
