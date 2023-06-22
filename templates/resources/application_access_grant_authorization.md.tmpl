@@ -1,0 +1,29 @@
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+## Limitations
+- Grant Authorization is required when Application Access Grants require Approval
+- Grant Authorization is also required when Application Access Grants needs to be revoked. Regardless of if it was approved with a Grant Authorization or automatically.
+These are only valid is specific scanarios
+Current Status      |   Allowed status
+Approved            -> 	Rejected
+Pending             -> 	Rejected or Approved
+Revoked             ->  X
+
+Pending             ->  Cancelled   (This is done by deleting an Application Access Grant)
+Cancelled           ->  Pending    (This is done by recreating a deleted/cancelled Application Access Grant)
+
+
+- Read more: https://docs.axual.io/axual/2023.1/self-service/topic-authorizations.html#contents
+
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Example Usage
+
+{{ tffile "examples/axual/33_application_access_grant_authorizations.tf" }}
+
+## Import
+
+Import is not currently supported.

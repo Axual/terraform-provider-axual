@@ -29,7 +29,7 @@ Environments are used typically to support the application lifecycle, as it is m
 ## Example Usage
 
 ```terraform
-resource "axual_environment" "awesome-env" {
+resource "axual_environment" "dev" {
   name = "team-awesome"
   short_name = "awesome"
   description = "This is a test environment"
@@ -40,7 +40,7 @@ resource "axual_environment" "awesome-env" {
   owners = "dd84b3ee8e4341fbb58704b18c10ec5c"
 }
 
-resource "axual_environment" "staging-env" {
+resource "axual_environment" "staging" {
   name = "staging"
   short_name = "staging"
   description = "Staging contains close to real world data"
@@ -51,7 +51,7 @@ resource "axual_environment" "staging-env" {
   owners = "dd84b3ee8e4341fbb58704b18c10ec5c"
 }
 
-resource "axual_environment" "production-env" {
+resource "axual_environment" "production" {
   name = "production"
   short_name = "production"
   description = "Real world production environment"
@@ -64,6 +64,13 @@ resource "axual_environment" "production-env" {
     "segment.ms"="60002"
   }
 
+}
+
+output "staging_id" {
+  value = axual_environment.staging.id
+}
+output "production_name" {
+  value = axual_environment.staging.name
 }
 ```
 
