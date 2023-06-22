@@ -66,7 +66,7 @@ func (t applicationAccessGrantResourceType) GetSchema(_ context.Context) (tfsdk.
 				},
 			},
 			"access_type": {
-				MarkdownDescription: "Application Access Type. Accepted values: Consumer, Producer",
+				MarkdownDescription: "Application Access Type. Accepted values: CONSUMER, PRODUCER",
 				Required:            true,
 				Type:                types.StringType,
 				PlanModifiers: tfsdk.AttributePlanModifiers{
@@ -120,7 +120,7 @@ func (r applicationAccessGrantResource) Create(ctx context.Context, req tfsdk.Cr
 
 	ApplicationAccessGrant, err := r.provider.client.CreateApplicationAccessGrant(applicationAccessGrantRequestData)
 	if err != nil {
-		resp.Diagnostics.AddError("Error getting or creating Application Access", fmt.Sprintf("Error message: %s", err.Error()))
+		resp.Diagnostics.AddError("Error creating Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
 
@@ -147,7 +147,7 @@ func (r applicationAccessGrantResource) Read(ctx context.Context, req tfsdk.Read
 
 	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.Id.Value)
 	if err != nil {
-		resp.Diagnostics.AddError("GET request error with application access grant resource(GetApplicationAccessGrant)", fmt.Sprintf("Error message: %s", err.Error()))
+		resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
 
@@ -165,7 +165,8 @@ func (r applicationAccessGrantResource) Read(ctx context.Context, req tfsdk.Read
 
 func (r applicationAccessGrantResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
 	resp.Diagnostics.AddError(
-		"Application Access Grant cannot be updated", "If you would like to cancel this request, delete the resource. This is only possible if the request is still pending.",
+		"Application Access Grant cannot be updated",
+		"If you would like to cancel this request, delete the resource. This is only possible if the request is still pending.",
 	)
 }
 
@@ -186,13 +187,17 @@ func (r applicationAccessGrantResource) Delete(ctx context.Context, req tfsdk.De
 	}
 
 	if applicationAccessGrant.Status != "Pending" {
-		resp.Diagnostics.AddError("Wrong State", "Application Access Grant can only be cancelled if it is in a pending state")
+		resp.Diagnostics.AddError(
+			"Application Access Grant cannot be cancelled anymore",
+			fmt.Sprintf(
+				"Application Access Grant can only be cancelled if it is in a pending state\nCurrent Status of the grant: %s",
+				applicationAccessGrant.Status))
 		return
 	}
 
 	err1 := r.provider.client.CancelGrant(data.Id.Value)
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to Cancel Application Access Grant, got error: %s", err1))
+		resp.Diagnostics.AddError("Unable to Cancel Application Access Grant", fmt.Sprintf("Error message: %s", err1))
 		return
 	}
 }

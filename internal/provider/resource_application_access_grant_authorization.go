@@ -22,7 +22,13 @@ func (t applicationAccessGrantAuthorizationResourceType) GetSchema(_ context.Con
 
 	return tfsdk.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Application Access Grant Authorization. Set the status of an Access Grant",
+		MarkdownDescription: `Application Access Grant Authorization: Set the status of an Access Grant.
+
+		This is used to manage the status of Application Access Grants.
+		These are only valid is specific scanarios
+		Current Status      |   Allowed status
+		Approved            -> 	Rejected
+		Pending             -> 	Rejected or Approved`,
 		Attributes: map[string]tfsdk.Attribute{
 			"status": {
 				MarkdownDescription: "Status of Application Access Grant.",
@@ -104,7 +110,9 @@ func (r applicationAccessGrantAuthorizationResource) Create(ctx context.Context,
 			diags = resp.State.Set(ctx, &data)
 			resp.Diagnostics.Append(diags...)
 		} else {
-			resp.Diagnostics.AddError("Error: Failed to approve grant", "Only a pending grant can be approved")
+			resp.Diagnostics.AddError(
+				"Error: Failed to approve grant",
+				fmt.Sprintf("Only Pending grants can be approved \nCurrent status of the grant is: %s", applicationAccessGrant.Status))
 			return
 		}
 
@@ -118,7 +126,9 @@ func (r applicationAccessGrantAuthorizationResource) Create(ctx context.Context,
 			diags = resp.State.Set(ctx, &data)
 			resp.Diagnostics.Append(diags...)
 		} else {
-			resp.Diagnostics.AddError("Error: Failed to Revoke grant", "Only approved grant can be revoked")
+			resp.Diagnostics.AddError(
+				"Error: Failed to Revoke grant",
+				fmt.Sprintf("Only Approved grants can be revoked \nCurrent status of the grant is: %s", applicationAccessGrant.Status))
 			return
 		}
 
@@ -126,21 +136,22 @@ func (r applicationAccessGrantAuthorizationResource) Create(ctx context.Context,
 		if applicationAccessGrant.Status == "Pending" {
 			err := r.provider.client.RevokeOrDenyGrant(data.ApplicationAccessGrant.Value, data.Reason.Value)
 			if err != nil {
-				resp.Diagnostics.AddError("Failed to Deny grant", fmt.Sprintf("Error message: %s", err.Error()))
+				resp.Diagnostics.AddError("Failed to reject grant", fmt.Sprintf("Error message: %s", err.Error()))
 				return
 			}
 			diags = resp.State.Set(ctx, &data)
 			resp.Diagnostics.Append(diags...)
 		} else {
-			resp.Diagnostics.AddError("Error: Failed to Deny grant", "Only Pending grant can be denied")
+			resp.Diagnostics.AddError(
+				"Error: Failed to reject grant",
+				fmt.Sprintf("Only Pending grants can be rejected \nCurrent status of the grant is: %s", applicationAccessGrant.Status))
 			return
 		}
 	}
 
-	tflog.Info(ctx, "Saving Grant Authorization resource to state")
+	tflog.Info(ctx, "Saving Application Access Grant Authorization resource to state")
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
-
 }
 
 func (r applicationAccessGrantAuthorizationResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
@@ -199,7 +210,9 @@ func (r applicationAccessGrantAuthorizationResource) Update(ctx context.Context,
 			diags = resp.State.Set(ctx, &data)
 			resp.Diagnostics.Append(diags...)
 		} else {
-			resp.Diagnostics.AddError("Error: Failed to approve grant", "Only a pending grant can be approved")
+			resp.Diagnostics.AddError(
+				"Error: Failed to approve grant",
+				fmt.Sprintf("Only Pending grants can be approved \nCurrent status of the grant is: %s", applicationAccessGrant.Status))
 			return
 		}
 
@@ -213,7 +226,9 @@ func (r applicationAccessGrantAuthorizationResource) Update(ctx context.Context,
 			diags = resp.State.Set(ctx, &data)
 			resp.Diagnostics.Append(diags...)
 		} else {
-			resp.Diagnostics.AddError("Error: Failed to Revoke grant", "Only approved grant can be revoked")
+			resp.Diagnostics.AddError(
+				"Error: Failed to Revoke grant",
+				fmt.Sprintf("Only Approved grants can be revoked \n Current status of the grant is: %s", applicationAccessGrant.Status))
 			return
 		}
 
@@ -221,27 +236,28 @@ func (r applicationAccessGrantAuthorizationResource) Update(ctx context.Context,
 		if applicationAccessGrant.Status == "Pending" {
 			err := r.provider.client.RevokeOrDenyGrant(data.ApplicationAccessGrant.Value, data.Reason.Value)
 			if err != nil {
-				resp.Diagnostics.AddError("Failed to Deny grant", fmt.Sprintf("Error message: %s", err.Error()))
+				resp.Diagnostics.AddError("Failed to reject grant", fmt.Sprintf("Error message: %s", err.Error()))
 				return
 			}
 			diags = resp.State.Set(ctx, &data)
 			resp.Diagnostics.Append(diags...)
 		} else {
-			resp.Diagnostics.AddError("Error: Failed to Deny grant", "Only Pending grant can be denied")
+			resp.Diagnostics.AddError(
+				"Error: Failed to reject grant",
+				fmt.Sprintf("Only Pending grants can be rejected \nCurrent status of the grant is: %s", applicationAccessGrant.Status))
 			return
 		}
 	}
 
-	tflog.Info(ctx, "Saving Grant Authorization resource to state")
+	tflog.Info(ctx, "Saving Application Access Grant Authorization resource to state")
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
-
 }
 
 func (r applicationAccessGrantAuthorizationResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
 	resp.Diagnostics.AddError(
-		"Grant Authorization cannot be deleted",
-		fmt.Sprint("Application Access Grant Authorization cannot be deleted"),
+		"Application Access Grant Authorization cannot be deleted",
+		"Application Access Grant Authorization cannot be deleted",
 	)
 }
 
