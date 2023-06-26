@@ -1,7 +1,7 @@
-resource "axual_environment" "dev" {
-  name = "team-awesome"
-  short_name = "awesome"
-  description = "This is a test environment"
+resource "axual_environment" "development" {
+  name = "development"
+  short_name = "dev"
+  description = "This is the development environment"
   color = "#19b9be"
   visibility = "Private"
   authorization_issuer = "Auto"

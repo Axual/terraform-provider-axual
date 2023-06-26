@@ -7,7 +7,6 @@ resource "axual_application" "dev_dashboard" {
   type = "Java"
   visibility = "Public"
   description = "Dashboard with crucial information for Developers"
-  # depends_on = [axual_stream_config.gitops_test_stream_config_2, axual_stream.gitops_test_stream2]
 }
 
 resource "axual_application" "log_scraper" {
@@ -19,7 +18,6 @@ resource "axual_application" "log_scraper" {
   type = "Java"
   visibility = "Public"
   description = "Axual's Test Application for finding all Logs for developers"
-  # depends_on = [axual_stream_config.gitops_test_stream_config_3, axual_stream.gitops_test_stream2]
 }
 
 output "dashboard_id" {
@@ -33,6 +31,6 @@ output "dashboard_name" {
 }
 
 output "dashboard_short_name" {
-  description = "Application Short Name"
+  description = "Dashboard Application Short Name"
   value = axual_application.dev_dashboard.short_name
 }
