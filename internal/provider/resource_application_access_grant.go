@@ -185,18 +185,21 @@ func (r applicationAccessGrantResource) Delete(ctx context.Context, req tfsdk.De
 		resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
-
-	if applicationAccessGrant.Status != "Pending" {
+	tflog.Error(ctx, applicationAccessGrant.Status)
+	if applicationAccessGrant.Status == "Approved" {
 		resp.Diagnostics.AddError(
 			"Application Access Grant cannot be cancelled anymore",
 			fmt.Sprintf(
-				"Application Access Grant can only be cancelled if it is in a pending state\nCurrent Status of the grant: %s",
+				"Please Revoke this grant before Attempting to delete it.\nCurrent Status of the grant: %s",
 				applicationAccessGrant.Status))
+		return
+	} else if applicationAccessGrant.Status == "Revoked" || applicationAccessGrant.Status == "Rejected" {
+		// Revoked or rejected Grant can just be deleted
 		return
 	}
 
 	err1 := r.provider.client.CancelGrant(data.Id.Value)
-	if err != nil {
+	if err1 != nil {
 		resp.Diagnostics.AddError("Unable to Cancel Application Access Grant", fmt.Sprintf("Error message: %s", err1))
 		return
 	}

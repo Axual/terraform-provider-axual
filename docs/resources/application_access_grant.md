@@ -61,15 +61,15 @@ resource "axual_application_access_grant" "scraper_produce_to_logs_in_staging" {
   depends_on = [ axual_application_principal.log_scraper_in_staging_principal ]
 }
 
-output "dash_consume_from_logs_in_staging_id" {
-  description = "Id of Access grant for Dev Dashboard to consume from Logs in Staging"
-  value = axual_application_access_grant.dash_consume_from_support_in_staging.id
-}
+# output "dash_consume_from_logs_in_staging_id" {
+#   description = "Id of Access grant for Dev Dashboard to consume from Logs in Staging"
+#   value = axual_application_access_grant.dash_consume_from_logs_in_staging.id
+# }
 
-output "dash_consume_from_logs_in_staging_status" {
-  description = "Status of Access grant for Dev Dashboard to consume from Logs in Staging"
-  value = axual_application_access_grant.dash_consume_from_support_in_staging.status
-}
+# output "dash_consume_from_logs_in_staging_status" {
+#   description = "Status of Access grant for Dev Dashboard to consume from Logs in Staging"
+#   value = axual_application_access_grant.dash_consume_from_logs_in_staging.status
+# }
 ```
 
 ## Import

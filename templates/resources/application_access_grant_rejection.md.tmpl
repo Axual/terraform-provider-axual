@@ -1,0 +1,18 @@
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+## Limitations
+- Grant Rejection
+- Read more: https://docs.axual.io/axual/2023.1/self-service/topic-authorizations.html#contents
+
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Example Usage
+
+{{ tffile "examples/axual/33_application_access_grant_rejections.tf" }}
+
+## Import
+
+Import is not currently supported.
