@@ -2,6 +2,17 @@
 
 {{ .Description | trimspace }}
 
+## Limitations
+- Application Access Grant cannot be edited
+- Cancel grant by destroying application_access_grant
+- Read more: https://docs.axual.io/axual/2023.1/self-service/topic-authorizations.html#contents
+
+## Usage
+- To request access to a stream, create an application_access_grant
+- To cancel a grant, delete the application_access_grant
+- Application Access Grant that are auto authorized do not need any further action.
+- Application Access Grant that required further action can be handled with application_access_grant_approval and application_access_grant_rejection.
+
 {{ .SchemaMarkdown | trimspace }}
 
 ## Example Usage

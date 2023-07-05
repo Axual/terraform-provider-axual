@@ -65,6 +65,21 @@ output "dashboard_short_name" {
   description = "Dashboard Application Short Name"
   value = axual_application.dev_dashboard.short_name
 }
+
+output "logs_scraper_id" {
+  description = "Log Scraper Application ID"
+  value = axual_application.log_scraper.id
+}
+
+output "logs_scraper_name" {
+  description = "Log Scraper Application Name"
+  value = axual_application.log_scraper.name
+}
+
+output "logs_scraper_short_name" {
+  description = "Log Scraper Application Short Name"
+  value = axual_application.log_scraper.short_name
+}
 ```
 
 ## Import
