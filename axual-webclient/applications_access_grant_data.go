@@ -53,6 +53,15 @@ type ApplicationAccessGrant struct {
 		Revoke struct {
 			Href string `json:"href"`
 		} `json:"revoke"`
+		Approve struct {
+			Href string `json:"href"`
+		} `json:"approve"`
+		Cancel struct {
+			Href string `json:"href"`
+		} `json:"cancel"`
+		Deny struct {
+			Href string `json:"href"`
+		} `json:"deny"`
 		Environment struct {
 			Href      string `json:"href"`
 			Templated bool   `json:"templated"`

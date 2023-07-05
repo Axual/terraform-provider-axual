@@ -67,28 +67,29 @@ func (r applicationAccessGrantApprovalResource) Create(ctx context.Context, req 
 		return
 	}
 
-	if applicationAccessGrant.Status == "Pending" {
+	if applicationAccessGrant.Links.Approve.Href != "" {
+		tflog.Info(ctx, "Approving Application Access Grant")
 		err := r.provider.client.ApproveGrant(data.ApplicationAccessGrant.Value)
 		if err != nil {
 			resp.Diagnostics.AddError("Failed to approve grant", fmt.Sprintf("Error message: %s", err.Error()))
 			return
 		}
+		tflog.Info(ctx, "Saving Application Access Grant Approval resource to state")
 		diags = resp.State.Set(ctx, &data)
 		resp.Diagnostics.Append(diags...)
-	} else if applicationAccessGrant.Status == "Approved" {
-		diags = resp.State.Set(ctx, &data)
-		resp.Diagnostics.Append(diags...)
-		return
-	} else {
-		resp.Diagnostics.AddError(
-			"Error: Failed to approve grant",
-			fmt.Sprintf("Only Pending grants can be approved \nCurrent status of the grant is: %s", applicationAccessGrant.Status))
 		return
 	}
 
-	tflog.Info(ctx, "Saving Application Access Grant Approval resource to state")
-	diags = resp.State.Set(ctx, &data)
-	resp.Diagnostics.Append(diags...)
+	// If Grant is already approved, simply import the state
+	if applicationAccessGrant.Status == "Approved" {
+		tflog.Info(ctx, "Saving Application Access Grant Approval resource to state")
+		diags = resp.State.Set(ctx, &data)
+		resp.Diagnostics.Append(diags...)
+		return
+	}
+	resp.Diagnostics.AddError(
+		"Error: Failed to approve grant",
+		fmt.Sprintf("Only Pending grants can be approved \nCurrent status of the grant is: %s", applicationAccessGrant.Status))
 }
 
 func (r applicationAccessGrantApprovalResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
@@ -106,6 +107,7 @@ func (r applicationAccessGrantApprovalResource) Read(ctx context.Context, req tf
 		resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
+
 	if applicationAccessGrant.Status == "Approved" {
 		diags = resp.State.Set(ctx, &data)
 		resp.Diagnostics.Append(diags...)
@@ -141,21 +143,20 @@ func (r applicationAccessGrantApprovalResource) Delete(ctx context.Context, req 
 		return
 	}
 
-	if applicationAccessGrant.Status == "Approved" {
-		// We are hardcoding Reason
-		err := r.provider.client.RevokeOrDenyGrant(data.ApplicationAccessGrant.Value, "Deleted")
+	if applicationAccessGrant.Links.Revoke.Href != "" {
+		err := r.provider.client.RevokeOrDenyGrant(data.ApplicationAccessGrant.Value, "Revoked in terraform")
 		if err != nil {
 			resp.Diagnostics.AddError("Failed to revoke approval for application access grant", fmt.Sprintf("Error message: %s", err.Error()))
 			return
 		}
 		diags = resp.State.Set(ctx, &data)
 		resp.Diagnostics.Append(diags...)
-	} else {
-		resp.Diagnostics.AddError(
-			"Error: Failed to Revoke grant",
-			fmt.Sprintf("Only Approved grants can be revoked \n Current status of the grant is: %s", applicationAccessGrant.Status))
-		return
 	}
+
+	resp.Diagnostics.AddError(
+		"Error: Failed to Revoke grant",
+		fmt.Sprintf("Only Approved grants can be revoked \n Current status of the grant is: %s", applicationAccessGrant.Status))
+
 }
 
 func (r applicationAccessGrantApprovalResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {

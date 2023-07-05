@@ -77,25 +77,30 @@ func (r applicationAccessGrantRejectionResource) Create(ctx context.Context, req
 		return
 	}
 
-	if applicationAccessGrant.Status == "Pending" {
+	if applicationAccessGrant.Links.Deny.Href != "" {
+
 		err := r.provider.client.RevokeOrDenyGrant(data.ApplicationAccessGrant.Value, data.Reason.Value)
 		if err != nil {
-			resp.Diagnostics.AddError("Failed to approve grant", fmt.Sprintf("Error message: %s", err.Error()))
+			resp.Diagnostics.AddError("Failed to reject grant", fmt.Sprintf("Error message: %s", err.Error()))
 			return
 		}
-	} else if applicationAccessGrant.Status == "Approved" {
-		resp.Diagnostics.AddError("You cannot reject/deny an approved grant. ", "Please delete the Grant Approval to revoke it")
-		return
-	} else {
-		resp.Diagnostics.AddError(
-			"Error: Failed to Reject/Deny grant",
-			fmt.Sprintf("Grant is not in correct state \nCurrent status of the grant is: %s", applicationAccessGrant.Status))
+		tflog.Info(ctx, "Saving Application Access Grant Rejection resource to state")
+		diags = resp.State.Set(ctx, &data)
+		resp.Diagnostics.Append(diags...)
 		return
 	}
 
-	tflog.Info(ctx, "Saving Application Access Grant Rejection resource to state")
-	diags = resp.State.Set(ctx, &data)
-	resp.Diagnostics.Append(diags...)
+	// If Grant is already Rejected, simply import the state
+	if applicationAccessGrant.Status == "Rejected" {
+		diags = resp.State.Set(ctx, &data)
+		resp.Diagnostics.Append(diags...)
+		tflog.Info(ctx, "mapping the resource")
+	}
+
+	resp.Diagnostics.AddError(
+		"Error: Failed to Reject/Deny grant",
+		fmt.Sprintf("Grant is not in correct state \nCurrent status of the grant is: %s", applicationAccessGrant.Status))
+
 }
 
 func (r applicationAccessGrantRejectionResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
@@ -113,14 +118,15 @@ func (r applicationAccessGrantRejectionResource) Read(ctx context.Context, req t
 		resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
+	// If Grant is already Rejected, simply import the state
 	if applicationAccessGrant.Status == "Rejected" {
 		diags = resp.State.Set(ctx, &data)
 		resp.Diagnostics.Append(diags...)
 		tflog.Info(ctx, "mapping the resource")
-	} else {
-		resp.Diagnostics.AddError("Grant is not Rejected", "Error")
 		return
 	}
+	resp.Diagnostics.AddError("Grant is not Rejected", "Error")
+
 }
 
 func (r applicationAccessGrantRejectionResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
@@ -131,28 +137,7 @@ func (r applicationAccessGrantRejectionResource) Update(ctx context.Context, req
 }
 
 func (r applicationAccessGrantRejectionResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
-
-	var data GrantRejectionData
-
-	diags := req.State.Get(ctx, &data)
-	resp.Diagnostics.Append(diags...)
-
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.ApplicationAccessGrant.Value)
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
-		return
-	}
-
-	if applicationAccessGrant.Status != "Rejected" {
-		resp.Diagnostics.AddError(
-			"Application Access Grant Rejection cannot be Deleted",
-			"Please delete the Application Access Grant Approval to revoke Approval")
-		return
-	}
+	// We should be able to delete a rejection in whatever state it's in.
 }
 
 func (r applicationAccessGrantRejectionResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
