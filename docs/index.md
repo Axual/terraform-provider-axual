@@ -19,10 +19,9 @@ Axual Provider allows using Axual's Self-Service for Apache Kafka functionality 
 	- To secure which applications are authorised to access streams, we support
 		- SSL (MUTUAL TLS) as a Certificate(PEM)
 		- SASL (OAUTHBEARER) as a Custom Principal that specifies the ID referenced in URI and tokens. For example, 'my-client'
-
+- Environment management
+- Request, Approval, Revokation, Rejection and Cancellation of Access Requests
 ## Limitations
-- **The environment that user creates needs to have this setting: Authorization issuer-Auto**
-  - Manual approval will be supported in later version of Axual Terraform Provider.
 - As of 2023.1 release **Stream is renamed to Topic in Self-Service UI**. Stream remains unchanged in Platform API. Therefore, the Axual Terraform Provider will continue to use Stream in the API.
 
 # Getting started
@@ -65,8 +64,13 @@ provider "axual" {
 ### Optional
 - `scopes` (List of String) OAuth authorization server scopes
 
-## More examples
+## Guides
 
 - Our guides are in the guides folder:
 	- How to import user and group: [Importing user and group](guides/importing-user-and-groups.md)
 	- Setting up Terraform with Axual Trial: [Axual Trial setup](guides/axual-trial-setup.md)
+	- Managing application access to streams: [Axual Trial setup](guides/manage-application-access-to-streams.md)
+
+
+## Compatibility
+- This terraform provider requires Management API 7.1.1+.
