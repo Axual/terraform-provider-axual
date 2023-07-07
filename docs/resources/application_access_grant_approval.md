@@ -2,7 +2,7 @@
 
 Application Access Grant Approval: Approve access to a stream
 
-## Limitations
+## Note
 - Approval cannot be edited
 - Revoke grant by destroying application_access_grant_approval
 - Read more: https://docs.axual.io/axual/2023.1/self-service/topic-authorizations.html#contents

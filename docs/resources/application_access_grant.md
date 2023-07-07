@@ -2,7 +2,7 @@
 
 Application Access Grant resource. Purpose of a grant is to request access to a stream in an environment. Read more: https://docs.axual.io/axual/2022.2/self-service/application-management.html#requesting-stream-access
 
-## Limitations
+## Note
 - Application Access Grant cannot be edited
 - Cancel grant by destroying application_access_grant
 - Read more: https://docs.axual.io/axual/2023.1/self-service/topic-authorizations.html#contents

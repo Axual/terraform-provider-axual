@@ -2,7 +2,7 @@
 
 Application Access Grant Rejection: Reject a request to access stream
 
-## Limitations
+## Note
 - Rejection cannot be edited
 - Only Pending grants can be rejected
 - Read more: https://docs.axual.io/axual/2023.1/self-service/topic-authorizations.html#contents
