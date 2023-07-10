@@ -150,6 +150,7 @@ func (r applicationAccessGrantApprovalResource) Delete(ctx context.Context, req 
 		}
 		diags = resp.State.Set(ctx, &data)
 		resp.Diagnostics.Append(diags...)
+		return
 	}
 
 	resp.Diagnostics.AddError(

@@ -20,7 +20,7 @@ Axual Provider allows using Axual's Self-Service for Apache Kafka functionality 
 		- SSL (MUTUAL TLS) as a Certificate(PEM)
 		- SASL (OAUTHBEARER) as a Custom Principal that specifies the ID referenced in URI and tokens. For example, 'my-client'
 - Environment management
-- Request, Approval, Revokation, Rejection and Cancellation of Access Requests
+- Request, Approval, Revocation, Rejection and Cancellation of Access Requests
 ## Limitations
 - As of 2023.1 release **Stream is renamed to Topic in Self-Service UI**. Stream remains unchanged in Platform API. Therefore, the Axual Terraform Provider will continue to use Stream in the API.
 
@@ -73,4 +73,4 @@ provider "axual" {
 
 
 ## Compatibility
-- This terraform provider requires Management API 7.0.7+.
+- This terraform provider requires Management API 7.1.1+.

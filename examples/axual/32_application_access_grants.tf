@@ -1,4 +1,3 @@
-#Logged in Terraform User(by default kubernetes@axual.com) needs to have application admin rights(for create access request) and stream admin rights(for revoking access request) or be owner of the application and the stream (by being user in the same group as the application's and stream's owner group)
 resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
   application = axual_application.dev_dashboard.id
   stream = axual_stream.logs.id
