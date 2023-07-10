@@ -188,7 +188,7 @@ func (r applicationAccessGrantResource) Delete(ctx context.Context, req tfsdk.De
 	if applicationAccessGrant.Links.Cancel.Href != "" {
 		err1 := r.provider.client.CancelGrant(data.Id.Value)
 		if err1 != nil {
-			resp.Diagnostics.AddError("Unable to Cancel Application Access Grant", fmt.Sprintf("Error message: %s", err1))
+			resp.Diagnostics.AddError("Unable to cancel Application Access Grant", fmt.Sprintf("Error message: %s", err1))
 			return
 		}
 		return
