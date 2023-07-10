@@ -73,4 +73,4 @@ provider "axual" {
 
 
 ## Compatibility
-- This terraform provider requires Management API 7.1.1+.
+- This terraform provider requires Management API 7.0.7+.
