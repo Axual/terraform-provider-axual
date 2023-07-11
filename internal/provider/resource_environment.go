@@ -96,7 +96,7 @@ func (t environmentResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, d
 				Type:                types.Int64Type,
 				Validators: []tfsdk.AttributeValidator{
 					validation.Compare(validation.GreaterThanOrEqualTo, 1000),
-					validation.Compare(validation.LessThanOrEqualTo, 160704000000),
+					validation.Compare(validation.LessThanOrEqualTo, int64(160704000000)),
 				},
 			},
 
