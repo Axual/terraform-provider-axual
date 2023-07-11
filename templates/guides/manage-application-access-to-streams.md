@@ -3,8 +3,8 @@ page_title: "Managing application access to streams"
 ---
 
 Managing access through Terraform is not straightforward.
-Important concepts to note first,
-- application_access_grant: resource to make request for application to access(consume/produce) a stream in an environment.
+Important concepts to note first:
+- application_access_grant: resource to make request for application to access(consume/produce) a stream in an environment
 - application_access_grant_approval: resource to approve and revoke application_access_grant
 - application_access_grant_rejection: resource to reject application_access_grant
 

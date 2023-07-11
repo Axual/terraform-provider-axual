@@ -23,8 +23,15 @@ Axual Provider allows using Axual's Self-Service for Apache Kafka functionality 
 - Request, Approval, Revocation, Rejection and Cancellation of Access Requests
 ## Limitations
 - As of 2023.1 release **Stream is renamed to Topic in Self-Service UI**. Stream remains unchanged in Platform API. Therefore, the Axual Terraform Provider will continue to use Stream in the API.
+- Currently, there is a bug that deleting a resource that is managed by Terraform from UI results in Terraform not being able to recreate the resource again according to .tf configuration file. We do not recommend currently deleting resources managed by Terraform. This bug in API is about to be fixed.
+- Public environments cannot be deleted, private environments can be deleted.
 
 # Getting started
+## Required User Roles
+- The Terraform User who is logged in(Default username kubernetes@axual.com), needs to have both of the following user roles:
+  - **application admin** - for creating application principal resource(axual_application_principal) and for create access request()
+  - **stream admin** - for revoking access request
+- Alternatively, they can be the owner of both the application and the stream, which entails being a user in the same group as the owner group of the application and stream.
 ## Example Usage
 
 ```terraform
@@ -73,4 +80,4 @@ provider "axual" {
 
 
 ## Compatibility
-- This terraform provider requires Management API 7.1.1+.
+- This terraform provider requires Management API 7.0.7.

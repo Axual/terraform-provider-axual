@@ -8,7 +8,7 @@ Application Access Grant Rejection: Reject a request to access a stream
 - Read more: https://docs.axual.io/axual/2023.1/self-service/topic-authorizations.html#contents
 
 ## Usage
-- To reject/deny a grant create an application_access_grant_rejection with the application_access_grant id.
+- To reject/deny a grant, create an application_access_grant_rejection with the application_access_grant id.
 
 ## Required Roles
 - TOPIC ADMIN or be part of the Team that owns the Stream
