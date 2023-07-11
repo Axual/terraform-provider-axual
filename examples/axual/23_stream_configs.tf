@@ -36,31 +36,4 @@ resource "axual_stream_config" "support_in_production" {
   stream = axual_stream.support.id
   environment = axual_environment.production.id
   properties = {"segment.ms"="600000", "retention.bytes"="10089"}
-
-}
-
-output "logs_in_dev_id" {
-  description = "Logs Stream Config in Development ID"
-  value = axual_stream_config.logs_in_dev.id
-}
-
-output "logs_in_staging_id" {
-  description = "Logs Stream Config in Staging ID"
-  value = axual_stream_config.logs_in_staging.id
-}
-
-
-output "logs_in_production_id" {
-  description = "Logs Stream Config in Production ID"
-  value = axual_stream_config.logs_in_production.id
-}
-
-output "support_in_staging_id" {
-  description = "Support Stream Config in Staging ID"
-  value = axual_stream_config.support_in_staging.id
-}
-
-output "support_in_production_id" {
-  description = "Support Stream Config in Production ID"
-  value = axual_stream_config.support_in_production.id
 }

@@ -28,14 +28,3 @@ resource "axual_user" "green" {
     { name = "TENANT_ADMIN" },
   ]
 }
-
-
-output "jane_id" {
-  description = "Jane's ID"
-  value = axual_user.jane.id
-}
-
-output "jane_last_name" {
-  description = "Jane's Last Name"
-  value = axual_user.jane.last_name
-}

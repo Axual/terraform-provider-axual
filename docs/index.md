@@ -80,4 +80,19 @@ provider "axual" {
 
 
 ## Compatibility
-- This terraform provider requires Management API 7.0.7.
+ - This terraform provider requires Management API 7.1.1+
+
+## Outputs
+Include outputs if you want to have detailed information, e.g. for debugging purposes or as data sources to another workspace.
+This is typically done in the `outpts.tf`` file
+This is an example of the outputs for an environment created in the examples folder."
+
+```
+output "staging_id" {
+	value = axual_environment.staging.id
+  }
+  
+  output "staging_name" {
+	value = axual_environment.staging.name
+  }
+```

@@ -34,18 +34,3 @@ resource "axual_environment" "production" {
   }
 
 }
-
-output "staging_id" {
-  value = axual_environment.staging.id
-}
-
-output "staging_name" {
-  value = axual_environment.staging.name
-}
-
-output "production_id" {
-  value = axual_environment.production.id
-}
-output "production_name" {
-  value = axual_environment.production.name
-}
