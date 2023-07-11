@@ -32,5 +32,4 @@ resource "axual_environment" "production" {
   properties = {
     "segment.ms"="60002"
   }
-
 }

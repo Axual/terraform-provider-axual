@@ -46,7 +46,6 @@ resource "axual_stream" "support" {
   retention_policy = "delete"
   properties = { }
   description = "Support tickets from Help Desk"
-
 }
 ```
 

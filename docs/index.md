@@ -23,8 +23,9 @@ Axual Provider allows using Axual's Self-Service for Apache Kafka functionality 
 - Request, Approval, Revocation, Rejection and Cancellation of Access Requests
 ## Limitations
 - As of 2023.1 release **Stream is renamed to Topic in Self-Service UI**. Stream remains unchanged in Platform API. Therefore, the Axual Terraform Provider will continue to use Stream in the API.
-- Currently, there is a bug that deleting a resource that is managed by Terraform from UI results in Terraform not being able to recreate the resource again according to .tf configuration file. We do not recommend currently deleting resources managed by Terraform. This bug in API is about to be fixed.
-- Public environments cannot be deleted, private environments can be deleted.
+- Currently, there is a bug that deleting a resource that is managed by Terraform from UI results in Terraform not being able to recreate the resource again according to .tf configuration file. We do not recommend currently deleting resources managed by Terraform from UI. This bug in API is about to be fixed.
+- Public environments cannot be deleted, private environments can be deleted. This feature will be implemented in the future.
+- When deleting all resources at once, application.tf needs to have a dependency to make sure stream and stream_config get deleted first. This bug in API is about to be fixed.
 
 # Getting started
 ## Required User Roles
@@ -80,12 +81,11 @@ provider "axual" {
 
 
 ## Compatibility
- - This terraform provider requires Management API 7.1.1+
+ - This terraform provider requires Management API 7.0.7
 
-## Outputs
-Include outputs if you want to have detailed information, e.g. for debugging purposes or as data sources to another workspace.
-This is typically done in the `outpts.tf`` file
-This is an example of the outputs for an environment created in the examples folder."
+## Output
+Please include output if you want to have detailed information, e.g. for debugging purposes or for data sources.
+Example of an output for the environment resource.
 
 ```
 output "staging_id" {
