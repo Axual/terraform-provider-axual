@@ -196,7 +196,7 @@ func (r applicationAccessGrantResource) Delete(ctx context.Context, req tfsdk.De
 
 	if applicationAccessGrant.Status == "Approved" {
 		resp.Diagnostics.AddError(
-			"Application Access Grant cannot be cancelled anymore",
+			"Application Access Grant cannot be cancelled",
 			fmt.Sprintf(
 				"Please Revoke this grant before Attempting to delete it.\nCurrent Status of the grant: %s",
 				applicationAccessGrant.Status))

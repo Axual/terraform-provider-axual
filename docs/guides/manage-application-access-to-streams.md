@@ -7,7 +7,7 @@ Important concepts to note first,
 - application_access_grant: resource to make request for application to access(consume/produce) a stream in an environment.
 - application_access_grant_approval: resource to approve and revoke application_access_grant
 - application_access_grant_rejection: resource to reject application_access_grant
-
+- To request access again after a grant has been Revoked, Rejected or Cancelled, application_access_grant needs to be first deleted and then recreated again
 
 #### Application Owner
 - An Application owner can request access to a Stream by creating a `application_access_grant` resource.
