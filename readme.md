@@ -30,7 +30,7 @@ Make sure `GO111MODULE` is set to `on` by running the command `go env GO111MODUL
 
 Go to `terraform-provider-axual` directory and run `go mod tidy`. This will download the libraries.
 
-Then run `go install` (or `go build -o $GOPATH/bin/`) to install the provider locally. The provider gets installed in `$GOPATH/bin` directory.
+Then run `go install` in terraform-provider-axual directory (or `go build -o $GOPATH/bin/`) to install the provider locally. The provider gets installed in `$GOPATH/bin` directory.
 
 Now you can go to `terraform-provider-axual/examples/axual` and run `terraform plan` to test the provider. Note you don't need to run `terraform init`.
 
