@@ -1,0 +1,28 @@
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+## Note
+- Approval cannot be edited
+- Revoke grant by destroying application_access_grant_approval
+- Read more: https://docs.axual.io/axual/2023.1/self-service/topic-authorizations.html#contents
+
+## Usage
+- To approve a grant create an application_access_grant_approval with the grant id
+- To revoke a grant, delete the application_access_grant_approval
+- To revoke an auto approved grant
+  - Create an application_access_grant_approval
+  - Then delete that application_access_grant_approval
+
+## Required Roles
+- TOPIC ADMIN or be part of the Team that owns the Stream
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Example Usage
+
+{{ tffile "examples/axual/33_application_access_grant_approvals.tf" }}
+
+## Import
+
+Import is not currently supported.

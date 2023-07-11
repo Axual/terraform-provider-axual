@@ -105,37 +105,3 @@ func (c *Client) RequestAndMap(method string, url string, reqBody io.Reader, hea
 
 	return nil
 }
-
-func (c *Client) doRequestAppGrant(method string, url string, reqBody io.Reader, header map[string]string) (string, error) {
-	req, err := http.NewRequest(method, url, reqBody)
-	req.Header.Set("Realm", c.Realm)
-	req.Header.Set("Accept", "application/hal+json")
-	req.Header.Set("Content-Type", "text/uri-list")
-	if header != nil {
-		for key, value := range header {
-			req.Header.Set(key, value)
-		}
-	}
-
-	res, err := c.HTTPClient.Do(req)
-	if err != nil {
-		log.Println("Error:", err)
-		return "", err
-	}
-	defer res.Body.Close()
-
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		log.Println("Error:", err)
-		return "", err
-	}
-
-	if res.StatusCode != http.StatusOK &&
-		res.StatusCode != http.StatusNoContent &&
-		res.StatusCode != http.StatusCreated {
-		log.Printf("status: %d, body: %s", res.StatusCode, body)
-		return "", fmt.Errorf("status: %d, body: %s", res.StatusCode, body)
-	}
-
-	return res.Header.Get("location"), err
-}

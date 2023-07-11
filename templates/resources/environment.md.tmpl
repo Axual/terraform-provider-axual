@@ -2,11 +2,16 @@
 
 {{ .Description | trimspace }}
 
+## Required Roles
+- ENVIRONMENT_AUTHOR or ENVIRONMENT_ADMIN
+
 {{ .SchemaMarkdown | trimspace }}
+
+ - Public Environments cannot be deleted
 
 ## Example Usage
 
-{{ tffile "examples/axual/33_environments.tf" }}
+{{ tffile "examples/axual/10_environments.tf" }}
 
 ## Import
 

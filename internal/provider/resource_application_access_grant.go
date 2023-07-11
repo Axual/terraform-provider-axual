@@ -1,8 +1,10 @@
 package provider
 
 import (
+	webclient "axual-webclient"
 	"context"
 	"fmt"
+
 	"github.com/dcarbone/terraform-plugin-framework-utils/validation"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -20,7 +22,6 @@ type applicationAccessGrantResourceType struct{}
 func (t applicationAccessGrantResourceType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
 
 	return tfsdk.Schema{
-		// This description is used by the documentation generator and the language server.
 		MarkdownDescription: "Application Access Grant resource. Purpose of a grant is to request access to a stream in an environment. Read more: https://docs.axual.io/axual/2022.2/self-service/application-management.html#requesting-stream-access",
 		Attributes: map[string]tfsdk.Attribute{
 			"id": {
@@ -33,14 +34,6 @@ func (t applicationAccessGrantResourceType) GetSchema(_ context.Context) (tfsdk.
 			},
 			"status": {
 				MarkdownDescription: "Status of Application Access Grant",
-				Computed:            true,
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.UseStateForUnknown(),
-				},
-				Type: types.StringType,
-			},
-			"application_access": {
-				MarkdownDescription: "Application Access ID to which this Grant belongs",
 				Computed:            true,
 				PlanModifiers: tfsdk.AttributePlanModifiers{
 					tfsdk.UseStateForUnknown(),
@@ -72,14 +65,14 @@ func (t applicationAccessGrantResourceType) GetSchema(_ context.Context) (tfsdk.
 				},
 			},
 			"access_type": {
-				MarkdownDescription: "Application Access Type. Accepted values: Consumer, Producer",
+				MarkdownDescription: "Application Access Type. Accepted values: CONSUMER, PRODUCER",
 				Required:            true,
 				Type:                types.StringType,
 				PlanModifiers: tfsdk.AttributePlanModifiers{
 					tfsdk.RequiresReplace(),
 				},
 				Validators: []tfsdk.AttributeValidator{
-					validation.Compare(validation.OneOf, []string{"Consumer", "Producer"}),
+					validation.Compare(validation.OneOf, []string{"CONSUMER", "PRODUCER"}),
 				},
 			},
 		},
@@ -95,13 +88,12 @@ func (t applicationAccessGrantResourceType) NewResource(_ context.Context, in tf
 }
 
 type applicationAccessGrantData struct {
-	Id                  types.String `tfsdk:"id"`
-	ApplicationId       types.String `tfsdk:"application"`
-	StreamId            types.String `tfsdk:"stream"`
-	EnvironmentId       types.String `tfsdk:"environment"`
-	Status              types.String `tfsdk:"status"`
-	AccessType          types.String `tfsdk:"access_type"`
-	ApplicationAccessId types.String `tfsdk:"application_access"`
+	Id            types.String `tfsdk:"id"`
+	ApplicationId types.String `tfsdk:"application"`
+	StreamId      types.String `tfsdk:"stream"`
+	EnvironmentId types.String `tfsdk:"environment"`
+	Status        types.String `tfsdk:"status"`
+	AccessType    types.String `tfsdk:"access_type"`
 }
 
 type applicationAccessGrantResource struct {
@@ -118,42 +110,25 @@ func (r applicationAccessGrantResource) Create(ctx context.Context, req tfsdk.Cr
 		return
 	}
 
-	// get or create application access
-	applicationAccess, err := r.provider.client.GetOrCreateApplicationAccess(data.ApplicationId.Value, data.StreamId.Value, data.AccessType.Value)
+	applicationAccessGrantRequestData := webclient.ApplicationAccessGrantRequest{
+		EnvironmentId: data.EnvironmentId.Value,
+		StreamId:      data.StreamId.Value,
+		ApplicationId: data.ApplicationId.Value,
+		AccessType:    data.AccessType.Value,
+	}
+
+	ApplicationAccessGrant, err := r.provider.client.CreateApplicationAccessGrant(applicationAccessGrantRequestData)
 	if err != nil {
-		resp.Diagnostics.AddError("Error getting or creating Application Access", fmt.Sprintf("Error message: %s", err.Error()))
+		resp.Diagnostics.AddError("Error creating Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
-	grantExists := false
-	// get application access grant matching (stream, application, accessType)[ApplicationAccess] and Environment
-	for _, grant := range applicationAccess.Embedded.Grants {
-		if grant.Environment.Uid == data.EnvironmentId.Value && applicationAccess.AccessType == data.AccessType.Value && grant.Status == "Approved" {
-			grantExists = true
-			data.Id = types.String{Value: grant.Uid}
-			data.Status = types.String{Value: grant.Status}
-			data.ApplicationAccessId = types.String{Value: applicationAccess.Uid}
-			break
-		}
-	}
-	// if none, make one, if it exists, return it.
-	if grantExists == false {
-		accessGrantId, err2 := r.provider.client.CreateApplicationAccessGrant(applicationAccess.Uid, data.EnvironmentId.Value)
-		if err2 != nil {
-			resp.Diagnostics.AddError("Error creating Application Access Grant", fmt.Sprintf("Error message: %s", err2.Error()))
-			return
-		}
 
-		accessGrant, err3 := r.provider.client.GetApplicationAccessGrant(accessGrantId)
-		if err3 != nil {
-			resp.Diagnostics.AddError("Error getting Application Access Grant", fmt.Sprintf("Error message: %s", err3.Error()))
-			return
-		}
-		data.Id = types.String{Value: accessGrant.Uid}
-		data.Status = types.String{Value: accessGrant.Status}
-		data.ApplicationAccessId = types.String{Value: applicationAccess.Uid}
-	}
+	data.Id = types.String{Value: ApplicationAccessGrant.Uid}
+	data.Status = types.String{Value: ApplicationAccessGrant.Status}
+	data.StreamId = types.String{Value: data.StreamId.Value}
+	data.EnvironmentId = types.String{Value: ApplicationAccessGrant.Environment.Id}
+	data.ApplicationId = types.String{Value: data.ApplicationId.Value}
 
-	tflog.Trace(ctx, "Created Application Access Grant resource")
 	tflog.Info(ctx, "Saving Application Access Grant resource to state")
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
@@ -171,35 +146,26 @@ func (r applicationAccessGrantResource) Read(ctx context.Context, req tfsdk.Read
 
 	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.Id.Value)
 	if err != nil {
-		resp.Diagnostics.AddError("GET request error with application access grant resource(GetApplicationAccessGrant)", fmt.Sprintf("Error message: %s", err.Error()))
+		resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
 
 	tflog.Info(ctx, "mapping the resource")
 	data.Id = types.String{Value: applicationAccessGrant.Uid}
 	data.Status = types.String{Value: applicationAccessGrant.Status}
-
-	applicationAccesses, err := r.provider.client.SearchApplicationAccessByStreamAndApplication(data.StreamId.Value, data.ApplicationId.Value)
-	if err != nil {
-		resp.Diagnostics.AddError("GET request error with application access grant resource(SearchApplicationAccessByStreamAndApplication)", fmt.Sprintf("Error message: %s", err.Error()))
-		return
-	}
-	for _, applicationAccess := range applicationAccesses.Embedded.ApplicationAccess {
-		if applicationAccess.AccessType == data.AccessType.Value {
-			data.ApplicationAccessId = types.String{Value: applicationAccess.Uid}
-			break
-		}
-	}
+	data.StreamId = types.String{Value: data.StreamId.Value}
+	data.EnvironmentId = types.String{Value: applicationAccessGrant.Embedded.Environment.Uid}
+	data.ApplicationId = types.String{Value: data.ApplicationId.Value}
 
 	tflog.Info(ctx, "Saving Application Access Grant resource to state")
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r applicationAccessGrantResource) Update(_ context.Context, _ tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r applicationAccessGrantResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
 	resp.Diagnostics.AddError(
 		"Application Access Grant cannot be updated",
-		fmt.Sprint("To update Application Access Grant resource please delete and create new axual_application_access_grant resource"),
+		"If you would like to cancel this request, delete the resource. This is only possible if the request is still pending.",
 	)
 }
 
@@ -213,11 +179,30 @@ func (r applicationAccessGrantResource) Delete(ctx context.Context, req tfsdk.De
 		return
 	}
 
-	err := r.provider.client.DeleteApplicationAccessGrant(data.ApplicationAccessId.Value, data.EnvironmentId.Value)
+	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.Id.Value)
 	if err != nil {
-		resp.Diagnostics.AddError("DELETE request error with application access grant resource(DeleteApplicationAccessGrant)", fmt.Sprintf("Error message: %s", err.Error()))
+		resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
+
+	if applicationAccessGrant.Links.Cancel.Href != "" {
+		err1 := r.provider.client.CancelGrant(data.Id.Value)
+		if err1 != nil {
+			resp.Diagnostics.AddError("Unable to cancel Application Access Grant", fmt.Sprintf("Error message: %s", err1))
+			return
+		}
+		return
+	}
+
+	if applicationAccessGrant.Status == "Approved" {
+		resp.Diagnostics.AddError(
+			"Application Access Grant cannot be cancelled",
+			fmt.Sprintf(
+				"Please Revoke this grant before attempting to delete it.\nCurrent Status of the grant: %s",
+				applicationAccessGrant.Status))
+		return
+	}
+
 }
 
 func (r applicationAccessGrantResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {

@@ -1,8 +1,63 @@
-#Logged in Terraform User(by default kubernetes@axual.com) needs to have application admin rights(for create access request) and stream admin rights(for revoking access request) or be owner of the application and the stream (by being user in the same group as the application's and stream's owner group)
-resource "axual_application_access_grant" "terra_grant_1" {
-  application = axual_application.gitops_test_application_2.id
-  stream = axual_stream.gitops_test_stream2.id
-  environment = "7237a4093d7948228d431a603c31c904"
-  access_type = "Consumer"
-  depends_on = [axual_application_principal.test_application_principal, axual_stream_config.gitops_test_stream_config_2, axual_stream.gitops_test_stream2]
+resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
+  application = axual_application.dev_dashboard.id
+  stream = axual_stream.logs.id
+  environment = axual_environment.development.id
+  access_type = "CONSUMER"
+  depends_on = [ axual_application_principal.dev_dashboard_in_dev_principal ]
+}
+
+resource "axual_application_access_grant" "log_scraper_consume_from_support_in_dev" {
+  application = axual_application.log_scraper.id
+  stream = axual_stream.support.id
+  environment = axual_environment.development.id
+  access_type = "CONSUMER"
+  depends_on = [ axual_application_principal.log_scraper_in_dev_principal ]
+}
+
+resource "axual_application_access_grant" "dash_consume_from_logs_in_staging" {
+  application = axual_application.dev_dashboard.id
+  stream = axual_stream.logs.id
+  environment = axual_environment.staging.id
+  access_type = "CONSUMER"
+  depends_on = [ axual_application_principal.dev_dashboard_in_staging_principal ]
+}
+
+resource "axual_application_access_grant" "dash_consume_from_support_in_staging" {
+  application = axual_application.dev_dashboard.id
+  stream = axual_stream.support.id
+  environment = axual_environment.staging.id
+  access_type = "CONSUMER"
+  depends_on = [ axual_application_principal.dev_dashboard_in_staging_principal ]
+}
+
+resource "axual_application_access_grant" "scraper_produce_to_logs_in_staging" {
+  application = axual_application.log_scraper.id
+  stream = axual_stream.logs.id
+  environment = axual_environment.staging.id
+  access_type = "PRODUCER"
+  depends_on = [ axual_application_principal.log_scraper_in_staging_principal ]
+}
+
+resource "axual_application_access_grant" "dash_consume_from_logs_in_production" {
+  application = axual_application.dev_dashboard.id
+  stream = axual_stream.logs.id
+  environment = axual_environment.production.id
+  access_type = "CONSUMER"
+  depends_on = [ axual_application_principal.dev_dashboard_in_production_principal ]
+}
+
+resource "axual_application_access_grant" "dash_consume_from_support_in_production" {
+  application = axual_application.dev_dashboard.id
+  stream = axual_stream.support.id
+  environment = axual_environment.production.id
+  access_type = "CONSUMER"
+  depends_on = [ axual_application_principal.dev_dashboard_in_production_principal ]
+}
+
+resource "axual_application_access_grant" "scraper_produce_to_logs_in_production" {
+  application = axual_application.log_scraper.id
+  stream = axual_stream.logs.id
+  environment = axual_environment.production.id
+  access_type = "PRODUCER"
+  depends_on = [ axual_application_principal.log_scraper_in_production_principal ]
 }

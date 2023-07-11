@@ -8,12 +8,14 @@
 	- SASL (OAUTHBEARER) as a Custom Principal that specifies the ID referenced in URI and tokens. To use it please provide a string with PEM certificate as principal property. For example, 'my-client'.
 - Read more: https://docs.axual.io/axual/2022.2/self-service/application-management.html#configuring-application-securityauthentication
 
+## Required Roles
+- APPLICATION ADMIN or be part of the Team that owns the Application
 
 {{ .SchemaMarkdown | trimspace }}
 
 ## Example Usage
 
-{{ tffile "examples/axual/31_application_principal.tf" }}
+{{ tffile "examples/axual/31_application_principals.tf" }}
 
 ## Import
 

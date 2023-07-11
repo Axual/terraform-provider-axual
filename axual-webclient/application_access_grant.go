@@ -15,40 +15,63 @@ func (c *Client) GetApplicationAccessGrant(id string) (*ApplicationAccessGrant, 
 	return &o, nil
 }
 
-func (c *Client) DeleteApplicationAccessGrant(applicationAccessId string, environment string) error {
-
-	revoke := ApplicationAccessGrantRevoke{
-		Reason:      "Revoked from Terraform Provider",
-		Environment: fmt.Sprintf("%s/environments/%v", c.ApiURL, environment),
-	}
-	marshal, err1 := json.Marshal(revoke)
-	if err1 != nil {
-		return err1
-	}
-
-	deleteUrl := fmt.Sprintf("%s/application_access/%v/grants", c.ApiURL, applicationAccessId)
-
+func (c *Client) CreateApplicationAccessGrant(data ApplicationAccessGrantRequest) (*ApplicationAccessGrantResponse, error) {
 	h := make(map[string]string)
+	h["accept"] = "application/json, text/plain, */*"
 	h["content-type"] = "application/json"
 
-	err := c.RequestAndMap("DELETE", deleteUrl, strings.NewReader(string(marshal)), h, nil)
+	o := ApplicationAccessGrantResponse{}
+	marshal, err := json.Marshal(data)
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.RequestAndMap("POST", fmt.Sprintf("%s/application_access_grants", c.ApiURL), strings.NewReader(string(marshal)), h, &o)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
+}
+
+func (c *Client) ApproveGrant(applicationAccessGrantId string) error {
+	h := make(map[string]string)
+	h["accept"] = "application/json, text/plain, */*"
+	h["content-type"] = "application/json"
+	err := c.RequestAndMap("PUT", fmt.Sprintf("%s/application_access_grants/%v", c.ApiURL, applicationAccessGrantId), nil, h, nil)
+	if err != nil {
+
+		return err
+	}
+	return nil
+}
+
+func (c *Client) CancelGrant(applicationAccessGrantId string) error {
+	h := make(map[string]string)
+	h["accept"] = "application/json, text/plain, */*"
+	h["content-type"] = "application/json"
+	err := c.RequestAndMap("DELETE", fmt.Sprintf("%s/application_access_grants/%v", c.ApiURL, applicationAccessGrantId), nil, h, nil)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *Client) CreateApplicationAccessGrant(applicationAccessId string, environmentId string) (string, error) {
-	applicationAccessURI := fmt.Sprintf("%s/application_access/%s", c.ApiURL, applicationAccessId)
-	environmentURI := fmt.Sprintf("%s/environments/%v", c.ApiURL, environmentId)
+func (c *Client) RevokeOrDenyGrant(applicationAccessGrantId string, reason string) error {
+	h := make(map[string]string)
+	h["accept"] = "application/json, text/plain, */*"
+	h["content-type"] = "application/json"
 
-	grantRequestUrl := fmt.Sprintf("%s/grants", applicationAccessURI)
-	accessGrantURI, err := c.doRequestAppGrant("POST", grantRequestUrl, strings.NewReader(environmentURI), nil)
+	o := map[string]string{"reason": reason}
 
-	if err != nil {
-		return "", err
+	marshal, err1 := json.Marshal(o)
+	if err1 != nil {
+		return err1
 	}
-	//Get the Grant UID from the location header returned by the endpoint
-	accessGrantId := strings.ReplaceAll(accessGrantURI, c.ApiURL+"/application_access_grants/", "")
-	return accessGrantId, nil
+
+	err := c.RequestAndMap("POST", fmt.Sprintf("%s/application_access_grants/%v/deny", c.ApiURL, applicationAccessGrantId), strings.NewReader(string(marshal)), h, nil)
+	if err != nil {
+		return err
+	}
+	return nil
 }

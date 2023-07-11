@@ -19,13 +19,20 @@ Axual Provider allows using Axual's Self-Service for Apache Kafka functionality 
 	- To secure which applications are authorised to access streams, we support
 		- SSL (MUTUAL TLS) as a Certificate(PEM)
 		- SASL (OAUTHBEARER) as a Custom Principal that specifies the ID referenced in URI and tokens. For example, 'my-client'
-
+- Environment management
+- Request, Approval, Revocation, Rejection and Cancellation of Access Requests
 ## Limitations
-- **The environment that user creates needs to have this setting: Authorization issuer-Auto**
-  - Manual approval will be supported in later version of Axual Terraform Provider.
 - As of 2023.1 release **Stream is renamed to Topic in Self-Service UI**. Stream remains unchanged in Platform API. Therefore, the Axual Terraform Provider will continue to use Stream in the API.
+- Currently, there is a bug that deleting a resource that is managed by Terraform from UI results in Terraform not being able to recreate the resource again according to .tf configuration file. We do not recommend currently deleting resources managed by Terraform from UI. This bug in API is about to be fixed.
+- Public environments cannot be deleted, private environments can be deleted. This feature will be implemented in the future.
+- When deleting all resources at once, application.tf needs to have a dependency to make sure stream and stream_config get deleted first. This bug in API is about to be fixed.
 
 # Getting started
+## Required User Roles
+- The Terraform User who is logged in(Default username kubernetes@axual.com), needs to have both of the following user roles:
+  - **application admin** - for creating application principal resource(axual_application_principal) and for create access request()
+  - **stream admin** - for revoking access request
+- Alternatively, they can be the owner of both the application and the stream, which entails being a user in the same group as the owner group of the application and stream.
 ## Example Usage
 
 ```terraform
@@ -65,8 +72,27 @@ provider "axual" {
 ### Optional
 - `scopes` (List of String) OAuth authorization server scopes
 
-## More examples
+## Guides
 
 - Our guides are in the guides folder:
 	- How to import user and group: [Importing user and group](guides/importing-user-and-groups.md)
 	- Setting up Terraform with Axual Trial: [Axual Trial setup](guides/axual-trial-setup.md)
+	- Managing application access to streams: [Axual Trial setup](guides/manage-application-access-to-streams.md)
+
+
+## Compatibility
+ - This terraform provider requires Management API 7.0.7
+
+## Output
+Please include output if you want to have detailed information, e.g. for debugging purposes or for data sources.
+Example of an output for the environment resource.
+
+```
+output "staging_id" {
+	value = axual_environment.staging.id
+  }
+  
+  output "staging_name" {
+	value = axual_environment.staging.name
+  }
+```
