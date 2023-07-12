@@ -8,7 +8,7 @@ Axual Provider allows using Axual's Self-Service for Apache Kafka functionality 
 	- The format of the data that’s present on the stream
 	- How long until the data is removed from the stream
 	- Which applications are the producers and the consumers of this data
-- Self Service provides control your stream (topic) properties for individual environments, and get an overview of the streaming landscape inside your organization.
+- Self Service provides control of your stream (topic) properties for individual environments and get an overview of the streaming landscape inside your organization.
 	- For details, please refer to Axual Self-Service reference documentation: https://docs.axual.io/axual/2023.2/self-service/index.html
 
 ## Features
@@ -23,15 +23,15 @@ Axual Provider allows using Axual's Self-Service for Apache Kafka functionality 
 - Request, Approval, Revocation, Rejection and Cancellation of Access Requests
 ## Limitations
 - As of 2023.1 release **Stream is renamed to Topic in Self-Service UI**. Stream remains unchanged in Platform API. Therefore, the Axual Terraform Provider will continue to use Stream in the API.
-- Currently, there is a bug that deleting a resource that is managed by Terraform from UI results in Terraform not being able to recreate the resource again according to .tf configuration file. We do not recommend currently deleting resources managed by Terraform from UI. This bug in API is about to be fixed.
+- Currently, there is a bug that deleting a resource that is managed by Terraform from UI results in Terraform not being able to recreate the resource again according to .tf configuration file. We do not recommend currently deleting resources managed by Terraform from UI. This bug has been reported to development team and is under investigation.
 - Public environments cannot be deleted, private environments can be deleted. This feature will be implemented in the future.
-- When deleting all resources at once, application.tf needs to have a dependency to make sure stream and stream_config get deleted first. This bug in API is about to be fixed.
+- When deleting all resources at once, application.tf needs to have a dependency to make sure stream and stream_config get deleted first. This bug has been reported to development team and is under investigation.
 
 # Getting started
 ## Required User Roles
 - The Terraform User who is logged in(Default username kubernetes@axual.com), needs to have both of the following user roles:
-  - **application admin** - for creating application principal resource(axual_application_principal) and for create access request()
-  - **stream admin** - for revoking access request
+  - **APPLICATION_ADMIN** - for creating application principal resource(axual_application_principal) and for create access request()
+  - **STREAM_ADMIN** - for revoking access request
 - Alternatively, they can be the owner of both the application and the stream, which entails being a user in the same group as the owner group of the application and stream.
 ## Example Usage
 
