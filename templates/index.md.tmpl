@@ -9,7 +9,7 @@ Axual Provider allows using Axual's Self-Service for Apache Kafka functionality 
 	- How long until the data is removed from the stream
 	- Which applications are the producers and the consumers of this data
 - Self Service provides control your stream (topic) properties for individual environments, and get an overview of the streaming landscape inside your organization.
-	- For details, please refer to Axual Self-Service reference documentation: https://docs.axual.io/axual/2022.2/self-service/index.html
+	- For details, please refer to Axual Self-Service reference documentation: https://docs.axual.io/axual/2023.2/self-service/index.html
 
 ## Features
 

@@ -21,7 +21,7 @@ type applicationPrincipalResourceType struct{}
 func (t applicationPrincipalResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
 	return tfsdk.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "An ApplicationPrincipal is a security principal (certificate or comparable) that uniquely authenticates an Application on an Environment. Read more: https://docs.axual.io/axual/2022.2/self-service/application-management.html#configuring-application-securityauthentication",
+		MarkdownDescription: "An ApplicationPrincipal is a security principal (certificate or comparable) that uniquely authenticates an Application on an Environment. Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#configuring-application-securityauthentication",
 
 		Attributes: map[string]tfsdk.Attribute{
 			"principal": {

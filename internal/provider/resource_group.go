@@ -21,7 +21,7 @@ type groupResourceType struct{}
 func (t groupResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
 	return tfsdk.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Group resource. Read more: https://docs.axual.io/axual/2022.2/self-service/user-group-management.html#groups",
+		MarkdownDescription: "Group resource. Read more: https://docs.axual.io/axual/2023.2/self-service/user-group-management.html#groups",
 
 		Attributes: map[string]tfsdk.Attribute{
 			"name": {
