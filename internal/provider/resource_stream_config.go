@@ -25,11 +25,11 @@ type streamConfigResourceType struct{}
 func (t streamConfigResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
 	return tfsdk.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Stream Config resource. Once the Stream has been created, the next step to actually configure the stream for any environment is to configure the stream. Read more: https://docs.axual.io/axual/2022.2/self-service/stream-management.html#configuring-a-stream-for-an-environment",
+		MarkdownDescription: "Stream Config resource. Once the Stream has been created, the next step to actually configure the stream for any environment is to configure the stream. Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html#configuring-a-stream-for-an-environment",
 
 		Attributes: map[string]tfsdk.Attribute{
 			"partitions": {
-				MarkdownDescription: "The number of partitions define how many consumer instances can be started in parallel on this stream. Read more: https://docs.axual.io/axual/2022.2/self-service/stream-management.html#partitions-number",
+				MarkdownDescription: "The number of partitions define how many consumer instances can be started in parallel on this stream. Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html#partitions-number",
 				Required:            true,
 				Type:                types.Int64Type,
 				PlanModifiers: tfsdk.AttributePlanModifiers{
@@ -37,7 +37,7 @@ func (t streamConfigResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, 
 				},
 			},
 			"retention_time": {
-				MarkdownDescription: "Determine how long the messages should be available on a stream. There should be an agreed value most likely discussed in Intake session with the team supporting Axual Platform. In most cases, it is 7 days. Read more: https://docs.axual.io/axual/2022.2/self-service/stream-management.html#retention-time",
+				MarkdownDescription: "Determine how long the messages should be available on a stream. There should be an agreed value most likely discussed in Intake session with the team supporting Axual Platform. In most cases, it is 7 days. Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html#retention-time",
 				Required:            true,
 				Type:                types.Int64Type,
 				Validators: []tfsdk.AttributeValidator{
@@ -61,7 +61,7 @@ func (t streamConfigResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, 
 				},
 			},
 			"properties": {
-				MarkdownDescription: "You can define Kafka properties for your stream here. segment.ms property needs to always be included. Read more: https://docs.axual.io/axual/2022.1/self-service/stream-management.html#configuring-a-stream-for-an-environment",
+				MarkdownDescription: "You can define Kafka properties for your stream here. segment.ms property needs to always be included. Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html#configuring-a-stream-for-an-environment",
 				Required:            true,
 				Type:                types.MapType{ElemType: types.StringType},
 				Validators: []tfsdk.AttributeValidator{

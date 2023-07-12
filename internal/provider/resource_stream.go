@@ -23,7 +23,7 @@ type streamResourceType struct{}
 func (t streamResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
 	return tfsdk.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "A stream represents a flow of information (messages), which is continuously updated. Read more: https://docs.axual.io/axual/2022.2/self-service/stream-management.html",
+		MarkdownDescription: "A stream represents a flow of information (messages), which is continuously updated. Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html",
 
 		Attributes: map[string]tfsdk.Attribute{
 			"name": {
@@ -40,7 +40,7 @@ func (t streamResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.D
 				},
 			},
 			"key_type": {
-				MarkdownDescription: "The key type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2022.2/self-service/stream-management.html#key-type",
+				MarkdownDescription: "The key type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html#key-type",
 				Required:            true,
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
@@ -48,7 +48,7 @@ func (t streamResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.D
 				},
 			},
 			"value_type": {
-				MarkdownDescription: "The value type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2022.2/self-service/stream-management.html#value-type",
+				MarkdownDescription: "The value type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html#value-type",
 				Required:            true,
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
@@ -56,12 +56,12 @@ func (t streamResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.D
 				},
 			},
 			"owners": {
-				MarkdownDescription: "The team owning this stream. Read more: https://docs.axual.io/axual/2022.2/self-service/stream-management.html#stream-owner",
+				MarkdownDescription: "The team owning this stream. Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html#stream-owner",
 				Required:            true,
 				Type:                types.StringType,
 			},
 			"retention_policy": {
-				MarkdownDescription: "Determines what to do with messages after a certain period. Read more: https://docs.axual.io/axual/2022.2/self-service/stream-management.html#retention-policy",
+				MarkdownDescription: "Determines what to do with messages after a certain period. Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html#retention-policy",
 				Required:            true,
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
@@ -69,7 +69,7 @@ func (t streamResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.D
 				},
 			},
 			"properties": {
-				MarkdownDescription: "Advanced (Kafka) properties for a stream in a given environment. Read more: https://docs.axual.io/axual/2022.2/self-service/advanced-features.html#configuring-stream-properties",
+				MarkdownDescription: "Advanced (Kafka) properties for a stream in a given environment. Read more: https://docs.axual.io/axual/2023.2/self-service/advanced-features.html#configuring-stream-properties",
 				Required:            true,
 				Type:                types.MapType{ElemType: types.StringType},
 			},
