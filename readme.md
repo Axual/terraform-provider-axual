@@ -63,11 +63,21 @@ Otherwise, this is the correct resource deletion order:
 5. Stream
 6. Group
 7. User
-### Milestone 1
-- We currently need to hardcode environment UID because we will develop environment resource in Milestone 2
-- Stream
-  - Stream key type and value type has to be String/Binary/JSON/Xml. We will support AVRO key and value type in Milestone 2
-  - Stream retention_policy has to be string "compact" or "delete'
+### Milestone 1 Features
+- Added support for Tenant, User, Group
+- Added support for Application, ApplicationPrincipal
+- Added support for Stream, StreamConfig
+- Stream key type and value type has to be String/Binary/JSON/XML
+  Stream retention_policy has to be string “compact” or “delete’
+
+### Milestone 2 Features
+- Added support for Environment
+- Added support for Topic Access
+
+### Work in progress
+- Support schema and schemaVersion resource
+- Support AVRO stream and AVRO streamConfig
+- Data Sources
 
 ## Terraform Documentation
 
