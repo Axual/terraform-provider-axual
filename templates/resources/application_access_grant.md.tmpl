@@ -20,7 +20,17 @@
 
 ## Example Usage
 
-{{ tffile "examples/axual/32_application_access_grants.tf" }}
+```hcl
+resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
+  application = axual_application.dev_dashboard.id
+  stream = axual_stream.logs.id
+  environment = axual_environment.development.id
+  access_type = "CONSUMER"
+  depends_on = [ axual_application_principal.dev_dashboard_in_dev_principal ]
+}
+```
+
+For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 
 ## Import
 

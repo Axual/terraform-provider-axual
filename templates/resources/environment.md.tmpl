@@ -11,7 +11,20 @@
 
 ## Example Usage
 
-{{ tffile "examples/axual/10_environments.tf" }}
+```hcl
+resource "axual_environment" "development" {
+  name = "development"
+  short_name = "dev"
+  description = "This is the development environment"
+  color = "#19b9be"
+  visibility = "Public"
+  authorization_issuer = "Auto"
+  instance = "51be2a6a5eee481198787dc346ab6608"
+  owners = axual_group.tenant_admin_group.id
+}
+```
+
+For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 
 ## Import
 

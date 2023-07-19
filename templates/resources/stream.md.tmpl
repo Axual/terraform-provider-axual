@@ -9,7 +9,19 @@ Axual Terraform Provider does not support AVRO key type and AVRO value type. AVR
 
 ## Example Usage
 
-{{ tffile "examples/axual/22_streams.tf" }}
+```hcl
+resource "axual_stream" "logs" {
+  name = "logs"
+  key_type = "String"
+  value_type = "String"
+  owners = axual_group.team-bonanza.id
+  retention_policy = "delete"
+  properties = { }
+  description = "Logs from all applications"
+}
+```
+
+For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 
 ## Import
 

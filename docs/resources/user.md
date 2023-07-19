@@ -30,14 +30,16 @@ Required:
 
 ## Example Usage
 
-```terraform
+```hcl
 resource "axual_user" "john" {
   first_name    = "John"
   last_name     = "Doe"
   email_address = "john.doe@example.com"
   phone_number = "+37253412551"
   roles         = [
-    { name = "TENANT_ADMIN" },
+    { name = "APPLICATION_AUTHOR" },
+    { name = "ENVIRONMENT_AUTHOR" },
+    { name = "STREAM_AUTHOR" }
   ]
 }
 
@@ -47,21 +49,14 @@ resource "axual_user" "jane" {
   email_address = "jane.walker@example.com"
   phone_number = "+37253412553"
   roles         = [
-    { name = "TENANT_ADMIN" },
-  ]
-}
-
-
-resource "axual_user" "green" {
-  first_name    = "Green"
-  last_name     = "Stones"
-  email_address = "green.stones@example.com"
-  phone_number = "+37253412552"
-  roles         = [
-    { name = "TENANT_ADMIN" },
+    { name = "APPLICATION_AUTHOR" },
+    { name = "ENVIRONMENT_AUTHOR" },
+    { name = "STREAM_AUTHOR" }
   ]
 }
 ```
+
+For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 
 ## Import
 

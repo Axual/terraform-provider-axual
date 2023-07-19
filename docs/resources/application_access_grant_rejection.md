@@ -26,11 +26,14 @@ Application Access Grant Rejection: Reject a request to access a stream
 
 ## Example Usage
 
-```terraform
+```hcl
 resource "axual_application_access_grant_rejection" "scraper_produce_logs_staging_rejection" {
   application_access_grant = axual_application_access_grant.scraper_produce_to_logs_in_staging.id
+  depends_on = [ axual_application_access_grant.scraper_produce_to_logs_in_staging ]
 }
 ```
+
+For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 
 ## Import
 

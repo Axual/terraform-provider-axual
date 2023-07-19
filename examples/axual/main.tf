@@ -60,7 +60,7 @@ resource "axual_user" "dwight" {
 #
 # User "green" has elevated permissions, he has the TENANT_ADMIN role
 #
- 
+
 resource "axual_user" "green" {
   first_name    = "Green"
   last_name     = "Stones"
@@ -135,13 +135,13 @@ resource "axual_group" "tenant_admin_group" {
  ]
 }
 
-# 
-# Below, environments are defined which are in use for the tenant. 
-# PRIVATE environments can only be used by members of the owning group. 
-# PUBLIC environments can be used by the entire organization  
+#
+# Below, environments are defined which are in use for the tenant.
+# PRIVATE environments can only be used by members of the owning group.
+# PUBLIC environments can be used by the entire organization
 #
 
-# 
+#
 # Team Awesome has their own environment, called "team-awesome", which they use as a sandbox
 # ENVIRONMENTs "development", "staging" and "production" are environments used by all teams and therefore declared PUBLIC
 #
@@ -198,8 +198,8 @@ resource "axual_environment" "production" {
 #
 # An APPLICATION is anything that produces or consumes data from a topic.
 # In Axual Platform we distinguish CUSTOM and CONNECTOR type applications.
-# Note: currently, only CUSTOM applications are supported through the TF Provider for Axual 
-# 
+# Note: currently, only CUSTOM applications are supported through the TF Provider for Axual
+#
 # In the example below, applications "dev_dashboard" and "log_scraper" are declared
 #
 # Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/application
@@ -273,9 +273,9 @@ resource "axual_application_principal" "log_scraper_in_production_principal" {
 }
 
 #
-# A STREAM is nothing different than a declaration of a TOPIC. While STREAM mostly holds metadata, such as the owner and data type, 
+# A STREAM is nothing different than a declaration of a TOPIC. While STREAM mostly holds metadata, such as the owner and data type,
 # the STREAM_CONFIG configures a STREAM in an ENVIRONMENT
-# 
+#
 # Below, some STREAMs are declared and configured in different environments and owned by different GROUPs
 #
 # Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/stream

@@ -21,17 +21,18 @@ Group resource. Read more: https://docs.axual.io/axual/2023.2/self-service/user-
 
 ## Example Usage
 
-```terraform
-resource "axual_group" "developers" {
-  name          = "Developers"
+```hcl
+resource "axual_group" "team-awesome" {
+  name          = "Team Awesome"
   phone_number="+37253412559"
-  email_address="gitops.test@axual.com"
+  email_address="team.awesome@example.com"
   members       = [
-    axual_user.jane.id,
-    axual_user.john.id,
-  ]
+    	axual_user.jane.id,
+    	axual_user.john.id  ]
 }
 ```
+
+For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 
 ## Import
 

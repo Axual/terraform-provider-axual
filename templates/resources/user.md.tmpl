@@ -6,7 +6,33 @@
 
 ## Example Usage
 
-{{ tffile "examples/axual/20_users.tf" }}
+```hcl
+resource "axual_user" "john" {
+  first_name    = "John"
+  last_name     = "Doe"
+  email_address = "john.doe@example.com"
+  phone_number = "+37253412551"
+  roles         = [
+    { name = "APPLICATION_AUTHOR" },
+    { name = "ENVIRONMENT_AUTHOR" },
+    { name = "STREAM_AUTHOR" }
+  ]
+}
+
+resource "axual_user" "jane" {
+  first_name    = "Jane"
+  last_name     = "Walker"
+  email_address = "jane.walker@example.com"
+  phone_number = "+37253412553"
+  roles         = [
+    { name = "APPLICATION_AUTHOR" },
+    { name = "ENVIRONMENT_AUTHOR" },
+    { name = "STREAM_AUTHOR" }
+  ]
+}
+```
+
+For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 
 ## Import
 

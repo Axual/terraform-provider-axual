@@ -6,7 +6,18 @@
 
 ## Example Usage
 
-{{ tffile "examples/axual/21_groups.tf" }}
+```hcl
+resource "axual_group" "team-awesome" {
+  name          = "Team Awesome"
+  phone_number="+37253412559"
+  email_address="team.awesome@example.com"
+  members       = [
+    	axual_user.jane.id,
+    	axual_user.john.id  ]
+}
+```
+
+For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 
 ## Import
 

@@ -9,7 +9,19 @@ Axual Terraform Provider only supports Custom Application Type. Connector Applic
 
 ## Example Usage
 
-{{ tffile "examples/axual/30_applications.tf" }}
+```hcl
+resource "axual_application" "dev_dashboard" {
+  name    = "DeveloperDashboard"
+  application_type     = "Custom"
+  short_name = "dev_dash"
+  application_id = "io.axual.devs.dashboard"
+  owners = axual_group.team-awesome.id
+  type = "Java"
+  visibility = "Public"
+  description = "Dashboard with crucial information for Developers"
+}
+```
+For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 
 ## Import
 
