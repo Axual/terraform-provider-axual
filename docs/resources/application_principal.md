@@ -30,43 +30,15 @@ An ApplicationPrincipal is a security principal (certificate or comparable) that
 
 ## Example Usage
 
-```terraform
+```hcl
 resource "axual_application_principal" "dev_dashboard_in_dev_principal" {
   environment = axual_environment.development.id
   application = axual_application.dev_dashboard.id
-  principal = file("${path.module}/test3.pem")
-}
-
-resource "axual_application_principal" "dev_dashboard_in_staging_principal" {
-  environment = axual_environment.staging.id
-  application = axual_application.dev_dashboard.id
-  principal = file("${path.module}/test3.pem")
-}
-
-resource "axual_application_principal" "log_scraper_in_dev_principal" {
-  environment = axual_environment.development.id
-  application = axual_application.log_scraper.id
-  principal = file("${path.module}/test3.pem")
-}
-
-resource "axual_application_principal" "log_scraper_in_staging_principal" {
-  environment = axual_environment.staging.id
-  application = axual_application.log_scraper.id
-  principal = file("${path.module}/test3.pem")
-}
-
-resource "axual_application_principal" "dev_dashboard_in_production_principal" {
-  environment = axual_environment.production.id
-  application = axual_application.dev_dashboard.id
-  principal = file("${path.module}/test3.pem")
-}
-
-resource "axual_application_principal" "log_scraper_in_production_principal" {
-  environment = axual_environment.production.id
-  application = axual_application.log_scraper.id
-  principal = file("${path.module}/test3.pem")
+  principal = file("certs/certificate.pem")
 }
 ```
+
+For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 
 ## Import
 

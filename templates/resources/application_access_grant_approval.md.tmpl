@@ -21,7 +21,14 @@
 
 ## Example Usage
 
-{{ tffile "examples/axual/33_application_access_grant_approvals.tf" }}
+```hcl
+resource "axual_application_access_grant_approval" "dash_consume_logs_dev" {
+  application_access_grant = axual_application_access_grant.dash_consume_from_logs_in_dev.id
+  depends_on = [ axual_application_access_grant.dash_consume_from_logs_in_dev ]
+}
+```
+
+For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 
 ## Import
 

@@ -15,7 +15,15 @@
 
 ## Example Usage
 
-{{ tffile "examples/axual/31_application_principals.tf" }}
+```hcl
+resource "axual_application_principal" "dev_dashboard_in_dev_principal" {
+  environment = axual_environment.development.id
+  application = axual_application.dev_dashboard.id
+  principal = file("certs/certificate.pem")
+}
+```
+
+For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 
 ## Import
 

@@ -6,7 +6,17 @@
 
 ## Example Usage
 
-{{ tffile "examples/axual/23_stream_configs.tf" }}
+```hcl
+resource "axual_stream_config" "logs_in_dev" {
+  partitions = 1
+  retention_time = 864000
+  stream = axual_stream.logs.id
+  environment = axual_environment.development.id
+  properties = {"segment.ms"="600012", "retention.bytes"="1"}
+}
+```
+
+For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 
 ## Import
 

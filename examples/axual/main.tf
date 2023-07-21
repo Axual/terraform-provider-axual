@@ -1,71 +1,3 @@
-# Axual Provider
-
-Axual Provider allows using Axual's Self-Service for Apache Kafka functionality within Terraform configurations.
-
-## Axual Self Service
-- Self Service allows fine-grained access control over your applications and streams, who is accessing your streams and for what purpose.
-- Self Service displays valuable metadata about streams and the applications interacting with them, such as:
-	- The format of the data that’s present on the stream
-	- How long until the data is removed from the stream
-	- Which applications are the producers and the consumers of this data
-- Self Service provides control of your stream (topic) properties for individual environments and get an overview of the streaming landscape inside your organization.
-	- For details, please refer to Axual Self-Service reference documentation: https://docs.axual.io/axual/2023.2/self-service/index.html
-
-## Features
-
-- User/group management
-- Stream and application management
-- Security
-	- To secure which applications are authorised to access streams, we support
-		- SSL (MUTUAL TLS) as a Certificate(PEM)
-		- SASL (OAUTHBEARER) as a Custom Principal that specifies the ID referenced in URI and tokens. For example, 'my-client'
-- Environment management
-- Request, Approval, Revocation, Rejection and Cancellation of Access Requests
-## Limitations
-- As of 2023.1 release **Stream is renamed to Topic in Self-Service UI**. Stream remains unchanged in Platform API. Therefore, the Axual Terraform Provider will continue to use Stream in the API.
-- Currently, there is a bug that deleting a resource that is managed by Terraform from UI results in Terraform not being able to recreate the resource again according to .tf configuration file. We do not recommend currently deleting resources managed by Terraform from UI. This bug has been reported to development team and is under investigation.
-- Public environments cannot be deleted, private environments can be deleted. This feature will be implemented in the future.
-- When deleting all resources at once, application.tf needs to have a dependency to make sure stream and stream_config get deleted first. This bug has been reported to development team and is under investigation.
-
-# Getting started
-## Required User Roles
-- The Terraform User who is logged in(Default username kubernetes@axual.com), needs to have both of the following user roles:
-  - **APPLICATION_ADMIN** - for creating application principal resource(axual_application_principal) and for create access request()
-  - **STREAM_ADMIN** - for revoking access request
-- Alternatively, they can be the owner of both the application and the stream, which entails being a user in the same group as the owner group of the application and stream.
-## Example Usage
-
-First, make sure to define and configure the provider:
-
-```terraform
-terraform {
-  required_providers {
-    axual = {
-      source = "Axual/axual"
-      version = "1.1.0"
-    }
-  }
-}
-
-# PROVIDER CONFIGURATION
-#
-# Below example configuration is for when you have deployed Axual Platform locally. Contact your administrator if you
-# need the details for your organization's installation.
-#
-provider "axual" {
-  apiurl   = "https://platform.local/api"
-  realm    = "axual"
-  username = "kubernetes@axual.com" #- or set using env property export AXUAL_AUTH_USERNAME=
-  password = "password" #- or set using env property export AXUAL_AUTH_PASSWORD=
-  clientid = "self-service"
-  authurl = "https://platform.local/auth/realms/axual/protocol/openid-connect/token"
-  scopes = ["openid", "profile", "email"]
-}
-```
-
-Next, take a look at the *full* example which shows you the capabilities of the TerraForm Provider for Axual:
-
-```terraform
 #
 # TERRAFORM PROVIDER EXAMPLE
 #
@@ -160,7 +92,7 @@ resource "axual_user" "tenant_admin" {
 }
 
 #
-# Users "john" and "jane" are member of group "Team Awesome", "dwight" is member of "Team Bonanza" while "green" is member of "Team Support"
+# Users "john" and "jane" are members of group "Team Awesome", "dwight" is a member of "Team Bonanza" while "green" is a member of "Team Support"
 #
 # Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/group
 #
@@ -210,7 +142,7 @@ resource "axual_group" "tenant_admin_group" {
 #
 
 #
-# Team Awesome has their own environment, called "team-awesome", which they use as a sandbox
+# Team Awesome has its own environment, called "team-awesome", which they use as a sandbox
 # ENVIRONMENTs "development", "staging" and "production" are environments used by all teams and therefore declared PUBLIC
 #
 # Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/environment
@@ -495,32 +427,26 @@ resource "axual_application_access_grant" "scraper_produce_to_logs_in_production
 
 resource "axual_application_access_grant_approval" "dash_consume_logs_dev" {
   application_access_grant = axual_application_access_grant.dash_consume_from_logs_in_dev.id
-  depends_on = [ axual_application_access_grant.dash_consume_from_logs_in_dev ]
 }
 
 resource "axual_application_access_grant_approval" "dash_consume_logs_staging" {
   application_access_grant = axual_application_access_grant.dash_consume_from_logs_in_staging.id
-  depends_on = [ axual_application_access_grant.dash_consume_from_logs_in_staging ]
 }
 
 resource "axual_application_access_grant_approval" "dash_consume_support_production"{
   application_access_grant = axual_application_access_grant.dash_consume_from_support_in_production.id
-  depends_on = [ axual_application_access_grant.dash_consume_from_support_in_production ]
 }
 
 resource "axual_application_access_grant_approval" "log_consume_support_dev"{
   application_access_grant = axual_application_access_grant.log_scraper_consume_from_support_in_dev.id
-  depends_on = [ axual_application_access_grant.log_scraper_consume_from_support_in_dev ]
 }
 
 resource "axual_application_access_grant_approval" "dash_consume_logs_production"{
   application_access_grant = axual_application_access_grant.dash_consume_from_logs_in_production.id
-  depends_on = [ axual_application_access_grant.dash_consume_from_logs_in_production ]
 }
 
 resource "axual_application_access_grant_approval" "scraper_produce_logs_production"{
   application_access_grant = axual_application_access_grant.scraper_produce_to_logs_in_production.id
-  depends_on = [ axual_application_access_grant.scraper_produce_to_logs_in_production ]
 }
 
 #
@@ -531,46 +457,4 @@ resource "axual_application_access_grant_approval" "scraper_produce_logs_product
 
 resource "axual_application_access_grant_rejection" "scraper_produce_logs_staging_rejection" {
   application_access_grant = axual_application_access_grant.scraper_produce_to_logs_in_staging.id
-  depends_on = [ axual_application_access_grant.scraper_produce_to_logs_in_staging ]
 }
-```
-
-<!-- schema generated by tfplugindocs -->
-## Schema
-
-### Required
-
-- `apiurl` (String) URL that will be used by the client for all resource requests
-- `authurl` (String) Token url
-- `clientid` (String) Client ID to be used for oauth
-- `password` (String, Sensitive) Password belonging to the user
-- `realm` (String) Axual realm used for the requests
-- `username` (String) Username for all requests. Will be used to acquire a token
-
-### Optional
-- `scopes` (List of String) OAuth authorization server scopes
-
-## Guides
-
-- Our guides are in the guides folder:
-	- How to import user and group: [Importing user and group](guides/importing-user-and-groups.md)
-	- Setting up Terraform with Axual Trial: [Axual Trial setup](guides/axual-trial-setup.md)
-	- Managing application access to streams: [Axual Trial setup](guides/manage-application-access-to-streams.md)
-
-
-## Compatibility
- - This terraform provider requires Management API 7.0.7
-
-## Output
-Please include output if you want to have detailed information, e.g. for debugging purposes or for data sources.
-Example of an output for the environment resource.
-
-```
-output "staging_id" {
-	value = axual_environment.staging.id
-  }
-  
-  output "staging_name" {
-	value = axual_environment.staging.name
-  }
-```
