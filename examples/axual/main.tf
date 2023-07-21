@@ -92,7 +92,7 @@ resource "axual_user" "tenant_admin" {
 }
 
 #
-# Users "john" and "jane" are member of group "Team Awesome", "dwight" is member of "Team Bonanza" while "green" is member of "Team Support"
+# Users "john" and "jane" are members of group "Team Awesome", "dwight" is a member of "Team Bonanza" while "green" is a member of "Team Support"
 #
 # Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/group
 #
@@ -142,7 +142,7 @@ resource "axual_group" "tenant_admin_group" {
 #
 
 #
-# Team Awesome has their own environment, called "team-awesome", which they use as a sandbox
+# Team Awesome has its own environment, called "team-awesome", which they use as a sandbox
 # ENVIRONMENTs "development", "staging" and "production" are environments used by all teams and therefore declared PUBLIC
 #
 # Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/environment
