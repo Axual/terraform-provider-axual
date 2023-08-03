@@ -95,11 +95,13 @@ go generate
 - **protocol_versions** is the Terraform protocol version. This is set to 6.0 because we are using Terraform Plugin Framework to develop our provider.
 
 ## Debug
-- There are 4 IntelliJ IDEA run configurations in .run
-- Run "Axual build to _bin" to generate executable in /go/bin and name it terraform-provider-axual
-- Run "Axual Delve binary"(Run icon) to start Delve's debugging session on this binary. It looks for terraform-provider-axual executable in /go/bin.
-- Run "Axual Go Remote"(Debug icon) to connect IntelliJ to the Delve's debugging session. On the console you will see a string: TF_REATTACH_PROVIDERS='{"axual...
-- Copy this string and use it as environment variable: export TF_REATTACH_PROVIDERS='{"axual...
-- Set a breakpoint and run a command to run the provider like: tf plan or tf apply. It will stop at the breakpoint
-- When done with debugging, remove the env variable: unset TF_REATTACH_PROVIDERS
-- To do the same without the binary: Run "Axual Delve project"(Run icon)
+- There are 4 IntelliJ IDEA run configurations in .run folder. Just open IntelliJ run configuration menu to see them.
+- Steps to debug Terraform Provider
+  - brew install delve
+  - Run "Axual build to _bin" to generate executable in /go/bin and name it terraform-provider-axual
+  - Run "Axual Delve binary"(Run icon) to start Delve's debugging session on this binary. It looks for terraform-provider-axual executable in /go/bin.
+  - Run "Axual Go Remote"(Debug icon) to connect IntelliJ to the Delve's debugging session. On the console you will see a string: TF_REATTACH_PROVIDERS='{"axual...
+  - Copy this string and use it as environment variable: export TF_REATTACH_PROVIDERS='{"axual...
+  - Set a breakpoint and run a command to run the provider like: tf plan or tf apply. It will stop at the breakpoint
+  - When done with debugging, remove the env variable: unset TF_REATTACH_PROVIDERS
+  - To do the same without generating the binary: Run "Axual Delve project"(Run icon)
