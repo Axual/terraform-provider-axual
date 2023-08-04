@@ -52,6 +52,9 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 	req.Header.Set("Accept", "application/hal+json")
 
 	res, err := c.HTTPClient.Do(req)
+	if res.StatusCode == http.StatusNotFound {
+		return nil, NotFoundError
+	}
 	if err != nil {
 		log.Println("Error:", err)
 		return nil, err
@@ -61,9 +64,6 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		log.Println("Error:", err)
-		if res.StatusCode == http.StatusNotFound {
-			return nil, NotFoundError
-		}
 		return nil, err
 	}
 
