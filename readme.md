@@ -94,7 +94,7 @@ go generate
 - **version** is the numeric version of the manifest format, not the version of our provider.
 - **protocol_versions** is the Terraform protocol version. This is set to 6.0 because we are using Terraform Plugin Framework to develop our provider.
 
-## Debug
+## Debugging in IntelliJ IDEA using Delve
 - There are 4 IntelliJ IDEA run configurations in .run folder. Just open IntelliJ run configuration menu to see them.
 - Steps to debug Terraform Provider
   - brew install delve
