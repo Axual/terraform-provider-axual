@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"strings"
 )
 
 var _ tfsdk.ResourceType = applicationResourceType{}
@@ -164,7 +165,12 @@ func (r applicationResource) Read(ctx context.Context, req tfsdk.ReadResourceReq
 
 	Application, err := r.provider.client.GetApplication(data.Id.Value)
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read Application, got error: %s", err))
+		if strings.Contains(err.Error(), statusNotFound) {
+			tflog.Info(ctx, "Application not found")
+			resp.State.RemoveResource(ctx)
+		} else {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read Application, got error: %s", err))
+		}
 		return
 	}
 

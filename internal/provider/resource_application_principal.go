@@ -130,7 +130,12 @@ func (r applicationPrincipalResource) Read(ctx context.Context, req tfsdk.ReadRe
 
 	applicationPrincipal, err := r.provider.client.ReadApplicationPrincipal(data.Id.Value)
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application principal, got error: %s", err))
+		if strings.Contains(err.Error(), statusNotFound) {
+			tflog.Info(ctx, "Application Principal not found")
+			resp.State.RemoveResource(ctx)
+		} else {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application principal, got error: %s", err))
+		}
 		return
 	}
 

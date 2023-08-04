@@ -155,7 +155,12 @@ func (r streamResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest,
 
 	stream, err := r.provider.client.ReadStream(data.Id.Value)
 	if err != nil {
-		resp.Diagnostics.AddError("READ request error for stream resource", fmt.Sprintf("Error message: %s", err.Error()))
+		if strings.Contains(err.Error(), statusNotFound) {
+			tflog.Info(ctx, "Stream not found")
+			resp.State.RemoveResource(ctx)
+		} else {
+			resp.Diagnostics.AddError("READ request error for stream resource", fmt.Sprintf("Error message: %s", err.Error()))
+		}
 		return
 	}
 

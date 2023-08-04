@@ -4,6 +4,7 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/dcarbone/terraform-plugin-framework-utils/validation"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -146,7 +147,12 @@ func (r applicationAccessGrantResource) Read(ctx context.Context, req tfsdk.Read
 
 	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.Id.Value)
 	if err != nil {
-		resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
+		if strings.Contains(err.Error(), statusNotFound) {
+			tflog.Info(ctx, "Application Access Grant not found")
+			resp.State.RemoveResource(ctx)
+		} else {
+			resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
+		}
 		return
 	}
 

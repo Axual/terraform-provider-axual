@@ -15,6 +15,8 @@ import (
 // Ensure provider defined types fully satisfy framework interfaces
 var _ tfsdk.Provider = &provider{}
 
+const statusNotFound = "status: 404"
+
 // provider satisfies the tfsdk.Provider interface and usually is included
 // with all Resource and DataSource implementations.
 type provider struct {
