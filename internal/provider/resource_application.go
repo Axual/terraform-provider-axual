@@ -166,7 +166,7 @@ func (r applicationResource) Read(ctx context.Context, req tfsdk.ReadResourceReq
 	Application, err := r.provider.client.GetApplication(data.Id.Value)
 	if err != nil {
 		if strings.Contains(err.Error(), statusNotFound) {
-			tflog.Info(ctx, "Application not found")
+			tflog.Warn(ctx, fmt.Sprintf("Application not found. Id: %s", data.Id.Value))
 			resp.State.RemoveResource(ctx)
 		} else {
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read Application, got error: %s", err))

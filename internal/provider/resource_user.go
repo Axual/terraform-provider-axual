@@ -139,7 +139,7 @@ func (r userResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, r
 	user, err := r.provider.client.GetUser(data.Id.Value)
 	if err != nil {
 		if strings.Contains(err.Error(), statusNotFound) {
-			tflog.Info(ctx, "User not found")
+			tflog.Warn(ctx, fmt.Sprintf("User not found. Id: %s", data.Id.Value))
 			resp.State.RemoveResource(ctx)
 		} else {
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read user, got error: %s", err))

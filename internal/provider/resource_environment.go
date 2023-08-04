@@ -203,7 +203,7 @@ func (r environmentResource) Read(ctx context.Context, req tfsdk.ReadResourceReq
 	environment, err := r.provider.client.ReadEnvironment(data.Id.Value)
 	if err != nil {
 		if strings.Contains(err.Error(), statusNotFound) {
-			tflog.Info(ctx, "Environment not found")
+			tflog.Warn(ctx, fmt.Sprintf("Environment not found. Id: %s", data.Id.Value))
 			resp.State.RemoveResource(ctx)
 		} else {
 			resp.Diagnostics.AddError("READ request error for environment resource", fmt.Sprintf("Error message: %s", err.Error()))

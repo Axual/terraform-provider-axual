@@ -148,7 +148,7 @@ func (r applicationAccessGrantResource) Read(ctx context.Context, req tfsdk.Read
 	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.Id.Value)
 	if err != nil {
 		if strings.Contains(err.Error(), statusNotFound) {
-			tflog.Info(ctx, "Application Access Grant not found")
+			tflog.Warn(ctx, fmt.Sprintf("Application Access Grant not found. Id: %s", data.Id.Value))
 			resp.State.RemoveResource(ctx)
 		} else {
 			resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
