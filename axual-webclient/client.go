@@ -3,6 +3,7 @@ package webclient
 import (
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -26,6 +27,8 @@ type AuthStruct struct {
 	ClientId string
 	Scopes   []string
 }
+
+var NotFoundError = errors.New("resource not found")
 
 // NewClient -
 func NewClient(apiUrl string, realm string, auth AuthStruct) (*Client, error) {
@@ -58,6 +61,9 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		log.Println("Error:", err)
+		if res.StatusCode == http.StatusNotFound {
+			return nil, NotFoundError
+		}
 		return nil, err
 	}
 
