@@ -3,6 +3,7 @@ package provider
 import (
 	webclient "axual-webclient"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -202,7 +203,7 @@ func (r environmentResource) Read(ctx context.Context, req tfsdk.ReadResourceReq
 
 	environment, err := r.provider.client.ReadEnvironment(data.Id.Value)
 	if err != nil {
-		if strings.Contains(err.Error(), statusNotFound) {
+		if errors.Is(err, webclient.NotFoundError) {
 			tflog.Warn(ctx, fmt.Sprintf("Environment not found. Id: %s", data.Id.Value))
 			resp.State.RemoveResource(ctx)
 		} else {

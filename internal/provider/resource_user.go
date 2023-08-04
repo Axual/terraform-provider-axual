@@ -3,6 +3,7 @@ package provider
 import (
 	webclient "axual-webclient"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/dcarbone/terraform-plugin-framework-utils/validation"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -10,7 +11,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"strings"
 )
 
 var _ tfsdk.ResourceType = userResourceType{}
@@ -138,7 +138,7 @@ func (r userResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, r
 
 	user, err := r.provider.client.GetUser(data.Id.Value)
 	if err != nil {
-		if strings.Contains(err.Error(), statusNotFound) {
+		if errors.Is(err, webclient.NotFoundError) {
 			tflog.Warn(ctx, fmt.Sprintf("User not found. Id: %s", data.Id.Value))
 			resp.State.RemoveResource(ctx)
 		} else {

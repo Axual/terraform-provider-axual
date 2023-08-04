@@ -3,6 +3,7 @@ package provider
 import (
 	webclient "axual-webclient"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -130,7 +131,7 @@ func (r applicationPrincipalResource) Read(ctx context.Context, req tfsdk.ReadRe
 
 	applicationPrincipal, err := r.provider.client.ReadApplicationPrincipal(data.Id.Value)
 	if err != nil {
-		if strings.Contains(err.Error(), statusNotFound) {
+		if errors.Is(err, webclient.NotFoundError) {
 			tflog.Warn(ctx, fmt.Sprintf("Application Principal not found. Id: %s", data.Id.Value))
 			resp.State.RemoveResource(ctx)
 		} else {
