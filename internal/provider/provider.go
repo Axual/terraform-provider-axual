@@ -60,6 +60,13 @@ func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderReq
 	var username string
 	if data.Username.Null {
 		username = os.Getenv("AXUAL_AUTH_USERNAME")
+		if username == "" {
+			resp.Diagnostics.AddError(
+				"Missing Username",
+				"Username is not provided in configuration and the AXUAL_AUTH_USERNAME environment variable is not set.",
+			)
+			return
+		}
 	} else {
 		username = data.Username.Value
 	}
@@ -75,6 +82,13 @@ func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderReq
 	}
 	if data.Password.Null {
 		password = os.Getenv("AXUAL_AUTH_PASSWORD")
+		if password == "" {
+			resp.Diagnostics.AddError(
+				"Missing Password",
+				"Password is not provided in configuration and the AXUAL_AUTH_PASSWORD environment variable is not set.",
+			)
+			return
+		}
 	} else {
 		password = data.Password.Value
 	}
@@ -140,12 +154,12 @@ func (p *provider) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics)
 			},
 			"username": {
 				MarkdownDescription: "Username for all requests. Will be used to acquire a token",
-				Required:            true,
+				Optional:            true,
 				Type:                types.StringType,
 			},
 			"password": {
 				MarkdownDescription: "Password belonging to the user",
-				Required:            true,
+				Optional:            true,
 				Sensitive:           true,
 				Type:                types.StringType,
 			},
