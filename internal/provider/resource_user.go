@@ -3,6 +3,7 @@ package provider
 import (
 	webclient "axual-webclient"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/dcarbone/terraform-plugin-framework-utils/validation"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -137,7 +138,12 @@ func (r userResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, r
 
 	user, err := r.provider.client.GetUser(data.Id.Value)
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read user, got error: %s", err))
+		if errors.Is(err, webclient.NotFoundError) {
+			tflog.Warn(ctx, fmt.Sprintf("User not found. Id: %s", data.Id.Value))
+			resp.State.RemoveResource(ctx)
+		} else {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read user, got error: %s", err))
+		}
 		return
 	}
 

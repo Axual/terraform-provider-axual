@@ -3,6 +3,7 @@ package webclient
 import (
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -27,6 +28,8 @@ type AuthStruct struct {
 	Scopes   []string
 }
 
+var NotFoundError = errors.New("resource not found")
+
 // NewClient -
 func NewClient(apiUrl string, realm string, auth AuthStruct) (*Client, error) {
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
@@ -49,6 +52,9 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 	req.Header.Set("Accept", "application/hal+json")
 
 	res, err := c.HTTPClient.Do(req)
+	if res.StatusCode == http.StatusNotFound {
+		return nil, NotFoundError
+	}
 	if err != nil {
 		log.Println("Error:", err)
 		return nil, err

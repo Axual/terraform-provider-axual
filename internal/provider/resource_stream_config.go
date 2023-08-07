@@ -3,6 +3,7 @@ package provider
 import (
 	webclient "axual-webclient"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/mapvalidator"
@@ -145,7 +146,12 @@ func (r streamConfigResource) Read(ctx context.Context, req tfsdk.ReadResourceRe
 
 	streamConfig, err := r.provider.client.ReadStreamConfig(data.Id.Value)
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read stream config, got error: %s", err))
+		if errors.Is(err, webclient.NotFoundError) {
+			tflog.Warn(ctx, fmt.Sprintf("Stream config not found. Id: %s", data.Id.Value))
+			resp.State.RemoveResource(ctx)
+		} else {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read stream config, got error: %s", err))
+		}
 		return
 	}
 

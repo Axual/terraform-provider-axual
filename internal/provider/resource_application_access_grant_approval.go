@@ -1,7 +1,9 @@
 package provider
 
 import (
+	webclient "axual-webclient"
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -103,7 +105,11 @@ func (r applicationAccessGrantApprovalResource) Read(ctx context.Context, req tf
 
 	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.ApplicationAccessGrant.Value)
 	if err != nil {
-		resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
+		if errors.Is(err, webclient.NotFoundError) {
+			tflog.Warn(ctx, fmt.Sprintf("Application Access Grant not found. Id: %s", data.ApplicationAccessGrant.Value))
+		} else {
+			resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
+		}
 		return
 	}
 

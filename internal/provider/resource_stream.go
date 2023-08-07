@@ -3,6 +3,7 @@ package provider
 import (
 	webclient "axual-webclient"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/dcarbone/terraform-plugin-framework-utils/validation"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -155,7 +156,12 @@ func (r streamResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest,
 
 	stream, err := r.provider.client.ReadStream(data.Id.Value)
 	if err != nil {
-		resp.Diagnostics.AddError("READ request error for stream resource", fmt.Sprintf("Error message: %s", err.Error()))
+		if errors.Is(err, webclient.NotFoundError) {
+			tflog.Warn(ctx, fmt.Sprintf("Stream not found. Id: %s", data.Id.Value))
+			resp.State.RemoveResource(ctx)
+		} else {
+			resp.Diagnostics.AddError("READ request error for stream resource", fmt.Sprintf("Error message: %s", err.Error()))
+		}
 		return
 	}
 
