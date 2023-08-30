@@ -3,11 +3,31 @@ package webclient
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 )
 
-func (c *Client) CreateSchemaVersion(data SchemaVersionRequest) (*SchemaVersionCreateResponse, error) {
-	o := SchemaVersionCreateResponse{}
+func (c *Client) ValidateSchemaVersion(schema ValidateSchemaVersionRequest) (*ValidateSchemaVersionResponse, error) {
+	log.Print(schema)
+	o := ValidateSchemaVersionResponse{}
+	marshal, err := json.Marshal(schema)
+	if err != nil {
+		return nil, err
+	}
+	headers := map[string]string{
+		"Content-Type": "application/json",
+		"Accept": "application/hal+json",
+	}
+	err = c.RequestAndMap("POST", fmt.Sprintf("%s/schemas/check-parse", c.ApiURL), strings.NewReader(string(marshal)), headers, &o)
+
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
+}
+
+func (c *Client) CreateSchemaVersion(data SchemaVersionRequest) (*CreateSchemaVersionResponse, error) {
+	o := CreateSchemaVersionResponse{}
 	marshal, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
@@ -20,47 +40,26 @@ func (c *Client) CreateSchemaVersion(data SchemaVersionRequest) (*SchemaVersionC
 	return &o, nil
 }
 
-// func (c *Client) GetSchemas() (*SchemasResponse, error) {
-// 	o := SchemasResponse{}
-// 	err := c.RequestAndMap("GET", fmt.Sprintf("%s/schemas", c.ApiURL), nil, nil, &o)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &o, nil
-// }
 
-// func (c *Client) GetSchema(id string) (*SchemaResponse, error) {
-// 	o := SchemaResponse{}
-// 	err := c.RequestAndMap("GET", fmt.Sprintf("%s/schemas/%v", c.ApiURL, id), nil, nil, &o)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &o, nil
-// }
 
-// func (c *Client) UpdateSchema(id string, data SchemaRequest) (*SchemaResponse, error) {
+func (c *Client) GetSchemaVersion(id string) (*GetSchemaVersionResponse, error) {
+	o := GetSchemaVersionResponse{}
 	
-// 	o := SchemaResponse{}
-// 	marshal, err := json.Marshal(data)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	err := c.RequestAndMap("GET", fmt.Sprintf("%s/schema_versions/%v", c.ApiURL, id), nil, nil, &o)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
+}
 
-// 	err = c.RequestAndMap("PATCH", fmt.Sprintf("%s/schemas/%v", c.ApiURL, id), strings.NewReader(string(marshal)), nil, &o)
-// 	if err != nil {
-// 		return nil, err
-// 	}
 
-// 	return &o, nil
-// }
-
-// func (c *Client) DeleteSchema(id string) error {
-// 	err := c.RequestAndMap("DELETE", fmt.Sprintf("%s/schemas/%v", c.ApiURL, id), nil, nil, nil)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }
+func (c *Client) DeleteSchemaVersion(id string) error {
+	err := c.RequestAndMap("DELETE", fmt.Sprintf("%s/schema_versions/%v", c.ApiURL, id), nil, nil, nil)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 
 

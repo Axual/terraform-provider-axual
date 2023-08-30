@@ -1,45 +1,52 @@
 package webclient
 
-// type SchemasResponse struct {
-// 	Embedded struct {
-// 		Schemas []any  `json:"schemas"`
-// 	} `json:"_embedded"`
-// 	Links struct {
-// 		Self struct {
-// 			Href      string `json:"href"`
-// 			Templated bool   `json:"templated"`
-// 			Title     string `json:"title"`
-// 		} `json:"self"`
-// 	} `json:"_links"`
-// 	Page struct {
-// 		Size          int `json:"size"`
-// 		Totalelements int `json:"totalElements"`
-// 		Totalpages    int `json:"totalPages"`
-// 		Number        int `json:"number"`
-// 	} `json:"page"`
-// }
-
-type SchemaVersionCreateResponse struct {
-	FullName    string      `json:"fullName"`
-	Version  string  `json:"version"`
-	SchemaVersionUid string `json:"schemaVersionUid"`
-	SchemaUid        string      `json:"schemaUid"`
-	// CreatedAt  string      `json:"created_at"`
-	// ModifiedAt string      `json:"modified_at"`
-	// CreatedBy  string `json:"created_by"`
-	// ModifiedBy string      `json:"modified_by"`
-	// Links      struct {
-	// 	Self struct {
-	// 		Href  string `json:"href"`
-	// 		Title string `json:"title"`
-	// 	} `json:"self"`
-	// 	Scheme struct {
-	// 		Href      string `json:"href"`
-	// 		Templated bool   `json:"templated"`
-	// 		Title     string `json:"title"`
-	// 	} `json:"scheme"`
-	// } `json:"_links"`
+type SchemaType struct {
+	SchemaUid   string      `json:"id"`
+	Name   string      `json:"name"`
+	Description   string      `json:"description"`
+	OptLock    int64       `json:"optLock"`
+	Uid   string      `json:"uid"`
+	CreatedAt   string       `json:"created_at"`
+	ModifiedAt   string       `json:"modified_at"`
+	CreatedBy   string       `json:"created_by"`
+	ModifiedBy   string       `json:"modified_by"`
 }
+
+type GetSchemaVersionResponse struct {
+	Id  string `json:"id"`
+	Version     string      `json:"version"`
+	SchemaBody  string       `json:"schemaBody"`
+	Schema     SchemaType        `json:"schema"`
+	CreatedByFullName string  `json:"createdByFullName"`
+	CreatedAt   string       `json:"createdAt"`
+	ModifiedAt   string       `json:"modifiedAt"`
+}
+
+type CreateSchemaVersionResponse struct {
+	Id  string `json:"schemaVersionUid"`
+	SchemaUid   string      `json:"schemaUid"`
+	Version     string      `json:"version"`
+	FullName   string      `json:"fullName"`
+}
+
+type ValidateSchemaVersionResponse struct {
+	Schema   string      `json:"schema"`
+	Versions     []string      `json:"version"`
+	FullName   string      `json:"fullName"`
+}
+
+type ValidateSchemaVersionRequest struct {
+	Schema   string      `json:"schema"`
+}
+
+type SchemaVersionResponse struct {
+	Id  string `json:"schemaVersionUid"`
+	SchemaUid   string      `json:"schemaUid"`
+	Version     string      `json:"version"`
+	FullName   string      `json:"fullName"`
+}
+
+
 
 type SchemaVersionRequest struct {
 	Schema    string     `json:"schema"`

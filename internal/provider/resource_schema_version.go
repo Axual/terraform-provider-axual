@@ -58,6 +58,28 @@ func (r schemaVersionResourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 					validation.RegexpMatch(`^[0-9a-fA-F]{32}$`),
 				},
 			},
+
+			"schema_uid": {
+				Computed:            true,
+				MarkdownDescription: "Schema unique identifier",
+				PlanModifiers: tfsdk.AttributePlanModifiers{
+					tfsdk.UseStateForUnknown(),
+				},
+				Type: types.StringType,
+				Validators: []tfsdk.AttributeValidator{
+					validation.RegexpMatch(`^[0-9a-fA-F]{32}$`),
+				},
+			},
+
+			"full_name": {
+				Computed:            true,
+				MarkdownDescription: "Full name of the schema",
+				PlanModifiers: tfsdk.AttributePlanModifiers{
+					tfsdk.UseStateForUnknown(),
+				},
+				Type: types.StringType,
+			},
+
 		},
 	}, nil
 }
@@ -74,33 +96,44 @@ type schemaVersionResourceData struct {
 	Schema    types.String `tfsdk:"schema"`
 	Version    types.String `tfsdk:"version"`
 	Description   types.String `tfsdk:"description"`
-	Id           types.String `tfsdk:"id"`
+	Id types.String`tfsdk:"id"`
+	SchemaUid types.String`tfsdk:"schema_uid"`
+	FullName types.String`tfsdk:"full_name"`
 }
-
 
 type schemaVersionResource struct {
 	provider provider
 }
 
 func (r schemaVersionResource) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
-	var data schemaResourceData
-
+	var data schemaVersionResourceData
+	
 	diags := req.Config.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	
+	vsReq:= createValidateSchemaVersionRequestFromData(ctx, &data)
 
-	schemaRequest := createSchemaRequestFromData(ctx, &data)
+	fmt.Printf("vsReq.Schema: %v\n", vsReq.Schema)
+	valid, valErr:= r.provider.client.ValidateSchemaVersion(vsReq)
 
-	schema, err := r.provider.client.CreateSchema(schemaRequest)
+	if(valErr!=nil) {
+		resp.Diagnostics.AddError("Validate Schema request error for schema version resource", fmt.Sprintf("Error message: %s", valErr.Error()))
+		return	
+	}
+
+	svReq := createSchemaVersionRequestFromData(ctx, valid , &data,)
+
+	svResp, err := r.provider.client.CreateSchemaVersion(svReq)
 	if err != nil {
-		resp.Diagnostics.AddError("CREATE request error for schema resource", fmt.Sprintf("Error message: %s", err.Error()))
+		resp.Diagnostics.AddError("CREATE request error for schema version resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
 
-	mapSchemaResponseToData(ctx, &data, schema)
+	mapCreateSchemaVersionResponseToData(ctx, &data, svResp)
 	tflog.Trace(ctx, "created a resource")
 	tflog.Info(ctx, "saving the resource to state")
 	diags = resp.State.Set(ctx, &data)
@@ -108,7 +141,7 @@ func (r schemaVersionResource) Create(ctx context.Context, req tfsdk.CreateResou
 }
 
 func (r schemaVersionResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
-	var data schemaResourceData
+	var data schemaVersionResourceData
 
 	diags := req.State.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
@@ -117,7 +150,7 @@ func (r schemaVersionResource) Read(ctx context.Context, req tfsdk.ReadResourceR
 		return
 	}
 
-	schema, err := r.provider.client.GetSchema(data.Id.Value)
+	svResp, err := r.provider.client.GetSchemaVersion(data.Id.Value)
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
 			tflog.Warn(ctx, fmt.Sprintf("Schema not found. Id: %s", data.Id.Value))
@@ -129,7 +162,7 @@ func (r schemaVersionResource) Read(ctx context.Context, req tfsdk.ReadResourceR
 	}
 
 	tflog.Info(ctx, "mapping the resource")
-	mapSchemaResponseToData(ctx, &data, schema)
+	mapGetSchemaVersionResponseToData(ctx, &data, svResp)
 
 	tflog.Info(ctx, "saving the resource to state")
 	diags = resp.State.Set(ctx, &data)
@@ -137,27 +170,8 @@ func (r schemaVersionResource) Read(ctx context.Context, req tfsdk.ReadResourceR
 }
 
 func (r schemaVersionResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
-	var data schemaVersionResourceData
-
-	diags := req.Plan.Get(ctx, &data)
-	resp.Diagnostics.Append(diags...)
-
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	schemaRequest := createSchemaRequestFromData(ctx, &data)
-
-	schema, err := r.provider.client.UpdateSchema(data.Id.Value, schemaRequest)
-	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update schema, got error: %s", err))
-		return
-	}
-
-	mapSchemaResponseToData(ctx, &data, schema)
-	tflog.Info(ctx, "saving the resource to state")
-	diags = resp.State.Set(ctx, &data)
-	resp.Diagnostics.Append(diags...)
+	
+	resp.Diagnostics.AddError("Client Error", "API does not allow update of schema version")
 }
 
 func (r schemaVersionResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
@@ -169,25 +183,35 @@ func (r schemaVersionResource) ImportState(ctx context.Context, req tfsdk.Import
 	tfsdk.ResourceImportStatePassthroughID(ctx, tftypes.NewAttributePath().WithAttributeName("id"), req, resp)
 }
 
-func mapSchemaResponseToData(_ context.Context, data *schemaVersionResourceData, schema *webclient.SchemaVersionCreateResponse) {
-	// mandatory fields first
-	data.Id = types.String{Value: schema.Uid}
-	data.Name = types.String{Value: schema.Name}
-	
-	// optional fields
-	if schema.Description == nil {
-		data.Description = types.String{Null: true}
-	} else {
-		data.Description = types.String{Value: schema.Description.(string)}
-	}
+func mapCreateSchemaVersionResponseToData(_ context.Context, data *schemaVersionResourceData, resp *webclient.CreateSchemaVersionResponse) {
 
-	
+	data.SchemaUid = types.String{Value: resp.SchemaUid}
+	data.Id = types.String{Value: resp.Id}
+	data.FullName = types.String{Value: resp.FullName}
+	data.Version = types.String{Value: resp.Version}	
+}
+func mapGetSchemaVersionResponseToData(_ context.Context, data *schemaVersionResourceData, resp *webclient.GetSchemaVersionResponse) {
+
+	data.SchemaUid = types.String{Value: resp.Schema.SchemaUid}
+	data.Id = types.String{Value: resp.Id}
+	data.FullName = types.String{Value: resp.Schema.Name}
+	data.Version = types.String{Value: resp.Version}	
 }
 
-func createSchemaRequestFromData(ctx context.Context, data *schemaVersionResourceData) webclient.SchemaVersionRequest {
+func createValidateSchemaVersionRequestFromData(ctx context.Context, data *schemaVersionResourceData) webclient.ValidateSchemaVersionRequest {
+
+	r := webclient.ValidateSchemaVersionRequest{
+	Schema: data.Schema.Value,
+	}
+
+	tflog.Info(ctx, fmt.Sprintf("schema version request %q", r))
+	return r
+}
+
+func createSchemaVersionRequestFromData(ctx context.Context, parsedSchema *webclient.ValidateSchemaVersionResponse, data *schemaVersionResourceData) webclient.SchemaVersionRequest {
 
 	r := webclient.SchemaVersionRequest{
-	Schema: data.Schema.Value,
+	Schema: parsedSchema.Schema,
 	Version: data.Version.Value,
 	}
 
@@ -196,6 +220,6 @@ func createSchemaRequestFromData(ctx context.Context, data *schemaVersionResourc
 		r.Description = data.Description.Value
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("schema request %q", r))
+	tflog.Info(ctx, fmt.Sprintf("schema version request %q", r))
 	return r
 }
