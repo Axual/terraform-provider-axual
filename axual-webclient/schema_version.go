@@ -16,7 +16,7 @@ func (c *Client) ValidateSchemaVersion(schema ValidateSchemaVersionRequest) (*Va
 	}
 	headers := map[string]string{
 		"Content-Type": "application/json",
-		"Accept": "application/hal+json",
+		"Accept":       "application/json",
 	}
 	err = c.RequestAndMap("POST", fmt.Sprintf("%s/schemas/check-parse", c.ApiURL), strings.NewReader(string(marshal)), headers, &o)
 
@@ -40,18 +40,15 @@ func (c *Client) CreateSchemaVersion(data SchemaVersionRequest) (*CreateSchemaVe
 	return &o, nil
 }
 
-
-
 func (c *Client) GetSchemaVersion(id string) (*GetSchemaVersionResponse, error) {
 	o := GetSchemaVersionResponse{}
-	
-	err := c.RequestAndMap("GET", fmt.Sprintf("%s/schema_versions/%v", c.ApiURL, id), nil, nil, &o)
+	headers := map[string]string{"Accept": "application/json"}
+	err := c.RequestAndMap("GET", fmt.Sprintf("%s/schema_versions/%v", c.ApiURL, id), nil, headers, &o)
 	if err != nil {
 		return nil, err
 	}
 	return &o, nil
 }
-
 
 func (c *Client) DeleteSchemaVersion(id string) error {
 	err := c.RequestAndMap("DELETE", fmt.Sprintf("%s/schema_versions/%v", c.ApiURL, id), nil, nil, nil)
@@ -60,6 +57,3 @@ func (c *Client) DeleteSchemaVersion(id string) error {
 	}
 	return nil
 }
-
-
-

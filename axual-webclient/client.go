@@ -49,7 +49,9 @@ func NewClient(apiUrl string, realm string, auth AuthStruct) (*Client, error) {
 
 func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 	req.Header.Set("Realm", c.Realm)
-	req.Header.Set("Accept", "application/hal+json")
+	if req.Header.Get("Accept") == "" {
+		req.Header.Set("Accept", "application/hal+json")
+	}
 
 	res, err := c.HTTPClient.Do(req)
 	if res.StatusCode == http.StatusNotFound {
@@ -90,8 +92,8 @@ func (c *Client) RequestAndMap(method string, url string, reqBody io.Reader, hea
 		log.Println("Error:", err)
 		return err
 	}
-	
-log.Println("Logging")
+
+	log.Println("Logging")
 	body, err := c.doRequest(req)
 	if err != nil {
 		log.Println("Error:", err)

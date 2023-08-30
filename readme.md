@@ -105,3 +105,14 @@ go generate
   - Set a breakpoint and run a command to run the provider like: tf plan or tf apply. It will stop at the breakpoint
   - When done with debugging, remove the env variable: unset TF_REATTACH_PROVIDERS
   - To do the same without generating the binary: Run "Axual Delve project"(Run icon)
+
+
+## Debugging webclient
+- The module axual-webclient-exec is used to test and debug axual-webclient module without any Terraform functionality.
+
+## Logging
+- Logging in axual-webclient:
+  - log.Println using the module "log"
+- Logging in internal folder:
+  - tflog.Debug(or Info,Trace etc)
+  - Then run TF_LOG=DEBUG(Or INFO,TRACE etc) terraform plan
