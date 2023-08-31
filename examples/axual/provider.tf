@@ -1,12 +1,11 @@
-
-  terraform {
+terraform {
   required_providers {
     axual = {
-      source  = "axual.com/hackz/axual"
+      source = "Axual/axual"
+      version = "1.1.0"
     }
   }
 }
-
 
 # PROVIDER CONFIGURATION
 #
@@ -14,11 +13,11 @@
 # need the details for your organization's installation.
 #
 provider "axual" {
-  apiurl   = "https://mgmt-qa.cloud.axual.io/api"
+  apiurl   = "https://platform.local/api"
   realm    = "axual"
-  username = "daniel_a" #- or set using env property export AXUAL_AUTH_USERNAME=
-  password = "overreact1" #- or set using env property export AXUAL_AUTH_PASSWORD=
+  username = "kubernetes@axual.com" #- or set using env property export AXUAL_AUTH_USERNAME=
+  password = "PLEASE_CHANGE_PASSWORD" #- or set using env property export AXUAL_AUTH_PASSWORD=
   clientid = "self-service"
-  authurl = "https://mgmt-qa.cloud.axual.io/auth/realms/axual/protocol/openid-connect/token"
+  authurl = "https://platform.local/auth/realms/axual/protocol/openid-connect/token"
   scopes = ["openid", "profile", "email"]
 }

@@ -7,7 +7,7 @@
     {
       "name": "random",
       "type": "string",
-      "doc": "The Random value."
+      "doc": "The Random value. v 1.0.1"
     }
   ]
 }

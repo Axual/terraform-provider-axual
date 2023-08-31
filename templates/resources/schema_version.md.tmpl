@@ -1,0 +1,24 @@
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Note
+- Schema version cannot be edited
+
+## Example Usage
+
+```hcl
+resource "axual_schema_version" "axual_random_schema_version3" {
+  schema = file("avro-schemas/random.avsc")
+  version = "3"
+  description = "Random Schema"
+}
+```
+
+For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
+
+## Import
+
+Import is not currently supported.

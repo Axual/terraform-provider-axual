@@ -31,8 +31,7 @@ func (r schemaVersionResourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 				MarkdownDescription: "Avro schema",
 				Required:            true,
 				Type:                types.StringType,
-				// ! TODO Add validation for avro schema
-	
+				
 			},
 			"version": {
 				MarkdownDescription: "The version of the schema",
@@ -59,7 +58,7 @@ func (r schemaVersionResourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 				},
 			},
 
-			"schema_uid": {
+			"schema_id": {
 				Computed:            true,
 				MarkdownDescription: "Schema unique identifier",
 				PlanModifiers: tfsdk.AttributePlanModifiers{
@@ -97,7 +96,7 @@ type schemaVersionResourceData struct {
 	Version    types.String `tfsdk:"version"`
 	Description   types.String `tfsdk:"description"`
 	Id types.String`tfsdk:"id"`
-	SchemaUid types.String`tfsdk:"schema_uid"`
+	SchemaId types.String`tfsdk:"schema_id"`
 	FullName types.String`tfsdk:"full_name"`
 }
 
@@ -116,8 +115,6 @@ func (r schemaVersionResource) Create(ctx context.Context, req tfsdk.CreateResou
 	}
 	
 	vsReq:= createValidateSchemaVersionRequestFromData(ctx, &data)
-
-	fmt.Printf("vsReq.Schema: %v\n", vsReq.Schema)
 	valid, valErr:= r.provider.client.ValidateSchemaVersion(vsReq)
 
 	if(valErr!=nil) {
@@ -171,12 +168,24 @@ func (r schemaVersionResource) Read(ctx context.Context, req tfsdk.ReadResourceR
 
 func (r schemaVersionResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
 	
-	resp.Diagnostics.AddError("Client Error", "API does not allow update of schema version")
+	resp.Diagnostics.AddError("Client Error", "API does not allow update of schema version. Please create another version of the schema")
 }
 
 func (r schemaVersionResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
-	resp.Diagnostics.AddError("Client Error", "Deleting of schema is not allowed!")
+	var data schemaVersionResourceData
 
+	diags := req.State.Get(ctx, &data)
+	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	err := r.provider.client.DeleteSchemaVersion(data.Id.Value)
+	if err != nil {
+		resp.Diagnostics.AddError("DELETE request error for schema version resource", fmt.Sprintf("Error message: %s", err.Error()))
+		return
+	}
 }
 
 func (r schemaVersionResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
@@ -185,14 +194,14 @@ func (r schemaVersionResource) ImportState(ctx context.Context, req tfsdk.Import
 
 func mapCreateSchemaVersionResponseToData(_ context.Context, data *schemaVersionResourceData, resp *webclient.CreateSchemaVersionResponse) {
 
-	data.SchemaUid = types.String{Value: resp.SchemaUid}
+	data.SchemaId = types.String{Value: resp.SchemaId}
 	data.Id = types.String{Value: resp.Id}
 	data.FullName = types.String{Value: resp.FullName}
 	data.Version = types.String{Value: resp.Version}	
 }
 func mapGetSchemaVersionResponseToData(_ context.Context, data *schemaVersionResourceData, resp *webclient.GetSchemaVersionResponse) {
 
-	data.SchemaUid = types.String{Value: resp.Schema.SchemaUid}
+	data.SchemaId = types.String{Value: resp.Schema.SchemaId}
 	data.Id = types.String{Value: resp.Id}
 	data.FullName = types.String{Value: resp.Schema.Name}
 	data.Version = types.String{Value: resp.Version}	

@@ -1,7 +1,7 @@
 package webclient
 
 type SchemaType struct {
-	SchemaUid   string      `json:"id"`
+	SchemaId   string      `json:"id"`
 	Name   string      `json:"name"`
 	Description   string      `json:"description"`
 	OptLock    int64       `json:"optLock"`
@@ -24,7 +24,7 @@ type GetSchemaVersionResponse struct {
 
 type CreateSchemaVersionResponse struct {
 	Id  string `json:"schemaVersionUid"`
-	SchemaUid   string      `json:"schemaUid"`
+	SchemaId   string      `json:"schemaUid"`
 	Version     string      `json:"version"`
 	FullName   string      `json:"fullName"`
 }
@@ -41,12 +41,10 @@ type ValidateSchemaVersionRequest struct {
 
 type SchemaVersionResponse struct {
 	Id  string `json:"schemaVersionUid"`
-	SchemaUid   string      `json:"schemaUid"`
+	SchemaId   string      `json:"schemaUid"`
 	Version     string      `json:"version"`
 	FullName   string      `json:"fullName"`
 }
-
-
 
 type SchemaVersionRequest struct {
 	Schema    string     `json:"schema"`

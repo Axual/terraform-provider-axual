@@ -3,12 +3,11 @@ package webclient
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 )
 
 func (c *Client) ValidateSchemaVersion(schema ValidateSchemaVersionRequest) (*ValidateSchemaVersionResponse, error) {
-	log.Print(schema)
+	
 	o := ValidateSchemaVersionResponse{}
 	marshal, err := json.Marshal(schema)
 	if err != nil {
@@ -32,7 +31,11 @@ func (c *Client) CreateSchemaVersion(data SchemaVersionRequest) (*CreateSchemaVe
 	if err != nil {
 		return nil, err
 	}
-	err = c.RequestAndMap("POST", fmt.Sprintf("%s/schemas/upload", c.ApiURL), strings.NewReader(string(marshal)), nil, &o)
+	headers := map[string]string{
+		"Content-Type": "application/json",
+		"Accept":       "application/json",
+	}
+	err = c.RequestAndMap("POST", fmt.Sprintf("%s/schemas/upload", c.ApiURL), strings.NewReader(string(marshal)), headers, &o)
 
 	if err != nil {
 		return nil, err
@@ -42,7 +45,10 @@ func (c *Client) CreateSchemaVersion(data SchemaVersionRequest) (*CreateSchemaVe
 
 func (c *Client) GetSchemaVersion(id string) (*GetSchemaVersionResponse, error) {
 	o := GetSchemaVersionResponse{}
-	headers := map[string]string{"Accept": "application/json"}
+	headers := map[string]string{
+		"Content-Type": "application/json",
+		"Accept":       "application/json",
+	}
 	err := c.RequestAndMap("GET", fmt.Sprintf("%s/schema_versions/%v", c.ApiURL, id), nil, headers, &o)
 	if err != nil {
 		return nil, err
@@ -51,7 +57,11 @@ func (c *Client) GetSchemaVersion(id string) (*GetSchemaVersionResponse, error) 
 }
 
 func (c *Client) DeleteSchemaVersion(id string) error {
-	err := c.RequestAndMap("DELETE", fmt.Sprintf("%s/schema_versions/%v", c.ApiURL, id), nil, nil, nil)
+	headers := map[string]string{
+		"Content-Type": "application/json",
+		"Accept":       "application/json",
+	}
+	err := c.RequestAndMap("DELETE", fmt.Sprintf("%s/schema_versions/%v", c.ApiURL, id), nil, headers, nil)
 	if err != nil {
 		return err
 	}
