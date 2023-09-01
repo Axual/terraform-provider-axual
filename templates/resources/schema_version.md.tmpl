@@ -10,10 +10,10 @@
 ## Example Usage
 
 ```hcl
-resource "axual_schema_version" "axual_random_schema_version3" {
-  schema = file("avro-schemas/random.avsc")
-  version = "3"
-  description = "Random Schema"
+resource "axual_schema_version" "axual_gitops_test_schema_version1" {
+  schema = file("avro-schemas/gitops_test_v1.avsc")
+  version = "1.0.0"
+  description = "Gitops test schema version"
 }
 ```
 
@@ -21,4 +21,9 @@ For a full example which shows the capabilities of the latest TerraForm provider
 
 ## Import
 
-Import is not currently supported.
+Import is supported using the following syntax:
+
+```shell
+terraform import axual_schema_version.<LOCAL NAME> <SCHEMA_VERSION UID>
+terraform import axual_schema_version.axual_gitops_test_schema_version1 2f414c9cace8450e9aa6f2e4bd36f913
+```

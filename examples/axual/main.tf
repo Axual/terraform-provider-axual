@@ -464,24 +464,24 @@ resource "axual_application_access_grant_rejection" "scraper_produce_logs_stagin
 # In Axual Platform Schemas are used by Streams of data type AVRO (avsc file).
 # Note: An attempt at uploading a duplicate schema is rejected with an error message containing the duplicated version
 #
-# In the example below, schema_version "axual_random_schema_version3", "axual_random_schema_version5" and "axual_random_schema_version4" are declared
+# In the example below, schema_version "axual_gitops_test_schema_version1", "axual_gitops_test_schema_version2" and "axual_gitops_test_schema_version3" are declared referencing their respective schema version
 #
 # Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/schema_version
 #
-resource "axual_schema_version" "axual_random_schema_version3" {
-  schema = file("avro-schemas/random.avsc")
-  version = "3"
-  description = "Random Schema"
+resource "axual_schema_version" "axual_gitops_test_schema_version1" {
+  schema = file("avro-schemas/gitops_test_v1.avsc")
+  version = "1.0.0"
+  description = "Gitops test schema version"
 }
 
-resource "axual_schema_version" "axual_random_schema_version4" {
-  schema = file("avro-schemas/random.avsc")
-  version = "4"
-  description = "Random Schema"
+resource "axual_schema_version" "axual_gitops_test_schema_version2" {
+  schema = file("avro-schemas/gitops_test_v2.avsc")
+  version = "2.0.0"
+  description = "Gitops test schema version"
 }
 
-resource "axual_schema_version" "axual_random_schema_version5" {
-  schema = file("avro-schemas/random.avsc")
-  version = "5"
-  description = "Random Schema"
+resource "axual_schema_version" "axual_gitops_test_schema_version3" {
+  schema = file("avro-schemas/gitops_test_v3.avsc")
+  version = "3.0.0"
+  description = "Gitops test schema version"
 }
