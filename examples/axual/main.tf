@@ -468,20 +468,21 @@ resource "axual_application_access_grant_rejection" "scraper_produce_logs_stagin
 #
 # Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/schema_version
 #
+
 resource "axual_schema_version" "axual_gitops_test_schema_version1" {
-  schema = file("avro-schemas/gitops_test_v1.avsc")
+  body = file("avro-schemas/gitops_test_v1.avsc")
   version = "1.0.0"
   description = "Gitops test schema version"
 }
 
 resource "axual_schema_version" "axual_gitops_test_schema_version2" {
-  schema = file("avro-schemas/gitops_test_v2.avsc")
+  body = file("avro-schemas/gitops_test_v2.avsc")
   version = "2.0.0"
   description = "Gitops test schema version"
 }
 
 resource "axual_schema_version" "axual_gitops_test_schema_version3" {
-  schema = file("avro-schemas/gitops_test_v3.avsc")
+  body = file("avro-schemas/gitops_test_v3.avsc")
   version = "3.0.0"
   description = "Gitops test schema version"
 }

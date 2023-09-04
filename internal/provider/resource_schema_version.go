@@ -27,7 +27,7 @@ func (r schemaVersionResourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 		MarkdownDescription: "Schema version resource. Read more: https://docs.axual.io/axual/2023.2/self-service/schema-management.html",
 
 		Attributes: map[string]tfsdk.Attribute{
-			"schema": {
+			"body": {
 				MarkdownDescription: "Avro schema",
 				Required:            true,
 				Type:                types.StringType,
@@ -92,7 +92,7 @@ func (r schemaVersionResourceType) NewResource(ctx context.Context, in tfsdk.Pro
 }
 
 type schemaVersionResourceData struct {
-	Schema    types.String `tfsdk:"schema"`
+	Body    types.String `tfsdk:"body"`
 	Version    types.String `tfsdk:"version"`
 	Description   types.String `tfsdk:"description"`
 	Id types.String`tfsdk:"id"`
@@ -210,7 +210,7 @@ func mapGetSchemaVersionResponseToData(_ context.Context, data *schemaVersionRes
 func createValidateSchemaVersionRequestFromData(ctx context.Context, data *schemaVersionResourceData) webclient.ValidateSchemaVersionRequest {
 
 	r := webclient.ValidateSchemaVersionRequest{
-	Schema: data.Schema.Value,
+	Schema: data.Body.Value,
 	}
 
 	tflog.Info(ctx, fmt.Sprintf("schema version request %q", r))
