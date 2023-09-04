@@ -46,7 +46,7 @@ func (r schemaVersionResourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 					validation.Length(0, 500),
 				},
 			},
-			"schema_version_id": {
+			"id": {
 				Computed:            true,
 				MarkdownDescription: "Schema version unique identifier",
 				PlanModifiers: tfsdk.AttributePlanModifiers{
@@ -95,7 +95,7 @@ type schemaVersionResourceData struct {
 	Body    types.String `tfsdk:"body"`
 	Version    types.String `tfsdk:"version"`
 	Description   types.String `tfsdk:"description"`
-	SchemaVersionId types.String`tfsdk:"schema_version_id"`
+	Id types.String`tfsdk:"id"`
 	SchemaId types.String`tfsdk:"schema_id"`
 	FullName types.String`tfsdk:"full_name"`
 }
@@ -147,10 +147,10 @@ func (r schemaVersionResource) Read(ctx context.Context, req tfsdk.ReadResourceR
 		return
 	}
 
-	svResp, err := r.provider.client.GetSchemaVersion(data.SchemaVersionId.Value)
+	svResp, err := r.provider.client.GetSchemaVersion(data.Id.Value)
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
-			tflog.Warn(ctx, fmt.Sprintf("Schema version not found. Id: %s", data.SchemaVersionId.Value))
+			tflog.Warn(ctx, fmt.Sprintf("Schema version not found. Id: %s", data.Id.Value))
 			resp.State.RemoveResource(ctx)
 		} else {
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read schema, got error: %s", err))
@@ -181,7 +181,7 @@ func (r schemaVersionResource) Delete(ctx context.Context, req tfsdk.DeleteResou
 		return
 	}
 
-	err := r.provider.client.DeleteSchemaVersion(data.SchemaVersionId.Value)
+	err := r.provider.client.DeleteSchemaVersion(data.SchemaId.Value)
 	if err != nil {
 		resp.Diagnostics.AddError("DELETE request error for schema version resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
@@ -189,20 +189,20 @@ func (r schemaVersionResource) Delete(ctx context.Context, req tfsdk.DeleteResou
 }
 
 func (r schemaVersionResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
-	tfsdk.ResourceImportStatePassthroughID(ctx, tftypes.NewAttributePath().WithAttributeName("schema_version_id"), req, resp)
+	tfsdk.ResourceImportStatePassthroughID(ctx, tftypes.NewAttributePath().WithAttributeName("id"), req, resp)
 }
 
 func mapCreateSchemaVersionResponseToData(_ context.Context, data *schemaVersionResourceData, resp *webclient.CreateSchemaVersionResponse) {
 
 	data.SchemaId = types.String{Value: resp.SchemaId}
-	data.SchemaVersionId = types.String{Value: resp.Id}
+	data.Id = types.String{Value: resp.Id}
 	data.FullName = types.String{Value: resp.FullName}
 	data.Version = types.String{Value: resp.Version}	
 }
 func mapGetSchemaVersionResponseToData(_ context.Context, data *schemaVersionResourceData, resp *webclient.GetSchemaVersionResponse) {
 
 	data.SchemaId = types.String{Value: resp.Schema.SchemaId}
-	data.SchemaVersionId = types.String{Value: resp.Id}
+	data.Id = types.String{Value: resp.Id}
 	data.FullName = types.String{Value: resp.Schema.Name}
 	data.Version = types.String{Value: resp.Version}	
 }
