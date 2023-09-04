@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 ## [master] - TBR
 * Support Managing Environments
 * Support Authorizing Application Access Grants in Terraform.
-* Support Managing Schema Version 
+* Support Managing Avro Schemas
 
 ## [1.0.3](https://github.com/Axual/terraform-provider-axual/releases/tag/v1.0.3) - 2023-04-19
 * Documentation update describing that Stream has been renamed to Topic in Self-Service UI.
