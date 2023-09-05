@@ -17,8 +17,8 @@ Schema version resource. Read more: https://docs.axual.io/axual/2023.2/self-serv
 ### Read-Only
 
 - `full_name` (String) Full name of the schema
+- `id` (String) Schema version unique identifier
 - `schema_id` (String) Schema unique identifier
-- `schema_version_id` (String) Schema version unique identifier
 
 ## Note
 - Schema version cannot be edited

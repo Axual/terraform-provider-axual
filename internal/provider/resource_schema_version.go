@@ -14,10 +14,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-var(
-	_ tfsdk.ResourceType = schemaVersionResourceType{}
-	_ tfsdk.Resource = schemaVersionResource{}
- 	_ tfsdk.ResourceWithImportState = schemaVersionResource{}
+var (
+	_ tfsdk.ResourceType            = schemaVersionResourceType{}
+	_ tfsdk.Resource                = schemaVersionResource{}
+	_ tfsdk.ResourceWithImportState = schemaVersionResource{}
 )
 
 type schemaVersionResourceType struct{}
@@ -31,7 +31,6 @@ func (r schemaVersionResourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 				MarkdownDescription: "Avro schema",
 				Required:            true,
 				Type:                types.StringType,
-				
 			},
 			"version": {
 				MarkdownDescription: "The version of the schema",
@@ -78,7 +77,6 @@ func (r schemaVersionResourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 				},
 				Type: types.StringType,
 			},
-
 		},
 	}, nil
 }
@@ -92,12 +90,12 @@ func (r schemaVersionResourceType) NewResource(ctx context.Context, in tfsdk.Pro
 }
 
 type schemaVersionResourceData struct {
-	Body    types.String `tfsdk:"body"`
-	Version    types.String `tfsdk:"version"`
-	Description   types.String `tfsdk:"description"`
-	Id types.String`tfsdk:"id"`
-	SchemaId types.String`tfsdk:"schema_id"`
-	FullName types.String`tfsdk:"full_name"`
+	Body        types.String `tfsdk:"body"`
+	Version     types.String `tfsdk:"version"`
+	Description types.String `tfsdk:"description"`
+	Id          types.String `tfsdk:"id"`
+	SchemaId    types.String `tfsdk:"schema_id"`
+	FullName    types.String `tfsdk:"full_name"`
 }
 
 type schemaVersionResource struct {
@@ -106,23 +104,23 @@ type schemaVersionResource struct {
 
 func (r schemaVersionResource) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
 	var data schemaVersionResourceData
-	
+
 	diags := req.Config.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	
-	vsReq:= createValidateSchemaVersionRequestFromData(ctx, &data)
-	valid, valErr:= r.provider.client.ValidateSchemaVersion(vsReq)
 
-	if(valErr!=nil) {
+	vsReq := createValidateSchemaVersionRequestFromData(ctx, &data)
+	valid, valErr := r.provider.client.ValidateSchemaVersion(vsReq)
+
+	if valErr != nil {
 		resp.Diagnostics.AddError("Validate Schema request error for schema version resource", fmt.Sprintf("Error message: %s", valErr.Error()))
-		return	
+		return
 	}
 
-	svReq := createSchemaVersionRequestFromData(ctx, valid , &data,)
+	svReq := createSchemaVersionRequestFromData(ctx, valid, &data)
 
 	svResp, err := r.provider.client.CreateSchemaVersion(svReq)
 	if err != nil {
@@ -167,7 +165,7 @@ func (r schemaVersionResource) Read(ctx context.Context, req tfsdk.ReadResourceR
 }
 
 func (r schemaVersionResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
-	
+
 	resp.Diagnostics.AddError("Client Error", "API does not allow update of schema version. Please create another version of the schema")
 }
 
@@ -197,20 +195,20 @@ func mapCreateSchemaVersionResponseToData(_ context.Context, data *schemaVersion
 	data.SchemaId = types.String{Value: resp.SchemaId}
 	data.Id = types.String{Value: resp.Id}
 	data.FullName = types.String{Value: resp.FullName}
-	data.Version = types.String{Value: resp.Version}	
+	data.Version = types.String{Value: resp.Version}
 }
 func mapGetSchemaVersionResponseToData(_ context.Context, data *schemaVersionResourceData, resp *webclient.GetSchemaVersionResponse) {
 
 	data.SchemaId = types.String{Value: resp.Schema.SchemaId}
 	data.Id = types.String{Value: resp.Id}
 	data.FullName = types.String{Value: resp.Schema.Name}
-	data.Version = types.String{Value: resp.Version}	
+	data.Version = types.String{Value: resp.Version}
 }
 
 func createValidateSchemaVersionRequestFromData(ctx context.Context, data *schemaVersionResourceData) webclient.ValidateSchemaVersionRequest {
 
 	r := webclient.ValidateSchemaVersionRequest{
-	Schema: data.Body.Value,
+		Schema: data.Body.Value,
 	}
 
 	tflog.Info(ctx, fmt.Sprintf("schema version request %q", r))
@@ -220,12 +218,12 @@ func createValidateSchemaVersionRequestFromData(ctx context.Context, data *schem
 func createSchemaVersionRequestFromData(ctx context.Context, parsedSchema *webclient.ValidateSchemaVersionResponse, data *schemaVersionResourceData) webclient.SchemaVersionRequest {
 
 	r := webclient.SchemaVersionRequest{
-	Schema: parsedSchema.Schema,
-	Version: data.Version.Value,
+		Schema:  parsedSchema.Schema,
+		Version: data.Version.Value,
 	}
 
 	// optional fields
-	if(!data.Description.Null) {
+	if !data.Description.Null {
 		r.Description = data.Description.Value
 	}
 

@@ -7,7 +7,6 @@ import (
 )
 
 func (c *Client) ValidateSchemaVersion(schema ValidateSchemaVersionRequest) (*ValidateSchemaVersionResponse, error) {
-	
 	o := ValidateSchemaVersionResponse{}
 	marshal, err := json.Marshal(schema)
 	if err != nil {
