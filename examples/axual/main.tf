@@ -458,3 +458,31 @@ resource "axual_application_access_grant_approval" "scraper_produce_logs_product
 resource "axual_application_access_grant_rejection" "scraper_produce_logs_staging_rejection" {
   application_access_grant = axual_application_access_grant.scraper_produce_to_logs_in_staging.id
 }
+
+#
+# A Schema is an AVRO definition formatted in JSON. 
+# In Axual Platform Schemas are used by Streams of data type AVRO (avsc file).
+# Note: An attempt at uploading a duplicate schema is rejected with an error message containing the duplicated version
+#
+# In the example below, schema_version "axual_gitops_test_schema_version1", "axual_gitops_test_schema_version2" and "axual_gitops_test_schema_version3" are declared referencing their respective schema version
+#
+# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/schema_version
+#
+
+resource "axual_schema_version" "axual_gitops_test_schema_version1" {
+  body = file("avro-schemas/gitops_test_v1.avsc")
+  version = "1.0.0"
+  description = "Gitops test schema version"
+}
+
+resource "axual_schema_version" "axual_gitops_test_schema_version2" {
+  body = file("avro-schemas/gitops_test_v2.avsc")
+  version = "2.0.0"
+  description = "Gitops test schema version"
+}
+
+resource "axual_schema_version" "axual_gitops_test_schema_version3" {
+  body = file("avro-schemas/gitops_test_v3.avsc")
+  version = "3.0.0"
+  description = "Gitops test schema version"
+}

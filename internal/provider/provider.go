@@ -132,6 +132,7 @@ func (p *provider) GetResources(_ context.Context) (map[string]tfsdk.ResourceTyp
 		"axual_application_access_grant":           applicationAccessGrantResourceType{},
 		"axual_application_access_grant_approval":  applicationAccessGrantApprovalResourceType{},
 		"axual_application_access_grant_rejection": applicationAccessGrantRejectionResourceType{},
+		"axual_schema_version":                     schemaVersionResourceType{},
 	}, nil
 }
 
