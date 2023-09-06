@@ -179,7 +179,7 @@ func (r schemaVersionResource) Delete(ctx context.Context, req tfsdk.DeleteResou
 		return
 	}
 
-	err := r.provider.client.DeleteSchemaVersion(data.SchemaId.Value)
+	err := r.provider.client.DeleteSchemaVersion(data.Id.Value)
 	if err != nil {
 		resp.Diagnostics.AddError("DELETE request error for schema version resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
