@@ -22,7 +22,7 @@ type applicationResourceType struct{}
 func (t applicationResourceType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
 	return tfsdk.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "An application represents anything that is responsible for producing and/or consuming data on a stream, whether it is a Java or .NET app or a connector.",
+		MarkdownDescription: "An application represents anything that is responsible for producing and/or consuming data on a topic, whether it is a Java or .NET app or a connector.",
 
 		Attributes: map[string]tfsdk.Attribute{
 			"application_type": {
@@ -73,7 +73,7 @@ func (t applicationResourceType) GetSchema(_ context.Context) (tfsdk.Schema, dia
 			},
 			"visibility": {
 				Required:            true,
-				MarkdownDescription: "Application Visibility. Defines the visibility of this application. Possible values are Public and Private. Set the visibility to “Private” if you don’t want your application to end up in overviews such as the stream graph. Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#app-visibility",
+				MarkdownDescription: "Application Visibility. Defines the visibility of this application. Possible values are Public and Private. Set the visibility to “Private” if you don’t want your application to end up in overviews such as the topic graph. Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#app-visibility",
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
 					validation.Compare(validation.OneOf, []string{"Public", "Private"}),

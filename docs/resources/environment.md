@@ -21,7 +21,7 @@ Environments are used typically to support the application lifecycle, as it is m
 ### Optional
 
 - `description` (String) A text describing the purpose of the environment.
-- `partitions` (Number) Defines the number of partitions configured for every stream of this tenant. This is an optional field. If not specified, default value is 12
+- `partitions` (Number) Defines the number of partitions configured for every topic of this tenant. This is an optional field. If not specified, default value is 12
 - `properties` (Map of String) Environment-wide properties for all topics and applications.
 - `retention_time` (Number) The time in milliseconds after which the messages can be deleted from all streams. This is an optional field. If not specified, default value is 7 days (604800000).
 

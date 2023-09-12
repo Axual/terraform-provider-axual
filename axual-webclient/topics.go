@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-func (c *Client) ReadStream(id string) (*StreamResponse, error) {
-	o := StreamResponse{}
+func (c *Client) ReadTopic(id string) (*TopicResponse, error) {
+	o := TopicResponse{}
 	err := c.RequestAndMap("GET", fmt.Sprintf("%s/streams/%s", c.ApiURL, id), nil, nil, &o)
 	if err != nil {
 		return nil, err
@@ -15,9 +15,9 @@ func (c *Client) ReadStream(id string) (*StreamResponse, error) {
 	return &o, nil
 }
 
-func (c *Client) CreateStream(stream StreamRequest) (*StreamResponse, error) {
-	o := StreamResponse{}
-	marshal, err := json.Marshal(stream)
+func (c *Client) CreateTopic(topic TopicRequest) (*TopicResponse, error) {
+	o := TopicResponse{}
+	marshal, err := json.Marshal(topic)
 	if err != nil {
 		return nil, err
 	}
@@ -28,9 +28,9 @@ func (c *Client) CreateStream(stream StreamRequest) (*StreamResponse, error) {
 	return &o, nil
 }
 
-func (c *Client) UpdateStream(id string, streamRequest StreamRequest) (*StreamResponse, error) {
-	o := StreamResponse{}
-	marshal, err := json.Marshal(streamRequest)
+func (c *Client) UpdateTopic(id string, TopicRequest TopicRequest) (*TopicResponse, error) {
+	o := TopicResponse{}
+	marshal, err := json.Marshal(TopicRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func (c *Client) UpdateStream(id string, streamRequest StreamRequest) (*StreamRe
 	return &o, nil
 }
 
-func (c *Client) DeleteStream(id string) error {
+func (c *Client) DeleteTopic(id string) error {
 	err := c.RequestAndMap("DELETE", fmt.Sprintf("%s/streams/%v", c.ApiURL, id), nil, nil, nil)
 	if err != nil {
 		return err

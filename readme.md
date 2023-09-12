@@ -76,7 +76,7 @@ Otherwise, this is the correct resource deletion order:
 
 ### Work in progress
 - Support schema and schemaVersion resource
-- Support AVRO stream and AVRO streamConfig
+- Support AVRO topic and AVRO topicConfig
 - Data Sources
 
 ## Terraform Documentation

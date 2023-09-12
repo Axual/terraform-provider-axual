@@ -1,10 +1,10 @@
 ---
-page_title: "Managing application access to streams"
+page_title: "Managing application access to topics"
 ---
 
 Managing access through Terraform is not straightforward.
 Important concepts to note first:
-- application_access_grant: resource to make request for application to access(consume/produce) a stream in an environment
+- application_access_grant: resource to make request for application to access(consume/produce) a topic in an environment
 - application_access_grant_approval: resource to approve and revoke application_access_grant
 - application_access_grant_rejection: resource to reject application_access_grant
 
@@ -17,7 +17,7 @@ Important concepts to note first:
 - To request access again after a grant has been Revoked, Rejected or Cancelled, application_access_grant needs to be first deleted and then recreated again
 
 #### Stream Owner
-- A Stream owner can reject access to a Stream by creating a `application_access_grant_rejection` resource. An optional reason can be provided.
-- A Stream owner can approve access to a Stream by creating a `application_access_grant_approval` resource. 
-- A Stream owner can revoke access to a Stream by deleting the corresponding `application_access_grant_approval` resource.
+- A Stream owner can reject access to a Topic by creating a `application_access_grant_rejection` resource. An optional reason can be provided.
+- A Stream owner can approve access to a Topic by creating a `application_access_grant_approval` resource. 
+- A Stream owner can revoke access to a Topic by deleting the corresponding `application_access_grant_approval` resource.
   - If the access was auto-approved, a `application_access_grant_approval` resource has to be created for the `application_access_grant`, and then destroyed in order to revoke the grant.

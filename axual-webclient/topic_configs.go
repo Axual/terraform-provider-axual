@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-func (c *Client) ReadStreamConfig(id string) (*StreamConfigResponse, error) {
-	o := StreamConfigResponse{}
+func (c *Client) ReadTopicConfig(id string) (*TopicConfigResponse, error) {
+	o := TopicConfigResponse{}
 	err := c.RequestAndMap("GET", fmt.Sprintf("%s/stream_configs/%s", c.ApiURL, id), nil, nil, &o)
 	if err != nil {
 		return nil, err
@@ -15,9 +15,9 @@ func (c *Client) ReadStreamConfig(id string) (*StreamConfigResponse, error) {
 	return &o, nil
 }
 
-func (c *Client) CreateStreamConfig(stream StreamConfigRequest) (*StreamConfigResponse, error) {
-	o := StreamConfigResponse{}
-	marshal, err := json.Marshal(stream)
+func (c *Client) CreateTopicConfig(topic TopicConfigRequest) (*TopicConfigResponse, error) {
+	o := TopicConfigResponse{}
+	marshal, err := json.Marshal(topic)
 	if err != nil {
 		return nil, err
 	}
@@ -28,9 +28,9 @@ func (c *Client) CreateStreamConfig(stream StreamConfigRequest) (*StreamConfigRe
 	return &o, nil
 }
 
-func (c *Client) UpdateStreamConfig(id string, streamRequest StreamConfigRequest) (*StreamConfigResponse, error) {
-	o := StreamConfigResponse{}
-	marshal, err := json.Marshal(streamRequest)
+func (c *Client) UpdateTopicConfig(id string, topicRequest TopicConfigRequest) (*TopicConfigResponse, error) {
+	o := TopicConfigResponse{}
+	marshal, err := json.Marshal(topicRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func (c *Client) UpdateStreamConfig(id string, streamRequest StreamConfigRequest
 	return &o, nil
 }
 
-func (c *Client) DeleteStreamConfig(id string) error {
+func (c *Client) DeleteTopicConfig(id string) error {
 	err := c.RequestAndMap("DELETE", fmt.Sprintf("%s/stream_configs/%v", c.ApiURL, id), nil, nil, nil)
 	if err != nil {
 		return err

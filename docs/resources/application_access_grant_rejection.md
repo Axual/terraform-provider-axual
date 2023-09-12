@@ -1,6 +1,6 @@
 # axual_application_access_grant_rejection (Resource)
 
-Application Access Grant Rejection: Reject a request to access a stream
+Application Access Grant Rejection: Reject a request to access a topic
 
 ## Note
 - Rejection cannot be edited

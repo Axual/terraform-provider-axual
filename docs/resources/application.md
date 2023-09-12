@@ -1,6 +1,6 @@
 # axual_application (Resource)
 
-An application represents anything that is responsible for producing and/or consuming data on a stream, whether it is a Java or .NET app or a connector.
+An application represents anything that is responsible for producing and/or consuming data on a topic, whether it is a Java or .NET app or a connector.
 
 ## Limitations
 Axual Terraform Provider only supports Custom Application Type. Connector Application Type will be supported in the future. To use Connector Application Type please use the Self Service UI. Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#custom-vs-connector
@@ -16,7 +16,7 @@ Axual Terraform Provider only supports Custom Application Type. Connector Applic
 - `owners` (String) Application Owner
 - `short_name` (String) Application short name. Unique human-readable name for the application. Only Alphanumeric and underscore allowed. Must be unique
 - `type` (String) Application software. Possible values: Java, Pega, SAP, DotNet, Bridge
-- `visibility` (String) Application Visibility. Defines the visibility of this application. Possible values are Public and Private. Set the visibility to “Private” if you don’t want your application to end up in overviews such as the stream graph. Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#app-visibility
+- `visibility` (String) Application Visibility. Defines the visibility of this application. Possible values are Public and Private. Set the visibility to “Private” if you don’t want your application to end up in overviews such as the topic graph. Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#app-visibility
 
 ### Optional
 

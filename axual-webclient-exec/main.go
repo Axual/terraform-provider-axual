@@ -116,66 +116,66 @@ func main() {
 	//7.08 15:07
 
 	/*
-		Delete Stream Config
+		Delete Topic Config
 	*/
 
-	//err := c.DeleteStreamConfig("0b3e262f9303426fa8c0a2c282bde867")
+	//err := c.DeleteTopicConfig("0b3e262f9303426fa8c0a2c282bde867")
 	//if err != nil {
 	//	return
 	//}
 
 	/*
-		Create Stream Config
+		Create Topic Config
 	*/
-	//m := webclient.StreamConfigRequest{
+	//m := webclient.TopicConfigRequest{
 	//	Partitions:    1,
 	//	RetentionTime: 3600001,
-	//	Stream:        "https://platform.local/api/streams/295e1658752940cc96925effb402cd62",
+	//	Topic:        "https://platform.local/api/topics/295e1658752940cc96925effb402cd62",
 	//	Environment:   "https://platform.local/api/environments/7237a4093d7948228d431a603c31c904",
 	//}
-	//streamConfig, err := c.CreateStreamConfig(m)
+	//topicConfig, err := c.CreateTopicConfig(m)
 	//if err != nil {
 	//	return
 	//}
-	//log.Println(fmt.Sprintf("streamConfig %s", streamConfig))
+	//log.Println(fmt.Sprintf("topicConfig %s", topicConfig))
 
 	/*
-		Update Stream Config
+		Update Topic Config
 	*/
-	//m := webclient.StreamConfigRequest{RetentionTime: 3600001}
-	//stream, err := c.UpdateStreamConfig("d3861b6deb884f79bf43b8ecc37ef728", m)
+	//m := webclient.TopicConfigRequest{RetentionTime: 3600001}
+	//topic, err := c.UpdateTopicConfig("d3861b6deb884f79bf43b8ecc37ef728", m)
 	//if err != nil {
 	//	return
 	//}
-	//log.Println(fmt.Sprintf("stream %s", stream))
+	//log.Println(fmt.Sprintf("topic %s", topic))
 	/*
-		Get StreamConfig
+		Get TopicConfig
 	*/
-	//stream, err := c.ReadStreamConfig("d3861b6deb884f79bf43b8ecc37ef728")
+	//topic, err := c.ReadTopicConfig("d3861b6deb884f79bf43b8ecc37ef728")
 	//if err != nil {
 	//	return
 	//}
-	//log.Println(fmt.Sprintf("stream %s", stream))
+	//log.Println(fmt.Sprintf("topic %s", topic))
 	/*
 		Get All Groups
 	*/
-	//streams, err := c.GetGroups()
+	//topics, err := c.GetGroups()
 	//if err != nil {
 	//	return
 	//}
-	//for i, env := range streams.Embedded.Groups {
+	//for i, env := range topics.Embedded.Groups {
 	//	log.Println("group no. ", i)
 	//	log.Println("group data/ ", env)
 	//}
 
 	/*
-		Read Stream
+		Read Topic
 	*/
-	//schema, err := c.ReadStream("7b68fe584eb9414cad825f90c0c283d7")
+	//schema, err := c.ReadTopic("7b68fe584eb9414cad825f90c0c283d7")
 	//if err != nil {
 	//	return
 	//}
-	//log.Println("STREAM IS", schema)
+	//log.Println("TOPIC IS", schema)
 
 	///*
 	//	Get Schema
@@ -201,34 +201,34 @@ func main() {
 	log.Println("SCHEMA IS", schema)
 
 	/*
-		Get Stream
+		Get Topic
 	*/
-	//stream, err := c.ReadStream("a514c764c8034d4eab4087cb2f0805c8")
+	//topic, err := c.ReadTopic("a514c764c8034d4eab4087cb2f0805c8")
 	//if err != nil {
 	//	return
 	//}
-	//log.Println(fmt.Sprintf("stream %s", stream))
+	//log.Println(fmt.Sprintf("topic %s", topic))
 
 	/*
-		Create Stream
+		Create Topic
 	*/
-	//stream := createStream(c)
-	//log.Println(fmt.Sprintf("stream %s", stream))
+	//topic := createTopic(c)
+	//log.Println(fmt.Sprintf("topic %s", topic))
 
 	/*
-		Update Stream
+		Update Topic
 	*/
-	//m := map[string]interface{}{"name": "teststream5"}
-	//stream, err := c.UpdateStream("1bc1130b24794ffebafdea32ff33b94e", m)
+	//m := map[string]interface{}{"name": "testtopic5"}
+	//topic, err := c.UpdateTopic("1bc1130b24794ffebafdea32ff33b94e", m)
 	//if err != nil {
 	//	return
 	//}
-	//log.Println(fmt.Sprintf("stream %s", stream))
+	//log.Println(fmt.Sprintf("topic %s", topic))
 
 	/*
-		Delete Stream
+		Delete Topic
 	*/
-	//err = c.DeleteStream("1bc1130b24794ffebafdea32ff33b94e")
+	//err = c.DeleteTopic("1bc1130b24794ffebafdea32ff33b94e")
 	//if err != nil {
 	//	return
 	//}
@@ -356,8 +356,8 @@ func createEnv(c *webclient.Client) *webclient.EnvironmentResponse {
 
 }
 
-func createStream(c *webclient.Client) *webclient.StreamResponse {
-	request := webclient.StreamRequest{
+func createTopic(c *webclient.Client) *webclient.TopicResponse {
+	request := webclient.TopicRequest{
 		Name:            "test11",
 		Description:     "some desc",
 		Owners:          "https://platform.local/settings/groups/dd84b3ee8e4341fbb58704b18c10ec5c",
@@ -366,15 +366,15 @@ func createStream(c *webclient.Client) *webclient.StreamResponse {
 		RetentionPolicy: "Compact",
 		//Properties:          props(),
 	}
-	stream, err := c.CreateStream(request)
+	topic, err := c.CreateTopic(request)
 	if err != nil {
 		return nil
 	}
 
-	retrieved, err := c.ReadStream(stream.Uid)
+	retrieved, err := c.ReadTopic(topic.Uid)
 	log.Println(retrieved.Properties)
 	log.Println(retrieved)
 
-	return stream
+	return topic
 
 }

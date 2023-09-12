@@ -1,6 +1,6 @@
 # axual_application_access_grant_approval (Resource)
 
-Application Access Grant Approval: Approve access to a stream
+Application Access Grant Approval: Approve access to a topic
 
 ## Note
 - Approval cannot be edited

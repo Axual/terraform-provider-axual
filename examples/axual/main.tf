@@ -214,7 +214,7 @@ resource "axual_application" "dev_dashboard" {
   type = "Java"
   visibility = "Public"
   description = "Dashboard with crucial information for Developers"
-#  depends_on = [axual_stream_config.logs_in_production, axual_stream.support] # This is a workaround when all resources get deleted at once, to delete stream_config and stream before application. Mentioned in index.md
+#  depends_on = [axual_topic_config.logs_in_production, axual_topic.support] # This is a workaround when all resources get deleted at once, to delete topic_config and topic before application. Mentioned in index.md
 }
 
 resource "axual_application" "log_scraper" {
@@ -226,7 +226,7 @@ resource "axual_application" "log_scraper" {
   type = "Java"
   visibility = "Public"
   description = "Axual's Test Application for finding all Logs for developers"
-#  depends_on = [axual_stream_config.logs_in_dev, axual_stream.logs] # This is a workaround when all resources get deleted at once, to delete stream_config and stream before application. Mentioned in index.md
+#  depends_on = [axual_topic_config.logs_in_dev, axual_topic.logs] # This is a workaround when all resources get deleted at once, to delete topic_config and topic before application. Mentioned in index.md
 }
 
 #
@@ -273,15 +273,15 @@ resource "axual_application_principal" "log_scraper_in_production_principal" {
 }
 
 #
-# A STREAM is nothing different than a declaration of a TOPIC. While STREAM mostly holds metadata, such as the owner and data type,
-# the STREAM_CONFIG configures a STREAM in an ENVIRONMENT
+# A TOPIC is nothing different than a declaration of a TOPIC. While TOPIC mostly holds metadata, such as the owner and data type,
+# the TOPIC_CONFIG configures a TOPIC in an ENVIRONMENT
 #
-# Below, some STREAMs are declared and configured in different environments and owned by different GROUPs
+# Below, some TOPICs are declared and configured in different environments and owned by different GROUPs
 #
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/stream
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/stream_config
+# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/topic
+# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/topic_config
 
-resource "axual_stream" "logs" {
+resource "axual_topic" "logs" {
   name = "logs"
   key_type = "String"
   value_type = "String"
@@ -291,31 +291,31 @@ resource "axual_stream" "logs" {
   description = "Logs from all applications"
 }
 
-resource "axual_stream_config" "logs_in_dev" {
+resource "axual_topic_config" "logs_in_dev" {
   partitions = 1
   retention_time = 864000
-  stream = axual_stream.logs.id
+  topic = axual_topic.logs.id
   environment = axual_environment.development.id
   properties = {"segment.ms"="600012", "retention.bytes"="1"}
 }
 
-resource "axual_stream_config" "logs_in_staging" {
+resource "axual_topic_config" "logs_in_staging" {
   partitions = 1
   retention_time = 1001000
-  stream = axual_stream.logs.id
+  topic = axual_topic.logs.id
   environment = axual_environment.staging.id
   properties = {"segment.ms"="60002", "retention.bytes"="100"}
 }
 
-resource "axual_stream_config" "logs_in_production" {
+resource "axual_topic_config" "logs_in_production" {
   partitions = 2
   retention_time = 86400000
-  stream = axual_stream.logs.id
+  topic = axual_topic.logs.id
   environment = axual_environment.production.id
   properties = {"segment.ms"="600000", "retention.bytes"="10089"}
 }
 
-resource "axual_stream" "support" {
+resource "axual_topic" "support" {
   name = "support"
   key_type = "String"
   value_type = "String"
@@ -325,18 +325,18 @@ resource "axual_stream" "support" {
   description = "Support tickets from Help Desk"
 }
 
-resource "axual_stream_config" "support_in_staging" {
+resource "axual_topic_config" "support_in_staging" {
   partitions = 1
   retention_time = 1001
-  stream = axual_stream.support.id
+  topic = axual_topic.support.id
   environment = axual_environment.staging.id
   properties = {"segment.ms"="60002", "retention.bytes"="1234"}
 }
 
-resource "axual_stream_config" "support_in_production" {
+resource "axual_topic_config" "support_in_production" {
   partitions = 4
   retention_time = 10000000
-  stream = axual_stream.support.id
+  topic = axual_topic.support.id
   environment = axual_environment.production.id
   properties = {"segment.ms"="600000", "retention.bytes"="10089"}
 }
@@ -355,7 +355,7 @@ resource "axual_stream_config" "support_in_production" {
 
 resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
   application = axual_application.dev_dashboard.id
-  stream = axual_stream.logs.id
+  topic = axual_topic.logs.id
   environment = axual_environment.development.id
   access_type = "CONSUMER"
   depends_on = [ axual_application_principal.dev_dashboard_in_dev_principal ]
@@ -363,7 +363,7 @@ resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
 
 resource "axual_application_access_grant" "log_scraper_consume_from_support_in_dev" {
   application = axual_application.log_scraper.id
-  stream = axual_stream.support.id
+  topic = axual_topic.support.id
   environment = axual_environment.development.id
   access_type = "CONSUMER"
   depends_on = [ axual_application_principal.log_scraper_in_dev_principal ]
@@ -371,7 +371,7 @@ resource "axual_application_access_grant" "log_scraper_consume_from_support_in_d
 
 resource "axual_application_access_grant" "dash_consume_from_logs_in_staging" {
   application = axual_application.dev_dashboard.id
-  stream = axual_stream.logs.id
+  topic = axual_topic.logs.id
   environment = axual_environment.staging.id
   access_type = "CONSUMER"
   depends_on = [ axual_application_principal.dev_dashboard_in_staging_principal ]
@@ -379,7 +379,7 @@ resource "axual_application_access_grant" "dash_consume_from_logs_in_staging" {
 
 resource "axual_application_access_grant" "dash_consume_from_support_in_staging" {
   application = axual_application.dev_dashboard.id
-  stream = axual_stream.support.id
+  topic = axual_topic.support.id
   environment = axual_environment.staging.id
   access_type = "CONSUMER"
   depends_on = [ axual_application_principal.dev_dashboard_in_staging_principal ]
@@ -387,7 +387,7 @@ resource "axual_application_access_grant" "dash_consume_from_support_in_staging"
 
 resource "axual_application_access_grant" "scraper_produce_to_logs_in_staging" {
   application = axual_application.log_scraper.id
-  stream = axual_stream.logs.id
+  topic = axual_topic.logs.id
   environment = axual_environment.staging.id
   access_type = "PRODUCER"
   depends_on = [ axual_application_principal.log_scraper_in_staging_principal ]
@@ -395,7 +395,7 @@ resource "axual_application_access_grant" "scraper_produce_to_logs_in_staging" {
 
 resource "axual_application_access_grant" "dash_consume_from_logs_in_production" {
   application = axual_application.dev_dashboard.id
-  stream = axual_stream.logs.id
+  topic = axual_topic.logs.id
   environment = axual_environment.production.id
   access_type = "CONSUMER"
   depends_on = [ axual_application_principal.dev_dashboard_in_production_principal ]
@@ -403,7 +403,7 @@ resource "axual_application_access_grant" "dash_consume_from_logs_in_production"
 
 resource "axual_application_access_grant" "dash_consume_from_support_in_production" {
   application = axual_application.dev_dashboard.id
-  stream = axual_stream.support.id
+  topic = axual_topic.support.id
   environment = axual_environment.production.id
   access_type = "CONSUMER"
   depends_on = [ axual_application_principal.dev_dashboard_in_production_principal ]
@@ -411,7 +411,7 @@ resource "axual_application_access_grant" "dash_consume_from_support_in_producti
 
 resource "axual_application_access_grant" "scraper_produce_to_logs_in_production" {
   application = axual_application.log_scraper.id
-  stream = axual_stream.logs.id
+  topic = axual_topic.logs.id
   environment = axual_environment.production.id
   access_type = "PRODUCER"
   depends_on = [ axual_application_principal.log_scraper_in_production_principal ]

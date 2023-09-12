@@ -1,6 +1,6 @@
 package webclient
 
-type StreamConfigResponse struct {
+type TopicConfigResponse struct {
 	Properties    map[string]interface{} `json:"properties"`
 	RetentionTime int                    `json:"retentionTime"`
 	Partitions    int                    `json:"partitions"`
@@ -35,7 +35,7 @@ type StreamConfigResponse struct {
 				} `json:"self"`
 			} `json:"_links"`
 		} `json:"environment"`
-		Stream struct {
+		Topic struct {
 			Description string `json:"description"`
 			Owners      struct {
 				Name         string      `json:"name"`
@@ -84,17 +84,17 @@ type StreamConfigResponse struct {
 					Title     string `json:"title"`
 				} `json:"self"`
 			} `json:"_links"`
-		} `json:"stream"`
+		} `json:"topic"`
 	} `json:"_embedded"`
 	Links struct {
 		Self struct {
 			Href  string `json:"href"`
 			Title string `json:"title"`
 		} `json:"self"`
-		StreamConfig struct {
+		TopicConfig struct {
 			Href  string `json:"href"`
 			Title string `json:"title"`
-		} `json:"streamConfig"`
+		} `json:"topicConfig"`
 		Edit struct {
 			Href  string `json:"href"`
 			Title string `json:"title"`
@@ -113,11 +113,11 @@ type StreamConfigResponse struct {
 			Templated bool   `json:"templated"`
 			Title     string `json:"title"`
 		} `json:"keySchemaVersion"`
-		Stream struct {
+		Topic struct {
 			Href      string `json:"href"`
 			Templated bool   `json:"templated"`
 			Title     string `json:"title"`
-		} `json:"stream"`
+		} `json:"topic"`
 		ValueSchemaVersion struct {
 			Href      string `json:"href"`
 			Templated bool   `json:"templated"`
@@ -126,10 +126,10 @@ type StreamConfigResponse struct {
 	} `json:"_links"`
 }
 
-type StreamConfigRequest struct {
+type TopicConfigRequest struct {
 	Partitions    int                    `json:"partitions,omitempty"`
 	RetentionTime int                    `json:"retentionTime,omitempty"`
-	Stream        string                 `json:"stream,omitempty"`
+	Topic        string                 `json:"topic,omitempty"`
 	Environment   string                 `json:"environment,omitempty"`
 	Properties    map[string]interface{} `json:"properties,omitempty"`
 }

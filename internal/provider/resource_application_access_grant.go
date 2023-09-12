@@ -22,7 +22,7 @@ type applicationAccessGrantResourceType struct{}
 func (t applicationAccessGrantResourceType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
 
 	return tfsdk.Schema{
-		MarkdownDescription: "Application Access Grant resource. Purpose of a grant is to request access to a stream in an environment. Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#requesting-stream-access",
+		MarkdownDescription: "Application Access Grant resource. Purpose of a grant is to request access to a topic in an environment. Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#requesting-stream-access",
 		Attributes: map[string]tfsdk.Attribute{
 			"id": {
 				MarkdownDescription: "Application Access Grant Unique Identifier",
@@ -48,8 +48,8 @@ func (t applicationAccessGrantResourceType) GetSchema(_ context.Context) (tfsdk.
 					tfsdk.RequiresReplace(),
 				},
 			},
-			"stream": {
-				MarkdownDescription: "Stream Unique Identifier",
+			"topic": {
+				MarkdownDescription: "Topic Unique Identifier",
 				Required:            true,
 				Type:                types.StringType,
 				PlanModifiers: tfsdk.AttributePlanModifiers{
@@ -90,7 +90,7 @@ func (t applicationAccessGrantResourceType) NewResource(_ context.Context, in tf
 type applicationAccessGrantData struct {
 	Id            types.String `tfsdk:"id"`
 	ApplicationId types.String `tfsdk:"application"`
-	StreamId      types.String `tfsdk:"stream"`
+	TopicId      types.String `tfsdk:"topic"`
 	EnvironmentId types.String `tfsdk:"environment"`
 	Status        types.String `tfsdk:"status"`
 	AccessType    types.String `tfsdk:"access_type"`
@@ -112,7 +112,7 @@ func (r applicationAccessGrantResource) Create(ctx context.Context, req tfsdk.Cr
 
 	applicationAccessGrantRequestData := webclient.ApplicationAccessGrantRequest{
 		EnvironmentId: data.EnvironmentId.Value,
-		StreamId:      data.StreamId.Value,
+		TopicId:      data.TopicId.Value,
 		ApplicationId: data.ApplicationId.Value,
 		AccessType:    data.AccessType.Value,
 	}
@@ -125,7 +125,7 @@ func (r applicationAccessGrantResource) Create(ctx context.Context, req tfsdk.Cr
 
 	data.Id = types.String{Value: ApplicationAccessGrant.Uid}
 	data.Status = types.String{Value: ApplicationAccessGrant.Status}
-	data.StreamId = types.String{Value: data.StreamId.Value}
+	data.TopicId = types.String{Value: data.TopicId.Value}
 	data.EnvironmentId = types.String{Value: ApplicationAccessGrant.Environment.Id}
 	data.ApplicationId = types.String{Value: data.ApplicationId.Value}
 
@@ -158,7 +158,7 @@ func (r applicationAccessGrantResource) Read(ctx context.Context, req tfsdk.Read
 	tflog.Info(ctx, "mapping the resource")
 	data.Id = types.String{Value: applicationAccessGrant.Uid}
 	data.Status = types.String{Value: applicationAccessGrant.Status}
-	data.StreamId = types.String{Value: data.StreamId.Value}
+	data.TopicId = types.String{Value: data.TopicId.Value}
 	data.EnvironmentId = types.String{Value: applicationAccessGrant.Embedded.Environment.Uid}
 	data.ApplicationId = types.String{Value: data.ApplicationId.Value}
 
