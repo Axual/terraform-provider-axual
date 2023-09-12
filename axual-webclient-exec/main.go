@@ -130,7 +130,7 @@ func main() {
 	//m := webclient.TopicConfigRequest{
 	//	Partitions:    1,
 	//	RetentionTime: 3600001,
-	//	Topic:        "https://platform.local/api/topics/295e1658752940cc96925effb402cd62",
+	//	Topic:        "https://platform.local/api/streams/295e1658752940cc96925effb402cd62",
 	//	Environment:   "https://platform.local/api/environments/7237a4093d7948228d431a603c31c904",
 	//}
 	//topicConfig, err := c.CreateTopicConfig(m)
