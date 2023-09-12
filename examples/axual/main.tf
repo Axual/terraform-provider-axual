@@ -281,10 +281,30 @@ resource "axual_application_principal" "log_scraper_in_production_principal" {
 # Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/stream
 # Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/stream_config
 
+resource "axual_schema_version" "axual_gitops_test_schema_version1" {
+  body = file("avro-schemas/gitops_test_v1.avsc")
+  version = "1.0.0"
+  description = "Gitops test schema version"
+}
+
+resource "axual_schema_version" "axual_gitops_test_schema_version2" {
+  body = file("avro-schemas/gitops_test_v2.avsc")
+  version = "2.0.0"
+  description = "Gitops test schema version"
+}
+
+resource "axual_schema_version" "axual_gitops_test_schema_version3" {
+  body = file("avro-schemas/gitops_test_v3.avsc")
+  version = "3.0.0"
+  description = "Gitops test schema version"
+}
+
 resource "axual_stream" "logs" {
   name = "logs"
-  key_type = "String"
-  value_type = "String"
+  key_type = "AVRO"
+  key_schema = axual_schema_version.axual_gitops_test_schema_version1.id
+  value_type = "AVRO"
+  value_schema = axual_schema_version.axual_gitops_test_schema_version2.id
   owners = axual_group.team-bonanza.id
   retention_policy = "delete"
   properties = { }
@@ -469,20 +489,3 @@ resource "axual_application_access_grant_rejection" "scraper_produce_logs_stagin
 # Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/schema_version
 #
 
-resource "axual_schema_version" "axual_gitops_test_schema_version1" {
-  body = file("avro-schemas/gitops_test_v1.avsc")
-  version = "1.0.0"
-  description = "Gitops test schema version"
-}
-
-resource "axual_schema_version" "axual_gitops_test_schema_version2" {
-  body = file("avro-schemas/gitops_test_v2.avsc")
-  version = "2.0.0"
-  description = "Gitops test schema version"
-}
-
-resource "axual_schema_version" "axual_gitops_test_schema_version3" {
-  body = file("avro-schemas/gitops_test_v3.avsc")
-  version = "3.0.0"
-  description = "Gitops test schema version"
-}

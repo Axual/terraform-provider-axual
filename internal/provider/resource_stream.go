@@ -46,16 +46,26 @@ func (t streamResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.D
 				Required:            true,
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
-					validation.Compare(validation.OneOf, []string{"JSON", "Binary", "String", "Xml"}),
+					validation.Compare(validation.OneOf, []string{"AVRO", "JSON", "Binary", "String", "Xml"}),
 				},
+			},
+			"key_schema": {
+				MarkdownDescription: "The key type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html#key-type",
+				Optional:            true,
+				Type:                types.StringType,
 			},
 			"value_type": {
 				MarkdownDescription: "The value type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html#value-type",
 				Required:            true,
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
-					validation.Compare(validation.OneOf, []string{"JSON", "Binary", "String", "Xml"}),
+					validation.Compare(validation.OneOf, []string{"AVRO", "JSON", "Binary", "String", "Xml"}),
 				},
+			},
+			"value_schema": {
+				MarkdownDescription: "The value type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html#value-type",
+				Optional:            true,
+				Type:                types.StringType,
 			},
 			"owners": {
 				MarkdownDescription: "The team owning this stream. Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html#stream-owner",
@@ -99,7 +109,9 @@ type streamResourceData struct {
 	Name            types.String `tfsdk:"name"`
 	Description     types.String `tfsdk:"description"`
 	KeyType         types.String `tfsdk:"key_type"`
+	KeySchema       types.String `tfsdk:"key_schema"`
 	ValueType       types.String `tfsdk:"value_type"`
+	ValueSchema     types.String `tfsdk:"value_schema"`
 	Owners          types.String `tfsdk:"owners"`
 	RetentionPolicy types.String `tfsdk:"retention_policy"`
 	Id              types.String `tfsdk:"id"`
@@ -250,10 +262,26 @@ func createStreamRequestFromData(ctx context.Context, data *streamResourceData, 
 	}
 	owners = fmt.Sprintf("%s/groups/%v", r.provider.client.ApiURL, owners)
 
+	var keySchema string
+	if data.KeyType.Value == "AVRO" {
+		if !data.KeySchema.Null {
+			keySchema = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.KeySchema.Value)
+		}
+	}
+
+	var valueSchema string
+	if data.ValueType.Value == "AVRO" {
+		if !data.ValueSchema.Null {
+			valueSchema = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.ValueSchema.Value)
+		}
+	}
+
 	streamRequest := webclient.StreamRequest{
 		Name:            data.Name.Value,
 		KeyType:         data.KeyType.Value,
+		KeySchema:       keySchema,
 		ValueType:       data.ValueType.Value,
+		ValueSchema:     valueSchema,
 		Owners:          owners,
 		RetentionPolicy: data.RetentionPolicy.Value,
 	}
