@@ -1,0 +1,28 @@
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Example Usage
+
+```hcl
+resource "axual_topic_config" "logs_in_dev" {
+  partitions = 1
+  retention_time = 864000
+  topic = axual_topic.logs.id
+  environment = axual_environment.development.id
+  properties = {"segment.ms"="600012", "retention.bytes"="1"}
+}
+```
+
+For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
+
+## Import
+
+Import is supported using the following syntax:
+
+```shell
+terraform import axual_topic_config.<LOCAL NAME> <TOPIC CONFIG UID>
+terraform import axual_topic_config.test_topic_config b21cf1d63a55436391463cee3f56e393
+```

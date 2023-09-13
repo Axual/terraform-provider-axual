@@ -3,8 +3,8 @@
 Axual Provider allows using Axual's Self-Service for Apache Kafka functionality within Terraform configurations.
 
 ## Axual Self Service
-- Self Service allows fine-grained access control over your applications and streams, who is accessing your streams and for what purpose.
-- Self Service displays valuable metadata about streams and the applications interacting with them, such as:
+- Self Service allows fine-grained access control over your applications and topics, who is accessing your topics and for what purpose.
+- Self Service displays valuable metadata about topics and the applications interacting with them, such as:
 	- The format of the data that’s present on the topic
 	- How long until the data is removed from the topic
 	- Which applications are the producers and the consumers of this data
@@ -14,15 +14,15 @@ Axual Provider allows using Axual's Self-Service for Apache Kafka functionality 
 ## Features
 
 - User/group management
-- Stream and application management
+- Topic and application management
 - Security
-	- To secure which applications are authorised to access streams, we support
+	- To secure which applications are authorised to access topics, we support
 		- SSL (MUTUAL TLS) as a Certificate(PEM)
 		- SASL (OAUTHBEARER) as a Custom Principal that specifies the ID referenced in URI and tokens. For example, 'my-client'
 - Environment management
 - Request, Approval, Revocation, Rejection and Cancellation of Access Requests
 ## Limitations
-- As of 2023.1 release **Stream is renamed to Topic in Self-Service UI**. Stream remains unchanged in Platform API. Therefore, the Axual Terraform Provider will continue to use Stream in the API.
+- As of 2023.1 release **Stream is renamed to Topic in Self-Service UI**. Stream remains unchanged in Platform API.
 - Currently, there is a bug that deleting a resource that is managed by Terraform from UI results in Terraform not being able to recreate the resource again according to .tf configuration file. We do not recommend currently deleting resources managed by Terraform from UI. This bug has been reported to development team and is under investigation.
 - Public environments cannot be deleted, private environments can be deleted. This feature will be implemented in the future.
 - When deleting all resources at once, application.tf needs to have a dependency to make sure topic and topic_config get deleted first. This bug has been reported to development team and is under investigation.
@@ -63,7 +63,7 @@ Next, take a look at the *full* example which shows you the capabilities of the 
 - Our guides are in the guides folder:
 	- How to import user and group: [Importing user and group](guides/importing-user-and-groups.md)
 	- Setting up Terraform with Axual Trial: [Axual Trial setup](guides/axual-trial-setup.md)
-	- Managing application access to streams: [Axual Trial setup](guides/manage-application-access-to-streams.md)
+	- Managing application access to topics: [Axual Trial setup](guides/manage-application-access-to-topics.md)
 
 
 ## Compatibility

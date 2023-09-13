@@ -1,6 +1,6 @@
 # axual_application_access_grant (Resource)
 
-Application Access Grant resource. Purpose of a grant is to request access to a topic in an environment. Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#requesting-stream-access
+Application Access Grant resource. Purpose of a grant is to request access to a topic in an environment. Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#requesting-topic-access
 
 ## Note
 - Application Access Grant cannot be edited

@@ -48,8 +48,8 @@ All resources can be created at once if **depends_on** argument is used like in 
 Otherwise, this is the correct resource creation order:
 1. User
 2. Group
-3. Stream
-4. Stream Config
+3. Topic
+4. Topic Config
 5. Application
 6. Application principal
 7. Application access grant
@@ -59,16 +59,16 @@ Otherwise, this is the correct resource deletion order:
 1. Application access grant
 2. Application principal
 3. Application
-4. Stream Config
-5. Stream
+4. Topic Config
+5. Topic
 6. Group
 7. User
 ### Milestone 1 Features
 - Added support for Tenant, User, Group
 - Added support for Application, ApplicationPrincipal
-- Added support for Stream, StreamConfig
-- Stream key type and value type has to be String/Binary/JSON/XML
-  Stream retention_policy has to be string “compact” or “delete’
+- Added support for Topic, TopicConfig
+- Topic key type and value type has to be String/Binary/JSON/XML
+  Topic retention_policy has to be string “compact” or “delete’
 
 ### Milestone 2 Features
 - Added support for Environment

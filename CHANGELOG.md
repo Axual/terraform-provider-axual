@@ -18,8 +18,8 @@ All notable changes to this project will be documented in this file.
 * Documentation update on using Terraform Provider with Axual Trial
 
 ## [1.0.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v1.0.0) - 2022-10-08
-* Support Managing Streams
-* Support Managing Stream Configuration 
+* Support Managing Topics
+* Support Managing Topic Configuration 
 * Support Managing Applications
 * Support Managing Application Authentication with SSL and Oauthbearer
 * Support Managing Application Authorization through Application Access Grants for auto approved environemts

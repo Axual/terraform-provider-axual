@@ -14,7 +14,7 @@ Axual Provider allows using Axual's Self-Service for Apache Kafka functionality 
 ## Features
 
 - User/group management
-- Stream and application management
+- Topic and application management
 - Security
 	- To secure which applications are authorised to access topics, we support
 		- SSL (MUTUAL TLS) as a Certificate(PEM)
@@ -22,7 +22,7 @@ Axual Provider allows using Axual's Self-Service for Apache Kafka functionality 
 - Environment management
 - Request, Approval, Revocation, Rejection and Cancellation of Access Requests
 ## Limitations
-- As of 2023.1 release **Stream is renamed to Topic in Self-Service UI**. Stream remains unchanged in Platform API. Therefore, the Axual Terraform Provider will continue to use Stream in the API.
+- As of 2023.1 release **Stream is renamed to Topic in Self-Service UI**. Stream remains unchanged in Platform API. 
 - Currently, there is a bug that deleting a resource that is managed by Terraform from UI results in Terraform not being able to recreate the resource again according to .tf configuration file. We do not recommend currently deleting resources managed by Terraform from UI. This bug has been reported to development team and is under investigation.
 - Public environments cannot be deleted, private environments can be deleted. This feature will be implemented in the future.
 - When deleting all resources at once, application.tf needs to have a dependency to make sure topic and topic_config get deleted first. This bug has been reported to development team and is under investigation.
@@ -80,7 +80,7 @@ Next, take a look at the *full* example which shows you the capabilities of the 
 #
 # GROUPS and USERS
 # ----------------
-# GROUPS own entities like STREAM, APPLICATION  and ENVIRONMENT. USERS are members of a GROUP
+# GROUPS own entities like TOPIC, APPLICATION  and ENVIRONMENT. USERS are members of a GROUP
 # Below, three users are declared with certain roles in the system.
 
 #
@@ -341,10 +341,10 @@ resource "axual_application_principal" "log_scraper_in_production_principal" {
 }
 
 #
-# A STREAM is nothing different than a declaration of a TOPIC. While STREAM mostly holds metadata, such as the owner and data type,
-# the STREAM_CONFIG configures a STREAM in an ENVIRONMENT
+# A TOPIC mostly holds metadata, such as the owner and data type,
+# the TOPIC_CONFIG configures a TOPIC in an ENVIRONMENT
 #
-# Below, some STREAMs are declared and configured in different environments and owned by different GROUPs
+# Below, some TOPICs are declared and configured in different environments and owned by different GROUPs
 #
 # Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/topic
 # Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/topic_config
@@ -410,7 +410,7 @@ resource "axual_topic_config" "support_in_production" {
 }
 
 #
-# An APPLICATION_ACCESS_GRANT represents a connection between an APPLICATION and a STREAM
+# An APPLICATION_ACCESS_GRANT represents a connection between an APPLICATION and a TOPIC
 # Its ACCESS_TYPE is either PRODUCER or CONSUMER, depending on the use case
 # The grant refers to the principal, because the principal is used by the application to
 # identify itself to the platform
@@ -529,7 +529,7 @@ resource "axual_application_access_grant_rejection" "scraper_produce_logs_stagin
 
 #
 # A Schema is an AVRO definition formatted in JSON. 
-# In Axual Platform Schemas are used by Streams of data type AVRO (avsc file).
+# In Axual Platform Schemas are used by Topics of data type AVRO (avsc file).
 # Note: An attempt at uploading a duplicate schema is rejected with an error message containing the duplicated version
 #
 # In the example below, schema_version "axual_gitops_test_schema_version1", "axual_gitops_test_schema_version2" and "axual_gitops_test_schema_version3" are declared referencing their respective schema version

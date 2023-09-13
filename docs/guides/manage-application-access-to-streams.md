@@ -10,9 +10,9 @@ Important concepts to note first:
 
 
 #### Application Owner
-- An Application owner can request access to a Stream by creating a `application_access_grant` resource.
+- An Application owner can request access to a Topic by creating a `application_access_grant` resource.
 - If the `application_access_grant` is auto-approved in the specified environment, then no further action is required on the Application Owner's part. Access is fully granted.
-- If the `application_access_grant` requires approval from Stream Owner, the section on Stream Owner shows them how to do it.
+- If the `application_access_grant` requires approval from Stream Owner, the section on Topic Owner shows them how to do it.
 - An `application_access_grant` can be cancelled by deleting the resource. This is only possible if it is not pending approval.
 - To request access again after a grant has been Revoked, Rejected or Cancelled, application_access_grant needs to be first deleted and then recreated again
 
