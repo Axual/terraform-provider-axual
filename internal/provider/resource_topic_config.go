@@ -94,7 +94,7 @@ func (t topicConfigResourceType) NewResource(ctx context.Context, in tfsdk.Provi
 type topicConfigResourceData struct {
 	Partitions    types.Int64  `tfsdk:"partitions"`
 	RetentionTime types.Int64  `tfsdk:"retention_time"`
-	Topic        types.String `tfsdk:"topic"`
+	Topic        types.String  `tfsdk:"stream"`
 	Environment   types.String `tfsdk:"environment"`
 	Id            types.String `tfsdk:"id"`
 	Properties    types.Map    `tfsdk:"properties"`
@@ -237,7 +237,7 @@ func createTopicConfigRequestFromData(ctx context.Context, data *topicConfigReso
 	if err != nil {
 		return webclient.TopicConfigRequest{}, err
 	}
-	topic = fmt.Sprintf("%s/topics/%v", r.provider.client.ApiURL, topic)
+	topic = fmt.Sprintf("%s/streams/%v", r.provider.client.ApiURL, topic)
 
 	rawEnvironment, err := data.Environment.ToTerraformValue(ctx)
 	if err != nil {

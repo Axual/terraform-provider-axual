@@ -84,7 +84,7 @@ type TopicConfigResponse struct {
 					Title     string `json:"title"`
 				} `json:"self"`
 			} `json:"_links"`
-		} `json:"topic"`
+		} `json:"stream"`
 	} `json:"_embedded"`
 	Links struct {
 		Self struct {
@@ -94,7 +94,7 @@ type TopicConfigResponse struct {
 		TopicConfig struct {
 			Href  string `json:"href"`
 			Title string `json:"title"`
-		} `json:"topicConfig"`
+		} `json:"streamConfig"`
 		Edit struct {
 			Href  string `json:"href"`
 			Title string `json:"title"`
@@ -117,7 +117,7 @@ type TopicConfigResponse struct {
 			Href      string `json:"href"`
 			Templated bool   `json:"templated"`
 			Title     string `json:"title"`
-		} `json:"topic"`
+		} `json:"stream"`
 		ValueSchemaVersion struct {
 			Href      string `json:"href"`
 			Templated bool   `json:"templated"`
@@ -129,7 +129,7 @@ type TopicConfigResponse struct {
 type TopicConfigRequest struct {
 	Partitions    int                    `json:"partitions,omitempty"`
 	RetentionTime int                    `json:"retentionTime,omitempty"`
-	Topic        string                 `json:"topic,omitempty"`
+	Topic        string                 `json:"stream,omitempty"`
 	Environment   string                 `json:"environment,omitempty"`
 	Properties    map[string]interface{} `json:"properties,omitempty"`
 }
