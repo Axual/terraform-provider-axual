@@ -38,7 +38,7 @@ func (c *Client) UpdateTopicConfig(id string, topicRequest TopicConfigRequest) (
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("UPDATE STREAM CONFIG RESPONSE", &o)
+	fmt.Println("UPDATE TOPIC CONFIG RESPONSE", &o)
 	return &o, nil
 }
 

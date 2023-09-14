@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/mapvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -14,7 +16,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"strings"
 )
 
 var _ tfsdk.ResourceType = topicConfigResourceType{}
@@ -94,7 +95,7 @@ func (t topicConfigResourceType) NewResource(ctx context.Context, in tfsdk.Provi
 type topicConfigResourceData struct {
 	Partitions    types.Int64  `tfsdk:"partitions"`
 	RetentionTime types.Int64  `tfsdk:"retention_time"`
-	Topic        types.String  `tfsdk:"stream"`
+	Topic        types.String  `tfsdk:"topic"`
 	Environment   types.String `tfsdk:"environment"`
 	Id            types.String `tfsdk:"id"`
 	Properties    types.Map    `tfsdk:"properties"`
@@ -253,7 +254,7 @@ func createTopicConfigRequestFromData(ctx context.Context, data *topicConfigReso
 	topicConfigRequest := webclient.TopicConfigRequest{
 		Partitions:    int(data.Partitions.Value),
 		RetentionTime: int(data.RetentionTime.Value),
-		Topic:        topic,
+		Stream:        topic,
 		Environment:   environment,
 	}
 	return topicConfigRequest, nil
@@ -263,7 +264,7 @@ func mapTopicConfigResponseToData(_ context.Context, data *topicConfigResourceDa
 	data.Id = types.String{Value: topicConfig.Uid}
 	data.Partitions = types.Int64{Value: int64(topicConfig.Partitions)}
 	data.RetentionTime = types.Int64{Value: int64(topicConfig.RetentionTime)}
-	data.Topic = types.String{Value: topicConfig.Embedded.Topic.Uid}
+	data.Topic = types.String{Value: topicConfig.Embedded.Stream.Uid}
 	data.Environment = types.String{Value: topicConfig.Embedded.Environment.Uid}
 	properties := make(map[string]attr.Value)
 	for key, value := range topicConfig.Properties {

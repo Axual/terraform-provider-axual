@@ -35,7 +35,7 @@ type TopicConfigResponse struct {
 				} `json:"self"`
 			} `json:"_links"`
 		} `json:"environment"`
-		Topic struct {
+		Stream struct {
 			Description string `json:"description"`
 			Owners      struct {
 				Name         string      `json:"name"`
@@ -91,7 +91,7 @@ type TopicConfigResponse struct {
 			Href  string `json:"href"`
 			Title string `json:"title"`
 		} `json:"self"`
-		TopicConfig struct {
+		StreamConfig struct {
 			Href  string `json:"href"`
 			Title string `json:"title"`
 		} `json:"streamConfig"`
@@ -113,7 +113,7 @@ type TopicConfigResponse struct {
 			Templated bool   `json:"templated"`
 			Title     string `json:"title"`
 		} `json:"keySchemaVersion"`
-		Topic struct {
+		Stream struct {
 			Href      string `json:"href"`
 			Templated bool   `json:"templated"`
 			Title     string `json:"title"`
@@ -129,7 +129,7 @@ type TopicConfigResponse struct {
 type TopicConfigRequest struct {
 	Partitions    int                    `json:"partitions,omitempty"`
 	RetentionTime int                    `json:"retentionTime,omitempty"`
-	Topic        string                 `json:"stream,omitempty"`
+	Stream        string                 `json:"stream,omitempty"`
 	Environment   string                 `json:"environment,omitempty"`
 	Properties    map[string]interface{} `json:"properties,omitempty"`
 }
