@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/dcarbone/terraform-plugin-framework-utils/validation"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -112,7 +113,7 @@ func (r applicationAccessGrantResource) Create(ctx context.Context, req tfsdk.Cr
 
 	applicationAccessGrantRequestData := webclient.ApplicationAccessGrantRequest{
 		EnvironmentId: data.EnvironmentId.Value,
-		TopicId:      data.TopicId.Value,
+		StreamId:      data.TopicId.Value,
 		ApplicationId: data.ApplicationId.Value,
 		AccessType:    data.AccessType.Value,
 	}

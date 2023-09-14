@@ -77,7 +77,7 @@ type ApplicationAccessGrantRevoke struct {
 
 type ApplicationAccessGrantRequest struct {
 	ApplicationId string `json:"applicationId"`
-	TopicId      string `json:"topicId"`
+	StreamId      string `json:"streamId"`
 	EnvironmentId string `json:"environmentId"`
 	AccessType    string `json:"accessType"`
 }
