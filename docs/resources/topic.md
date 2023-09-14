@@ -12,7 +12,7 @@ Axual Terraform Provider does not support AVRO key type and AVRO value type. AVR
 
 - `key_type` (String) The key type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/topic-management.html#key-type
 - `name` (String) The name of the topic. This must be in the format string-string (Needs to contain exactly one dash). The topic name is usually discussed and finalized as part of the Intake session or a follow up.
-- `owners` (String) The team owning this topic. Read more: https://docs.axual.io/axual/2023.2/self-service/topic-management.html#stream-owner
+- `owners` (String) The team owning this topic. Read more: https://docs.axual.io/axual/2023.2/self-service/topic-management.html#topic-owner
 - `properties` (Map of String) Advanced (Kafka) properties for a topic in a given environment. Read more: https://docs.axual.io/axual/2023.2/self-service/advanced-features.html#configuring-topic-properties
 - `retention_policy` (String) Determines what to do with messages after a certain period. Read more: https://docs.axual.io/axual/2023.2/self-service/topic-management.html#retention-policy
 - `value_type` (String) The value type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/topic-management.html#value-type

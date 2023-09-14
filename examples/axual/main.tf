@@ -273,7 +273,7 @@ resource "axual_application_principal" "log_scraper_in_production_principal" {
 }
 
 #
-# A TOPIC is nothing different than a declaration of a TOPIC. While TOPIC mostly holds metadata, such as the owner and data type,
+# While TOPIC mostly holds metadata, such as the owner and data type,
 # the TOPIC_CONFIG configures a TOPIC in an ENVIRONMENT
 #
 # Below, some TOPICs are declared and configured in different environments and owned by different GROUPs

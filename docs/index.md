@@ -8,7 +8,7 @@ Axual Provider allows using Axual's Self-Service for Apache Kafka functionality 
 	- The format of the data that’s present on the topic
 	- How long until the data is removed from the topic
 	- Which applications are the producers and the consumers of this data
-- Self Service provides control of your topic (topic) properties for individual environments and get an overview of the streaming landscape inside your organization.
+- Self Service provides control of your topic properties for individual environments and get an overview of the streaming landscape inside your organization.
 	- For details, please refer to Axual Self-Service reference documentation: https://docs.axual.io/axual/2023.2/self-service/index.html
 
 ## Features
@@ -22,7 +22,7 @@ Axual Provider allows using Axual's Self-Service for Apache Kafka functionality 
 - Environment management
 - Request, Approval, Revocation, Rejection and Cancellation of Access Requests
 ## Limitations
-- As of 2023.1 release **Stream is renamed to Topic in Self-Service UI**. Stream remains unchanged in Platform API. 
+- As of 2023.1 release **Stream is renamed to Topic in Self-Service UI**. Stream remains unchanged in Platform API.
 - Currently, there is a bug that deleting a resource that is managed by Terraform from UI results in Terraform not being able to recreate the resource again according to .tf configuration file. We do not recommend currently deleting resources managed by Terraform from UI. This bug has been reported to development team and is under investigation.
 - Public environments cannot be deleted, private environments can be deleted. This feature will be implemented in the future.
 - When deleting all resources at once, application.tf needs to have a dependency to make sure topic and topic_config get deleted first. This bug has been reported to development team and is under investigation.
@@ -341,7 +341,7 @@ resource "axual_application_principal" "log_scraper_in_production_principal" {
 }
 
 #
-# A TOPIC mostly holds metadata, such as the owner and data type,
+# While TOPIC mostly holds metadata, such as the owner and data type,
 # the TOPIC_CONFIG configures a TOPIC in an ENVIRONMENT
 #
 # Below, some TOPICs are declared and configured in different environments and owned by different GROUPs
