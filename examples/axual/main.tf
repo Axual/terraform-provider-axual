@@ -299,12 +299,21 @@ resource "axual_schema_version" "axual_gitops_test_schema_version3" {
   description = "Gitops test schema version"
 }
 
+#
+# A STREAM is nothing different than a declaration of a TOPIC. While STREAM mostly holds metadata, such as the owner and data type,
+# the STREAM_CONFIG configures a STREAM in an ENVIRONMENT
+#
+# Below, some STREAMs are declared and configured in different environments and owned by different GROUPs
+#
+# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/stream
+# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/stream_config
+
 resource "axual_topic" "logs" {
   name = "logs"
   key_type = "AVRO"
-  key_schema = axual_schema_version.axual_gitops_test_schema_version1.id
+  key_schema = axual_schema_version.axual_gitops_test_schema_version1.schema_id
   value_type = "AVRO"
-  value_schema = axual_schema_version.axual_gitops_test_schema_version2.id
+  value_schema = axual_schema_version.axual_gitops_test_schema_version2.schema_id
   owners = axual_group.team-bonanza.id
   retention_policy = "delete"
   properties = { }
