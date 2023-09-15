@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 * Support Managing Environments
 * Support Authorizing Application Access Grants in Terraform.
 * Support Managing Avro Schemas
-* Rename Stream to Topic in Terraform
+* Rename Stream to Topic
 
 ## [1.0.3](https://github.com/Axual/terraform-provider-axual/releases/tag/v1.0.3) - 2023-04-19
 * Documentation update describing that Stream has been renamed to Topic in Self-Service UI.
