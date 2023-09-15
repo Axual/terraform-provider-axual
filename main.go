@@ -1,10 +1,11 @@
 package main
 
 import (
-	"axual.com/terraform-provider-axual/internal/provider"
 	"context"
 	"flag"
 	"log"
+
+	"axual.com/terraform-provider-axual/internal/provider"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 )

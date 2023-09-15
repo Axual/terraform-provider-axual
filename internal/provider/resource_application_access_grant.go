@@ -91,7 +91,7 @@ func (t applicationAccessGrantResourceType) NewResource(_ context.Context, in tf
 type applicationAccessGrantData struct {
 	Id            types.String `tfsdk:"id"`
 	ApplicationId types.String `tfsdk:"application"`
-	TopicId      types.String `tfsdk:"topic"`
+	TopicId       types.String `tfsdk:"topic"`
 	EnvironmentId types.String `tfsdk:"environment"`
 	Status        types.String `tfsdk:"status"`
 	AccessType    types.String `tfsdk:"access_type"`

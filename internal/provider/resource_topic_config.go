@@ -95,7 +95,7 @@ func (t topicConfigResourceType) NewResource(ctx context.Context, in tfsdk.Provi
 type topicConfigResourceData struct {
 	Partitions    types.Int64  `tfsdk:"partitions"`
 	RetentionTime types.Int64  `tfsdk:"retention_time"`
-	Topic        types.String  `tfsdk:"topic"`
+	Topic         types.String `tfsdk:"topic"`
 	Environment   types.String `tfsdk:"environment"`
 	Id            types.String `tfsdk:"id"`
 	Properties    types.Map    `tfsdk:"properties"`
