@@ -8,6 +8,10 @@ type EnvironmentsResponse struct {
 			Description string `json:"description"`
 			ShortName   string `json:"shortName"`
 			Color       string `json:"color"`
+			CreatedAt       string `json:"created_at"`
+			CreatedBy       string `json:"created_by"`
+			ModifiedAt       string `json:"modified_at"`
+			ModifiedBy       string `json:"modified_by"`
 			Uid         string `json:"uid"`
 			Links       struct {
 				Self struct {
