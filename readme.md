@@ -81,7 +81,7 @@ Otherwise, this is the correct resource deletion order:
 
 ## Terraform Documentation
 
-### Upgrading to version 2.0.0
+### Upgrading to version 2.0.0+
 In version 2.0.0 all wording of stream has been changed to topic. i.e the axual resource `axual_stream` has been renamed to `axual_topic`. To update from versions 1.x.x to 2.0.0 or above you need to 
 1. Replace all references of stream in state files with topic
  below are commands to run for the provided examples project, you need to run the same commands in the root of your project
