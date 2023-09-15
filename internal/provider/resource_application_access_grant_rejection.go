@@ -20,7 +20,7 @@ type applicationAccessGrantRejectionResourceType struct{}
 func (t applicationAccessGrantRejectionResourceType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
 
 	return tfsdk.Schema{
-		MarkdownDescription: `Application Access Grant Rejection: Reject a request to access a stream`,
+		MarkdownDescription: `Application Access Grant Rejection: Reject a request to access a topic`,
 		Attributes: map[string]tfsdk.Attribute{
 			"application_access_grant": {
 				MarkdownDescription: "Application Access Grant Unique Identifier.",

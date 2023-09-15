@@ -91,7 +91,7 @@ func (t environmentResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, d
 				Type:                types.StringType,
 			},
 			"retention_time": {
-				MarkdownDescription: "The time in milliseconds after which the messages can be deleted from all streams. This is an optional field. If not specified, default value is 7 days (604800000).",
+				MarkdownDescription: "The time in milliseconds after which the messages can be deleted from all topics. This is an optional field. If not specified, default value is 7 days (604800000).",
 				Optional:            true,
 				Computed:            true,
 				Type:                types.Int64Type,
@@ -102,7 +102,7 @@ func (t environmentResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, d
 			},
 
 			"partitions": {
-				MarkdownDescription: "Defines the number of partitions configured for every stream of this tenant. This is an optional field. If not specified, default value is 12",
+				MarkdownDescription: "Defines the number of partitions configured for every topic of this tenant. This is an optional field. If not specified, default value is 12",
 				Optional:            true,
 				Computed:            true,
 				Type:                types.Int64Type,

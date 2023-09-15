@@ -41,8 +41,8 @@ terraform import axual_group.gitops_group <GROUP_UID>
 ### Hardcoded values
 - To use hardcoded values, we replace group UID for owners value in other resources, for example:
 ```shell
-resource "axual_stream" "gitops_test_stream2" {
- name = "gitops_test_stream2"
+resource "axual_topic" "gitops_test_topic2" {
+ name = "gitops_test_topic2"
  key_type = "String"
  value_type = "String"
  owners = "221771776652211ea556db870b084631"

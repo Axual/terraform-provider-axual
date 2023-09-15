@@ -1,6 +1,6 @@
 package webclient
 
-type StreamConfigResponse struct {
+type TopicConfigResponse struct {
 	Properties    map[string]interface{} `json:"properties"`
 	RetentionTime int                    `json:"retentionTime"`
 	Partitions    int                    `json:"partitions"`
@@ -126,7 +126,7 @@ type StreamConfigResponse struct {
 	} `json:"_links"`
 }
 
-type StreamConfigRequest struct {
+type TopicConfigRequest struct {
 	Partitions    int                    `json:"partitions,omitempty"`
 	RetentionTime int                    `json:"retentionTime,omitempty"`
 	Stream        string                 `json:"stream,omitempty"`

@@ -10,7 +10,7 @@ Axual Terraform Provider does not support AVRO key type and AVRO value type. AVR
 ## Example Usage
 
 ```hcl
-resource "axual_stream" "logs" {
+resource "axual_topic" "logs" {
   name = "logs"
   key_type = "String"
   value_type = "String"
@@ -28,6 +28,6 @@ For a full example which shows the capabilities of the latest TerraForm provider
 Import is supported using the following syntax:
 
 ```shell
-terraform import axual_stream.<LOCAL NAME> <STREAM UID>
-terraform import axual_stream.test_stream b21cf1d63a55436391463cee3f56e393
+terraform import axual_topic.<LOCAL NAME> <TOPIC UID>
+terraform import axual_topic.test_topic b21cf1d63a55436391463cee3f56e393
 ```

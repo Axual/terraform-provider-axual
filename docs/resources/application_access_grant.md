@@ -1,6 +1,6 @@
 # axual_application_access_grant (Resource)
 
-Application Access Grant resource. Purpose of a grant is to request access to a stream in an environment. Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#requesting-stream-access
+Application Access Grant resource. Purpose of a grant is to request access to a topic in an environment. Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#requesting-topic-access
 
 ## Note
 - Application Access Grant cannot be edited
@@ -8,7 +8,7 @@ Application Access Grant resource. Purpose of a grant is to request access to a 
 - Read more: https://docs.axual.io/axual/2023.2/self-service/topic-authorizations.html#contents
 
 ## Usage
-- To request access to a stream, create an application_access_grant
+- To request access to a topic, create an application_access_grant
 - To cancel a grant, delete the application_access_grant
 - Application Access Grant that are auto authorized do not need any further action.
 - Application Access Grant that required further action can be handled with application_access_grant_approval and application_access_grant_rejection.
@@ -24,7 +24,7 @@ Application Access Grant resource. Purpose of a grant is to request access to a 
 - `access_type` (String) Application Access Type. Accepted values: CONSUMER, PRODUCER
 - `application` (String) Application Unique Identifier
 - `environment` (String) Environment Unique Identifier
-- `stream` (String) Stream Unique Identifier
+- `topic` (String) Topic Unique Identifier
 
 ### Read-Only
 
@@ -36,7 +36,7 @@ Application Access Grant resource. Purpose of a grant is to request access to a 
 ```hcl
 resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
   application = axual_application.dev_dashboard.id
-  stream = axual_stream.logs.id
+  topic = axual_topic.logs.id
   environment = axual_environment.development.id
   access_type = "CONSUMER"
   depends_on = [ axual_application_principal.dev_dashboard_in_dev_principal ]

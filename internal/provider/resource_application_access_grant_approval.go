@@ -22,7 +22,7 @@ type applicationAccessGrantApprovalResourceType struct{}
 func (t applicationAccessGrantApprovalResourceType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
 
 	return tfsdk.Schema{
-		MarkdownDescription: `Application Access Grant Approval: Approve access to a stream`,
+		MarkdownDescription: `Application Access Grant Approval: Approve access to a topic`,
 		Attributes: map[string]tfsdk.Attribute{
 			"application_access_grant": {
 				MarkdownDescription: "Application Access Grant Unique Identifier.",

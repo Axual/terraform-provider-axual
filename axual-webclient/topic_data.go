@@ -1,6 +1,6 @@
 package webclient
 
-type StreamResponse struct {
+type TopicResponse struct {
 	Properties      map[string]interface{} `json:"properties"`
 	Name            string                 `json:"name"`
 	Description     interface{}            `json:"description"`
@@ -61,11 +61,11 @@ type StreamResponse struct {
 			Href  string `json:"href"`
 			Title string `json:"title"`
 		} `json:"self"`
-		Stream struct {
+		Topic struct {
 			Href      string `json:"href"`
 			Templated bool   `json:"templated"`
 			Title     string `json:"title"`
-		} `json:"stream"`
+		} `json:"topic"`
 		Edit struct {
 			Href  string `json:"href"`
 			Title string `json:"title"`
@@ -102,7 +102,7 @@ type StreamResponse struct {
 	} `json:"_links"`
 }
 
-type StreamRequest struct {
+type TopicRequest struct {
 	Name            string                 `json:"name,omitempty"`
 	Description     string                 `json:"description"`
 	KeyType         string                 `json:"keyType,omitempty"`

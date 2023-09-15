@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 * Support Managing Environments
 * Support Authorizing Application Access Grants in Terraform.
 * Support Managing Avro Schemas
+* Rename Stream to Topic
 
 ## [1.0.3](https://github.com/Axual/terraform-provider-axual/releases/tag/v1.0.3) - 2023-04-19
 * Documentation update describing that Stream has been renamed to Topic in Self-Service UI.
@@ -18,8 +19,8 @@ All notable changes to this project will be documented in this file.
 * Documentation update on using Terraform Provider with Axual Trial
 
 ## [1.0.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v1.0.0) - 2022-10-08
-* Support Managing Streams
-* Support Managing Stream Configuration 
+* Support Managing Topics
+* Support Managing Topic Configuration 
 * Support Managing Applications
 * Support Managing Application Authentication with SSL and Oauthbearer
 * Support Managing Application Authorization through Application Access Grants for auto approved environemts

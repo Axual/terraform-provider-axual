@@ -3,36 +3,35 @@
 Axual Provider allows using Axual's Self-Service for Apache Kafka functionality within Terraform configurations.
 
 ## Axual Self Service
-- Self Service allows fine-grained access control over your applications and streams, who is accessing your streams and for what purpose.
-- Self Service displays valuable metadata about streams and the applications interacting with them, such as:
-	- The format of the data that’s present on the stream
-	- How long until the data is removed from the stream
+- Self Service allows fine-grained access control over your applications and topics, who is accessing your topics and for what purpose.
+- Self Service displays valuable metadata about topics and the applications interacting with them, such as:
+	- The format of the data that’s present on the topic
+	- How long until the data is removed from the topic
 	- Which applications are the producers and the consumers of this data
-- Self Service provides control of your stream (topic) properties for individual environments and get an overview of the streaming landscape inside your organization.
+- Self Service provides control of your topic properties for individual environments and get an overview of the streaming landscape inside your organization.
 	- For details, please refer to Axual Self-Service reference documentation: https://docs.axual.io/axual/2023.2/self-service/index.html
 
 ## Features
 
 - User/group management
-- Stream and application management
+- Topic and application management
 - Security
-	- To secure which applications are authorised to access streams, we support
+	- To secure which applications are authorised to access topics, we support
 		- SSL (MUTUAL TLS) as a Certificate(PEM)
 		- SASL (OAUTHBEARER) as a Custom Principal that specifies the ID referenced in URI and tokens. For example, 'my-client'
 - Environment management
 - Request, Approval, Revocation, Rejection and Cancellation of Access Requests
 ## Limitations
-- As of 2023.1 release **Stream is renamed to Topic in Self-Service UI**. Stream remains unchanged in Platform API. Therefore, the Axual Terraform Provider will continue to use Stream in the API.
 - Currently, there is a bug that deleting a resource that is managed by Terraform from UI results in Terraform not being able to recreate the resource again according to .tf configuration file. We do not recommend currently deleting resources managed by Terraform from UI. This bug has been reported to development team and is under investigation.
 - Public environments cannot be deleted, private environments can be deleted. This feature will be implemented in the future.
-- When deleting all resources at once, application.tf needs to have a dependency to make sure stream and stream_config get deleted first. This bug has been reported to development team and is under investigation.
+- When deleting all resources at once, application.tf needs to have a dependency to make sure topic and topic_config get deleted first. This bug has been reported to development team and is under investigation.
 
 # Getting started
 ## Required User Roles
 - The Terraform User who is logged in(Default username kubernetes@axual.com), needs to have both of the following user roles:
   - **APPLICATION_ADMIN** - for creating application principal resource(axual_application_principal) and for create access request()
   - **STREAM_ADMIN** - for revoking access request
-- Alternatively, they can be the owner of both the application and the stream, which entails being a user in the same group as the owner group of the application and stream.
+- Alternatively, they can be the owner of both the application and the topic, which entails being a user in the same group as the owner group of the application and topic.
 ## Example Usage
 
 First, make sure to define and configure the provider:
@@ -80,7 +79,7 @@ Next, take a look at the *full* example which shows you the capabilities of the 
 #
 # GROUPS and USERS
 # ----------------
-# GROUPS own entities like STREAM, APPLICATION  and ENVIRONMENT. USERS are members of a GROUP
+# GROUPS own entities like TOPIC, APPLICATION  and ENVIRONMENT. USERS are members of a GROUP
 # Below, three users are declared with certain roles in the system.
 
 #
@@ -282,7 +281,7 @@ resource "axual_application" "dev_dashboard" {
   type = "Java"
   visibility = "Public"
   description = "Dashboard with crucial information for Developers"
-#  depends_on = [axual_stream_config.logs_in_production, axual_stream.support] # This is a workaround when all resources get deleted at once, to delete stream_config and stream before application. Mentioned in index.md
+#  depends_on = [axual_topic_config.logs_in_production, axual_topic.support] # This is a workaround when all resources get deleted at once, to delete topic_config and topic before application. Mentioned in index.md
 }
 
 resource "axual_application" "log_scraper" {
@@ -294,7 +293,7 @@ resource "axual_application" "log_scraper" {
   type = "Java"
   visibility = "Public"
   description = "Axual's Test Application for finding all Logs for developers"
-#  depends_on = [axual_stream_config.logs_in_dev, axual_stream.logs] # This is a workaround when all resources get deleted at once, to delete stream_config and stream before application. Mentioned in index.md
+#  depends_on = [axual_topic_config.logs_in_dev, axual_topic.logs] # This is a workaround when all resources get deleted at once, to delete topic_config and topic before application. Mentioned in index.md
 }
 
 #
@@ -341,15 +340,15 @@ resource "axual_application_principal" "log_scraper_in_production_principal" {
 }
 
 #
-# A STREAM is nothing different than a declaration of a TOPIC. While STREAM mostly holds metadata, such as the owner and data type,
-# the STREAM_CONFIG configures a STREAM in an ENVIRONMENT
+# While TOPIC mostly holds metadata, such as the owner and data type,
+# the TOPIC_CONFIG configures a TOPIC in an ENVIRONMENT
 #
-# Below, some STREAMs are declared and configured in different environments and owned by different GROUPs
+# Below, some TOPICs are declared and configured in different environments and owned by different GROUPs
 #
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/stream
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/stream_config
+# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/topic
+# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/topic_config
 
-resource "axual_stream" "logs" {
+resource "axual_topic" "logs" {
   name = "logs"
   key_type = "String"
   value_type = "String"
@@ -359,31 +358,31 @@ resource "axual_stream" "logs" {
   description = "Logs from all applications"
 }
 
-resource "axual_stream_config" "logs_in_dev" {
+resource "axual_topic_config" "logs_in_dev" {
   partitions = 1
   retention_time = 864000
-  stream = axual_stream.logs.id
+  topic = axual_topic.logs.id
   environment = axual_environment.development.id
   properties = {"segment.ms"="600012", "retention.bytes"="1"}
 }
 
-resource "axual_stream_config" "logs_in_staging" {
+resource "axual_topic_config" "logs_in_staging" {
   partitions = 1
   retention_time = 1001000
-  stream = axual_stream.logs.id
+  topic = axual_topic.logs.id
   environment = axual_environment.staging.id
   properties = {"segment.ms"="60002", "retention.bytes"="100"}
 }
 
-resource "axual_stream_config" "logs_in_production" {
+resource "axual_topic_config" "logs_in_production" {
   partitions = 2
   retention_time = 86400000
-  stream = axual_stream.logs.id
+  topic = axual_topic.logs.id
   environment = axual_environment.production.id
   properties = {"segment.ms"="600000", "retention.bytes"="10089"}
 }
 
-resource "axual_stream" "support" {
+resource "axual_topic" "support" {
   name = "support"
   key_type = "String"
   value_type = "String"
@@ -393,24 +392,24 @@ resource "axual_stream" "support" {
   description = "Support tickets from Help Desk"
 }
 
-resource "axual_stream_config" "support_in_staging" {
+resource "axual_topic_config" "support_in_staging" {
   partitions = 1
   retention_time = 1001
-  stream = axual_stream.support.id
+  topic = axual_topic.support.id
   environment = axual_environment.staging.id
   properties = {"segment.ms"="60002", "retention.bytes"="1234"}
 }
 
-resource "axual_stream_config" "support_in_production" {
+resource "axual_topic_config" "support_in_production" {
   partitions = 4
   retention_time = 10000000
-  stream = axual_stream.support.id
+  topic = axual_topic.support.id
   environment = axual_environment.production.id
   properties = {"segment.ms"="600000", "retention.bytes"="10089"}
 }
 
 #
-# An APPLICATION_ACCESS_GRANT represents a connection between an APPLICATION and a STREAM
+# An APPLICATION_ACCESS_GRANT represents a connection between an APPLICATION and a TOPIC
 # Its ACCESS_TYPE is either PRODUCER or CONSUMER, depending on the use case
 # The grant refers to the principal, because the principal is used by the application to
 # identify itself to the platform
@@ -423,7 +422,7 @@ resource "axual_stream_config" "support_in_production" {
 
 resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
   application = axual_application.dev_dashboard.id
-  stream = axual_stream.logs.id
+  topic = axual_topic.logs.id
   environment = axual_environment.development.id
   access_type = "CONSUMER"
   depends_on = [ axual_application_principal.dev_dashboard_in_dev_principal ]
@@ -431,7 +430,7 @@ resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
 
 resource "axual_application_access_grant" "log_scraper_consume_from_support_in_dev" {
   application = axual_application.log_scraper.id
-  stream = axual_stream.support.id
+  topic = axual_topic.support.id
   environment = axual_environment.development.id
   access_type = "CONSUMER"
   depends_on = [ axual_application_principal.log_scraper_in_dev_principal ]
@@ -439,7 +438,7 @@ resource "axual_application_access_grant" "log_scraper_consume_from_support_in_d
 
 resource "axual_application_access_grant" "dash_consume_from_logs_in_staging" {
   application = axual_application.dev_dashboard.id
-  stream = axual_stream.logs.id
+  topic = axual_topic.logs.id
   environment = axual_environment.staging.id
   access_type = "CONSUMER"
   depends_on = [ axual_application_principal.dev_dashboard_in_staging_principal ]
@@ -447,7 +446,7 @@ resource "axual_application_access_grant" "dash_consume_from_logs_in_staging" {
 
 resource "axual_application_access_grant" "dash_consume_from_support_in_staging" {
   application = axual_application.dev_dashboard.id
-  stream = axual_stream.support.id
+  topic = axual_topic.support.id
   environment = axual_environment.staging.id
   access_type = "CONSUMER"
   depends_on = [ axual_application_principal.dev_dashboard_in_staging_principal ]
@@ -455,7 +454,7 @@ resource "axual_application_access_grant" "dash_consume_from_support_in_staging"
 
 resource "axual_application_access_grant" "scraper_produce_to_logs_in_staging" {
   application = axual_application.log_scraper.id
-  stream = axual_stream.logs.id
+  topic = axual_topic.logs.id
   environment = axual_environment.staging.id
   access_type = "PRODUCER"
   depends_on = [ axual_application_principal.log_scraper_in_staging_principal ]
@@ -463,7 +462,7 @@ resource "axual_application_access_grant" "scraper_produce_to_logs_in_staging" {
 
 resource "axual_application_access_grant" "dash_consume_from_logs_in_production" {
   application = axual_application.dev_dashboard.id
-  stream = axual_stream.logs.id
+  topic = axual_topic.logs.id
   environment = axual_environment.production.id
   access_type = "CONSUMER"
   depends_on = [ axual_application_principal.dev_dashboard_in_production_principal ]
@@ -471,7 +470,7 @@ resource "axual_application_access_grant" "dash_consume_from_logs_in_production"
 
 resource "axual_application_access_grant" "dash_consume_from_support_in_production" {
   application = axual_application.dev_dashboard.id
-  stream = axual_stream.support.id
+  topic = axual_topic.support.id
   environment = axual_environment.production.id
   access_type = "CONSUMER"
   depends_on = [ axual_application_principal.dev_dashboard_in_production_principal ]
@@ -479,7 +478,7 @@ resource "axual_application_access_grant" "dash_consume_from_support_in_producti
 
 resource "axual_application_access_grant" "scraper_produce_to_logs_in_production" {
   application = axual_application.log_scraper.id
-  stream = axual_stream.logs.id
+  topic = axual_topic.logs.id
   environment = axual_environment.production.id
   access_type = "PRODUCER"
   depends_on = [ axual_application_principal.log_scraper_in_production_principal ]
@@ -529,7 +528,7 @@ resource "axual_application_access_grant_rejection" "scraper_produce_logs_stagin
 
 #
 # A Schema is an AVRO definition formatted in JSON. 
-# In Axual Platform Schemas are used by Streams of data type AVRO (avsc file).
+# In Axual Platform Schemas are used by Topics of data type AVRO (avsc file).
 # Note: An attempt at uploading a duplicate schema is rejected with an error message containing the duplicated version
 #
 # In the example below, schema_version "axual_gitops_test_schema_version1", "axual_gitops_test_schema_version2" and "axual_gitops_test_schema_version3" are declared referencing their respective schema version
@@ -576,7 +575,7 @@ resource "axual_schema_version" "axual_gitops_test_schema_version3" {
 - Our guides are in the guides folder:
 	- How to import user and group: [Importing user and group](guides/importing-user-and-groups.md)
 	- Setting up Terraform with Axual Trial: [Axual Trial setup](guides/axual-trial-setup.md)
-	- Managing application access to streams: [Axual Trial setup](guides/manage-application-access-to-streams.md)
+	- Managing application access to topics: [Axual Trial setup](guides/manage-application-access-to-topics.md)
 
 
 ## Compatibility

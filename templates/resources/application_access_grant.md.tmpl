@@ -8,7 +8,7 @@
 - Read more: https://docs.axual.io/axual/2023.2/self-service/topic-authorizations.html#contents
 
 ## Usage
-- To request access to a stream, create an application_access_grant
+- To request access to a topic, create an application_access_grant
 - To cancel a grant, delete the application_access_grant
 - Application Access Grant that are auto authorized do not need any further action.
 - Application Access Grant that required further action can be handled with application_access_grant_approval and application_access_grant_rejection.
@@ -23,7 +23,7 @@
 ```hcl
 resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
   application = axual_application.dev_dashboard.id
-  stream = axual_stream.logs.id
+  topic = axual_topic.logs.id
   environment = axual_environment.development.id
   access_type = "CONSUMER"
   depends_on = [ axual_application_principal.dev_dashboard_in_dev_principal ]

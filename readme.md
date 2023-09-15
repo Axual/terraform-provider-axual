@@ -48,8 +48,8 @@ All resources can be created at once if **depends_on** argument is used like in 
 Otherwise, this is the correct resource creation order:
 1. User
 2. Group
-3. Stream
-4. Stream Config
+3. Topic
+4. Topic Config
 5. Application
 6. Application principal
 7. Application access grant
@@ -59,16 +59,16 @@ Otherwise, this is the correct resource deletion order:
 1. Application access grant
 2. Application principal
 3. Application
-4. Stream Config
-5. Stream
+4. Topic Config
+5. Topic
 6. Group
 7. User
 ### Milestone 1 Features
 - Added support for Tenant, User, Group
 - Added support for Application, ApplicationPrincipal
-- Added support for Stream, StreamConfig
-- Stream key type and value type has to be String/Binary/JSON/XML
-  Stream retention_policy has to be string “compact” or “delete’
+- Added support for Topic, TopicConfig
+- Topic key type and value type has to be String/Binary/JSON/XML
+  Topic retention_policy has to be string “compact” or “delete’
 
 ### Milestone 2 Features
 - Added support for Environment
@@ -76,10 +76,26 @@ Otherwise, this is the correct resource deletion order:
 
 ### Work in progress
 - Support schema and schemaVersion resource
-- Support AVRO stream and AVRO streamConfig
+- Support AVRO topic and AVRO topicConfig
 - Data Sources
 
 ## Terraform Documentation
+
+### Upgrading to version 2.0.0+
+In version 2.0.0 all wording of stream has been changed to topic. i.e the axual resource `axual_stream` has been renamed to `axual_topic`. To update from versions 1.x.x to 2.0.0 or above you need to 
+1. Replace all references of stream in state files with topic
+ below are commands to run for the provided examples project, you need to run the same commands in the root of your project
+ ```shell
+  sed -i='' "s/axual_stream_config/axual_topic_config/" terraform.tfstate
+  sed -i='' "s/axual_stream/axual_topic/" terraform.tfstate
+  sed -i='' "s/\"stream\":/\"topic\":/" terraform.tfstate
+ ```
+2. Replace all references of stream in configuration files with topic
+ ```shell
+sed -i='' "s/axual_stream_config/axual_topic_config/" main.tf
+sed -i='' "s/axual_stream/axual_topic/" main.tf
+sed -i='' "s/stream =/topic =/" main.tf
+ ```
 
 ### Generate
 
