@@ -83,14 +83,14 @@ Otherwise, this is the correct resource deletion order:
 
 ### Upgrading to version 2.0.0
 In version 2.0.0 all wording of stream has been changed to topic. i.e the axual resource `axual_stream` has been renamed to `axual_topic`. To update from an older version to 2.0.0 or above you need to 
-1. Replace all references of stream in state files
+1. Replace all references of stream in state files with topic
  below are commands to run for the provided examples project, you need to run the same commands in the root of your project
  ```shell
   sed -i='' "s/axual_stream_config/axual_topic_config/" terraform.tfstate
   sed -i='' "s/axual_stream/axual_topic/" terraform.tfstate
   sed -i='' "s/\"stream\":/\"topic\":/" terraform.tfstate
  ```
-2. Replace all references of stream in configuration files
+2. Replace all references of stream in configuration files with topic
  ```shell
 sed -i='' "s/axual_stream_config/axual_topic_config/" main.tf
 sed -i='' "s/axual_stream/axual_topic/" main.tf
