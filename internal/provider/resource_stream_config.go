@@ -61,6 +61,16 @@ func (t streamConfigResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, 
 					tfsdk.RequiresReplace(),
 				},
 			},
+			"key_schema_version": {
+				MarkdownDescription: "The keySchemaVersion this stream configuration is associated with",
+				Optional:            true,
+				Type:                types.StringType,
+			},
+			"value_schema_version": {
+				MarkdownDescription: "The valueSchemaVersion this stream configuration is associated with",
+				Optional:            true,
+				Type:                types.StringType,
+			},
 			"properties": {
 				MarkdownDescription: "You can define Kafka properties for your stream here. segment.ms property needs to always be included. Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html#configuring-a-stream-for-an-environment",
 				Required:            true,
@@ -92,12 +102,14 @@ func (t streamConfigResourceType) NewResource(ctx context.Context, in tfsdk.Prov
 }
 
 type streamConfigResourceData struct {
-	Partitions    types.Int64  `tfsdk:"partitions"`
-	RetentionTime types.Int64  `tfsdk:"retention_time"`
-	Stream        types.String `tfsdk:"stream"`
-	Environment   types.String `tfsdk:"environment"`
-	Id            types.String `tfsdk:"id"`
-	Properties    types.Map    `tfsdk:"properties"`
+	Partitions         types.Int64  `tfsdk:"partitions"`
+	RetentionTime      types.Int64  `tfsdk:"retention_time"`
+	Stream             types.String `tfsdk:"stream"`
+	Environment        types.String `tfsdk:"environment"`
+	KeySchemaVersion   types.String `tfsdk:"key_schema_version"`
+	ValueSchemaVersion types.String `tfsdk:"value_schema_version"`
+	Id                 types.String `tfsdk:"id"`
+	Properties         types.Map    `tfsdk:"properties"`
 }
 
 type streamConfigResource struct {
@@ -112,6 +124,29 @@ func (r streamConfigResource) Create(ctx context.Context, req tfsdk.CreateResour
 
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	stream, err := r.provider.client.ReadStream(data.Stream.Value)
+	if err != nil {
+		return
+	}
+
+	if !data.KeySchemaVersion.Null {
+		if stream.KeyType != "AVRO" {
+			resp.Diagnostics.AddError(
+				"CREATE request error for stream config resource",
+				fmt.Sprintf("Stream doesn't have an AVRO Key Schema. Please don't set the KeySchemaVersion: %s", data.KeySchemaVersion.Value))
+			return
+		}
+	}
+
+	if !data.ValueSchemaVersion.Null {
+		if stream.ValueType != "AVRO" {
+			resp.Diagnostics.AddError(
+				"CREATE request error for stream config resource",
+				fmt.Sprintf("Stream doesn't have an AVRO Value Schema. Please don't set the ValueSchemaVersion: %s", data.ValueSchemaVersion))
+			return
+		}
 	}
 
 	streamConfigRequest, err := createStreamConfigRequestFromData(ctx, &data, r)
@@ -256,6 +291,15 @@ func createStreamConfigRequestFromData(ctx context.Context, data *streamConfigRe
 		Stream:        stream,
 		Environment:   environment,
 	}
+
+	// optional fields
+	if !data.KeySchemaVersion.Null {
+		streamConfigRequest.KeySchemaVersion = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.KeySchemaVersion.Value)
+	}
+	if !data.ValueSchemaVersion.Null {
+		streamConfigRequest.ValueSchemaVersion = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.ValueSchemaVersion.Value)
+	}
+
 	return streamConfigRequest, nil
 }
 

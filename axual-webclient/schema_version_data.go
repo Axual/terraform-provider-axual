@@ -40,10 +40,9 @@ type ValidateSchemaVersionRequest struct {
 }
 
 type SchemaVersionResponse struct {
-	Id       string `json:"schemaVersionUid"`
-	SchemaId string `json:"schemaUid"`
-	Version  string `json:"version"`
-	FullName string `json:"fullName"`
+	Id         string `json:"uid"`
+	Version    string `json:"version"`
+	SchemaBody string `json:"schemaBody"`
 }
 
 type SchemaVersionRequest struct {
