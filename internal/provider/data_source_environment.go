@@ -4,9 +4,9 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/dcarbone/terraform-plugin-framework-utils/validation"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -24,6 +24,14 @@ func (t environmentDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 		MarkdownDescription: "Environments are used typically to support the application lifecycle, as it is moving from Development to Production.  In Self Service, they also allow you to test a feature in isolation, by making the environment Private. Read more: https://docs.axual.io/axual/2023.2/self-service/environment-management.html#managing-environments",
 
 		Attributes: map[string]tfsdk.Attribute{
+			"id": {
+				Required:            true,
+				MarkdownDescription: "Environment unique identifier",
+				PlanModifiers: tfsdk.AttributePlanModifiers{
+					tfsdk.UseStateForUnknown(),
+				},
+				Type: types.StringType,
+			},
 			"name": {
 				MarkdownDescription: "A suitable name identifying this environment. This must be in the format string-string (Alphabetical characters, digits and the following characters are allowed: `- `,` _` ,` .`)",
 				Computed:            true,
@@ -31,17 +39,17 @@ func (t environmentDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 			},
 			"short_name": {
 				MarkdownDescription: "A short name that will uniquely identify this environment. The short name should be between 3 and 20 characters. no special characters are allowed.",
-				Required:            true,
+				Computed:            true,
 				Type:                types.StringType,
-				Validators: []tfsdk.AttributeValidator{
-					validation.Length(3, 50),
-					validation.RegexpMatch((`^[a-z0-9]+$`)),
-				},
 			},
 			"description": {
 				MarkdownDescription: "A text describing the purpose of the environment.",
 				Computed:            true,
+				Optional:            true,
 				Type:                types.StringType,
+				Validators: []tfsdk.AttributeValidator{
+					validation.Length(0, 200),
+				},
 			},
 			"color": {
 				MarkdownDescription: "The color used display the environment",
@@ -49,48 +57,44 @@ func (t environmentDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 				Type:                types.StringType,
 				},
 			"visibility": {
-				MarkdownDescription: "Private environments are only visible to the owning group (your team). They are not included in dashboard visualisations.",
+				MarkdownDescription: "Thi Private environments are only visible to the owning group (your team). They are not included in dashboard visualisations.",
 				Computed:            true,
 				Type:                types.StringType,
+				
 			},
-			"created_at": {
-				MarkdownDescription: "The created at time",
-				Computed:            true,
-				Type:                types.StringType,
-			},
-			"created_by": {
-				MarkdownDescription: "The email of the user that created the environment",
-				Computed:            true,
-				Type:                types.StringType,
-			},
-			"modified_at": {
-				MarkdownDescription: "The last modified at time",
-				Computed:            true,
-				Type:                types.StringType,
-			},
-			"modified_by": {
-				MarkdownDescription: "The email of the user that last modified the environment",
+			"authorization_issuer": {
+				MarkdownDescription: "This indicates if any deployments on this environment should be AUTO approved or requires approval from Stream Owner. For private environments, only AUTO can be selected.",
 				Computed:            true,
 				Type:                types.StringType,
 			},
 			"owners": {
-				MarkdownDescription: "The link of the team owning this environment.",
+				MarkdownDescription: "The id of the team owning this environment.",
 				Computed:            true,
 				Type:                types.StringType,
 			},
 			"instance": {
-				MarkdownDescription: "The link of the instance where this environment should be deployed.",
+				MarkdownDescription: "The id of the instance where this environment should be deployed.",
 				Computed:            true,
 				Type:                types.StringType,
 			},
-			
-			"id": {
+			"retention_time": {
+				MarkdownDescription: "The time in milliseconds after which the messages can be deleted from all streams. This is an optional field. If not specified, default value is 7 days (604800000).",
+				Optional:            true,
 				Computed:            true,
-				MarkdownDescription: "Environment unique identifier",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.UseStateForUnknown(),
-				},
-				Type: types.StringType,
+				Type:                types.Int64Type,
+			},
+
+			"partitions": {
+				MarkdownDescription: "Defines the number of partitions configured for every stream of this tenant. This is an optional field. If not specified, default value is 12",
+				Optional:            true,
+				Computed:            true,
+				Type:                types.Int64Type,
+			},
+			"properties": {
+				MarkdownDescription: "Environment-wide properties for all topics and applications.",
+				Optional:            true,
+				Computed:            true,
+				Type:                types.MapType{ElemType: types.StringType},
 			},
 		},
 	}, nil
@@ -109,14 +113,14 @@ type environmentDataSourceData struct {
 	ShortName           types.String `tfsdk:"short_name"`
 	Description         types.String `tfsdk:"description"`
 	Color               types.String `tfsdk:"color"`
+	AuthorizationIssuer types.String `tfsdk:"authorization_issuer"`
 	Visibility          types.String `tfsdk:"visibility"`
 	Owners              types.String `tfsdk:"owners"`
-	Instnce             types.String `tfsdk:"instance"`
+	RetentionTime       types.Int64  `tfsdk:"retention_time"`
+	Instance             types.String `tfsdk:"instance"`
 	Id                  types.String `tfsdk:"id"`
-	CreatedAt           types.String `tfsdk:"created_at"`
-	CreatedBy           types.String `tfsdk:"created_by"`
-	ModifiedAt           types.String `tfsdk:"modified_at"`
-	ModifiedBy           types.String `tfsdk:"modified_by"`
+	Partitions          types.Int64  `tfsdk:"partitions"`
+	Properties          types.Map    `tfsdk:"properties"`
 }
 
 type environmentDataSource struct {
@@ -129,20 +133,14 @@ func (d environmentDataSource) Read(ctx context.Context, req tfsdk.ReadDataSourc
 	diags := req.Config.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 
-	log.Printf("got here")
-
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	log.Printf("got here")
-
-
-	environment, err := d.provider.client.ReadEnvironmentFromDataSource(data.ShortName.Value)
+	environment, err := d.provider.client.ReadEnvironment(data.Id.Value)
 	if err != nil {
-		
 	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment, got error: %s", err))
-	    return
+	return
 	}
 
     mapEnvironmentDataSourceResponseToData(ctx, &data, environment)
@@ -151,18 +149,31 @@ func (d environmentDataSource) Read(ctx context.Context, req tfsdk.ReadDataSourc
 	resp.Diagnostics.Append(diags...)
 }
 
-func mapEnvironmentDataSourceResponseToData(_ context.Context, data *environmentDataSourceData, environment *webclient.EnvironmentsResponse) {
-	data.Id = types.String{Value: environment.Embedded.Environments[0].Uid}
-	data.Name = types.String{Value: environment.Embedded.Environments[0].Name}
-	data.ShortName = types.String{Value: environment.Embedded.Environments[0].ShortName}
-	data.Description = types.String{Value: environment.Embedded.Environments[0].Description}
-	data.Color = types.String{Value: environment.Embedded.Environments[0].Color}
-	data.Visibility = types.String{Value: environment.Embedded.Environments[0].Visibility}
-	data.CreatedAt = types.String{Value: environment.Embedded.Environments[0].CreatedAt}
-	data.CreatedBy = types.String{Value: environment.Embedded.Environments[0].CreatedBy}
-	data.ModifiedAt = types.String{Value: environment.Embedded.Environments[0].ModifiedAt}
-	data.ModifiedBy = types.String{Value: environment.Embedded.Environments[0].ModifiedBy}
-    data.Id = types.String{Value: environment.Embedded.Environments[0].Uid}
-	data.Owners = types.String{Value: environment.Embedded.Environments[0].Links.Owners.Href}
-	data.Instnce = types.String{Value: environment.Embedded.Environments[0].Links.Instance.Href}
+func mapEnvironmentDataSourceResponseToData(_ context.Context, data *environmentDataSourceData, environment *webclient.EnvironmentResponse) {
+	data.Id = types.String{Value: environment.Uid}
+	data.Name = types.String{Value: environment.Name}
+	data.ShortName = types.String{Value: environment.ShortName}
+	data.Description = types.String{Value: environment.Embedded.Instance.Description}
+	data.Color = types.String{Value: environment.Color}
+	data.Visibility = types.String{Value: environment.Visibility}
+	data.AuthorizationIssuer = types.String{Value: environment.AuthorizationIssuer}
+	data.Owners = types.String{Value: environment.Embedded.Owners.Uid}
+	data.RetentionTime = types.Int64{Value: int64(environment.RetentionTime)}
+	data.Partitions = types.Int64{Value: int64(environment.Partitions)}
+	data.Instance = types.String{Value: environment.Links.Instance.Href}
+
+	properties := make(map[string]attr.Value)
+	for key, value := range environment.Properties {
+		if value != nil {
+			properties[key] = types.String{Value: value.(string)}
+		}
+	}
+	data.Properties = types.Map{ElemType: types.StringType, Elems: properties}
+
+	// optional fields
+	if environment.Description == nil || len(environment.Description.(string)) == 0 {
+		data.Description = types.String{Null: true}
+	} else {
+		data.Description = types.String{Value: environment.Description.(string)}
+	}
 }

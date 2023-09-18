@@ -27,14 +27,7 @@ func (c *Client) ReadEnvironment(id string) (*EnvironmentResponse, error) {
 	}
 	return &o, nil
 }
-func (c *Client) ReadEnvironmentFromDataSource(shortName string) (*EnvironmentsResponse, error) {
-	o := EnvironmentsResponse{}
-	err := c.RequestAndMap("GET", fmt.Sprintf("%s/environments/search/findByShortName?shortName=%s", c.ApiURL, shortName), nil, nil, &o)
-	if err != nil {
-		return nil, err
-	}
-	return &o, nil
-}
+
 func (c *Client) UpdateEnvironment(id string, environmentRequest EnvironmentRequest) (*EnvironmentResponse, error) {
 	o := EnvironmentResponse{}
 	marshal, err := json.Marshal(environmentRequest)
