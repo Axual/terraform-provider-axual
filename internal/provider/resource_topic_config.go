@@ -62,6 +62,16 @@ func (t topicConfigResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, d
 					tfsdk.RequiresReplace(),
 				},
 			},
+			"key_schema_version": {
+				MarkdownDescription: "The keySchemaVersion this stream configuration is associated with",
+				Optional:            true,
+				Type:                types.StringType,
+			},
+			"value_schema_version": {
+				MarkdownDescription: "The valueSchemaVersion this stream configuration is associated with",
+				Optional:            true,
+				Type:                types.StringType,
+			},
 			"properties": {
 				MarkdownDescription: "You can define Kafka properties for your topic here. segment.ms property needs to always be included. Read more: https://docs.axual.io/axual/2023.2/self-service/topic-management.html#configuring-a-topic-for-an-environment",
 				Required:            true,
@@ -97,6 +107,8 @@ type topicConfigResourceData struct {
 	RetentionTime types.Int64  `tfsdk:"retention_time"`
 	Topic         types.String `tfsdk:"topic"`
 	Environment   types.String `tfsdk:"environment"`
+	KeySchemaVersion   types.String `tfsdk:"key_schema_version"`
+	ValueSchemaVersion types.String `tfsdk:"value_schema_version"`
 	Id            types.String `tfsdk:"id"`
 	Properties    types.Map    `tfsdk:"properties"`
 }
@@ -113,6 +125,29 @@ func (r topicConfigResource) Create(ctx context.Context, req tfsdk.CreateResourc
 
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	stream, err := r.provider.client.ReadStream(data.Stream.Value)
+	if err != nil {
+		return
+	}
+
+	if !data.KeySchemaVersion.Null {
+		if stream.KeyType != "AVRO" {
+			resp.Diagnostics.AddError(
+				"CREATE request error for stream config resource",
+				fmt.Sprintf("Stream doesn't have an AVRO Key Schema. Please don't set the KeySchemaVersion: %s", data.KeySchemaVersion.Value))
+			return
+		}
+	}
+
+	if !data.ValueSchemaVersion.Null {
+		if stream.ValueType != "AVRO" {
+			resp.Diagnostics.AddError(
+				"CREATE request error for stream config resource",
+				fmt.Sprintf("Stream doesn't have an AVRO Value Schema. Please don't set the ValueSchemaVersion: %s", data.ValueSchemaVersion))
+			return
+		}
 	}
 
 	topicConfigRequest, err := createTopicConfigRequestFromData(ctx, &data, r)
@@ -257,6 +292,15 @@ func createTopicConfigRequestFromData(ctx context.Context, data *topicConfigReso
 		Stream:        topic,
 		Environment:   environment,
 	}
+
+	// optional fields
+	if !data.KeySchemaVersion.Null {
+		streamConfigRequest.KeySchemaVersion = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.KeySchemaVersion.Value)
+	}
+	if !data.ValueSchemaVersion.Null {
+		streamConfigRequest.ValueSchemaVersion = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.ValueSchemaVersion.Value)
+	}
+
 	return topicConfigRequest, nil
 }
 

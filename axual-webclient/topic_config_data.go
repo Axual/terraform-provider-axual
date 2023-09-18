@@ -9,6 +9,8 @@ type TopicConfigResponse struct {
 	ModifiedAt    string                 `json:"modified_at"`
 	CreatedBy     string                 `json:"created_by"`
 	ModifiedBy    string                 `json:"modified_by"`
+	KeySchemaVersion   string                 `json:"key_schema_version"`
+	ValueSchemaVersion string                 `json:"value_schema_version"`
 	Embedded      struct {
 		Environment struct {
 			Visibility  string `json:"visibility"`
@@ -85,6 +87,16 @@ type TopicConfigResponse struct {
 				} `json:"self"`
 			} `json:"_links"`
 		} `json:"stream"`
+		KeySchemaVersion struct {
+			Id       string `json:"schemaVersionUid"`
+			SchemaId string `json:"schemaUid"`
+			Version  string `json:"version"`
+		}
+		ValueSchemaVersion struct {
+			Id       string `json:"schemaVersionUid"`
+			SchemaId string `json:"schemaUid"`
+			Version  string `json:"version"`
+		}
 	} `json:"_embedded"`
 	Links struct {
 		Self struct {
@@ -132,4 +144,6 @@ type TopicConfigRequest struct {
 	Stream        string                 `json:"stream,omitempty"`
 	Environment   string                 `json:"environment,omitempty"`
 	Properties    map[string]interface{} `json:"properties,omitempty"`
+	KeySchemaVersion   string                 `json:"keySchemaVersion,omitempty"`
+	ValueSchemaVersion string                 `json:"valueSchemaVersion,omitempty"`
 }

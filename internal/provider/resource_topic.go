@@ -50,7 +50,7 @@ func (t topicResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Di
 				},
 			},
 			"key_schema": {
-				MarkdownDescription: "The key type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html#key-type",
+				MarkdownDescription: "The key type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html#key-schema",
 				Optional:            true,
 				Type:                types.StringType,
 			},
@@ -63,7 +63,7 @@ func (t topicResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Di
 				},
 			},
 			"value_schema": {
-				MarkdownDescription: "The value type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html#value-type",
+				MarkdownDescription: "The value type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html#value-schema",
 				Optional:            true,
 				Type:                types.StringType,
 			},
