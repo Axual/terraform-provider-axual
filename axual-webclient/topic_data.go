@@ -5,9 +5,7 @@ type TopicResponse struct {
 	Name            string                 `json:"name"`
 	Description     interface{}            `json:"description"`
 	KeyType         string                 `json:"keyType"`
-	KeySchema       string                 `json:"keySchema"`
 	ValueType       string                 `json:"valueType"`
-	ValueSchema     string                 `json:"valueSchema"`
 	RetentionPolicy string                 `json:"retentionPolicy"`
 	Uid             string                 `json:"uid"`
 	CreatedAt       string                 `json:"created_at"`
