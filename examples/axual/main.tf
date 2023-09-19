@@ -327,6 +327,8 @@ resource "axual_stream_config" "logs_in_dev" {
   stream = axual_stream.logs.id
   environment = axual_environment.development.id
   properties = {"segment.ms"="600012", "retention.bytes"="1"}
+  key_schema_version =  axual_schema_version.axual_gitops_test_schema_version3.id
+  value_schema_version = axual_schema_version.axual_gitops_test_schema_version2.id
 }
 
 resource "axual_stream_config" "logs_in_staging" {
@@ -334,6 +336,8 @@ resource "axual_stream_config" "logs_in_staging" {
   retention_time = 1001000
   stream = axual_stream.logs.id
   environment = axual_environment.staging.id
+  key_schema_version = axual_schema_version.axual_gitops_test_schema_version2.id
+  value_schema_version = axual_schema_version.axual_gitops_test_schema_version1.id
   properties = {"segment.ms"="60002", "retention.bytes"="100"}
 }
 
@@ -343,6 +347,8 @@ resource "axual_stream_config" "logs_in_production" {
   stream = axual_stream.logs.id
   environment = axual_environment.production.id
   properties = {"segment.ms"="600000", "retention.bytes"="10089"}
+  key_schema_version = axual_schema_version.axual_gitops_test_schema_version1.id
+  value_schema_version = axual_schema_version.axual_gitops_test_schema_version2.id
 }
 
 resource "axual_stream" "support" {
