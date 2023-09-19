@@ -103,14 +103,14 @@ func (t topicConfigResourceType) NewResource(ctx context.Context, in tfsdk.Provi
 }
 
 type topicConfigResourceData struct {
-	Partitions    types.Int64  `tfsdk:"partitions"`
-	RetentionTime types.Int64  `tfsdk:"retention_time"`
-	Topic         types.String `tfsdk:"topic"`
-	Environment   types.String `tfsdk:"environment"`
+	Partitions         types.Int64  `tfsdk:"partitions"`
+	RetentionTime      types.Int64  `tfsdk:"retention_time"`
+	Topic              types.String `tfsdk:"topic"`
+	Environment        types.String `tfsdk:"environment"`
 	KeySchemaVersion   types.String `tfsdk:"key_schema_version"`
 	ValueSchemaVersion types.String `tfsdk:"value_schema_version"`
-	Id            types.String `tfsdk:"id"`
-	Properties    types.Map    `tfsdk:"properties"`
+	Id                 types.String `tfsdk:"id"`
+	Properties         types.Map    `tfsdk:"properties"`
 }
 
 type topicConfigResource struct {
@@ -127,20 +127,20 @@ func (r topicConfigResource) Create(ctx context.Context, req tfsdk.CreateResourc
 		return
 	}
 
-	stream, err := r.provider.client.ReadStream(data.Stream.Value)
+	topic, err := r.provider.client.ReadTopic(data.Topic.Value)
 	if err != nil {
 		resp.Diagnostics.AddError("CREATE request error for stream config resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
 
 	if !data.KeySchemaVersion.Null {
-		if stream.KeyType != "AVRO" {
+		if topic.KeyType != "AVRO" {
 			resp.Diagnostics.AddError(
 				"CREATE request error for stream config resource",
 				fmt.Sprintf("Stream doesn't have an AVRO Key Schema. Please don't set the KeySchemaVersion: %s", data.KeySchemaVersion.Value))
 			return
 		} else {
-			r.validateSchemaVersionsForCreate(stream.Embedded.KeySchema.Uid, data.KeySchemaVersion.Value, resp)
+			r.validateSchemaVersionsForCreate(topic.Embedded.KeySchema.Uid, data.KeySchemaVersion.Value, resp)
 			if resp.Diagnostics.HasError() {
 				return
 			}
@@ -149,13 +149,13 @@ func (r topicConfigResource) Create(ctx context.Context, req tfsdk.CreateResourc
 	}
 
 	if !data.ValueSchemaVersion.Null {
-		if stream.ValueType != "AVRO" {
+		if topic.ValueType != "AVRO" {
 			resp.Diagnostics.AddError(
 				"CREATE request error for stream config resource",
 				fmt.Sprintf("Stream doesn't have an AVRO Value Schema. Please don't set the ValueSchemaVersion: %s", data.ValueSchemaVersion))
 			return
 		} else {
-			r.validateSchemaVersionsForCreate(stream.Embedded.ValueSchema.Uid, data.ValueSchemaVersion.Value, resp)
+			r.validateSchemaVersionsForCreate(topic.Embedded.ValueSchema.Uid, data.ValueSchemaVersion.Value, resp)
 			if resp.Diagnostics.HasError() {
 				return
 			}
@@ -221,7 +221,7 @@ func (r topicConfigResource) Update(ctx context.Context, req tfsdk.UpdateResourc
 		return
 	}
 
-	stream, err := r.provider.client.ReadStream(data.Stream.Value)
+	stream, err := r.provider.client.ReadTopic(data.Topic.Value)
 	if err != nil {
 		resp.Diagnostics.AddError("CREATE request error for stream config resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
@@ -343,10 +343,10 @@ func createTopicConfigRequestFromData(ctx context.Context, data *topicConfigReso
 
 	// optional fields
 	if !data.KeySchemaVersion.Null {
-		streamConfigRequest.KeySchemaVersion = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.KeySchemaVersion.Value)
+		topicConfigRequest.KeySchemaVersion = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.KeySchemaVersion.Value)
 	}
 	if !data.ValueSchemaVersion.Null {
-		streamConfigRequest.ValueSchemaVersion = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.ValueSchemaVersion.Value)
+		topicConfigRequest.ValueSchemaVersion = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.ValueSchemaVersion.Value)
 	}
 
 	return topicConfigRequest, nil
@@ -367,7 +367,7 @@ func mapTopicConfigResponseToData(_ context.Context, data *topicConfigResourceDa
 	data.Properties = types.Map{ElemType: types.StringType, Elems: properties}
 }
 
-func (r streamConfigResource) validateSchemaVersionsForUpdate(schemaUid string, schemaVersionUid string, resp *tfsdk.UpdateResourceResponse) {
+func (r topicConfigResource) validateSchemaVersionsForUpdate(schemaUid string, schemaVersionUid string, resp *tfsdk.UpdateResourceResponse) {
 	keySchemaVersions, err := r.provider.client.GetSchemaVersionsBySchema(fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, schemaUid))
 	if err != nil {
 		resp.Diagnostics.AddError("CREATE request error for stream config resource",
@@ -390,7 +390,7 @@ func (r streamConfigResource) validateSchemaVersionsForUpdate(schemaUid string, 
 	}
 }
 
-func (r streamConfigResource) validateSchemaVersionsForCreate(schemaUid string, schemaVersionUid string, resp *tfsdk.CreateResourceResponse) {
+func (r topicConfigResource) validateSchemaVersionsForCreate(schemaUid string, schemaVersionUid string, resp *tfsdk.CreateResourceResponse) {
 	schemaVersions, err := r.provider.client.GetSchemaVersionsBySchema(fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, schemaUid))
 	if err != nil {
 		resp.Diagnostics.AddError("CREATE request error for stream config resource",

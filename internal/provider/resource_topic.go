@@ -267,7 +267,7 @@ func createTopicRequestFromData(ctx context.Context, data *topicResourceData, r 
 		if !data.KeySchema.Null {
 			keySchema = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.KeySchema.Value)
 		} else {
-			return webclient.StreamRequest{}, fmt.Errorf("KeyType is AVRO but KeySchema is null")
+			return webclient.TopicRequest{}, fmt.Errorf("KeyType is AVRO but KeySchema is null")
 		}
 	}
 
@@ -276,7 +276,7 @@ func createTopicRequestFromData(ctx context.Context, data *topicResourceData, r 
 		if !data.ValueSchema.Null {
 			valueSchema = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.ValueSchema.Value)
 		} else {
-			return webclient.StreamRequest{}, fmt.Errorf("ValueType is AVRO but ValueSchema is null")
+			return webclient.TopicRequest{}, fmt.Errorf("ValueType is AVRO but ValueSchema is null")
 		}
 	}
 

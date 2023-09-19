@@ -13,6 +13,11 @@ Topic Config resource. Once the Topic has been created, the next step to actuall
 - `retention_time` (Number) Determine how long the messages should be available on a topic. There should be an agreed value most likely discussed in Intake session with the team supporting Axual Platform. In most cases, it is 7 days. Read more: https://docs.axual.io/axual/2023.2/self-service/topic-management.html#retention-time
 - `topic` (String) The Topic this topic configuration is associated with
 
+### Optional
+
+- `key_schema_version` (String) The keySchemaVersion this stream configuration is associated with
+- `value_schema_version` (String) The valueSchemaVersion this stream configuration is associated with
+
 ### Read-Only
 
 - `id` (String) topic config identifier
