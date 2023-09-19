@@ -55,7 +55,7 @@ provider "axual" {
   apiurl   = "https://platform.local/api"
   realm    = "axual"
   username = "kubernetes@axual.com" #- or set using env property export AXUAL_AUTH_USERNAME=
-  password = "02480248" #- or set using env property export AXUAL_AUTH_PASSWORD=
+  password = "PLEASE_CHANGE_PASSWORD" #- or set using env property export AXUAL_AUTH_PASSWORD=
   clientid = "self-service"
   authurl = "https://platform.local/auth/realms/axual/protocol/openid-connect/token"
   scopes = ["openid", "profile", "email"]
@@ -143,7 +143,7 @@ resource "axual_user" "green" {
 #
 # Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/user#import
 #
-
+/*
 resource "axual_user" "tenant_admin" {
   first_name    = "Tenant"
   last_name     = "Admin"
@@ -157,7 +157,7 @@ resource "axual_user" "tenant_admin" {
     { name = "APPLICATION_ADMIN" }
   ]
 }
-
+*/
 #
 # Users "john" and "jane" are members of group "Team Awesome", "dwight" is a member of "Team Bonanza" while "green" is a member of "Team Support"
 #
@@ -194,14 +194,14 @@ resource "axual_group" "team-support" {
 #
 # WARNING: built-in group, execute `init.sh` if you have not done that already
 #
-
+/*
 resource "axual_group" "tenant_admin_group" {
  name          = "Tenant Admin Group"
  members       = [
    axual_user.tenant_admin.id,
  ]
 }
-
+*/
 #
 # Below, environments are defined which are in use for the tenant.
 # PRIVATE environments can only be used by members of the owning group.
@@ -234,7 +234,7 @@ resource "axual_environment" "development" {
   visibility = "Public"
   authorization_issuer = "Auto"
   instance = "51be2a6a5eee481198787dc346ab6608"
-  owners = axual_group.tenant_admin_group.id
+  owners = axual_group.team-support.id
 }
 
 resource "axual_environment" "staging" {
@@ -245,7 +245,7 @@ resource "axual_environment" "staging" {
   visibility = "Public"
   authorization_issuer = "Stream owner"
   instance = "51be2a6a5eee481198787dc346ab6608"
-  owners = axual_group.tenant_admin_group.id
+  owners = axual_group.team-support.id
 }
 
 resource "axual_environment" "production" {
@@ -256,7 +256,7 @@ resource "axual_environment" "production" {
   visibility = "Public"
   authorization_issuer = "Stream owner"
   instance = "51be2a6a5eee481198787dc346ab6608"
-  owners = axual_group.tenant_admin_group.id
+  owners = axual_group.team-support.id
   properties = {
     "segment.ms"="60002"
   }
@@ -340,13 +340,14 @@ resource "axual_application_principal" "log_scraper_in_production_principal" {
 }
 
 #
-# While TOPIC mostly holds metadata, such as the owner and data type,
-# the TOPIC_CONFIG configures a TOPIC in an ENVIRONMENT
+# A Schema is an AVRO definition formatted in JSON.
+# In Axual Platform Schemas are used by Topics of data type AVRO (avsc file).
+# Note: An attempt at uploading a duplicate schema is rejected with an error message containing the duplicated version
 #
-# Below, some TOPICs are declared and configured in different environments and owned by different GROUPs
+# In the example below, schema_version "axual_gitops_test_schema_version1", "axual_gitops_test_schema_version2" and "axual_gitops_test_schema_version3" are declared referencing their respective schema version
 #
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/topic
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/topic_config
+# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/schema_version
+#
 
 resource "axual_schema_version" "axual_gitops_test_schema_version1" {
   body = file("avro-schemas/gitops_test_v1.avsc")
@@ -367,13 +368,13 @@ resource "axual_schema_version" "axual_gitops_test_schema_version3" {
 }
 
 #
-# A STREAM is nothing different than a declaration of a TOPIC. While STREAM mostly holds metadata, such as the owner and data type,
-# the STREAM_CONFIG configures a STREAM in an ENVIRONMENT
+# While TOPIC mostly holds metadata, such as the owner and data type,
+# the TOPIC_CONFIG configures a TOPIC in an ENVIRONMENT
 #
-# Below, some STREAMs are declared and configured in different environments and owned by different GROUPs
+# Below, some TOPICs are declared and configured in different environments and owned by different GROUPs
 #
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/stream
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/stream_config
+# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/topic
+# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/topic_config
 
 resource "axual_topic" "logs" {
   name = "logs"
@@ -560,16 +561,6 @@ resource "axual_application_access_grant_approval" "scraper_produce_logs_product
 resource "axual_application_access_grant_rejection" "scraper_produce_logs_staging_rejection" {
   application_access_grant = axual_application_access_grant.scraper_produce_to_logs_in_staging.id
 }
-
-#
-# A Schema is an AVRO definition formatted in JSON.
-# In Axual Platform Schemas are used by Topics of data type AVRO (avsc file).
-# Note: An attempt at uploading a duplicate schema is rejected with an error message containing the duplicated version
-#
-# In the example below, schema_version "axual_gitops_test_schema_version1", "axual_gitops_test_schema_version2" and "axual_gitops_test_schema_version3" are declared referencing their respective schema version
-#
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/schema_version
-#
 ```
 
 <!-- schema generated by tfplugindocs -->
