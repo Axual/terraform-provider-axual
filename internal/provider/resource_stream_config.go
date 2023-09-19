@@ -128,6 +128,7 @@ func (r streamConfigResource) Create(ctx context.Context, req tfsdk.CreateResour
 
 	stream, err := r.provider.client.ReadStream(data.Stream.Value)
 	if err != nil {
+		resp.Diagnostics.AddError("CREATE request error for stream config resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
 
@@ -137,6 +138,12 @@ func (r streamConfigResource) Create(ctx context.Context, req tfsdk.CreateResour
 				"CREATE request error for stream config resource",
 				fmt.Sprintf("Stream doesn't have an AVRO Key Schema. Please don't set the KeySchemaVersion: %s", data.KeySchemaVersion.Value))
 			return
+		} else {
+			r.validateSchemaVersionsForCreate(stream.Embedded.KeySchema.Uid, data.KeySchemaVersion.Value, resp)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+
 		}
 	}
 
@@ -146,6 +153,11 @@ func (r streamConfigResource) Create(ctx context.Context, req tfsdk.CreateResour
 				"CREATE request error for stream config resource",
 				fmt.Sprintf("Stream doesn't have an AVRO Value Schema. Please don't set the ValueSchemaVersion: %s", data.ValueSchemaVersion))
 			return
+		} else {
+			r.validateSchemaVersionsForCreate(stream.Embedded.ValueSchema.Uid, data.ValueSchemaVersion.Value, resp)
+			if resp.Diagnostics.HasError() {
+				return
+			}
 		}
 	}
 
@@ -207,6 +219,42 @@ func (r streamConfigResource) Update(ctx context.Context, req tfsdk.UpdateResour
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	stream, err := r.provider.client.ReadStream(data.Stream.Value)
+	if err != nil {
+		resp.Diagnostics.AddError("CREATE request error for stream config resource", fmt.Sprintf("Error message: %s", err.Error()))
+		return
+	}
+
+	if !data.KeySchemaVersion.Null {
+		if stream.KeyType != "AVRO" {
+			resp.Diagnostics.AddError(
+				"CREATE request error for stream config resource",
+				fmt.Sprintf("Stream doesn't have an AVRO Key Schema. Please don't set the KeySchemaVersion: %s", data.KeySchemaVersion.Value))
+			return
+		} else {
+			r.validateSchemaVersionsForUpdate(stream.Embedded.KeySchema.Uid, data.KeySchemaVersion.Value, resp)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+
+		}
+	}
+
+	if !data.ValueSchemaVersion.Null {
+		if stream.ValueType != "AVRO" {
+			resp.Diagnostics.AddError(
+				"CREATE request error for stream config resource",
+				fmt.Sprintf("Stream doesn't have an AVRO Value Schema. Please don't set the ValueSchemaVersion: %s", data.ValueSchemaVersion))
+			return
+		} else {
+			r.validateSchemaVersionsForUpdate(stream.Embedded.ValueSchema.Uid, data.ValueSchemaVersion.Value, resp)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+		}
+	}
+
 	streamConfigRequest, err := createStreamConfigRequestFromData(ctx, &data, r)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating UPDATE request struct for stream config resource", fmt.Sprintf("Error message: %s", err.Error()))
@@ -316,4 +364,50 @@ func mapStreamConfigResponseToData(_ context.Context, data *streamConfigResource
 		}
 	}
 	data.Properties = types.Map{ElemType: types.StringType, Elems: properties}
+}
+
+func (r streamConfigResource) validateSchemaVersionsForUpdate(schemaUid string, schemaVersionUid string, resp *tfsdk.UpdateResourceResponse) {
+	keySchemaVersions, err := r.provider.client.GetSchemaVersionsBySchema(fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, schemaUid))
+	if err != nil {
+		resp.Diagnostics.AddError("CREATE request error for stream config resource",
+			fmt.Sprintf("Error message: %s", err.Error()))
+		return
+	}
+
+	var isValidKeySchemaVersion = false
+	for _, value := range keySchemaVersions.Embedded.SchemaVersion {
+		if value.UID == schemaVersionUid {
+			isValidKeySchemaVersion = true
+			break
+		}
+	}
+
+	if !isValidKeySchemaVersion {
+		resp.Diagnostics.AddError("CREATE request error for stream config resource",
+			fmt.Sprintf("Error message: %s", schemaVersionUid+" is invalid schema id."))
+		return
+	}
+}
+
+func (r streamConfigResource) validateSchemaVersionsForCreate(schemaUid string, schemaVersionUid string, resp *tfsdk.CreateResourceResponse) {
+	schemaVersions, err := r.provider.client.GetSchemaVersionsBySchema(fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, schemaUid))
+	if err != nil {
+		resp.Diagnostics.AddError("CREATE request error for stream config resource",
+			fmt.Sprintf("Error message: %s", err.Error()))
+		return
+	}
+
+	var isValidKeySchemaVersion = false
+	for _, value := range schemaVersions.Embedded.SchemaVersion {
+		if value.UID == schemaVersionUid {
+			isValidKeySchemaVersion = true
+			break
+		}
+	}
+
+	if !isValidKeySchemaVersion {
+		resp.Diagnostics.AddError("CREATE request error for stream config resource",
+			fmt.Sprintf("Error message: %s", schemaVersionUid+" is invalid schema id."))
+		return
+	}
 }
