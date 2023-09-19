@@ -143,7 +143,7 @@ resource "axual_user" "green" {
 #
 # Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/user#import
 #
-/*
+
 resource "axual_user" "tenant_admin" {
   first_name    = "Tenant"
   last_name     = "Admin"
@@ -157,7 +157,7 @@ resource "axual_user" "tenant_admin" {
     { name = "APPLICATION_ADMIN" }
   ]
 }
-*/
+
 #
 # Users "john" and "jane" are members of group "Team Awesome", "dwight" is a member of "Team Bonanza" while "green" is a member of "Team Support"
 #
@@ -194,14 +194,14 @@ resource "axual_group" "team-support" {
 #
 # WARNING: built-in group, execute `init.sh` if you have not done that already
 #
-/*
+
 resource "axual_group" "tenant_admin_group" {
  name          = "Tenant Admin Group"
  members       = [
    axual_user.tenant_admin.id,
  ]
 }
-*/
+
 #
 # Below, environments are defined which are in use for the tenant.
 # PRIVATE environments can only be used by members of the owning group.
@@ -234,7 +234,7 @@ resource "axual_environment" "development" {
   visibility = "Public"
   authorization_issuer = "Auto"
   instance = "51be2a6a5eee481198787dc346ab6608"
-  owners = axual_group.team-support.id
+  owners = axual_group.tenant_admin_group.id
 }
 
 resource "axual_environment" "staging" {
@@ -245,7 +245,7 @@ resource "axual_environment" "staging" {
   visibility = "Public"
   authorization_issuer = "Stream owner"
   instance = "51be2a6a5eee481198787dc346ab6608"
-  owners = axual_group.team-support.id
+  owners = axual_group.tenant_admin_group.id
 }
 
 resource "axual_environment" "production" {
@@ -256,7 +256,7 @@ resource "axual_environment" "production" {
   visibility = "Public"
   authorization_issuer = "Stream owner"
   instance = "51be2a6a5eee481198787dc346ab6608"
-  owners = axual_group.team-support.id
+  owners = axual_group.tenant_admin_group.id
   properties = {
     "segment.ms"="60002"
   }
