@@ -20,8 +20,8 @@ Axual Terraform Provider does not support AVRO key type and AVRO value type. AVR
 ### Optional
 
 - `description` (String) A text describing the purpose of the stream.
-- `key_schema` (String) The key type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html#key-type
-- `value_schema` (String) The value type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html#value-type
+- `key_schema` (String) The key type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html#key-schema
+- `value_schema` (String) The value type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/stream-management.html#value-schema
 
 ### Read-Only
 
