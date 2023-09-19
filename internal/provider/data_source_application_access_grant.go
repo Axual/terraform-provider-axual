@@ -18,7 +18,7 @@ type applicationAccessGrantDataSourceType struct{}
 
 func (t applicationAccessGrantDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
 	return tfsdk.Schema{
-		MarkdownDescription: "Application Access Grant resource. Purpose of a grant is to request access to a stream in an environment. Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#requesting-stream-access",
+		MarkdownDescription: "Application Access Grant resource. Purpose of a grant is to request access to a topic in an environment. Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#requesting-topic-access",
 		Attributes: map[string]tfsdk.Attribute{
 			"id": {
 				MarkdownDescription: "Application Access Grant Unique Identifier",

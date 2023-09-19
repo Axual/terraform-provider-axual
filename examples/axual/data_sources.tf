@@ -12,11 +12,11 @@ output "frontend_developers" {
   value = data.axual_group.frontend_developers
 }
 
-data "axual_stream" "danny_stream" {
+data "axual_topic" "danny_topic" {
  id = "434f4763d0594b31af788c187bb63b0f"
 }
-output "danny_stream" {
-  value = data.axual_stream.danny_stream
+output "danny_topic" {
+  value = data.axual_topic.danny_topic
 }
 
 data "axual_application" "danny_app" {
