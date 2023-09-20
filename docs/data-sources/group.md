@@ -17,7 +17,7 @@ Group resource. Read more: https://docs.axual.io/axual/2023.2/self-service/user-
 
 ### Required
 
-- `id` (String) Group's unique identifier
+- `name` (String) Group's name
 
 ### Optional
 
@@ -27,6 +27,6 @@ Group resource. Read more: https://docs.axual.io/axual/2023.2/self-service/user-
 
 ### Read-Only
 
-- `name` (String) Group's name
+- `id` (String) Group's unique identifier
 
 

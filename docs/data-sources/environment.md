@@ -17,23 +17,23 @@ Environments are used typically to support the application lifecycle, as it is m
 
 ### Required
 
-- `id` (String) Environment unique identifier
+- `short_name` (String) A short name that will uniquely identify this environment. The short name should be between 3 and 20 characters. no special characters are allowed.
 
 ### Optional
 
 - `description` (String) A text describing the purpose of the environment.
-- `partitions` (Number) Defines the number of partitions configured for every stream of this tenant. This is an optional field. If not specified, default value is 12
+- `partitions` (Number) Defines the number of partitions configured for every topic of this tenant. This is an optional field. If not specified, default value is 12
 - `properties` (Map of String) Environment-wide properties for all topics and applications.
-- `retention_time` (Number) The time in milliseconds after which the messages can be deleted from all streams. This is an optional field. If not specified, default value is 7 days (604800000).
+- `retention_time` (Number) The time in milliseconds after which the messages can be deleted from all topics. This is an optional field. If not specified, default value is 7 days (604800000).
 
 ### Read-Only
 
 - `authorization_issuer` (String) This indicates if any deployments on this environment should be AUTO approved or requires approval from Stream Owner. For private environments, only AUTO can be selected.
 - `color` (String) The color used display the environment
+- `id` (String) Environment unique identifier
 - `instance` (String) The id of the instance where this environment should be deployed.
 - `name` (String) A suitable name identifying this environment. This must be in the format string-string (Alphabetical characters, digits and the following characters are allowed: `- `,` _` ,` .`)
 - `owners` (String) The id of the team owning this environment.
-- `short_name` (String) A short name that will uniquely identify this environment. The short name should be between 3 and 20 characters. no special characters are allowed.
 - `visibility` (String) Thi Private environments are only visible to the owning group (your team). They are not included in dashboard visualisations.
 
 
