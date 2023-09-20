@@ -119,3 +119,52 @@ type GroupRequest struct {
 	PhoneNumber  interface{} `json:"phoneNumber,omitempty"`
 	Members      []string    `json:"members,omitempty"`
 }
+
+type GroupByNameResponse struct {
+	Embedded struct {
+		Groups []struct {
+			Name         string `json:"name"`
+			EmailAddress struct {
+				Email string `json:"email"`
+			} `json:"emailAddress"`
+			PhoneNumber interface{} `json:"phoneNumber"`
+			Uid         string      `json:"uid"`
+			CreatedBy   string      `json:"created_by"`
+			CreatedAt   string      `json:"created_at"`
+			ModifiedAt  string      `json:"modified_at"`
+			ModifiedBy  string      `json:"modified_by"`
+			Links       struct {
+				Self struct {
+					Href  string `json:"href"`
+					Title string `json:"title"`
+				} `json:"self"`
+				Group struct {
+					Href      string `json:"href"`
+					Templated bool   `json:"templated"`
+					Title     string `json:"title"`
+				} `json:"group"`
+				Members struct {
+					Href      string `json:"href"`
+					Templated bool   `json:"templated"`
+					Title     string `json:"title"`
+				} `json:"members"`
+			} `json:"_links"`
+		} `json:"groups"`
+	} `json:"_embedded"`
+	Links struct {
+		Self struct {
+			Href  string `json:"href"`
+			Title string `json:"title"`
+		} `json:"self"`
+		Create struct {
+			Href  string `json:"href"`
+			Title string `json:"title"`
+		} `json:"create"`
+	} `json:"_links"`
+	Page struct {
+		Size          int `json:"size"`
+		TotalElements int `json:"totalElements"`
+		TotalPages    int `json:"totalPages"`
+		Number        int `json:"number"`
+	} `json:"page"`
+}

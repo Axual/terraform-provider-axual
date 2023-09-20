@@ -25,7 +25,7 @@ func (t topicDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.
 		Attributes: map[string]tfsdk.Attribute{
 			"name": {
 				MarkdownDescription: "The name of the topic. This must be in the format string-string (Needs to contain exactly one dash). The topic name is usually discussed and finalized as part of the Intake session or a follow up.",
-				Computed:            true,
+				Required:            true,
 				Type:                types.StringType,
 			},
 			"description": {
@@ -61,7 +61,7 @@ func (t topicDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.
 				Type:                types.MapType{ElemType: types.StringType},
 			},
 			"id": {
-				Required:            true,
+				Computed:            true,
 				MarkdownDescription: "Topic unique identifier",
 				PlanModifiers: tfsdk.AttributePlanModifiers{
 					tfsdk.UseStateForUnknown(),
@@ -105,12 +105,17 @@ func (d topicDataSource) Read(ctx context.Context, req tfsdk.ReadDataSourceReque
 		return
 	}
 
-	topic, err := d.provider.client.ReadTopic(data.Id.Value)
+	topicByName, err := d.provider.client.ReadTopicByName(data.Name.Value)
+	if err != nil {
+	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read topic by name, got error: %s", err))
+	return
+	}
+
+	topic, err := d.provider.client.ReadTopic(topicByName.Embedded.Topics[0].Uid)
 	if err != nil {
 	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read topic, got error: %s", err))
 	return
 	}
-
     mapTopicDataSourceResponseToData(ctx, &data, topic)
 	
 	diags = resp.State.Set(ctx, &data)

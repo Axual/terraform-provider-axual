@@ -24,7 +24,7 @@ func (t groupDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.
 		Attributes: map[string]tfsdk.Attribute{
 			"name": {
 				MarkdownDescription: "Group's name",
-				Computed:            true,
+				Required:            true,
 				Type:                types.StringType,
 			},
 			"email_address": {
@@ -46,7 +46,7 @@ func (t groupDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.
 				Type:                types.SetType{ElemType: types.StringType},
 			},
 			"id": {
-				Required:            true,
+				Computed:            true,
 				MarkdownDescription: "Group's unique identifier",
 				PlanModifiers: tfsdk.AttributePlanModifiers{
 					tfsdk.UseStateForUnknown(),
@@ -87,9 +87,15 @@ func (d groupDataSource) Read(ctx context.Context, req tfsdk.ReadDataSourceReque
 		return
 	}
 
-	group, err := d.provider.client.ReadGroup(data.Id.Value)
+	groupByName, err := d.provider.client.ReadGroupByName(data.Name.Value)
 	if err != nil {
-	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read group, got error: %s", err))
+	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read group by name, got error: %s", err))
+	return
+	}
+
+	group, err2 := d.provider.client.ReadGroup(groupByName.Embedded.Groups[0].Uid)
+	if err2 != nil {
+	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read group, got error: %s", err2))
 	return
 	}
 

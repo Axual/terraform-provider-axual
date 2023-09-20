@@ -24,14 +24,6 @@ func (t environmentDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 		MarkdownDescription: "Environments are used typically to support the application lifecycle, as it is moving from Development to Production.  In Self Service, they also allow you to test a feature in isolation, by making the environment Private. Read more: https://docs.axual.io/axual/2023.2/self-service/environment-management.html#managing-environments",
 
 		Attributes: map[string]tfsdk.Attribute{
-			"id": {
-				Required:            true,
-				MarkdownDescription: "Environment unique identifier",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.UseStateForUnknown(),
-				},
-				Type: types.StringType,
-			},
 			"name": {
 				MarkdownDescription: "A suitable name identifying this environment. This must be in the format string-string (Alphabetical characters, digits and the following characters are allowed: `- `,` _` ,` .`)",
 				Computed:            true,
@@ -39,13 +31,17 @@ func (t environmentDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 			},
 			"short_name": {
 				MarkdownDescription: "A short name that will uniquely identify this environment. The short name should be between 3 and 20 characters. no special characters are allowed.",
-				Computed:            true,
+				Required:            true,
 				Type:                types.StringType,
+				Validators: []tfsdk.AttributeValidator{
+					validation.Length(3, 50),
+					validation.RegexpMatch((`^[a-z0-9]+$`)),
+				},
 			},
 			"description": {
 				MarkdownDescription: "A text describing the purpose of the environment.",
-				Computed:            true,
 				Optional:            true,
+				Computed: 			 true,
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
 					validation.Length(0, 200),
@@ -55,12 +51,16 @@ func (t environmentDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 				MarkdownDescription: "The color used display the environment",
 				Computed:            true,
 				Type:                types.StringType,
-				},
+				Validators: []tfsdk.AttributeValidator{
+					validation.Compare(validation.OneOf, []string{
+						"#80affe", "#4686f0", "#3347e1", "#1a2dbc", "#fee492", "#fbd04e", "#c2a7f9", "#8b58f3",
+						"#e9b105", "#d19e02", "#6bdde0", "#21ccd2", "#19b9be", "#069499", "#532cd", "#3b0d98",
+					}),
+				}},
 			"visibility": {
 				MarkdownDescription: "Thi Private environments are only visible to the owning group (your team). They are not included in dashboard visualisations.",
 				Computed:            true,
 				Type:                types.StringType,
-				
 			},
 			"authorization_issuer": {
 				MarkdownDescription: "This indicates if any deployments on this environment should be AUTO approved or requires approval from Stream Owner. For private environments, only AUTO can be selected.",
@@ -78,23 +78,35 @@ func (t environmentDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 				Type:                types.StringType,
 			},
 			"retention_time": {
-				MarkdownDescription: "The time in milliseconds after which the messages can be deleted from all streams. This is an optional field. If not specified, default value is 7 days (604800000).",
+				MarkdownDescription: "The time in milliseconds after which the messages can be deleted from all topics. This is an optional field. If not specified, default value is 7 days (604800000).",
 				Optional:            true,
 				Computed:            true,
 				Type:                types.Int64Type,
 			},
 
 			"partitions": {
-				MarkdownDescription: "Defines the number of partitions configured for every stream of this tenant. This is an optional field. If not specified, default value is 12",
+				MarkdownDescription: "Defines the number of partitions configured for every topic of this tenant. This is an optional field. If not specified, default value is 12",
 				Optional:            true,
 				Computed:            true,
 				Type:                types.Int64Type,
+				Validators: []tfsdk.AttributeValidator{
+					validation.Compare(validation.GreaterThanOrEqualTo, 1),
+					validation.Compare(validation.LessThanOrEqualTo, 120000),
+				},
 			},
 			"properties": {
 				MarkdownDescription: "Environment-wide properties for all topics and applications.",
 				Optional:            true,
 				Computed:            true,
 				Type:                types.MapType{ElemType: types.StringType},
+			},
+			"id": {
+				Computed:            true,
+				MarkdownDescription: "Environment unique identifier",
+				PlanModifiers: tfsdk.AttributePlanModifiers{
+					tfsdk.UseStateForUnknown(),
+				},
+				Type: types.StringType,
 			},
 		},
 	}, nil
@@ -137,7 +149,13 @@ func (d environmentDataSource) Read(ctx context.Context, req tfsdk.ReadDataSourc
 		return
 	}
 
-	environment, err := d.provider.client.ReadEnvironment(data.Id.Value)
+	environmentByShortName, err := d.provider.client.ReadEnvironmentByShortName(data.ShortName.Value)
+	if err != nil {
+	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment by short_name, got error: %s", err))
+	return
+	}
+
+	environment, err := d.provider.client.ReadEnvironment(environmentByShortName.Embedded.Environments[0].Uid)
 	if err != nil {
 	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment, got error: %s", err))
 	return

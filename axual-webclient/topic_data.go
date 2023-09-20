@@ -113,3 +113,47 @@ type TopicRequest struct {
 	RetentionPolicy string                 `json:"retentionPolicy,omitempty"`
 	Properties      map[string]interface{} `json:"properties,omitempty"`
 }
+
+type TopicsByNameResponse struct {
+	Embedded struct {
+		Topics []struct {
+			Name        		string `json:"name"`
+			Description 		string `json:"description"`
+			RetentionPolicy   	string `json:"retentionPolicy"`
+			Integrity			string `json:"integrity"`
+			Confidentiality	 	 string `json:"confidentiality"`
+			CreatedAt       	string `json:"created_at"`
+			CreatedBy       	string `json:"created_by"`
+			ModifiedAt       	 string `json:"modified_at"`
+			ModifiedBy       	 string `json:"modified_by"`
+			Uid         		string `json:"uid"`
+			Owners		struct {
+				Name     		string  `json:"name"`
+				EmailAddress    struct{
+					Email    string `json:"email"`
+				}  `json:"emailAddress"`
+				PhoneNumber    	string  `json:"phoneNumber"`
+				Uid         	string `json:"uid"`
+			} `json:"owners"`
+			Links       struct {
+				Self struct {
+					Href  string `json:"href"`
+					Title string `json:"title"`
+				} `json:"self"`
+				Stream struct {
+					Href      string `json:"href"`
+					Templated bool   `json:"templated"`
+					Title     string `json:"title"`
+				} `json:"stream"`
+
+			} `json:"_links"`
+		} `json:"streams"`
+	} `json:"_embedded"`
+	Links struct {
+		Self struct {
+			Href      string `json:"href"`
+			Title     string `json:"title"`
+		} `json:"self"`
+	} `json:"_links"`
+
+}

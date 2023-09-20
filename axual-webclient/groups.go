@@ -3,6 +3,7 @@ package webclient
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -79,4 +80,13 @@ func (c *Client) RemoveMemberFromGroup(group string, memberId string) error {
 		return err
 	}
 	return nil
+}
+
+func (c *Client) ReadGroupByName(name string) (*GroupByNameResponse, error) {
+	o := GroupByNameResponse{}
+	err := c.RequestAndMap("GET", fmt.Sprintf("%s/groups/search/findByName?name=%v", c.ApiURL, url.QueryEscape(name)), nil, nil, &o)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
 }

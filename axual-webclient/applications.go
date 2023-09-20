@@ -3,6 +3,7 @@ package webclient
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -45,6 +46,14 @@ func (c *Client) CreateApplication(data ApplicationRequest) (*ApplicationRespons
 	}
 
 	err = c.RequestAndMap("POST", fmt.Sprintf("%s/applications", c.ApiURL), strings.NewReader(string(marshal)), nil, &o)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
+}
+func (c *Client) ReadApplicationByShortName(shortName string) (*ApplicationByShortNameResponse, error) {
+	o := ApplicationByShortNameResponse{}
+	err := c.RequestAndMap("GET", fmt.Sprintf("%s/applications/search/findByShortName?shortName=%s", c.ApiURL, url.QueryEscape(shortName)), nil, nil, &o)
 	if err != nil {
 		return nil, err
 	}

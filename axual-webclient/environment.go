@@ -3,6 +3,7 @@ package webclient
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -50,9 +51,18 @@ func (c *Client) DeleteEnvironment(id string) error {
 	return nil
 }
 
-func (c *Client) ReadEnvironments() (*EnvironmentsResponse, error) {
-	o := EnvironmentsResponse{}
+func (c *Client) ReadEnvironments() (*EnvironmentByShortNameResponse, error) {
+	o := EnvironmentByShortNameResponse{}
 	err := c.RequestAndMap("GET", fmt.Sprintf("%s/environments/", c.ApiURL), nil, nil, &o)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
+}
+
+func (c *Client) ReadEnvironmentByShortName(shortName string) (*EnvironmentByShortNameResponse, error) {
+	o := EnvironmentByShortNameResponse{}
+	err := c.RequestAndMap("GET", fmt.Sprintf("%s/environments/search/findByShortName?shortName=%s", c.ApiURL, url.QueryEscape(shortName)), nil, nil, &o)
 	if err != nil {
 		return nil, err
 	}
