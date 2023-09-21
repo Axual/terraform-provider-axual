@@ -2,6 +2,7 @@ package webclient
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -12,6 +13,21 @@ func (c *Client) ReadTopicConfig(id string) (*TopicConfigResponse, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	keySchemaVersion, err := c.GetKeySchemaVersion(id)
+	if err == nil {
+		o.KeySchemaVersion = keySchemaVersion.Id
+	} else if !errors.Is(err, NotFoundError) {
+		return nil, err
+	}
+
+	valueSchemaVersion, err := c.GetValueSchemaVersion(id)
+	if err == nil {
+		o.ValueSchemaVersion = valueSchemaVersion.Id
+	} else if !errors.Is(err, NotFoundError) {
+		return nil, err
+	}
+
 	return &o, nil
 }
 

@@ -51,3 +51,13 @@ type SchemaVersionRequest struct {
 	Version     string `json:"version"`
 	Description string `json:"description"`
 }
+
+type GetSchemaVersionsResponse struct {
+	Embedded struct {
+		SchemaVersion []struct {
+			Version    string `json:"version"`
+			SchemaBody string `json:"schemaBody"`
+			Uid        string `json:"uid"`
+		} `json:"schema_versions"`
+	} `json:"_embedded"`
+}

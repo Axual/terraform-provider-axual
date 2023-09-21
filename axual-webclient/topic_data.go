@@ -106,7 +106,9 @@ type TopicRequest struct {
 	Name            string                 `json:"name,omitempty"`
 	Description     string                 `json:"description"`
 	KeyType         string                 `json:"keyType,omitempty"`
+	KeySchema       string                 `json:"keySchema,omitempty"`
 	ValueType       string                 `json:"valueType,omitempty"`
+	ValueSchema     string                 `json:"valueSchema,omitempty"`
 	Owners          string                 `json:"owners,omitempty"`
 	RetentionPolicy string                 `json:"retentionPolicy,omitempty"`
 	Properties      map[string]interface{} `json:"properties,omitempty"`

@@ -62,6 +62,16 @@ func (t topicConfigResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, d
 					tfsdk.RequiresReplace(),
 				},
 			},
+			"key_schema_version": {
+				MarkdownDescription: "The schema version this topic config supports for the key.",
+				Optional:            true,
+				Type:                types.StringType,
+			},
+			"value_schema_version": {
+				MarkdownDescription: "The schema version this topic config supports for the value.",
+				Optional:            true,
+				Type:                types.StringType,
+			},
 			"properties": {
 				MarkdownDescription: "You can define Kafka properties for your topic here. segment.ms property needs to always be included. Read more: https://docs.axual.io/axual/2023.2/self-service/topic-management.html#configuring-a-topic-for-an-environment",
 				Required:            true,
@@ -93,12 +103,14 @@ func (t topicConfigResourceType) NewResource(ctx context.Context, in tfsdk.Provi
 }
 
 type topicConfigResourceData struct {
-	Partitions    types.Int64  `tfsdk:"partitions"`
-	RetentionTime types.Int64  `tfsdk:"retention_time"`
-	Topic         types.String `tfsdk:"topic"`
-	Environment   types.String `tfsdk:"environment"`
-	Id            types.String `tfsdk:"id"`
-	Properties    types.Map    `tfsdk:"properties"`
+	Partitions         types.Int64  `tfsdk:"partitions"`
+	RetentionTime      types.Int64  `tfsdk:"retention_time"`
+	Topic              types.String `tfsdk:"topic"`
+	Environment        types.String `tfsdk:"environment"`
+	KeySchemaVersion   types.String `tfsdk:"key_schema_version"`
+	ValueSchemaVersion types.String `tfsdk:"value_schema_version"`
+	Id                 types.String `tfsdk:"id"`
+	Properties         types.Map    `tfsdk:"properties"`
 }
 
 type topicConfigResource struct {
@@ -113,6 +125,41 @@ func (r topicConfigResource) Create(ctx context.Context, req tfsdk.CreateResourc
 
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	topic, err := r.provider.client.ReadTopic(data.Topic.Value)
+	if err != nil {
+		resp.Diagnostics.AddError("CREATE request error for topic config resource", fmt.Sprintf("Error message: %s", err.Error()))
+		return
+	}
+
+	if !data.KeySchemaVersion.Null {
+		if topic.KeyType != "AVRO" {
+			resp.Diagnostics.AddError(
+				"CREATE request error for topic config resource",
+				fmt.Sprintf("Topic doesn't have an AVRO Key Schema. Please don't set the KeySchemaVersion: %s", data.KeySchemaVersion.Value))
+			return
+		} else {
+			r.validateSchemaVersionsForCreate(topic.Embedded.KeySchema.Uid, data.KeySchemaVersion.Value, resp)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+
+		}
+	}
+
+	if !data.ValueSchemaVersion.Null {
+		if topic.ValueType != "AVRO" {
+			resp.Diagnostics.AddError(
+				"CREATE request error for topic config resource",
+				fmt.Sprintf("Topic doesn't have an AVRO Value Schema. Please don't set the ValueSchemaVersion: %s", data.ValueSchemaVersion))
+			return
+		} else {
+			r.validateSchemaVersionsForCreate(topic.Embedded.ValueSchema.Uid, data.ValueSchemaVersion.Value, resp)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+		}
 	}
 
 	topicConfigRequest, err := createTopicConfigRequestFromData(ctx, &data, r)
@@ -173,6 +220,42 @@ func (r topicConfigResource) Update(ctx context.Context, req tfsdk.UpdateResourc
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	topic, err := r.provider.client.ReadTopic(data.Topic.Value)
+	if err != nil {
+		resp.Diagnostics.AddError("CREATE request error for topic config resource", fmt.Sprintf("Error message: %s", err.Error()))
+		return
+	}
+
+	if !data.KeySchemaVersion.Null {
+		if topic.KeyType != "AVRO" {
+			resp.Diagnostics.AddError(
+				"CREATE request error for topic config resource",
+				fmt.Sprintf("Topic doesn't have an AVRO Key Schema. Please don't set the KeySchemaVersion: %s", data.KeySchemaVersion.Value))
+			return
+		} else {
+			r.validateSchemaVersionsForUpdate(topic.Embedded.KeySchema.Uid, data.KeySchemaVersion.Value, resp)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+
+		}
+	}
+
+	if !data.ValueSchemaVersion.Null {
+		if topic.ValueType != "AVRO" {
+			resp.Diagnostics.AddError(
+				"CREATE request error for topic config resource",
+				fmt.Sprintf("Topic doesn't have an AVRO Value Schema. Please don't set the ValueSchemaVersion: %s", data.ValueSchemaVersion))
+			return
+		} else {
+			r.validateSchemaVersionsForUpdate(topic.Embedded.ValueSchema.Uid, data.ValueSchemaVersion.Value, resp)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+		}
+	}
+
 	topicConfigRequest, err := createTopicConfigRequestFromData(ctx, &data, r)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating UPDATE request struct for topic config resource", fmt.Sprintf("Error message: %s", err.Error()))
@@ -257,6 +340,15 @@ func createTopicConfigRequestFromData(ctx context.Context, data *topicConfigReso
 		Stream:        topic,
 		Environment:   environment,
 	}
+
+	// optional fields
+	if !data.KeySchemaVersion.Null {
+		topicConfigRequest.KeySchemaVersion = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.KeySchemaVersion.Value)
+	}
+	if !data.ValueSchemaVersion.Null {
+		topicConfigRequest.ValueSchemaVersion = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.ValueSchemaVersion.Value)
+	}
+
 	return topicConfigRequest, nil
 }
 
@@ -273,4 +365,50 @@ func mapTopicConfigResponseToData(_ context.Context, data *topicConfigResourceDa
 		}
 	}
 	data.Properties = types.Map{ElemType: types.StringType, Elems: properties}
+}
+
+func (r topicConfigResource) validateSchemaVersionsForUpdate(schemaUid string, schemaVersionUid string, resp *tfsdk.UpdateResourceResponse) {
+	keySchemaVersions, err := r.provider.client.GetSchemaVersionsBySchema(fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, schemaUid))
+	if err != nil {
+		resp.Diagnostics.AddError("CREATE request error for topic config resource",
+			fmt.Sprintf("Error message: %s", err.Error()))
+		return
+	}
+
+	var isValidKeySchemaVersion = false
+	for _, value := range keySchemaVersions.Embedded.SchemaVersion {
+		if value.Uid == schemaVersionUid {
+			isValidKeySchemaVersion = true
+			break
+		}
+	}
+
+	if !isValidKeySchemaVersion {
+		resp.Diagnostics.AddError("CREATE request error for topic config resource",
+			fmt.Sprintf("Error message: %s", schemaVersionUid+" is invalid schema id."))
+		return
+	}
+}
+
+func (r topicConfigResource) validateSchemaVersionsForCreate(schemaUid string, schemaVersionUid string, resp *tfsdk.CreateResourceResponse) {
+	schemaVersions, err := r.provider.client.GetSchemaVersionsBySchema(fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, schemaUid))
+	if err != nil {
+		resp.Diagnostics.AddError("CREATE request error for topic config resource",
+			fmt.Sprintf("Error message: %s", err.Error()))
+		return
+	}
+
+	var isValidKeySchemaVersion = false
+	for _, value := range schemaVersions.Embedded.SchemaVersion {
+		if value.Uid == schemaVersionUid {
+			isValidKeySchemaVersion = true
+			break
+		}
+	}
+
+	if !isValidKeySchemaVersion {
+		resp.Diagnostics.AddError("CREATE request error for topic config resource",
+			fmt.Sprintf("Error message: %s", schemaVersionUid+" is invalid schema id."))
+		return
+	}
 }

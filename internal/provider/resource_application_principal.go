@@ -31,7 +31,7 @@ func (t applicationPrincipalResourceType) GetSchema(ctx context.Context) (tfsdk.
 				Type:                types.StringType,
 			},
 			"application": {
-				MarkdownDescription: "A valid UID of an existing application",
+				MarkdownDescription: "A valid Uid of an existing application",
 				Required:            true,
 				Type:                types.StringType,
 				PlanModifiers: tfsdk.AttributePlanModifiers{
@@ -39,7 +39,7 @@ func (t applicationPrincipalResourceType) GetSchema(ctx context.Context) (tfsdk.
 				},
 			},
 			"environment": {
-				MarkdownDescription: "A valid UID of an existing environment",
+				MarkdownDescription: "A valid Uid of an existing environment",
 				Required:            true,
 				Type:                types.StringType,
 				PlanModifiers: tfsdk.AttributePlanModifiers{
@@ -163,8 +163,8 @@ func (r applicationPrincipalResource) Update(ctx context.Context, req tfsdk.Upda
 
 	if data.Application.Value != oldApplication || data.Environment.Value != oldEnvironment {
 		resp.Diagnostics.AddError(
-			"Application Principal's environment UID or application UID cannot be updated",
-			fmt.Sprint("To update Application Principal's environment UID or application UID resource please create new axual_application_principal resource"),
+			"Application Principal's environment Uid or application Uid cannot be updated",
+			fmt.Sprint("To update Application Principal's environment Uid or application Uid resource please create new axual_application_principal resource"),
 		)
 		return
 	}

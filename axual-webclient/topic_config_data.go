@@ -1,15 +1,17 @@
 package webclient
 
 type TopicConfigResponse struct {
-	Properties    map[string]interface{} `json:"properties"`
-	RetentionTime int                    `json:"retentionTime"`
-	Partitions    int                    `json:"partitions"`
-	Uid           string                 `json:"uid"`
-	CreatedAt     string                 `json:"created_at"`
-	ModifiedAt    string                 `json:"modified_at"`
-	CreatedBy     string                 `json:"created_by"`
-	ModifiedBy    string                 `json:"modified_by"`
-	Embedded      struct {
+	Properties         map[string]interface{} `json:"properties"`
+	RetentionTime      int                    `json:"retentionTime"`
+	Partitions         int                    `json:"partitions"`
+	Uid                string                 `json:"uid"`
+	CreatedAt          string                 `json:"created_at"`
+	ModifiedAt         string                 `json:"modified_at"`
+	CreatedBy          string                 `json:"created_by"`
+	ModifiedBy         string                 `json:"modified_by"`
+	KeySchemaVersion   string                 `json:"key_schema_version"`
+	ValueSchemaVersion string                 `json:"value_schema_version"`
+	Embedded           struct {
 		Environment struct {
 			Visibility  string `json:"visibility"`
 			ShortName   string `json:"shortName"`
@@ -85,6 +87,16 @@ type TopicConfigResponse struct {
 				} `json:"self"`
 			} `json:"_links"`
 		} `json:"stream"`
+		KeySchemaVersion struct {
+			Id       string `json:"schemaVersionUid"`
+			SchemaId string `json:"schemaUid"`
+			Version  string `json:"version"`
+		}
+		ValueSchemaVersion struct {
+			Id       string `json:"schemaVersionUid"`
+			SchemaId string `json:"schemaUid"`
+			Version  string `json:"version"`
+		}
 	} `json:"_embedded"`
 	Links struct {
 		Self struct {
@@ -127,9 +139,11 @@ type TopicConfigResponse struct {
 }
 
 type TopicConfigRequest struct {
-	Partitions    int                    `json:"partitions,omitempty"`
-	RetentionTime int                    `json:"retentionTime,omitempty"`
-	Stream        string                 `json:"stream,omitempty"`
-	Environment   string                 `json:"environment,omitempty"`
-	Properties    map[string]interface{} `json:"properties,omitempty"`
+	Partitions         int                    `json:"partitions,omitempty"`
+	RetentionTime      int                    `json:"retentionTime,omitempty"`
+	Stream             string                 `json:"stream,omitempty"`
+	Environment        string                 `json:"environment,omitempty"`
+	Properties         map[string]interface{} `json:"properties,omitempty"`
+	KeySchemaVersion   string                 `json:"keySchemaVersion,omitempty"`
+	ValueSchemaVersion string                 `json:"valueSchemaVersion,omitempty"`
 }

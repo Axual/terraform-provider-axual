@@ -273,6 +273,34 @@ resource "axual_application_principal" "log_scraper_in_production_principal" {
 }
 
 #
+# A Schema is an AVRO definition formatted in JSON.
+# In Axual Platform Schemas are used by Topics of data type AVRO (avsc file).
+# Note: An attempt at uploading a duplicate schema is rejected with an error message containing the duplicated version
+#
+# In the example below, schema_version "axual_gitops_test_schema_version1", "axual_gitops_test_schema_version2" and "axual_gitops_test_schema_version3" are declared referencing their respective schema version
+#
+# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/schema_version
+#
+
+resource "axual_schema_version" "axual_gitops_test_schema_version1" {
+  body = file("avro-schemas/gitops_test_v1.avsc")
+  version = "1.0.0"
+  description = "Gitops test schema version"
+}
+
+resource "axual_schema_version" "axual_gitops_test_schema_version2" {
+  body = file("avro-schemas/gitops_test_v2.avsc")
+  version = "2.0.0"
+  description = "Gitops test schema version"
+}
+
+resource "axual_schema_version" "axual_gitops_test_schema_version3" {
+  body = file("avro-schemas/gitops_test_v3.avsc")
+  version = "3.0.0"
+  description = "Gitops test schema version"
+}
+
+#
 # While TOPIC mostly holds metadata, such as the owner and data type,
 # the TOPIC_CONFIG configures a TOPIC in an ENVIRONMENT
 #
@@ -312,6 +340,48 @@ resource "axual_topic_config" "logs_in_production" {
   retention_time = 86400000
   topic = axual_topic.logs.id
   environment = axual_environment.production.id
+  properties = {"segment.ms"="600000", "retention.bytes"="10089"}
+}
+
+resource "axual_topic" "logs_with_avro" {
+  name = "logswithavro"
+  key_type = "AVRO"
+  key_schema = axual_schema_version.axual_gitops_test_schema_version1.schema_id
+  value_type = "AVRO"
+  value_schema = axual_schema_version.axual_gitops_test_schema_version2.schema_id
+  owners = axual_group.team-bonanza.id
+  retention_policy = "delete"
+  properties = { }
+  description = "Logs from all applications with Avro schema"
+}
+
+resource "axual_topic_config" "logs_avro_in_dev" {
+  partitions = 1
+  retention_time = 864000
+  topic = axual_topic.logs_with_avro.id
+  environment = axual_environment.development.id
+  key_schema_version = axual_schema_version.axual_gitops_test_schema_version2.id
+  value_schema_version = axual_schema_version.axual_gitops_test_schema_version1.id
+  properties = {"segment.ms"="600012", "retention.bytes"="1"}
+}
+
+resource "axual_topic_config" "logs_avro_in_staging" {
+  partitions = 1
+  retention_time = 1001000
+  topic = axual_topic.logs_with_avro.id
+  environment = axual_environment.staging.id
+  key_schema_version = axual_schema_version.axual_gitops_test_schema_version2.id
+  value_schema_version = axual_schema_version.axual_gitops_test_schema_version3.id
+  properties = {"segment.ms"="60002", "retention.bytes"="100"}
+}
+
+resource "axual_topic_config" "logs_avro_in_production" {
+  partitions = 2
+  retention_time = 86400000
+  topic = axual_topic.logs_with_avro.id
+  environment = axual_environment.production.id
+  key_schema_version = axual_schema_version.axual_gitops_test_schema_version3.id
+  value_schema_version = axual_schema_version.axual_gitops_test_schema_version3.id
   properties = {"segment.ms"="600000", "retention.bytes"="10089"}
 }
 
@@ -457,32 +527,4 @@ resource "axual_application_access_grant_approval" "scraper_produce_logs_product
 
 resource "axual_application_access_grant_rejection" "scraper_produce_logs_staging_rejection" {
   application_access_grant = axual_application_access_grant.scraper_produce_to_logs_in_staging.id
-}
-
-#
-# A Schema is an AVRO definition formatted in JSON. 
-# In Axual Platform Schemas are used by Topics of data type AVRO (avsc file).
-# Note: An attempt at uploading a duplicate schema is rejected with an error message containing the duplicated version
-#
-# In the example below, schema_version "axual_gitops_test_schema_version1", "axual_gitops_test_schema_version2" and "axual_gitops_test_schema_version3" are declared referencing their respective schema version
-#
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/schema_version
-#
-
-resource "axual_schema_version" "axual_gitops_test_schema_version1" {
-  body = file("avro-schemas/gitops_test_v1.avsc")
-  version = "1.0.0"
-  description = "Gitops test schema version"
-}
-
-resource "axual_schema_version" "axual_gitops_test_schema_version2" {
-  body = file("avro-schemas/gitops_test_v2.avsc")
-  version = "2.0.0"
-  description = "Gitops test schema version"
-}
-
-resource "axual_schema_version" "axual_gitops_test_schema_version3" {
-  body = file("avro-schemas/gitops_test_v3.avsc")
-  version = "3.0.0"
-  description = "Gitops test schema version"
 }
