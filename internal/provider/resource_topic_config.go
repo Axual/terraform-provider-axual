@@ -63,12 +63,12 @@ func (t topicConfigResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, d
 				},
 			},
 			"key_schema_version": {
-				MarkdownDescription: "The schema version this topic configuration supports for the key.",
+				MarkdownDescription: "The schema version this topic config supports for the key.",
 				Optional:            true,
 				Type:                types.StringType,
 			},
 			"value_schema_version": {
-				MarkdownDescription: "The schema version this topic configuration supports for the value.",
+				MarkdownDescription: "The schema version this topic config supports for the value.",
 				Optional:            true,
 				Type:                types.StringType,
 			},

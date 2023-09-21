@@ -15,8 +15,8 @@ Topic Config resource. Once the Topic has been created, the next step to actuall
 
 ### Optional
 
-- `key_schema_version` (String) The schema version this topic configuration supports for the key.
-- `value_schema_version` (String) The schema version this topic configuration supports for the value.
+- `key_schema_version` (String) The schema version this topic config supports for the key.
+- `value_schema_version` (String) The schema version this topic config supports for the value.
 
 ### Read-Only
 
