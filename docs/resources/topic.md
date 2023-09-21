@@ -20,8 +20,8 @@ Axual Terraform Provider does not support AVRO key type and AVRO value type. AVR
 ### Optional
 
 - `description` (String) A text describing the purpose of the topic.
-- `key_schema` (String) The key type and reference to the schema (if applicable).
-- `value_schema` (String) The value type and reference to the schema (if applicable).
+- `key_schema` (String) The key type is AVRO and reference to the schema (if applicable).
+- `value_schema` (String) The value type is AVRO and reference to the schema (if applicable).
 
 ### Read-Only
 

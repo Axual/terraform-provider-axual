@@ -50,7 +50,7 @@ func (t topicResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Di
 				},
 			},
 			"key_schema": {
-				MarkdownDescription: "The key type and reference to the schema (if applicable).",
+				MarkdownDescription: "The key type is AVRO and reference to the schema (if applicable).",
 				Optional:            true,
 				Type:                types.StringType,
 			},
@@ -63,7 +63,7 @@ func (t topicResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Di
 				},
 			},
 			"value_schema": {
-				MarkdownDescription: "The value type and reference to the schema (if applicable).",
+				MarkdownDescription: "The value type is AVRO and reference to the schema (if applicable).",
 				Optional:            true,
 				Type:                types.StringType,
 			},

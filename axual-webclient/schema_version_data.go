@@ -40,9 +40,10 @@ type ValidateSchemaVersionRequest struct {
 }
 
 type SchemaVersionResponse struct {
-	Id         string `json:"uid"`
-	Version    string `json:"version"`
-	SchemaBody string `json:"schemaBody"`
+	Id       string `json:"schemaVersionUid"`
+	SchemaId string `json:"schemaUid"`
+	Version  string `json:"version"`
+	FullName string `json:"fullName"`
 }
 
 type SchemaVersionRequest struct {
@@ -56,7 +57,7 @@ type GetSchemaVersionsResponse struct {
 		SchemaVersion []struct {
 			Version    string `json:"version"`
 			SchemaBody string `json:"schemaBody"`
-			UID        string `json:"uid"`
+			Uid        string `json:"uid"`
 		} `json:"schema_versions"`
 	} `json:"_embedded"`
 }

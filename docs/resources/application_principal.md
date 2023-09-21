@@ -16,8 +16,8 @@ An ApplicationPrincipal is a security principal (certificate or comparable) that
 
 ### Required
 
-- `application` (String) A valid UID of an existing application
-- `environment` (String) A valid UID of an existing environment
+- `application` (String) A valid Uid of an existing application
+- `environment` (String) A valid Uid of an existing environment
 - `principal` (String) The principal of an Application for an Environment
 
 ### Optional

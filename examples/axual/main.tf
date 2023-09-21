@@ -311,10 +311,8 @@ resource "axual_schema_version" "axual_gitops_test_schema_version3" {
 
 resource "axual_topic" "logs" {
   name = "logs"
-  key_type = "AVRO"
-  key_schema = axual_schema_version.axual_gitops_test_schema_version1.schema_id
-  value_type = "AVRO"
-  value_schema = axual_schema_version.axual_gitops_test_schema_version2.schema_id
+  key_type = "String"
+  value_type = "String"
   owners = axual_group.team-bonanza.id
   retention_policy = "delete"
   properties = { }
@@ -327,8 +325,6 @@ resource "axual_topic_config" "logs_in_dev" {
   topic = axual_topic.logs.id
   environment = axual_environment.development.id
   properties = {"segment.ms"="600012", "retention.bytes"="1"}
-  key_schema_version =  axual_schema_version.axual_gitops_test_schema_version3.id
-  value_schema_version = axual_schema_version.axual_gitops_test_schema_version2.id
 }
 
 resource "axual_topic_config" "logs_in_staging" {
@@ -336,8 +332,6 @@ resource "axual_topic_config" "logs_in_staging" {
   retention_time = 1001000
   topic = axual_topic.logs.id
   environment = axual_environment.staging.id
-  key_schema_version = axual_schema_version.axual_gitops_test_schema_version2.id
-  value_schema_version = axual_schema_version.axual_gitops_test_schema_version1.id
   properties = {"segment.ms"="60002", "retention.bytes"="100"}
 }
 
@@ -347,8 +341,48 @@ resource "axual_topic_config" "logs_in_production" {
   topic = axual_topic.logs.id
   environment = axual_environment.production.id
   properties = {"segment.ms"="600000", "retention.bytes"="10089"}
-  key_schema_version = axual_schema_version.axual_gitops_test_schema_version1.id
-  value_schema_version = axual_schema_version.axual_gitops_test_schema_version2.id
+}
+
+resource "axual_topic" "logs_with_avro" {
+  name = "logswithavro"
+  key_type = "AVRO"
+  key_schema = axual_schema_version.axual_gitops_test_schema_version1.schema_id
+  value_type = "AVRO"
+  value_schema = axual_schema_version.axual_gitops_test_schema_version2.schema_id
+  owners = axual_group.team-bonanza.id
+  retention_policy = "delete"
+  properties = { }
+  description = "Logs from all applications with Avro schema"
+}
+
+resource "axual_topic_config" "logs_avro_in_dev" {
+  partitions = 1
+  retention_time = 864000
+  topic = axual_topic.logs_with_avro.id
+  environment = axual_environment.development.id
+  key_schema_version = axual_schema_version.axual_gitops_test_schema_version2.id
+  value_schema_version = axual_schema_version.axual_gitops_test_schema_version1.id
+  properties = {"segment.ms"="600012", "retention.bytes"="1"}
+}
+
+resource "axual_topic_config" "logs_avro_in_staging" {
+  partitions = 1
+  retention_time = 1001000
+  topic = axual_topic.logs_with_avro.id
+  environment = axual_environment.staging.id
+  key_schema_version = axual_schema_version.axual_gitops_test_schema_version2.id
+  value_schema_version = axual_schema_version.axual_gitops_test_schema_version3.id
+  properties = {"segment.ms"="60002", "retention.bytes"="100"}
+}
+
+resource "axual_topic_config" "logs_avro_in_production" {
+  partitions = 2
+  retention_time = 86400000
+  topic = axual_topic.logs_with_avro.id
+  environment = axual_environment.production.id
+  key_schema_version = axual_schema_version.axual_gitops_test_schema_version3.id
+  value_schema_version = axual_schema_version.axual_gitops_test_schema_version3.id
+  properties = {"segment.ms"="600000", "retention.bytes"="10089"}
 }
 
 resource "axual_topic" "support" {
