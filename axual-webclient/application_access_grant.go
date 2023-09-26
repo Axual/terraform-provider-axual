@@ -3,6 +3,7 @@ package webclient
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -74,4 +75,31 @@ func (c *Client) RevokeOrDenyGrant(applicationAccessGrantId string, reason strin
 		return err
 	}
 	return nil
+}
+
+type ApplicationAccessGrantAttributes struct {
+	TopicId string
+	ApplicationId string
+	EnvironmentId string
+	AccessType string
+}
+func (c *Client) GetApplicationAccessGrantsByAttributes(data ApplicationAccessGrantAttributes) (*GetApplicationAccessGrantsByAttributeResponse, error) {
+	o := GetApplicationAccessGrantsByAttributeResponse{}
+	headers := map[string]string{
+		"Content-Type": "application/json",
+		"Accept":       "application/hal+json",
+	}
+
+	values := url.Values{}
+	values.Add("streamId", data.TopicId)
+	values.Add("applicationId", data.ApplicationId)
+	values.Add("environmentId", data.EnvironmentId)
+	values.Add("accessType", data.AccessType)
+
+	endpoint := fmt.Sprintf("%s/application_access_grants/search/findByAttributes?%s", c.ApiURL, values.Encode())
+	err := c.RequestAndMap("GET", endpoint, nil, headers, &o)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
 }
