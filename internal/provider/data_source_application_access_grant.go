@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/dcarbone/terraform-plugin-framework-utils/validation"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -22,7 +23,7 @@ func (t applicationAccessGrantDataSourceType) GetSchema(ctx context.Context) (tf
 		Attributes: map[string]tfsdk.Attribute{
 			"id": {
 				MarkdownDescription: "Application Access Grant Unique Identifier",
-				Required:            true,
+				Computed:            true,
 				PlanModifiers: tfsdk.AttributePlanModifiers{
 					tfsdk.UseStateForUnknown(),
 				},
@@ -38,10 +39,38 @@ func (t applicationAccessGrantDataSourceType) GetSchema(ctx context.Context) (tf
 			},
 			"environment": {
 				MarkdownDescription: "Environment Unique Identifier",
-				Computed:            true,
+				Required:            true,
 				Type:                types.StringType,
 				PlanModifiers: tfsdk.AttributePlanModifiers{
 					tfsdk.RequiresReplace(),
+				},
+			},
+
+			"topic": {
+				MarkdownDescription: "Topic Unique Identifier",
+				Required:            true,
+				Type:                types.StringType,
+				PlanModifiers: tfsdk.AttributePlanModifiers{
+					tfsdk.RequiresReplace(),
+				},
+			},
+			"application": {
+				MarkdownDescription: "Application Unique Identifier",
+				Required:            true,
+				Type:                types.StringType,
+				PlanModifiers: tfsdk.AttributePlanModifiers{
+					tfsdk.RequiresReplace(),
+				},
+			},
+			"access_type": {
+				MarkdownDescription: "Application Access Type. Accepted values: CONSUMER, PRODUCER",
+				Required:            true,
+				Type:                types.StringType,
+				PlanModifiers: tfsdk.AttributePlanModifiers{
+					tfsdk.RequiresReplace(),
+				},
+				Validators: []tfsdk.AttributeValidator{
+					validation.Compare(validation.OneOf, []string{"CONSUMER", "PRODUCER"}),
 				},
 			},
 		},
@@ -58,8 +87,11 @@ func (t applicationAccessGrantDataSourceType) NewDataSource(ctx context.Context,
 
 type applicationAccessGrantDataSourceData struct {
 	Id            types.String `tfsdk:"id"`
+	ApplicationId types.String `tfsdk:"application"`
+	TopicId       types.String `tfsdk:"topic"`
 	EnvironmentId types.String `tfsdk:"environment"`
 	Status        types.String `tfsdk:"status"`
+	AccessType    types.String `tfsdk:"access_type"`
 }
 
 type applicationAccessGrantDataSource struct {
@@ -76,7 +108,15 @@ func (d applicationAccessGrantDataSource) Read(ctx context.Context, req tfsdk.Re
 		return
 	}
 
-	applicationAccessGrant, err := d.provider.client.GetApplicationAccessGrant(data.Id.Value)
+	accessGrantRequest := webclient.ApplicationAccessGrantAttributes{
+		TopicId: data.TopicId.Value,
+		ApplicationId: data.ApplicationId.Value,
+		EnvironmentId: data.EnvironmentId.Value,
+		AccessType: data.AccessType.Value,
+	}
+
+	applicationAccessGrant, err := d.provider.client.GetApplicationAccessGrantsByAttributes(accessGrantRequest)
+
 	if err != nil {
 	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application access grant, got error: %s", err))
 	return
@@ -88,9 +128,14 @@ func (d applicationAccessGrantDataSource) Read(ctx context.Context, req tfsdk.Re
 	resp.Diagnostics.Append(diags...)
 }
 
-func mapApplicationAccessGrantDataSourceResponseToData(ctx context.Context, data *applicationAccessGrantDataSourceData, applicationAccessGrant *webclient.ApplicationAccessGrant) {
 
-	data.Id = types.String{Value: applicationAccessGrant.Uid}
-	data.Status = types.String{Value: applicationAccessGrant.Status}
-	data.EnvironmentId = types.String{Value: applicationAccessGrant.Embedded.Environment.Uid}
+func mapApplicationAccessGrantDataSourceResponseToData(ctx context.Context, data *applicationAccessGrantDataSourceData, applicationAccessGrant *webclient.GetApplicationAccessGrantsByAttributeResponse) {
+
+	applicationAccessResponse:= applicationAccessGrant.Embedded.ApplicationAccessGrantResponses[0]
+	data.Id = types.String{Value: applicationAccessResponse.Uid}
+	data.Status = types.String{Value: applicationAccessResponse.Status}
+	data.AccessType = types.String{Value: applicationAccessResponse.AccessType}
+	data.EnvironmentId = types.String{Value: applicationAccessResponse.Embedded.Environment.Uid}
+	data.TopicId = types.String{Value: applicationAccessResponse.Embedded.Stream.Uid}
+	data.ApplicationId = types.String{Value: applicationAccessResponse.Embedded.Application.Uid}
 }
