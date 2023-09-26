@@ -1,7 +1,6 @@
 package provider
 
 import (
-	webclient "axual-webclient"
 	"context"
 	"fmt"
 
@@ -23,7 +22,7 @@ func (t schemaVersionDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schem
 
 		Attributes: map[string]tfsdk.Attribute{
 			"id": {
-				Required:            true,
+				Computed:            true,
 				MarkdownDescription: "Schema version unique identifier",
 				PlanModifiers: tfsdk.AttributePlanModifiers{
 					tfsdk.UseStateForUnknown(),
@@ -40,7 +39,7 @@ func (t schemaVersionDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schem
 			},
 			"version": {
 				MarkdownDescription: "The version of the schema",
-				Computed:            true,
+				Required:            true,
 				Type:                types.StringType,
 			},
 			"description": {
@@ -58,7 +57,7 @@ func (t schemaVersionDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schem
 			},
 
 			"full_name": {
-				Computed:            true,
+				Required:            true,
 				MarkdownDescription: "Full name of the schema",
 				PlanModifiers: tfsdk.AttributePlanModifiers{
 					tfsdk.UseStateForUnknown(),
@@ -100,23 +99,58 @@ func (d schemaVersionDataSource) Read(ctx context.Context, req tfsdk.ReadDataSou
 		return
 	}
 
-	sv, err := d.provider.client.GetSchemaVersion(data.Id.Value)
+	schema, err := d.provider.client.GetSchemaByName(data.FullName.Value)
 	if err != nil {
 	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read schema version, got error: %s", err))
 	return
 	}
 
-    mapSchemaVersionDataSourceResponseToData(ctx, &data, sv)
-	
+	sv, err2 := d.provider.client.GetSchemaVersionsBySchema(schema.Embedded.Schemas[0].Links.Self.Href)
+
+	if err2 != nil {
+	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read schema version, got error: %s", err2))
+	return
+	}
+
+	foundMatchingVersion :=false
+
+	for i:= range sv.Embedded.SchemaVersion {
+		if(sv.Embedded.SchemaVersion[i].Version == data.Version.Value) {
+			foundMatchingVersion = true
+			data.Id = types.String{Value: sv.Embedded.SchemaVersion[i].Uid}
+			data.Version = types.String{Value: sv.Embedded.SchemaVersion[i].Version}
+			data.Body = types.String{Value: sv.Embedded.SchemaVersion[i].SchemaBody}
+			data.SchemaId = types.String{Value: sv.Embedded.SchemaVersion[i].Embedded.Schema.Uid}
+			data.FullName = types.String{Value: sv.Embedded.SchemaVersion[i].Embedded.Schema.Name}
+			data.Description = types.String{Value: sv.Embedded.SchemaVersion[i].Embedded.Schema.Description}
+		}
+
+	}
+
+	if(!foundMatchingVersion ) {
+		resp.Diagnostics.AddError("Client Error", "Schema version matching the name you requested was not found")
+	}
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
+
+	// sv, err := d.provider.client.GetSchemaVersion(data.Id.Value)
+	// if err != nil {
+	//     resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read schema version, got error: %s", err))
+	// return
+	// }
+
+    // mapSchemaVersionDataSourceResponseToData(ctx, &data, sv)
+	
+
 }
 
-func mapSchemaVersionDataSourceResponseToData(ctx context.Context, data *schemaVersionDataSourceData, sv *webclient.GetSchemaVersionResponse) {
-	data.Id = types.String{Value: sv.Id}
-	data.SchemaId = types.String{Value: sv.Schema.SchemaId}
-	data.FullName = types.String{Value: sv.Schema.Name}
-	data.Version = types.String{Value: sv.Version}
-	data.Body = types.String{Value: sv.SchemaBody}
-	data.Description = types.String{Value: sv.Schema.Description}
-}
+// func mapSchemaVersionDataSourceResponseToData(ctx context.Context, data *schemaVersionDataSourceData, sv *webclient.GetSchemaVersionsResponse) {
+
+
+// 	// data.Id = types.String{Value: sv.Id}
+// 	// data.SchemaId = types.String{Value: sv.Schema.SchemaId}
+// 	// data.FullName = types.String{Value: sv.Schema.Name}
+// 	// data.Version = types.String{Value: sv.Version}
+// 	// data.Body = types.String{Value: sv.SchemaBody}
+// 	// data.Description = types.String{Value: sv.Schema.Description}
+// }

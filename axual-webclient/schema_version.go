@@ -109,3 +109,19 @@ func (c *Client) GetSchemaVersionsBySchema(id string) (*GetSchemaVersionsRespons
 	}
 	return &o, nil
 }
+
+func (c *Client) GetSchemaByName(name string) (*GetSchemaByNameResponse, error) {
+	o := GetSchemaByNameResponse{}
+	headers := map[string]string{
+		"Content-Type": "application/json",
+		"Accept":       "application/json",
+	}
+	values := url.Values{}
+	values.Add("name", name)
+	endpoint := fmt.Sprintf("%s/schemas/search/findByName?%s", c.ApiURL, values.Encode())
+	err := c.RequestAndMap("GET", endpoint, nil, headers, &o)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
+}
