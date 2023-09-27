@@ -26,12 +26,12 @@ func (t environmentDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 		Attributes: map[string]tfsdk.Attribute{
 			"name": {
 				MarkdownDescription: "A suitable name identifying this environment. This must be in the format string-string (Alphabetical characters, digits and the following characters are allowed: `- `,` _` ,` .`)",
-				Computed:            true,
+				Required:            true,
 				Type:                types.StringType,
 			},
 			"short_name": {
 				MarkdownDescription: "A short name that will uniquely identify this environment. The short name should be between 3 and 20 characters. no special characters are allowed.",
-				Required:            true,
+				Computed:            true,
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
 					validation.Length(3, 50),
@@ -149,13 +149,13 @@ func (d environmentDataSource) Read(ctx context.Context, req tfsdk.ReadDataSourc
 		return
 	}
 
-	environmentByShortName, err := d.provider.client.ReadEnvironmentByShortName(data.ShortName.Value)
+	environmentByName, err := d.provider.client.ReadEnvironmentByName(data.Name.Value)
 	if err != nil {
 	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment by short_name, got error: %s", err))
 	return
 	}
 
-	environment, err := d.provider.client.ReadEnvironment(environmentByShortName.Embedded.Environments[0].Uid)
+	environment, err := d.provider.client.ReadEnvironment(environmentByName.Embedded.Environments[0].Uid)
 	if err != nil {
 	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment, got error: %s", err))
 	return

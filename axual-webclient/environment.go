@@ -51,8 +51,8 @@ func (c *Client) DeleteEnvironment(id string) error {
 	return nil
 }
 
-func (c *Client) ReadEnvironments() (*EnvironmentByShortNameResponse, error) {
-	o := EnvironmentByShortNameResponse{}
+func (c *Client) ReadEnvironments() (*EnvironmentByNameResponse, error) {
+	o := EnvironmentByNameResponse{}
 	err := c.RequestAndMap("GET", fmt.Sprintf("%s/environments/", c.ApiURL), nil, nil, &o)
 	if err != nil {
 		return nil, err
@@ -60,9 +60,9 @@ func (c *Client) ReadEnvironments() (*EnvironmentByShortNameResponse, error) {
 	return &o, nil
 }
 
-func (c *Client) ReadEnvironmentByShortName(shortName string) (*EnvironmentByShortNameResponse, error) {
-	o := EnvironmentByShortNameResponse{}
-	err := c.RequestAndMap("GET", fmt.Sprintf("%s/environments/search/findByShortName?shortName=%s", c.ApiURL, url.QueryEscape(shortName)), nil, nil, &o)
+func (c *Client) ReadEnvironmentByName(name string) (*EnvironmentByNameResponse, error) {
+	o := EnvironmentByNameResponse{}
+	err := c.RequestAndMap("GET", fmt.Sprintf("%s/environments/search/findByName?name=%s", c.ApiURL, url.QueryEscape(name)), nil, nil, &o)
 	if err != nil {
 		return nil, err
 	}

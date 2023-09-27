@@ -51,9 +51,9 @@ func (c *Client) CreateApplication(data ApplicationRequest) (*ApplicationRespons
 	}
 	return &o, nil
 }
-func (c *Client) ReadApplicationByShortName(shortName string) (*ApplicationByShortNameResponse, error) {
-	o := ApplicationByShortNameResponse{}
-	err := c.RequestAndMap("GET", fmt.Sprintf("%s/applications/search/findByShortName?shortName=%s", c.ApiURL, url.QueryEscape(shortName)), nil, nil, &o)
+func (c *Client) ReadApplicationByName(name string) (*ApplicationByNameResponse, error) {
+	o := ApplicationByNameResponse{}
+	err := c.RequestAndMap("GET", fmt.Sprintf("%s/applications/search/findByName?name=%s", c.ApiURL, url.QueryEscape(name)), nil, nil, &o)
 	if err != nil {
 		return nil, err
 	}

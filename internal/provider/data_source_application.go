@@ -45,12 +45,12 @@ func (t applicationDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 			},
 			"name": {
 				MarkdownDescription: "The name of the Application. Must be unique. Only the special characters _ , - and . are valid as part of an application name",
-				Computed:            true,
+				Required:            true,
 				Type:                types.StringType,
 			},
 			"short_name": {
 				MarkdownDescription: "Application short name. Unique human-readable name for the application. Only Alphanumeric and underscore allowed. Must be unique",
-				Required:            true,
+				Computed:            true,
 				Type:                types.StringType,
 			},
 			"owners": {
@@ -111,13 +111,13 @@ func (d applicationDataSource) Read(ctx context.Context, req tfsdk.ReadDataSourc
 		return
 	}
 
-	appByShortName, err := d.provider.client.ReadApplicationByShortName(data.ShortName.Value)
+	appByName, err := d.provider.client.ReadApplicationByName(data.Name.Value)
 	if err != nil {
 	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application by short_name, got error: %s", err))
 	return
 	}
 
-	app, err := d.provider.client.GetApplication(appByShortName.Embedded.Applications[0].Uid)
+	app, err := d.provider.client.GetApplication(appByName.Embedded.Applications[0].Uid)
 	if err != nil {
 	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application, got error: %s", err))
 	return
