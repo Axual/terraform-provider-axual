@@ -132,25 +132,4 @@ func (d schemaVersionDataSource) Read(ctx context.Context, req tfsdk.ReadDataSou
 	}
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
-
-	// sv, err := d.provider.client.GetSchemaVersion(data.Id.Value)
-	// if err != nil {
-	//     resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read schema version, got error: %s", err))
-	// return
-	// }
-
-    // mapSchemaVersionDataSourceResponseToData(ctx, &data, sv)
-	
-
 }
-
-// func mapSchemaVersionDataSourceResponseToData(ctx context.Context, data *schemaVersionDataSourceData, sv *webclient.GetSchemaVersionsResponse) {
-
-
-// 	// data.Id = types.String{Value: sv.Id}
-// 	// data.SchemaId = types.String{Value: sv.Schema.SchemaId}
-// 	// data.FullName = types.String{Value: sv.Schema.Name}
-// 	// data.Version = types.String{Value: sv.Version}
-// 	// data.Body = types.String{Value: sv.SchemaBody}
-// 	// data.Description = types.String{Value: sv.Schema.Description}
-// }
