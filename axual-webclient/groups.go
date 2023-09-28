@@ -82,8 +82,8 @@ func (c *Client) RemoveMemberFromGroup(group string, memberId string) error {
 	return nil
 }
 
-func (c *Client) GetGroupByName(name string) (*GroupByNameResponse, error) {
-	o := GroupByNameResponse{}
+func (c *Client) GetGroupByName(name string) (*GetGroupByNameResponse, error) {
+	o := GetGroupByNameResponse{}
 	err := c.RequestAndMap("GET", fmt.Sprintf("%s/groups/search/findByName?name=%v", c.ApiURL, url.QueryEscape(name)), nil, nil, &o)
 	if err != nil {
 		return nil, err

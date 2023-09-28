@@ -120,7 +120,7 @@ type GroupRequest struct {
 	Members      []string    `json:"members,omitempty"`
 }
 
-type GroupByNameResponse struct {
+type GetGroupByNameResponse struct {
 	Embedded struct {
 		Groups []struct {
 			Name         string `json:"name"`
