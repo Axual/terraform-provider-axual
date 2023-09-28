@@ -127,7 +127,7 @@ func (r topicConfigResource) Create(ctx context.Context, req tfsdk.CreateResourc
 		return
 	}
 
-	topic, err := r.provider.client.ReadTopic(data.Topic.Value)
+	topic, err := r.provider.client.GetTopic(data.Topic.Value)
 	if err != nil {
 		resp.Diagnostics.AddError("CREATE request error for topic config resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
@@ -221,7 +221,7 @@ func (r topicConfigResource) Update(ctx context.Context, req tfsdk.UpdateResourc
 		return
 	}
 
-	topic, err := r.provider.client.ReadTopic(data.Topic.Value)
+	topic, err := r.provider.client.GetTopic(data.Topic.Value)
 	if err != nil {
 		resp.Diagnostics.AddError("CREATE request error for topic config resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return

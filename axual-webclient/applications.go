@@ -51,7 +51,7 @@ func (c *Client) CreateApplication(data ApplicationRequest) (*ApplicationRespons
 	}
 	return &o, nil
 }
-func (c *Client) ReadApplicationByName(name string) (*ApplicationByNameResponse, error) {
+func (c *Client) GetApplicationByName(name string) (*ApplicationByNameResponse, error) {
 	o := ApplicationByNameResponse{}
 	err := c.RequestAndMap("GET", fmt.Sprintf("%s/applications/search/findByName?name=%s", c.ApiURL, url.QueryEscape(name)), nil, nil, &o)
 	if err != nil {

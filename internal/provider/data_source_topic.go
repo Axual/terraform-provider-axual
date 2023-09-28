@@ -41,9 +41,9 @@ func (t topicDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.
 			},
 			"value_type": {
 				MarkdownDescription: "The value type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/topic-management.html#value-type",
-				
-				Type:                types.StringType,
-				Computed:            true,
+
+				Type:     types.StringType,
+				Computed: true,
 			},
 			"owners": {
 				MarkdownDescription: "The team owning this topic. Read more: https://docs.axual.io/axual/2023.2/self-service/topic-management.html#topic-owner",
@@ -105,19 +105,19 @@ func (d topicDataSource) Read(ctx context.Context, req tfsdk.ReadDataSourceReque
 		return
 	}
 
-	topicByName, err := d.provider.client.ReadTopicByName(data.Name.Value)
+	topicByName, err := d.provider.client.GetTopicByName(data.Name.Value)
 	if err != nil {
-	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read topic by name, got error: %s", err))
-	return
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read topic by name, got error: %s", err))
+		return
 	}
 
-	topic, err := d.provider.client.ReadTopic(topicByName.Embedded.Topics[0].Uid)
+	topic, err := d.provider.client.GetTopic(topicByName.Embedded.Topics[0].Uid)
 	if err != nil {
-	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read topic, got error: %s", err))
-	return
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read topic, got error: %s", err))
+		return
 	}
-    mapTopicDataSourceResponseToData(ctx, &data, topic)
-	
+	mapTopicDataSourceResponseToData(ctx, &data, topic)
+
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 }

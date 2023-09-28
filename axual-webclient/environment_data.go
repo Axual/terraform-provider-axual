@@ -1,6 +1,6 @@
 package webclient
 
-type EnvironmentByNameResponse struct {
+type EnvironmentsResponse struct {
 	Embedded struct {
 		Environments []struct {
 			Name        string `json:"name"`

@@ -87,13 +87,13 @@ func (d groupDataSource) Read(ctx context.Context, req tfsdk.ReadDataSourceReque
 		return
 	}
 
-	groupByName, err := d.provider.client.ReadGroupByName(data.Name.Value)
+	groupByName, err := d.provider.client.GetGroupByName(data.Name.Value)
 	if err != nil {
 	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read group by name, got error: %s", err))
 	return
 	}
 
-	group, err2 := d.provider.client.ReadGroup(groupByName.Embedded.Groups[0].Uid)
+	group, err2 := d.provider.client.GetGroup(groupByName.Embedded.Groups[0].Uid)
 	if err2 != nil {
 	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read group, got error: %s", err2))
 	return

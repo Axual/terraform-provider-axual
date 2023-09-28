@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -115,7 +116,7 @@ func (r groupResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, 
 		return
 	}
 
-	group, err := r.provider.client.ReadGroup(data.Id.Value)
+	group, err := r.provider.client.GetGroup(data.Id.Value)
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
 			tflog.Warn(ctx, fmt.Sprintf("Group not found. Id: %s", data.Id.Value))

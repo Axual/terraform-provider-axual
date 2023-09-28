@@ -201,7 +201,7 @@ func (r environmentResource) Read(ctx context.Context, req tfsdk.ReadResourceReq
 		return
 	}
 
-	environment, err := r.provider.client.ReadEnvironment(data.Id.Value)
+	environment, err := r.provider.client.GetEnvironment(data.Id.Value)
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
 			tflog.Warn(ctx, fmt.Sprintf("Environment not found. Id: %s", data.Id.Value))

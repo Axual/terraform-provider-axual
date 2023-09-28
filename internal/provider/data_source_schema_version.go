@@ -101,21 +101,21 @@ func (d schemaVersionDataSource) Read(ctx context.Context, req tfsdk.ReadDataSou
 
 	schema, err := d.provider.client.GetSchemaByName(data.FullName.Value)
 	if err != nil {
-	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read schema version, got error: %s", err))
-	return
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read schema version, got error: %s", err))
+		return
 	}
 
 	sv, err2 := d.provider.client.GetSchemaVersionsBySchema(schema.Embedded.Schemas[0].Links.Self.Href)
 
 	if err2 != nil {
-	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read schema version, got error: %s", err2))
-	return
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read schema version, got error: %s", err2))
+		return
 	}
 
-	foundMatchingVersion :=false
+	foundMatchingVersion := false
 
-	for i:= range sv.Embedded.SchemaVersion {
-		if(sv.Embedded.SchemaVersion[i].Version == data.Version.Value) {
+	for i := range sv.Embedded.SchemaVersion {
+		if sv.Embedded.SchemaVersion[i].Version == data.Version.Value {
 			foundMatchingVersion = true
 			data.Id = types.String{Value: sv.Embedded.SchemaVersion[i].Uid}
 			data.Version = types.String{Value: sv.Embedded.SchemaVersion[i].Version}
@@ -124,10 +124,9 @@ func (d schemaVersionDataSource) Read(ctx context.Context, req tfsdk.ReadDataSou
 			data.FullName = types.String{Value: sv.Embedded.SchemaVersion[i].Embedded.Schema.Name}
 			data.Description = types.String{Value: sv.Embedded.SchemaVersion[i].Embedded.Schema.Description}
 		}
-
 	}
 
-	if(!foundMatchingVersion ) {
+	if !foundMatchingVersion {
 		resp.Diagnostics.AddError("Client Error", "Schema version matching the name you requested was not found")
 	}
 	diags = resp.State.Set(ctx, &data)

@@ -149,13 +149,13 @@ func (d environmentDataSource) Read(ctx context.Context, req tfsdk.ReadDataSourc
 		return
 	}
 
-	environmentByName, err := d.provider.client.ReadEnvironmentByName(data.Name.Value)
+	environmentByName, err := d.provider.client.GetEnvironmentByName(data.Name.Value)
 	if err != nil {
 	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment by short_name, got error: %s", err))
 	return
 	}
 
-	environment, err := d.provider.client.ReadEnvironment(environmentByName.Embedded.Environments[0].Uid)
+	environment, err := d.provider.client.GetEnvironment(environmentByName.Embedded.Environments[0].Uid)
 	if err != nil {
 	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment, got error: %s", err))
 	return

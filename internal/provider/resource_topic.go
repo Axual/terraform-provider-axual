@@ -167,7 +167,7 @@ func (r topicResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, 
 		return
 	}
 
-	topic, err := r.provider.client.ReadTopic(data.Id.Value)
+	topic, err := r.provider.client.GetTopic(data.Id.Value)
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
 			tflog.Warn(ctx, fmt.Sprintf("Topic not found. Id: %s", data.Id.Value))

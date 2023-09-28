@@ -111,7 +111,7 @@ func (d applicationDataSource) Read(ctx context.Context, req tfsdk.ReadDataSourc
 		return
 	}
 
-	appByName, err := d.provider.client.ReadApplicationByName(data.Name.Value)
+	appByName, err := d.provider.client.GetApplicationByName(data.Name.Value)
 	if err != nil {
 	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application by short_name, got error: %s", err))
 	return
