@@ -48,7 +48,7 @@ func (t environmentDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 				},
 			},
 			"color": {
-				MarkdownDescription: "The color used display the environment",
+				MarkdownDescription: "The color used to display the environment",
 				Computed:            true,
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
@@ -58,7 +58,7 @@ func (t environmentDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 					}),
 				}},
 			"visibility": {
-				MarkdownDescription: "Thi Private environments are only visible to the owning group (your team). They are not included in dashboard visualisations.",
+				MarkdownDescription: "Private environments are only visible to the owning group (your team). They are not included in dashboard visualisations.",
 				Computed:            true,
 				Type:                types.StringType,
 			},
