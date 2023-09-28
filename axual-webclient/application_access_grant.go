@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"reflect"
 	"strings"
 )
 
@@ -78,10 +79,16 @@ func (c *Client) RevokeOrDenyGrant(applicationAccessGrantId string, reason strin
 }
 
 type ApplicationAccessGrantAttributes struct {
-	TopicId string
-	ApplicationId string
-	EnvironmentId string
-	AccessType string
+	TopicId 			string 		`json:"streamId"`
+	ApplicationId string 		`json:"applicationId"`
+	EnvironmentId string 		`json:"environmentId"`
+	AccessType 		string		`json:"accessType"`
+	OwnersIds 		string		`json:"ownersIds"`
+	Statuses 			string		`json:"statuses"`
+	Sort 					string		`json:"sort"`
+	Page 					int				`json:"page"`
+	Size 					int				`json:"size"`
+
 }
 func (c *Client) GetApplicationAccessGrantsByAttributes(data ApplicationAccessGrantAttributes) (*GetApplicationAccessGrantsByAttributeResponse, error) {
 	o := GetApplicationAccessGrantsByAttributeResponse{}
@@ -89,14 +96,24 @@ func (c *Client) GetApplicationAccessGrantsByAttributes(data ApplicationAccessGr
 		"Content-Type": "application/json",
 		"Accept":       "application/hal+json",
 	}
-
 	values := url.Values{}
-	values.Add("streamId", data.TopicId)
-	values.Add("applicationId", data.ApplicationId)
-	values.Add("environmentId", data.EnvironmentId)
-	values.Add("accessType", data.AccessType)
+	v:= reflect.ValueOf(data)
+	t:= v.Type()
+
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		name := t.Field(i).Tag.Get("json")
+		if(field.Kind() ==reflect.Int && field.Int() !=0) {
+			values.Add(name, fmt.Sprint(field.Int()))
+		}
+		if(field.Kind() ==reflect.String && field.String() !="") {
+			values.Add(name, field.String())
+		}
+}
+
 
 	endpoint := fmt.Sprintf("%s/application_access_grants/search/findByAttributes?%s", c.ApiURL, values.Encode())
+	
 	err := c.RequestAndMap("GET", endpoint, nil, headers, &o)
 	if err != nil {
 		return nil, err
