@@ -58,7 +58,7 @@ type GetSchemaVersionsResponse struct {
 			Version    string `json:"version"`
 			SchemaBody string `json:"schemaBody"`
 			Uid        string `json:"uid"`
-			Embedded struct {
+			Embedded   struct {
 				Schema struct {
 					Name        string `json:"name"`
 					Description string `json:"description"`

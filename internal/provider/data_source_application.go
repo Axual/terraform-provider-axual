@@ -113,18 +113,18 @@ func (d applicationDataSource) Read(ctx context.Context, req tfsdk.ReadDataSourc
 
 	appByName, err := d.provider.client.GetApplicationByName(data.Name.Value)
 	if err != nil {
-	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application by short_name, got error: %s", err))
-	return
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application by short_name, got error: %s", err))
+		return
 	}
 
 	app, err := d.provider.client.GetApplication(appByName.Embedded.Applications[0].Uid)
 	if err != nil {
-	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application, got error: %s", err))
-	return
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application, got error: %s", err))
+		return
 	}
 
-    mapApplicationDataSourceResponseToData(ctx, &data, app)
-	
+	mapApplicationDataSourceResponseToData(ctx, &data, app)
+
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 }

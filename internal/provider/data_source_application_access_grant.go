@@ -109,29 +109,28 @@ func (d applicationAccessGrantDataSource) Read(ctx context.Context, req tfsdk.Re
 	}
 
 	accessGrantRequest := webclient.ApplicationAccessGrantAttributes{
-		TopicId: data.TopicId.Value,
+		TopicId:       data.TopicId.Value,
 		ApplicationId: data.ApplicationId.Value,
 		EnvironmentId: data.EnvironmentId.Value,
-		AccessType: data.AccessType.Value,
+		AccessType:    data.AccessType.Value,
 	}
 
 	applicationAccessGrant, err := d.provider.client.GetApplicationAccessGrantsByAttributes(accessGrantRequest)
 
 	if err != nil {
-	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application access grant, got error: %s", err))
-	return
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application access grant, got error: %s", err))
+		return
 	}
 
-    mapApplicationAccessGrantDataSourceResponseToData(ctx, &data, applicationAccessGrant)
-	
+	mapApplicationAccessGrantDataSourceResponseToData(ctx, &data, applicationAccessGrant)
+
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 }
 
-
 func mapApplicationAccessGrantDataSourceResponseToData(ctx context.Context, data *applicationAccessGrantDataSourceData, applicationAccessGrant *webclient.GetApplicationAccessGrantsByAttributeResponse) {
 
-	applicationAccessResponse:= applicationAccessGrant.Embedded.ApplicationAccessGrantResponses[0]
+	applicationAccessResponse := applicationAccessGrant.Embedded.ApplicationAccessGrantResponses[0]
 	data.Id = types.String{Value: applicationAccessResponse.Uid}
 	data.Status = types.String{Value: applicationAccessResponse.Status}
 	data.AccessType = types.String{Value: applicationAccessResponse.AccessType}

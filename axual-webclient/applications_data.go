@@ -102,26 +102,26 @@ type ApplicationRequest struct {
 type ApplicationByNameResponse struct {
 	Embedded struct {
 		Applications []struct {
-			Name        	string `json:"name"`
-			Visibility  	string `json:"visibility"`
-			Description 	string `json:"description"`
-			ShortName   	string `json:"shortName"`
-			Type			string `json:"type"`
+			Name             string `json:"name"`
+			Visibility       string `json:"visibility"`
+			Description      string `json:"description"`
+			ShortName        string `json:"shortName"`
+			Type             string `json:"type"`
 			ApplicationClass string `json:"applicationClass"`
-			CreatedAt       string `json:"created_at"`
-			CreatedBy       string `json:"created_by"`
+			CreatedAt        string `json:"created_at"`
+			CreatedBy        string `json:"created_by"`
 			ModifiedAt       string `json:"modified_at"`
 			ModifiedBy       string `json:"modified_by"`
-			Uid         	string `json:"uid"`
-			Owners		struct {
-				Name     		string  `json:"name"`
-				EmailAddress    struct{
-					Email    string `json:"email"`
-				}  `json:"emailAddress"`
-				PhoneNumber    	string  `json:"phoneNumber"`
-				Uid         	string `json:"uid"`
+			Uid              string `json:"uid"`
+			Owners           struct {
+				Name         string `json:"name"`
+				EmailAddress struct {
+					Email string `json:"email"`
+				} `json:"emailAddress"`
+				PhoneNumber string `json:"phoneNumber"`
+				Uid         string `json:"uid"`
 			} `json:"owners"`
-			Links       struct {
+			Links struct {
 				Self struct {
 					Href  string `json:"href"`
 					Title string `json:"title"`
@@ -131,15 +131,13 @@ type ApplicationByNameResponse struct {
 					Templated bool   `json:"templated"`
 					Title     string `json:"title"`
 				} `json:"application"`
-
 			} `json:"_links"`
 		} `json:"applications"`
 	} `json:"_embedded"`
 	Links struct {
 		Self struct {
-			Href      string `json:"href"`
-			Title     string `json:"title"`
+			Href  string `json:"href"`
+			Title string `json:"title"`
 		} `json:"self"`
 	} `json:"_links"`
-
 }

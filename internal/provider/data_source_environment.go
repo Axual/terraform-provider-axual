@@ -41,7 +41,7 @@ func (t environmentDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 			"description": {
 				MarkdownDescription: "A text describing the purpose of the environment.",
 				Optional:            true,
-				Computed: 			 true,
+				Computed:            true,
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
 					validation.Length(0, 200),
@@ -129,7 +129,7 @@ type environmentDataSourceData struct {
 	Visibility          types.String `tfsdk:"visibility"`
 	Owners              types.String `tfsdk:"owners"`
 	RetentionTime       types.Int64  `tfsdk:"retention_time"`
-	Instance             types.String `tfsdk:"instance"`
+	Instance            types.String `tfsdk:"instance"`
 	Id                  types.String `tfsdk:"id"`
 	Partitions          types.Int64  `tfsdk:"partitions"`
 	Properties          types.Map    `tfsdk:"properties"`
@@ -151,18 +151,18 @@ func (d environmentDataSource) Read(ctx context.Context, req tfsdk.ReadDataSourc
 
 	environmentByName, err := d.provider.client.GetEnvironmentByName(data.Name.Value)
 	if err != nil {
-	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment by short_name, got error: %s", err))
-	return
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment by short_name, got error: %s", err))
+		return
 	}
 
 	environment, err := d.provider.client.GetEnvironment(environmentByName.Embedded.Environments[0].Uid)
 	if err != nil {
-	    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment, got error: %s", err))
-	return
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment, got error: %s", err))
+		return
 	}
 
-    mapEnvironmentDataSourceResponseToData(ctx, &data, environment)
-	
+	mapEnvironmentDataSourceResponseToData(ctx, &data, environment)
+
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 }
