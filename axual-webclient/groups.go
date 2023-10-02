@@ -3,6 +3,7 @@ package webclient
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -29,7 +30,7 @@ func (c *Client) CreateGroup(group GroupRequest) (*GroupResponse, error) {
 	return &o, nil
 }
 
-func (c *Client) ReadGroup(id string) (*GroupResponse, error) {
+func (c *Client) GetGroup(id string) (*GroupResponse, error) {
 	o := GroupResponse{}
 	err := c.RequestAndMap("GET", fmt.Sprintf("%s/groups/%v", c.ApiURL, id), nil, nil, &o)
 	if err != nil {
@@ -79,4 +80,13 @@ func (c *Client) RemoveMemberFromGroup(group string, memberId string) error {
 		return err
 	}
 	return nil
+}
+
+func (c *Client) GetGroupByName(name string) (*GetGroupByNameResponse, error) {
+	o := GetGroupByNameResponse{}
+	err := c.RequestAndMap("GET", fmt.Sprintf("%s/groups/search/findByName?name=%v", c.ApiURL, url.QueryEscape(name)), nil, nil, &o)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
 }

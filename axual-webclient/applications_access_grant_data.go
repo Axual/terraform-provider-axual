@@ -217,3 +217,168 @@ type ApplicationAccessGrantResponse struct {
 	RequestedAt string      `json:"requested_at"`
 	ProcessedAt string      `json:"processed_at"`
 }
+
+type GetApplicationAccessGrantsByAttributeResponse struct {
+	Embedded struct {
+		ApplicationAccessGrantResponses []struct {
+			AccessType string `json:"accessType"`
+			Uid        string `json:"uid"`
+			Comment    string `json:"comment"`
+			Embedded   struct {
+				Environment struct {
+					Properties struct {
+					} `json:"properties"`
+					Name                string `json:"name"`
+					ShortName           string `json:"shortName"`
+					Description         string `json:"description"`
+					Color               string `json:"color"`
+					AuthorizationIssuer string `json:"authorizationIssuer"`
+					Visibility          string `json:"visibility"`
+					RetentionTime       int    `json:"retentionTime"`
+					Partitions          int    `json:"partitions"`
+					Private             bool   `json:"private"`
+					Uid                 string `json:"uid"`
+					AutoApproved        bool   `json:"autoApproved"`
+					CreatedAt           string `json:"created_at"`
+					ModifiedAt          string `json:"modified_at"`
+					CreatedBy           string `json:"created_by"`
+					ModifiedBy          string `json:"modified_by"`
+				} `json:"environment"`
+				Application struct {
+					Name             string      `json:"name"`
+					ShortName        string      `json:"shortName"`
+					Description      string      `json:"description"`
+					ApplicationType  string      `json:"applicationType"`
+					Type             string      `json:"type"`
+					ApplicationClass interface{} `json:"applicationClass"`
+					Visibility       string      `json:"visibility"`
+					Owners           struct {
+						Name         string `json:"name"`
+						EmailAddress struct {
+							Email string `json:"email"`
+						} `json:"emailAddress"`
+						PhoneNumber interface{} `json:"phoneNumber"`
+						Uid         string      `json:"uid"`
+						CreatedAt   string      `json:"created_at"`
+						ModifiedAt  string      `json:"modified_at"`
+						CreatedBy   string      `json:"created_by"`
+						ModifiedBy  string      `json:"modified_by"`
+						Embedded    struct {
+							Members []struct {
+								Uid          string `json:"uid"`
+								EmailAddress struct {
+									Email string `json:"email"`
+								} `json:"emailAddress"`
+								FirstName   string      `json:"firstName"`
+								LastName    string      `json:"lastName"`
+								PhoneNumber interface{} `json:"phoneNumber"`
+								MiddleName  string      `json:"middleName"`
+								Links       struct {
+									Tenant struct {
+										Href  string `json:"href"`
+										Title string `json:"title"`
+									} `json:"tenant"`
+									Self struct {
+										Href      string `json:"href"`
+										Templated bool   `json:"templated"`
+										Title     string `json:"title"`
+									} `json:"self"`
+								} `json:"_links"`
+							} `json:"members"`
+						} `json:"_embedded"`
+						Links struct {
+							Edit struct {
+								Href  string `json:"href"`
+								Title string `json:"title"`
+							} `json:"edit"`
+							Members struct {
+								Href      string `json:"href"`
+								Templated bool   `json:"templated"`
+								Title     string `json:"title"`
+							} `json:"members"`
+						} `json:"_links"`
+					} `json:"owners"`
+					AllApplicationIds []string `json:"allApplicationIds"`
+					Uid               string   `json:"uid"`
+					CreatedAt         string   `json:"created_at"`
+					ModifiedAt        string   `json:"modified_at"`
+					CreatedBy         string   `json:"created_by"`
+					ModifiedBy        string   `json:"modified_by"`
+					ApplicationID     string   `json:"applicationId"`
+				} `json:"application"`
+				Stream struct {
+					Properties struct {
+					} `json:"properties"`
+					Name            string `json:"name"`
+					Description     string `json:"description"`
+					KeyType         string `json:"keyType"`
+					ValueType       string `json:"valueType"`
+					RetentionPolicy string `json:"retentionPolicy"`
+					Uid             string `json:"uid"`
+					CreatedAt       string `json:"created_at"`
+					ModifiedAt      string `json:"modified_at"`
+					CreatedBy       string `json:"created_by"`
+					ModifiedBy      string `json:"modified_by"`
+				} `json:"stream"`
+			} `json:"_embedded"`
+			AppConfigured    bool   `json:"appConfigured"`
+			StreamConfigured bool   `json:"streamConfigured"`
+			Status           string `json:"status"`
+			RequestedByUser  struct {
+				FirstName    string `json:"firstName"`
+				LastName     string `json:"lastName"`
+				MiddleName   string `json:"middleName"`
+				EmailAddress struct {
+					Email string `json:"email"`
+				} `json:"emailAddress"`
+				PhoneNumber interface{} `json:"phoneNumber"`
+				Roles       []struct {
+					Name string `json:"name"`
+				} `json:"roles"`
+				FullName   string      `json:"fullName"`
+				Uid        string      `json:"uid"`
+				CreatedAt  string      `json:"created_at"`
+				ModifiedAt string      `json:"modified_at"`
+				CreatedBy  interface{} `json:"created_by"`
+				ModifiedBy string      `json:"modified_by"`
+			} `json:"requestedByUser"`
+			ProcessedByUser struct {
+				FirstName    string `json:"firstName"`
+				LastName     string `json:"lastName"`
+				MiddleName   string `json:"middleName"`
+				EmailAddress struct {
+					Email string `json:"email"`
+				} `json:"emailAddress"`
+				PhoneNumber interface{} `json:"phoneNumber"`
+				Roles       []struct {
+					Name string `json:"name"`
+				} `json:"roles"`
+				FullName   string      `json:"fullName"`
+				Uid        string      `json:"uid"`
+				CreatedAt  string      `json:"created_at"`
+				ModifiedAt string      `json:"modified_at"`
+				CreatedBy  interface{} `json:"created_by"`
+				ModifiedBy string      `json:"modified_by"`
+			} `json:"processedByUser"`
+			ProcessedAt string `json:"processedAt"`
+			RequestedAt string `json:"requestedAt"`
+			Links       struct {
+				Revoke struct {
+					Href string `json:"href"`
+				} `json:"revoke"`
+			} `json:"_links"`
+		} `json:"applicationAccessGrantResponses"`
+	} `json:"_embedded"`
+	Links struct {
+		Self struct {
+			Href  string `json:"href"`
+			Title string `json:"title"`
+		} `json:"self"`
+	} `json:"_links"`
+	Page struct {
+		Size          int `json:"size"`
+		TotalElements int `json:"totalElements"`
+		TotalPages    int `json:"totalPages"`
+		Number        int `json:"number"`
+	} `json:"page"`
+}

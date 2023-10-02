@@ -3,6 +3,7 @@ package webclient
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -19,7 +20,7 @@ func (c *Client) CreateEnvironment(env EnvironmentRequest) (*EnvironmentResponse
 	return &o, nil
 }
 
-func (c *Client) ReadEnvironment(id string) (*EnvironmentResponse, error) {
+func (c *Client) GetEnvironment(id string) (*EnvironmentResponse, error) {
 	o := EnvironmentResponse{}
 	err := c.RequestAndMap("GET", fmt.Sprintf("%s/environments/%s", c.ApiURL, id), nil, nil, &o)
 	if err != nil {
@@ -50,9 +51,18 @@ func (c *Client) DeleteEnvironment(id string) error {
 	return nil
 }
 
-func (c *Client) ReadEnvironments() (*EnvironmentsResponse, error) {
+func (c *Client) GetEnvironments() (*EnvironmentsResponse, error) {
 	o := EnvironmentsResponse{}
 	err := c.RequestAndMap("GET", fmt.Sprintf("%s/environments/", c.ApiURL), nil, nil, &o)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
+}
+
+func (c *Client) GetEnvironmentByName(name string) (*EnvironmentsResponse, error) {
+	o := EnvironmentsResponse{}
+	err := c.RequestAndMap("GET", fmt.Sprintf("%s/environments/search/findByName?name=%s", c.ApiURL, url.QueryEscape(name)), nil, nil, &o)
 	if err != nil {
 		return nil, err
 	}

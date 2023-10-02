@@ -3,6 +3,7 @@ package webclient
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -45,6 +46,14 @@ func (c *Client) CreateApplication(data ApplicationRequest) (*ApplicationRespons
 	}
 
 	err = c.RequestAndMap("POST", fmt.Sprintf("%s/applications", c.ApiURL), strings.NewReader(string(marshal)), nil, &o)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
+}
+func (c *Client) GetApplicationByName(name string) (*ApplicationByNameResponse, error) {
+	o := ApplicationByNameResponse{}
+	err := c.RequestAndMap("GET", fmt.Sprintf("%s/applications/search/findByName?name=%s", c.ApiURL, url.QueryEscape(name)), nil, nil, &o)
 	if err != nil {
 		return nil, err
 	}

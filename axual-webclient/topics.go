@@ -3,10 +3,11 @@ package webclient
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
-func (c *Client) ReadTopic(id string) (*TopicResponse, error) {
+func (c *Client) GetTopic(id string) (*TopicResponse, error) {
 	o := TopicResponse{}
 	err := c.RequestAndMap("GET", fmt.Sprintf("%s/streams/%s", c.ApiURL, id), nil, nil, &o)
 	if err != nil {
@@ -48,4 +49,13 @@ func (c *Client) DeleteTopic(id string) error {
 		return err
 	}
 	return nil
+}
+
+func (c *Client) GetTopicByName(name string) (*TopicsByNameResponse, error) {
+	o := TopicsByNameResponse{}
+	err := c.RequestAndMap("GET", fmt.Sprintf("%s/streams/search/findByName?name=%s", c.ApiURL, url.QueryEscape(name)), nil, nil, &o)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
 }

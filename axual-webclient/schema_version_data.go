@@ -58,6 +58,60 @@ type GetSchemaVersionsResponse struct {
 			Version    string `json:"version"`
 			SchemaBody string `json:"schemaBody"`
 			Uid        string `json:"uid"`
+			Embedded   struct {
+				Schema struct {
+					Name        string `json:"name"`
+					Description string `json:"description"`
+					Uid         string `json:"uid"`
+					ModifiedBy  string `json:"modified_by"`
+					CreatedAt   string `json:"created_at"`
+					CreatedBy   string `json:"created_by"`
+					ModifiedAt  string `json:"modified_at"`
+					Links       struct {
+						Self struct {
+							Href      string `json:"href"`
+							Templated bool   `json:"templated"`
+							Title     string `json:"title"`
+						} `json:"self"`
+					} `json:"_links"`
+				} `json:"schema"`
+			} `json:"_embedded"`
 		} `json:"schema_versions"`
 	} `json:"_embedded"`
+}
+type GetSchemaByNameResponse struct {
+	Embedded struct {
+		Schemas []struct {
+			Name        string `json:"name"`
+			Description string `json:"description"`
+			Uid         string `json:"uid"`
+			ModifiedBy  string `json:"modified_by"`
+			CreatedAt   string `json:"created_at"`
+			CreatedBy   string `json:"created_by"`
+			ModifiedAt  string `json:"modified_at"`
+			Links       struct {
+				Self struct {
+					Href  string `json:"href"`
+					Title string `json:"title"`
+				} `json:"self"`
+				Schema struct {
+					Href      string `json:"href"`
+					Templated bool   `json:"templated"`
+					Title     string `json:"title"`
+				} `json:"schema"`
+			} `json:"_links"`
+		} `json:"schemas"`
+	} `json:"_embedded"`
+	Links struct {
+		Self struct {
+			Href  string `json:"href"`
+			Title string `json:"title"`
+		} `json:"self"`
+	} `json:"_links"`
+	Page struct {
+		Size          int `json:"size"`
+		TotalElements int `json:"totalElements"`
+		TotalPages    int `json:"totalPages"`
+		Number        int `json:"number"`
+	} `json:"page"`
 }
