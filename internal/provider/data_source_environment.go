@@ -63,7 +63,7 @@ func (t environmentDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 				Type:                types.StringType,
 			},
 			"authorization_issuer": {
-				MarkdownDescription: "This indicates if any deployments on this environment should be AUTO approved or requires approval from Stream Owner. For private environments, only AUTO can be selected.",
+				MarkdownDescription: "This indicates if any deployments on this environment should be AUTO approved or requires approval from Topic Owner. For private environments, only AUTO can be selected.",
 				Computed:            true,
 				Type:                types.StringType,
 			},
