@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ---
-## [master] - TBR
+## [2.1.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.1.0) - 2023-10-04
 * Support Managing Environments
 * Support Authorizing Application Access Grants in Terraform.
 * Support Managing Avro Schemas
