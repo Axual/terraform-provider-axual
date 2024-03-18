@@ -1,7 +1,8 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
-
+## [master]
+* Bug: Fix unable to approve application access grant
 ---
 ## [2.1.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.1.0) - 2023-10-04
 * Support Managing Environments
