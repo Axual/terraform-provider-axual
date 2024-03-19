@@ -4,6 +4,7 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"fmt"
+	"net/url"
 
 	"github.com/dcarbone/terraform-plugin-framework-utils/validation"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -110,14 +111,15 @@ func (d applicationDataSource) Read(ctx context.Context, req tfsdk.ReadDataSourc
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	appByName, err := d.provider.client.GetApplicationByName(data.Name.Value)
+	attributes := url.Values{}
+	attributes.Set("name", data.Name.Value)
+	appByName, err := d.provider.client.GetApplicationsByAttributes(attributes)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application by name, got error: %s", err))
 		return
 	}
 	if(len(appByName.Embedded.Applications)==0) {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Application not found"))
+		resp.Diagnostics.AddError("Client Error", "Application not found")
 		return 
 	}
 	app, err := d.provider.client.GetApplication(appByName.Embedded.Applications[0].Uid)
