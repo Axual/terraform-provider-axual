@@ -99,7 +99,7 @@ type ApplicationRequest struct {
 	Description     string `json:"description"`
 }
 
-type ApplicationByNameResponse struct {
+type ApplicationsByAttributesResponse struct {
 	Embedded struct {
 		Applications []struct {
 			Name             string `json:"name"`
