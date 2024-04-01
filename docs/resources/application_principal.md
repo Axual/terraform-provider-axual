@@ -23,6 +23,7 @@ An ApplicationPrincipal is a security principal (certificate or comparable) that
 ### Optional
 
 - `custom` (Boolean) A boolean identifying whether we are creating a custom principal. If true, the custom principal will be stored in principal property.  Custom principal allows an application with SASL+OAUTHBEARER to produce/consume a topic. Custom Application Principal certificate is used to authenticate your application with an IAM provider using the custom ApplicationPrincipal as Client ID
+- `private_key` (String) The private key of a Connector Application for an Environment
 
 ### Read-Only
 

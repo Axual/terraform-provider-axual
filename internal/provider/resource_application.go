@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"github.com/dcarbone/terraform-plugin-framework-utils/validation"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -27,11 +26,11 @@ func (t applicationResourceType) GetSchema(_ context.Context) (tfsdk.Schema, dia
 
 		Attributes: map[string]tfsdk.Attribute{
 			"application_type": {
-				MarkdownDescription: "Axual Application type. Possible values are Custom.",
+				MarkdownDescription: "Axual Application type. Possible values are Custom or Connector.",
 				Required:            true,
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
-					validation.Compare(validation.OneOf, []string{"Custom"}),
+					validation.Compare(validation.OneOf, []string{"Custom", "Connector"}),
 				},
 			},
 			"application_id": {
@@ -66,11 +65,16 @@ func (t applicationResourceType) GetSchema(_ context.Context) (tfsdk.Schema, dia
 			},
 			"type": {
 				Required:            true,
-				MarkdownDescription: "Application software. Possible values: Java, Pega, SAP, DotNet, Bridge",
+				MarkdownDescription: "If application_type is Custom, type can be: Java, Pega, SAP, DotNet, Bridge. If application_type is Connector, type can be: SINK, SOURCE",
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
-					validation.Compare(validation.OneOf, []string{"Java", "Pega", "SAP", "DotNet", "Bridge"}),
+					validation.Compare(validation.OneOf, []string{"Java", "Pega", "SAP", "DotNet", "Bridge", "SINK", "SOURCE"}),
 				},
+			},
+			"application_class": {
+				MarkdownDescription: "The application's plugin class. Required if application_type is Connector. For example com.couchbase.connect.kafka.CouchbaseSinkConnector. All available application plugin class names, pluginTypes and pluginConfigs listed here- GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html",
+				Optional:            true,
+				Type:                types.StringType,
 			},
 			"visibility": {
 				Required:            true,
@@ -111,15 +115,16 @@ func (t applicationResourceType) NewResource(_ context.Context, in tfsdk.Provide
 }
 
 type ApplicationResourceData struct {
-	Name            types.String `tfsdk:"name"`
-	ShortName       types.String `tfsdk:"short_name"`
-	Description     types.String `tfsdk:"description"`
-	ApplicationType types.String `tfsdk:"application_type"`
-	ApplicationId   types.String `tfsdk:"application_id"`
-	Type            types.String `tfsdk:"type"`
-	Owners          types.String `tfsdk:"owners"`
-	Visibility      types.String `tfsdk:"visibility"`
-	Id              types.String `tfsdk:"id"`
+	Name             types.String `tfsdk:"name"`
+	ShortName        types.String `tfsdk:"short_name"`
+	Description      types.String `tfsdk:"description"`
+	ApplicationType  types.String `tfsdk:"application_type"`
+	ApplicationClass types.String `tfsdk:"application_class"`
+	ApplicationId    types.String `tfsdk:"application_id"`
+	Type             types.String `tfsdk:"type"`
+	Owners           types.String `tfsdk:"owners"`
+	Visibility       types.String `tfsdk:"visibility"`
+	Id               types.String `tfsdk:"id"`
 }
 
 type applicationResource struct {
@@ -249,6 +254,11 @@ func mapApplicationResponseToData(_ context.Context, data *ApplicationResourceDa
 	} else {
 		data.Description = types.String{Value: application.Description}
 	}
+	if application.ApplicationClass == "" {
+		data.ApplicationClass = types.String{Null: true}
+	} else {
+		data.ApplicationClass = types.String{Value: application.ApplicationClass}
+	}
 }
 
 func createApplicationRequestFromData(ctx context.Context, data *ApplicationResourceData, r applicationResource) (webclient.ApplicationRequest, error) {
@@ -276,6 +286,10 @@ func createApplicationRequestFromData(ctx context.Context, data *ApplicationReso
 	// optional fields
 	if !data.Description.Null {
 		ApplicationRequest.Description = data.Description.Value
+	}
+
+	if !data.ApplicationClass.Null {
+		ApplicationRequest.ApplicationClass = data.ApplicationClass.Value
 	}
 
 	tflog.Info(ctx, fmt.Sprintf("Application request %q", ApplicationRequest))

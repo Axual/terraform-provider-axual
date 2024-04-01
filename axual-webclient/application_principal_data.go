@@ -102,6 +102,7 @@ type ApplicationPrincipalResponse struct {
 
 type ApplicationPrincipalRequest struct {
 	Principal   string `json:"principal"`
+	PrivateKey  string `json:"privateKey,omitempty"`
 	Application string `json:"application"`
 	Environment string `json:"environment"`
 	Custom      bool   `json:"custom,omitempty"`

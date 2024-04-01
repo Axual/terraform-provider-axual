@@ -1,13 +1,13 @@
 package webclient
 
 type ApplicationResponse struct {
-	Name             string      `json:"name"`
-	ShortName        string      `json:"shortName"`
-	Description      string      `json:"description"`
-	ApplicationType  string      `json:"applicationType"`
-	Type             string      `json:"type"`
-	ApplicationClass interface{} `json:"applicationClass"`
-	Visibility       string      `json:"visibility"`
+	Name             string `json:"name"`
+	ShortName        string `json:"shortName"`
+	Description      string `json:"description"`
+	ApplicationType  string `json:"applicationType"`
+	Type             string `json:"type"`
+	ApplicationClass string `json:"applicationClass"`
+	Visibility       string `json:"visibility"`
 	Owners           struct {
 		Name         string `json:"name"`
 		EmailAddress struct {
@@ -89,14 +89,15 @@ type ApplicationResponse struct {
 }
 
 type ApplicationRequest struct {
-	ApplicationType string `json:"applicationType"`
-	ApplicationId   string `json:"applicationId"`
-	Name            string `json:"name"`
-	ShortName       string `json:"shortName"`
-	Owners          string `json:"owners"`
-	Type            string `json:"type"`
-	Visibility      string `json:"visibility"`
-	Description     string `json:"description"`
+	ApplicationType  string `json:"applicationType"`
+	ApplicationId    string `json:"applicationId"`
+	Name             string `json:"name"`
+	ShortName        string `json:"shortName"`
+	Owners           string `json:"owners"`
+	Type             string `json:"type"`
+	ApplicationClass string `json:"applicationClass,omitempty"`
+	Visibility       string `json:"visibility"`
+	Description      string `json:"description"`
 }
 
 type ApplicationByNameResponse struct {

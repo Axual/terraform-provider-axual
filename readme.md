@@ -129,6 +129,15 @@ go generate
 ## Logging
 - Logging in axual-webclient:
   - log.Println using the module "log"
+  - For example:
+    - log.Println("strings.NewReader(string(marshal))", strings.NewReader(string(marshal)))
+    - 
 - Logging in internal folder:
   - tflog.Debug(or Info,Trace etc)
-  - Then run TF_LOG=DEBUG(Or INFO,TRACE etc) terraform plan
+  - Then run TF_LOG=DEBUG(Or INFO,TRACE,ERROR) terraform plan
+  - For example:
+    - marshal, err := json.Marshal(ApplicationRequest)
+    - tflog.Error(ctx, "MARSHAL", map[string]interface{}{
+      "MARSHAL": string(marshal),
+      })
+    - Run: TF_LOG=ERROR terraform apply -auto-approve
