@@ -35,7 +35,7 @@ func (t applicationPrincipalResourceType) GetSchema(ctx context.Context) (tfsdk.
 				},
 			},
 			"private_key": {
-				MarkdownDescription: "The private key of a Connector Application for an Environment",
+				MarkdownDescription: "The private key of a Connector Application for an Environment. If committing terraform configuration(.tf) file in version control repository, please make sure there is a secure way of providing private key for a Connector application's Application Principal. Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/.",
 				Optional:            true,
 				Type:                types.StringType,
 				PlanModifiers: tfsdk.AttributePlanModifiers{

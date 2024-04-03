@@ -8,6 +8,12 @@
 	- SASL (OAUTHBEARER) as a Custom Principal that specifies the ID referenced in URI and tokens. To use it please provide a string with PEM certificate as principal property. For example, 'my-client'.
 - Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#configuring-application-securityauthentication
 
+## Security
+- If using Application Principal for a Connector application private key is required.
+   - If committing terraform configuration(.tf) file in version control repository, please make sure there is a secure way of providing private key for a Connector application's Application Principal.
+   - Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/
+   - The query from this Terraform provider to Axual Platform Manager API is secured with a TLS connection, just like in Axual Self Service UI.
+
 ## Required Roles
 - APPLICATION_ADMIN or be part of the Team that owns the Application
 

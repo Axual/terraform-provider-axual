@@ -284,6 +284,13 @@ resource "axual_application_principal" "log_scraper_in_production_principal" {
   principal = file("certs/certificate.pem")
 }
 
+# This axual_application_principal will be used with a Connector application.
+
+# If committing terraform configuration(.tf) file in version control repository, please make sure
+# there is a secure way of providing private key for a Connector application's Application Principal.
+# Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/
+
+# The query from this Terraform provider to Axual Platform Manager API is secured with a TLS connection, just like in Axual Self Service UI.
 resource "axual_application_principal" "connector_axual_application_principal" {
   environment = axual_environment.development.id
   application = axual_application.connector_test_application.id
