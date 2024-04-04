@@ -252,29 +252,52 @@ type GetApplicationAccessGrantsByAttributeResponse struct {
 					Type             string      `json:"type"`
 					ApplicationClass interface{} `json:"applicationClass"`
 					Visibility       string      `json:"visibility"`
-					Owners struct {
-						Members []struct {
+					Owners           struct {
+						Name         string `json:"name"`
+						EmailAddress struct {
+							Email string `json:"email"`
+						} `json:"emailAddress"`
+						PhoneNumber interface{} `json:"phoneNumber"`
+						Uid         string      `json:"uid"`
+						CreatedAt   string      `json:"created_at"`
+						ModifiedAt  string      `json:"modified_at"`
+						CreatedBy   string      `json:"created_by"`
+						ModifiedBy  string      `json:"modified_by"`
+						Embedded    struct {
+							Members []struct {
+								Uid          string `json:"uid"`
 								EmailAddress struct {
-										Email string `json:"email"`
+									Email string `json:"email"`
 								} `json:"emailAddress"`
-								Uid        string `json:"uid"`
-								MiddleName string `json:"middleName"`
-								FirstName  string `json:"firstName"`
-								LastName   string `json:"lastName"`
-								PhoneNumber string `json:"phoneNumber"`
-								Links      struct {
-										Tenant struct {
-												Href  string `json:"href"`
-												Title string `json:"title"`
-										} `json:"tenant"`
-										Self struct {
-												Href      string `json:"href"`
-												Templated bool   `json:"templated"`
-												Title     string `json:"title"`
-										} `json:"self"`
+								FirstName   string      `json:"firstName"`
+								LastName    string      `json:"lastName"`
+								PhoneNumber interface{} `json:"phoneNumber"`
+								MiddleName  string      `json:"middleName"`
+								Links       struct {
+									Tenant struct {
+										Href  string `json:"href"`
+										Title string `json:"title"`
+									} `json:"tenant"`
+									Self struct {
+										Href      string `json:"href"`
+										Templated bool   `json:"templated"`
+										Title     string `json:"title"`
+									} `json:"self"`
 								} `json:"_links"`
-						} `json:"members"`
-				} `json:"owners"`
+							} `json:"members"`
+						} `json:"_embedded"`
+						Links struct {
+							Edit struct {
+								Href  string `json:"href"`
+								Title string `json:"title"`
+							} `json:"edit"`
+							Members []struct {
+								Href      string `json:"href"`
+								Templated bool   `json:"templated"`
+								Title     string `json:"title"`
+							} `json:"members"`
+						} `json:"_links"`
+					} `json:"owners"`
 					AllApplicationIds []string `json:"allApplicationIds"`
 					Uid               string   `json:"uid"`
 					CreatedAt         string   `json:"created_at"`
@@ -283,7 +306,6 @@ type GetApplicationAccessGrantsByAttributeResponse struct {
 					ModifiedBy        string   `json:"modified_by"`
 					ApplicationID     string   `json:"applicationId"`
 				} `json:"application"`
-				
 				Stream struct {
 					Properties struct {
 					} `json:"properties"`
