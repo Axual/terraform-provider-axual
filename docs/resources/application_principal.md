@@ -24,12 +24,12 @@ An ApplicationPrincipal is a security principal (certificate or comparable) that
 
 - `application` (String) A valid Uid of an existing application
 - `environment` (String) A valid Uid of an existing environment
-- `principal` (String) The principal of an Application for an Environment
+- `principal` (String, Sensitive) The principal of an Application for an Environment
 
 ### Optional
 
 - `custom` (Boolean) A boolean identifying whether we are creating a custom principal. If true, the custom principal will be stored in principal property.  Custom principal allows an application with SASL+OAUTHBEARER to produce/consume a topic. Custom Application Principal certificate is used to authenticate your application with an IAM provider using the custom ApplicationPrincipal as Client ID
-- `private_key` (String) The private key of a Connector Application for an Environment. If committing terraform configuration(.tf) file in version control repository, please make sure there is a secure way of providing private key for a Connector application's Application Principal. Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/.
+- `private_key` (String, Sensitive) The private key of a Connector Application for an Environment. If committing terraform configuration(.tf) file in version control repository, please make sure there is a secure way of providing private key for a Connector application's Application Principal. Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/.
 
 ### Read-Only
 

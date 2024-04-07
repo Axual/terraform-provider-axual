@@ -14,6 +14,45 @@ func main() {
 
 	c := getClient()
 
+	/*
+		Find ApplicationAccessGrant by application and environment
+	*/
+
+	accessGrantRequest := webclient.ApplicationAccessGrantAttributes{
+		//TopicId:       "qq1",
+		ApplicationId: "4502372a6c894fa98dfa233f3c68b9d0",
+		EnvironmentId: "48684b9c0da74f5da4d3249b769f8536",
+		Statuses:      "APPROVED",
+	}
+	applicationAccessGrant, err := c.GetApplicationAccessGrantsByAttributes(accessGrantRequest)
+	if err != nil {
+		return
+	}
+	if len(applicationAccessGrant.Embedded.ApplicationAccessGrantResponses) > 0 {
+		log.Printf("FOUND APPLICATION PRINCIPAL BY APPLICATION AND ENVIRONMENT: %s\n", applicationAccessGrant.Embedded.ApplicationAccessGrantResponses[0])
+	} else {
+		log.Println("NO APPLICATION PRINCIPAL FOUND FOR THE GIVEN APPLICATION AND ENVIRONMENT")
+	}
+
+	/*
+		Find ApplicationDeployment by application and environment
+	*/
+	//applicationPrincipalFindByApplicationAndEnvironmentResponse, err :=
+	//	c.FindApplicationPrincipalByApplicationAndEnvironment("https://self-service.qa.np.westeurope.azure.axual.cloud/api/applications/4502372a6c894fa98dfa233f3c68b9d0",
+	//		"https://self-service.qa.np.westeurope.azure.axual.cloud/api/environments/48684b9c0da74f5da4d3249b769f8536")
+	//if err != nil {
+	//	return
+	//}
+	//if len(applicationPrincipalFindByApplicationAndEnvironmentResponse.Embedded.ApplicationPrincipalResponses) > 0 {
+	//	log.Printf("FOUND APPLICATION PRINCIPAL BY APPLICATION AND ENVIRONMENT: %s\n", applicationPrincipalFindByApplicationAndEnvironmentResponse.Embedded.ApplicationPrincipalResponses[0])
+	//} else {
+	//	log.Println("NO APPLICATION PRINCIPAL FOUND FOR THE GIVEN APPLICATION AND ENVIRONMENT")
+	//}
+
+	//log.Println("APPLICATION DEPLOYMENT IS", applicationDeployment.Configs)
+
+	//log.Printf("FOUND APPLICATION PRINCIPAL BY APPLICATION AND ENVIRONMENT: %s\n", applicationPrincipalFindByApplicationAndEnvironmentResponse.Embedded.ApplicationPrincipalResponses[0])
+
 	///*
 	//	STATUS Application Deployment
 	//*/
@@ -154,63 +193,63 @@ func main() {
 	/*
 		Update ApplicationDeployment
 	*/
-	var applicationDeploymentUpdateRequest = webclient.ApplicationDeploymentUpdateRequest{
-		Configs: map[string]string{
-			"config.action.reload":                            "restart",
-			"topics":                                          "3",
-			"value.converter":                                 "",
-			"key.converter":                                   "",
-			"header.converter":                                "",
-			"topics.regex":                                    "",
-			"tasks.max":                                       "1",
-			"couchbase.bucket":                                "2",
-			"couchbase.network":                               "user",
-			"couchbase.seed.nodes":                            "axual",
-			"couchbase.password":                              "INSERT_PASSWORD",
-			"couchbase.bootstrap.timeout":                     "30s",
-			"couchbase.username":                              "q",
-			"couchbase.durability":                            "NONE",
-			"couchbase.replicate.to":                          "NONE",
-			"couchbase.persist.to":                            "NONE",
-			"errors.retry.delay.max.ms":                       "60000",
-			"errors.log.include.messages":                     "false",
-			"errors.log.enable":                               "false",
-			"errors.deadletterqueue.context.headers.enable":   "false",
-			"errors.deadletterqueue.topic.replication.factor": "3",
-			"errors.retry.timeout":                            "0",
-			"errors.deadletterqueue.topic.name":               "",
-			"errors.tolerance":                                "none",
-			"couchbase.log.redaction":                         "NONE",
-			"couchbase.log.document.lifecycle":                "false",
-			"couchbase.n1ql.where.fields":                     "",
-			"couchbase.n1ql.operation":                        "UPDATE",
-			"couchbase.n1ql.create.document":                  "true",
-			"predicates":                                      "",
-			"couchbase.trust.store.path":                      "",
-			"couchbase.client.certificate.path":               "",
-			"couchbase.trust.store.password":                  "INSERT_PASSWORD",
-			"couchbase.enable.hostname.verification":          "true",
-			"couchbase.trust.certificate.path":                "",
-			"couchbase.enable.tls":                            "false",
-			"couchbase.client.certificate.password":           "INSERT_PASSWORD",
-			"couchbase.document.id":                           "",
-			"couchbase.topic.to.collection":                   "",
-			"couchbase.document.expiration":                   "0",
-			"couchbase.sink.handler":                          "com.couchbase.connect.kafka.handler.sink.UpsertSinkHandler",
-			"couchbase.default.collection":                    "_default._default",
-			"couchbase.remove.document.id":                    "false",
-			"couchbase.retry.timeout":                         "0",
-			"couchbase.document.mode":                         "DOCUMENT",
-			"couchbase.subdocument.path":                      "",
-			"couchbase.subdocument.operation":                 "UPSERT",
-			"couchbase.subdocument.create.document":           "true",
-			"couchbase.subdocument.create.path":               "true",
-			"transforms":                                      "",
-		},
-	}
-
-	applicationDeployment, _ := c.UpdateApplicationDeployment("87275f73510f44e1a95862bfdae787ca", applicationDeploymentUpdateRequest)
-	log.Printf("UPDATE APPLICATION DEPLOYMENT: %s\n", applicationDeployment)
+	//var applicationDeploymentUpdateRequest = webclient.ApplicationDeploymentUpdateRequest{
+	//	Configs: map[string]string{
+	//		"config.action.reload":                            "restart",
+	//		"topics":                                          "3",
+	//		"value.converter":                                 "",
+	//		"key.converter":                                   "",
+	//		"header.converter":                                "",
+	//		"topics.regex":                                    "",
+	//		"tasks.max":                                       "1",
+	//		"couchbase.bucket":                                "2",
+	//		"couchbase.network":                               "test@test.com",
+	//		"couchbase.seed.nodes":                            "axual",
+	//		"couchbase.password":                              "qq",
+	//		"couchbase.bootstrap.timeout":                     "30s",
+	//		"couchbase.username":                              "q",
+	//		"couchbase.durability":                            "NONE",
+	//		"couchbase.replicate.to":                          "NONE",
+	//		"couchbase.persist.to":                            "NONE",
+	//		"errors.retry.delay.max.ms":                       "60000",
+	//		"errors.log.include.messages":                     "false",
+	//		"errors.log.enable":                               "false",
+	//		"errors.deadletterqueue.context.headers.enable":   "false",
+	//		"errors.deadletterqueue.topic.replication.factor": "3",
+	//		"errors.retry.timeout":                            "0",
+	//		"errors.deadletterqueue.topic.name":               "",
+	//		"errors.tolerance":                                "none",
+	//		"couchbase.log.redaction":                         "NONE",
+	//		"couchbase.log.document.lifecycle":                "false",
+	//		"couchbase.n1ql.where.fields":                     "",
+	//		"couchbase.n1ql.operation":                        "UPDATE",
+	//		"couchbase.n1ql.create.document":                  "true",
+	//		"predicates":                                      "",
+	//		"couchbase.trust.store.path":                      "",
+	//		"couchbase.client.certificate.path":               "",
+	//		"couchbase.trust.store.password":                  "[hidden]",
+	//		"couchbase.enable.hostname.verification":          "true",
+	//		"couchbase.trust.certificate.path":                "",
+	//		"couchbase.enable.tls":                            "false",
+	//		"couchbase.client.certificate.password":           "[hidden]",
+	//		"couchbase.document.id":                           "",
+	//		"couchbase.topic.to.collection":                   "",
+	//		"couchbase.document.expiration":                   "0",
+	//		"couchbase.sink.handler":                          "com.couchbase.connect.kafka.handler.sink.UpsertSinkHandler",
+	//		"couchbase.default.collection":                    "_default._default",
+	//		"couchbase.remove.document.id":                    "false",
+	//		"couchbase.retry.timeout":                         "0",
+	//		"couchbase.document.mode":                         "DOCUMENT",
+	//		"couchbase.subdocument.path":                      "",
+	//		"couchbase.subdocument.operation":                 "UPSERT",
+	//		"couchbase.subdocument.create.document":           "true",
+	//		"couchbase.subdocument.create.path":               "true",
+	//		"transforms":                                      "",
+	//	},
+	//}
+	//
+	//applicationDeployment, _ := c.UpdateApplicationDeployment("87275f73510f44e1a95862bfdae787ca", applicationDeploymentUpdateRequest)
+	//log.Printf("UPDATE APPLICATION DEPLOYMENT: %s\n", applicationDeployment)
 
 	/*
 		Create Custom Application Principal

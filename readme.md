@@ -118,6 +118,7 @@ go generate
   - Run "Axual Delve binary"(Run icon) to start Delve's debugging session on this binary. It looks for terraform-provider-axual executable in /go/bin.
   - Run "Axual Go Remote"(Debug icon) to connect IntelliJ to the Delve's debugging session. On the console you will see a string: TF_REATTACH_PROVIDERS='{"axual...
   - Copy this string and use it as environment variable: export TF_REATTACH_PROVIDERS='{"axual...
+    - For some reason, it only works in a separate terminal session on MacOS. Also run terraform commands from the same iTerm terminal session.
   - Set a breakpoint and run a command to run the provider like: tf plan or tf apply. It will stop at the breakpoint
   - When done with debugging, remove the env variable: unset TF_REATTACH_PROVIDERS
   - To do the same without generating the binary: Run "Axual Delve project"(Run icon)

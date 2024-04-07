@@ -110,3 +110,15 @@ type ApplicationPrincipalRequest struct {
 type ApplicationPrincipalUpdateRequest struct {
 	Principal string `json:"principal"`
 }
+
+type ApplicationPrincipalFindByApplicationAndEnvironmentResponse struct {
+	Embedded struct {
+		ApplicationPrincipalResponses []interface{} `json:"application_principals"`
+	} `json:"_embedded"`
+	Links struct {
+		Self struct {
+			Href  string `json:"href"`
+			Title string `json:"title"`
+		} `json:"self"`
+	} `json:"_links"`
+}

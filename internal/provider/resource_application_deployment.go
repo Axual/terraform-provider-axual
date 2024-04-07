@@ -44,6 +44,7 @@ func (t applicationDeploymentResourceType) GetSchema(_ context.Context) (tfsdk.S
 				MarkdownDescription: "Connector config for Application Deployment",
 				Required:            true,
 				Type:                types.MapType{ElemType: types.StringType},
+				Sensitive:           true,
 			},
 			"id": {
 				Type:     types.StringType,
@@ -81,16 +82,48 @@ type applicationDeploymentResource struct {
 func (r applicationDeploymentResource) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
 	var data ApplicationDeploymentResourceData
 
-	diags := req.Config.Get(ctx, &data)
+	diags := req.Plan.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	applicationURL := fmt.Sprintf("%s/applications/%v", r.provider.client.ApiURL, data.Application.Value)
+	environmentURL := fmt.Sprintf("%s/environments/%v", r.provider.client.ApiURL, data.Environment.Value)
 
+	// We check if Application Principal exists for this environment and application
+	ApplicationPrincipalFindByApplicationAndEnvironmentResponse, err := r.provider.client.FindApplicationPrincipalByApplicationAndEnvironment(applicationURL, environmentURL)
+	if err != nil {
+		resp.Diagnostics.AddError("Error querying for Application Principal for this application and environment", fmt.Sprintf("Error message: %s", err.Error()))
+		return
+	}
+	// We do not allow creating Application Deployment if there is no Application Principal because we can't start the connector without it
+	if len(ApplicationPrincipalFindByApplicationAndEnvironmentResponse.Embedded.ApplicationPrincipalResponses) == 0 {
+		resp.Diagnostics.AddError("Error from Terraform Provider validation", "Please first create Application Principal for this application and environment")
+		return
+	}
+
+	// We check if Approved Application Access Grant exists for this environment and application
+	accessGrantRequest := webclient.ApplicationAccessGrantAttributes{
+		ApplicationId: data.Application.Value,
+		EnvironmentId: data.Environment.Value,
+		Statuses:      "APPROVED",
+	}
+	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrantsByAttributes(accessGrantRequest)
+	if err != nil {
+		resp.Diagnostics.AddError("Error querying for Application Access Grant for this application and environment", fmt.Sprintf("Error message: %s", err.Error()))
+		return
+	}
+	// We do not allow creating Application Deployment if there is no Approved Application Access Grant, because we can't start the connector without it
+	if len(applicationAccessGrant.Embedded.ApplicationAccessGrantResponses) == 0 {
+		resp.Diagnostics.AddError("Error from Terraform Provider validation", "Please first create and approve Application Access Grant for this application and environment")
+		return
+	}
+
+	// We create Application Deployment
 	ApplicationDeploymentRequest, err := createApplicationDeploymentRequestFromData(ctx, &data, r)
 	if err != nil {
-		resp.Diagnostics.AddError("Error creating CREATE request struct for application deployment resource", fmt.Sprintf("Error message: %s", err.Error()))
+		resp.Diagnostics.AddError("Error creating request struct for application deployment resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
 	_, err = r.provider.client.CreateApplicationDeployment(ApplicationDeploymentRequest)
@@ -98,9 +131,9 @@ func (r applicationDeploymentResource) Create(ctx context.Context, req tfsdk.Cre
 		resp.Diagnostics.AddError("CREATE request error for application deployment resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
-	applicationWithUrl := fmt.Sprintf("%s/applications/%v", r.provider.client.ApiURL, data.Application.Value)
-	environmentWithUrl := fmt.Sprintf("%s/environments/%v", r.provider.client.ApiURL, data.Environment.Value)
-	ApplicationDeploymentFindByApplicationAndEnvironmentResponse, err := r.provider.client.FindApplicationDeploymentByApplicationAndEnvironment(applicationWithUrl, environmentWithUrl)
+
+	// We search for the Application Deployment we just created, because we need to save its UID, because creating it did not respond with UID.
+	ApplicationDeploymentFindByApplicationAndEnvironmentResponse, err := r.provider.client.FindApplicationDeploymentByApplicationAndEnvironment(applicationURL, environmentURL)
 
 	if err != nil {
 		resp.Diagnostics.AddError("Error finding application deployment", fmt.Sprintf("Error message: %s", err.Error()))
@@ -109,6 +142,8 @@ func (r applicationDeploymentResource) Create(ctx context.Context, req tfsdk.Cre
 	var applicationStartRequest = webclient.ApplicationDeploymentOperationRequest{
 		Action: "START",
 	}
+
+	// We start the Connector Application
 	err = r.provider.client.OperateApplicationDeployment(ApplicationDeploymentFindByApplicationAndEnvironmentResponse.Embedded.ApplicationDeploymentResponses[0].Uid, "START", applicationStartRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to start Application, got error: %s", err))
@@ -136,10 +171,9 @@ func (r applicationDeploymentResource) Read(ctx context.Context, req tfsdk.ReadR
 	ApplicationDeploymentFindByApplicationAndEnvironmentResponse, err := r.provider.client.FindApplicationDeploymentByApplicationAndEnvironment(applicationWithUrl, environmentWithUrl)
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
-			tflog.Warn(ctx, fmt.Sprintf("Application Deployment not found. Id: %s", data.Id.Value))
-			resp.State.RemoveResource(ctx)
+			resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to find Application Deployment with ID: %s, got error: %s", data.Id.Value, err))
 		} else {
-			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read Application Deployment, got error: %s", err))
+			resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to read Application Deployment, got error: %s", err))
 		}
 		return
 	}
