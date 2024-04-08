@@ -129,6 +129,7 @@ func (p *provider) GetResources(_ context.Context) (map[string]tfsdk.ResourceTyp
 		"axual_topic_config":                       topicConfigResourceType{},
 		"axual_application":                        applicationResourceType{},
 		"axual_application_principal":              applicationPrincipalResourceType{},
+		"axual_application_deployment":             applicationDeploymentResourceType{},
 		"axual_application_access_grant":           applicationAccessGrantResourceType{},
 		"axual_application_access_grant_approval":  applicationAccessGrantApprovalResourceType{},
 		"axual_application_access_grant_rejection": applicationAccessGrantRejectionResourceType{},
@@ -138,12 +139,12 @@ func (p *provider) GetResources(_ context.Context) (map[string]tfsdk.ResourceTyp
 
 func (p *provider) GetDataSources(_ context.Context) (map[string]tfsdk.DataSourceType, diag.Diagnostics) {
 	return map[string]tfsdk.DataSourceType{
-		"axual_environment":   				environmentDataSourceType{},
-		"axual_group":   	   				groupDataSourceType{},
-		"axual_topic":   	   				topicDataSourceType{},
-		"axual_application":   				applicationDataSourceType{},
-		"axual_schema_version": 			schemaVersionDataSourceType{},
-		"axual_application_access_grant": 	applicationAccessGrantDataSourceType{},
+		"axual_environment":              environmentDataSourceType{},
+		"axual_group":                    groupDataSourceType{},
+		"axual_topic":                    topicDataSourceType{},
+		"axual_application":              applicationDataSourceType{},
+		"axual_schema_version":           schemaVersionDataSourceType{},
+		"axual_application_access_grant": applicationAccessGrantDataSourceType{},
 	}, nil
 }
 

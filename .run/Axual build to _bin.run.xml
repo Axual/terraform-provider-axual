@@ -14,6 +14,7 @@
       </ENTRIES>
     </EXTENSION>
     <kind value="DIRECTORY" />
+    <package value="axual.com/terraform-provider-axual" />
     <directory value="$PROJECT_DIR$" />
     <filePath value="$PROJECT_DIR$" />
     <output_directory value="$USER_HOME$/go/bin" />

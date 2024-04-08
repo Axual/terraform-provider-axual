@@ -3,6 +3,7 @@ package webclient
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -49,4 +50,16 @@ func (c *Client) DeleteApplicationPrincipal(id string) error {
 		return err
 	}
 	return nil
+}
+
+func (c *Client) FindApplicationPrincipalByApplicationAndEnvironment(application string, environment string) (*ApplicationPrincipalFindByApplicationAndEnvironmentResponse, error) {
+	o := ApplicationPrincipalFindByApplicationAndEnvironmentResponse{}
+
+	err :=
+		c.RequestAndMap("GET", fmt.Sprintf("%s/application_principals/search/findByApplicationAndEnvironment?application=%v&environment=%v",
+			c.ApiURL, url.QueryEscape(application), url.QueryEscape(environment)), nil, nil, &o)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
 }

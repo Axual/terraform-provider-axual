@@ -29,7 +29,20 @@ func (t applicationPrincipalResourceType) GetSchema(ctx context.Context) (tfsdk.
 			"principal": {
 				MarkdownDescription: "The principal of an Application for an Environment",
 				Required:            true,
+				Sensitive:           true,
 				Type:                types.StringType,
+				PlanModifiers: tfsdk.AttributePlanModifiers{
+					tfsdk.RequiresReplace(),
+				},
+			},
+			"private_key": {
+				MarkdownDescription: "The private key of a Connector Application for an Environment. If committing terraform configuration(.tf) file in version control repository, please make sure there is a secure way of providing private key for a Connector application's Application Principal. Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/.",
+				Optional:            true,
+				Sensitive:           true,
+				Type:                types.StringType,
+				PlanModifiers: tfsdk.AttributePlanModifiers{
+					tfsdk.RequiresReplace(),
+				},
 			},
 			"application": {
 				MarkdownDescription: "A valid Uid of an existing application",
@@ -77,6 +90,7 @@ func (t applicationPrincipalResourceType) NewResource(ctx context.Context, in tf
 
 type applicationPrincipalResourceData struct {
 	Principal   types.String `tfsdk:"principal"`
+	PrivateKey  types.String `tfsdk:"private_key"`
 	Application types.String `tfsdk:"application"`
 	Environment types.String `tfsdk:"environment"`
 	Custom      types.Bool   `tfsdk:"custom"`
@@ -241,6 +255,9 @@ func createApplicationPrincipalRequestFromData(ctx context.Context, data *applic
 	// optional fields
 	if !data.Custom.Null && data.Custom.Value {
 		applicationPrincipalRequestArray[0].Custom = data.Custom.Value
+	}
+	if !data.PrivateKey.Null {
+		applicationPrincipalRequestArray[0].PrivateKey = data.PrivateKey.Value
 	}
 	return applicationPrincipalRequestArray, err
 }

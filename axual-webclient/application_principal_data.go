@@ -102,10 +102,23 @@ type ApplicationPrincipalResponse struct {
 
 type ApplicationPrincipalRequest struct {
 	Principal   string `json:"principal"`
+	PrivateKey  string `json:"privateKey,omitempty"`
 	Application string `json:"application"`
 	Environment string `json:"environment"`
 	Custom      bool   `json:"custom,omitempty"`
 }
 type ApplicationPrincipalUpdateRequest struct {
 	Principal string `json:"principal"`
+}
+
+type ApplicationPrincipalFindByApplicationAndEnvironmentResponse struct {
+	Embedded struct {
+		ApplicationPrincipalResponses []interface{} `json:"application_principals"`
+	} `json:"_embedded"`
+	Links struct {
+		Self struct {
+			Href  string `json:"href"`
+			Title string `json:"title"`
+		} `json:"self"`
+	} `json:"_links"`
 }

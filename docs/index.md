@@ -41,7 +41,7 @@ terraform {
   required_providers {
     axual = {
       source = "Axual/axual"
-      version = "1.1.0"
+      version = "2.2.0"
     }
   }
 }
@@ -265,7 +265,6 @@ resource "axual_environment" "production" {
 #
 # An APPLICATION is anything that produces or consumes data from a topic.
 # In Axual Platform we distinguish CUSTOM and CONNECTOR type applications.
-# Note: currently, only CUSTOM applications are supported through the TF Provider for Axual
 #
 # In the example below, applications "dev_dashboard" and "log_scraper" are declared
 #
@@ -294,6 +293,19 @@ resource "axual_application" "log_scraper" {
   visibility = "Public"
   description = "Axual's Test Application for finding all Logs for developers"
 #  depends_on = [axual_topic_config.logs_in_dev, axual_topic.logs] # This is a workaround when all resources get deleted at once, to delete topic_config and topic before application. Mentioned in index.md
+}
+
+resource "axual_application" "connector_test_application" {
+  name    = "connector_test"
+  application_type     = "Connector"
+  application_class = "com.couchbase.connect.kafka.CouchbaseSinkConnector"
+  short_name = "connector_test"
+  application_id = "connector_test"
+  owners = axual_group.team-awesome.id
+  visibility = "Public"
+  description = "Testing connector apps"
+  type="SINK"
+  #  depends_on = [axual_topic_config.logs_in_dev, axual_topic.logs] # This is a workaround when all resources get deleted at once, to delete topic_config and topic before application. Mentioned in index.md
 }
 
 #
@@ -337,6 +349,20 @@ resource "axual_application_principal" "log_scraper_in_production_principal" {
   environment = axual_environment.production.id
   application = axual_application.log_scraper.id
   principal = file("certs/certificate.pem")
+}
+
+# This axual_application_principal will be used with a Connector application.
+
+# If committing terraform configuration(.tf) file in version control repository, please make sure
+# there is a secure way of providing private key for a Connector application's Application Principal.
+# Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/
+
+# The query from this Terraform provider to Axual Platform Manager API is secured with a TLS connection, just like in Axual Self Service UI.
+resource "axual_application_principal" "connector_axual_application_principal" {
+  environment = axual_environment.development.id
+  application = axual_application.connector_test_application.id
+  principal = file("certs/example-connector.pem")
+  private_key = file("certs/example-connector.key")
 }
 
 #
@@ -554,6 +580,14 @@ resource "axual_application_access_grant" "scraper_produce_to_logs_in_production
   depends_on = [ axual_application_principal.log_scraper_in_production_principal ]
 }
 
+resource "axual_application_access_grant" "connector_axual_application_access_grant" {
+  application = axual_application.connector_test_application.id
+  topic = axual_topic.logs.id
+  environment = axual_environment.development.id
+  access_type = "CONSUMER"
+  depends_on = [ axual_application_principal.connector_axual_application_principal ]
+}
+
 #
 # An APPLICATION_ACCESS_GRANT can be approved by creating an APPLICATION_ACCESS_GRANT_APPROVAL with
 # a reference to the APPLICATION_ACCESS_GRANT which needs to be approved, as can be seen
@@ -586,6 +620,10 @@ resource "axual_application_access_grant_approval" "scraper_produce_logs_product
   application_access_grant = axual_application_access_grant.scraper_produce_to_logs_in_production.id
 }
 
+resource "axual_application_access_grant_approval" "connector_axual_application_access_grant_approval"{
+  application_access_grant = axual_application_access_grant.connector_axual_application_access_grant.id
+}
+
 #
 # To reject an APPLICATION_ACCESS_GRANT, create an APPLICATION_ACCESS_GRANT_REJECTION
 #
@@ -594,6 +632,75 @@ resource "axual_application_access_grant_approval" "scraper_produce_logs_product
 
 resource "axual_application_access_grant_rejection" "scraper_produce_logs_staging_rejection" {
   application_access_grant = axual_application_access_grant.scraper_produce_to_logs_in_staging.id
+}
+
+##
+## Connector application has an APPLICATION_DEPLOYMENT which defines the Connector application
+## To make APPLICATION_DEPLOYMENT, application principal with private key is required and application
+## with type Connector is required. Creating APPLICATION_DEPLOYMENT automatically starts it
+##
+## Reference: https://docs.axual.io/connect/Axual-Connect/developer/starting-connectors.html
+##
+
+resource "axual_application_deployment" "connector_axual_application_deployment" {
+  environment = axual_environment.development.id
+  application = axual_application.connector_test_application.id
+  configs = {
+    "config.action.reload"= "restart",
+    "header.converter"= "",
+    "key.converter"= "",
+    "tasks.max"= "1",
+    "topics"= "2",
+    "topics.regex"= "",
+    "value.converter"= "",
+    "couchbase.bootstrap.timeout"= "30s",
+    "couchbase.bucket"= "2",
+    "couchbase.network"= "user",
+    "couchbase.seed.nodes"= "1",
+    "couchbase.username"= "q",
+    "couchbase.durability"= "NONE",
+    "couchbase.persist.to"= "NONE",
+    "couchbase.replicate.to"= "NONE",
+    "errors.deadletterqueue.context.headers.enable"= "false",
+    "errors.deadletterqueue.topic.name"= "",
+    "errors.deadletterqueue.topic.replication.factor"= "3",
+    "errors.log.enable"= "false",
+    "errors.log.include.messages"= "false",
+    "errors.retry.delay.max.ms"= "60000",
+    "errors.retry.timeout"= "0",
+    "errors.tolerance"= "none",
+    "couchbase.log.document.lifecycle"= "false",
+    "couchbase.log.redaction"= "NONE",
+    "couchbase.n1ql.create.document"= "true",
+    "couchbase.n1ql.operation"= "UPDATE",
+    "couchbase.n1ql.where.fields"= "",
+    "predicates"= "",
+    "couchbase.client.certificate.password"= "INSERT_PASSWORD",
+    "couchbase.client.certificate.path"= "",
+    "couchbase.enable.hostname.verification"= "true",
+    "couchbase.enable.tls"= "false",
+    "couchbase.trust.certificate.path"= "",
+    "couchbase.trust.store.password"= "INSERT_PASSWORD",
+    "couchbase.trust.store.path"= "",
+    "couchbase.default.collection"= "_default._default",
+    "couchbase.document.expiration"= "0",
+    "couchbase.document.id"= "",
+    "couchbase.document.mode"= "DOCUMENT",
+    "couchbase.remove.document.id"= "false",
+    "couchbase.retry.timeout"= "0",
+    "couchbase.sink.handler"= "com.couchbase.connect.kafka.handler.sink.UpsertSinkHandler",
+    "couchbase.topic.to.collection"= "",
+    "couchbase.subdocument.create.document"= "true",
+    "couchbase.subdocument.create.path"= "true",
+    "couchbase.subdocument.operation"= "UPSERT",
+    "couchbase.subdocument.path"= "",
+    "transforms"= "",
+    "couchbase.password"= "INSERT_PASSWORD",
+  }
+  depends_on = [ axual_application_principal.connector_axual_application_principal,
+    axual_application_access_grant.dash_consume_from_logs_in_dev,
+    axual_application_access_grant_approval.dash_consume_logs_dev
+  ]
 }
 ```
 
