@@ -31,7 +31,7 @@ type TopicResponse struct {
 			Name         string      `json:"name"`
 			Uid          string      `json:"uid"`
 			Links        struct {
-				Members struct {
+				Members []struct {
 					Href      string `json:"href"`
 					Templated bool   `json:"templated"`
 					Title     string `json:"title"`

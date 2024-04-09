@@ -19,7 +19,7 @@ type GroupsResponse struct {
 					Templated bool   `json:"templated"`
 					Title     string `json:"title"`
 				} `json:"group"`
-				Members struct {
+				Members []struct {
 					Href      string `json:"href"`
 					Templated bool   `json:"templated"`
 					Title     string `json:"title"`
@@ -105,7 +105,7 @@ type GroupResponse struct {
 			Href  string `json:"href"`
 			Title string `json:"title"`
 		} `json:"delete"`
-		Members struct {
+		Members []struct {
 			Href      string `json:"href"`
 			Templated bool   `json:"templated"`
 			Title     string `json:"title"`
@@ -143,7 +143,7 @@ type GetGroupByNameResponse struct {
 					Templated bool   `json:"templated"`
 					Title     string `json:"title"`
 				} `json:"group"`
-				Members struct {
+				Members []struct {
 					Href      string `json:"href"`
 					Templated bool   `json:"templated"`
 					Title     string `json:"title"`

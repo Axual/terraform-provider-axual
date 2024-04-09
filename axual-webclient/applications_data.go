@@ -51,7 +51,11 @@ type ApplicationResponse struct {
 				Href  string `json:"href"`
 				Title string `json:"title"`
 			} `json:"delete"`
-			Members interface{} `json:"members"` //This can't be []struct because if group has 1 member, it returns an object and not an array
+			Members []struct {
+				Href      string `json:"href"`
+				Templated bool   `json:"templated"`
+				Title     string `json:"title"`
+			} `json:"members"`
 		} `json:"_links"`
 	} `json:"owners"`
 	AllApplicationIds []string `json:"allApplicationIds"`
