@@ -291,7 +291,7 @@ type GetApplicationAccessGrantsByAttributeResponse struct {
 								Href  string `json:"href"`
 								Title string `json:"title"`
 							} `json:"edit"`
-							Members struct {
+							Members []struct {
 								Href      string `json:"href"`
 								Templated bool   `json:"templated"`
 								Title     string `json:"title"`

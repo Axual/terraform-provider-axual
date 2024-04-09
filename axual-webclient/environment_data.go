@@ -124,7 +124,7 @@ type EnvironmentResponse struct {
 					Templated bool   `json:"templated"`
 					Title     string `json:"title"`
 				} `json:"self"`
-				Members struct {
+				Members []struct {
 					Href      string `json:"href"`
 					Templated bool   `json:"templated"`
 					Title     string `json:"title"`
