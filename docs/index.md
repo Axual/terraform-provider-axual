@@ -728,7 +728,7 @@ resource "axual_application_deployment" "connector_axual_application_deployment"
 
 
 ## Compatibility
- - This terraform provider requires Management API 8.4.1+ due to some incompatible return types bugs fixed and replacement of depricated endpoint
+ - This terraform provider requires Management API 8.5.0+ due to some incompatible return types bugs fixed and replacement of depricated endpoint
 
 ## Output
 Please include output if you want to have detailed information, e.g. for debugging purposes or for data sources.
