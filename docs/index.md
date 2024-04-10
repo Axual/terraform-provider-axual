@@ -40,7 +40,7 @@ First, make sure to define and configure the provider:
 terraform {
   required_providers {
     axual = {
-      source = "Axual/axual"
+      source  = "Axual/axual"
       version = "2.2.0"
     }
   }
@@ -54,11 +54,11 @@ terraform {
 provider "axual" {
   apiurl   = "https://platform.local/api"
   realm    = "axual"
-  username = "kubernetes@axual.com" #- or set using env property export AXUAL_AUTH_USERNAME=
+  username = "kubernetes@axual.com"   #- or set using env property export AXUAL_AUTH_USERNAME=
   password = "PLEASE_CHANGE_PASSWORD" #- or set using env property export AXUAL_AUTH_PASSWORD=
   clientid = "self-service"
-  authurl = "https://platform.local/auth/realms/axual/protocol/openid-connect/token"
-  scopes = ["openid", "profile", "email"]
+  authurl  = "https://platform.local/auth/realms/axual/protocol/openid-connect/token"
+  scopes   = ["openid", "profile", "email"]
 }
 ```
 
@@ -728,7 +728,8 @@ resource "axual_application_deployment" "connector_axual_application_deployment"
 
 
 ## Compatibility
- - This terraform provider requires Management API 8.4.1+ due to some incompatible return types bugs fixed and replacement of depricated endpoint
+ - This terraform provider requires Management API 8.5.0+ due to some incompatible return types bugs fixed and replacement of depricated endpoint
+
 
 ## Output
 Please include output if you want to have detailed information, e.g. for debugging purposes or for data sources.
