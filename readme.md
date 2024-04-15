@@ -132,7 +132,6 @@ go generate
   - log.Println using the module "log"
   - For example:
     - log.Println("strings.NewReader(string(marshal))", strings.NewReader(string(marshal)))
-    - 
 - Logging in internal folder:
   - tflog.Debug(or Info,Trace etc)
   - Then run TF_LOG=DEBUG(Or INFO,TRACE,ERROR) terraform plan
