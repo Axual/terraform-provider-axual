@@ -19,7 +19,7 @@ type groupDataSourceType struct{}
 
 func (t groupDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
 	return tfsdk.Schema{
-		MarkdownDescription: "Group resource. Read more: https://docs.axual.io/axual/2023.2/self-service/user-group-management.html#groups",
+		MarkdownDescription: "Group resource. Read more: https://docs.axual.io/axual/2024.1/self-service/user-group-management.html#groups",
 
 		Attributes: map[string]tfsdk.Attribute{
 			"name": {

@@ -9,7 +9,7 @@ Axual Provider allows using Axual's Self-Service for Apache Kafka functionality 
 	- How long until the data is removed from the topic
 	- Which applications are the producers and the consumers of this data
 - Self Service provides control of your topic properties for individual environments and get an overview of the streaming landscape inside your organization.
-	- For details, please refer to Axual Self-Service reference documentation: https://docs.axual.io/axual/2023.2/self-service/index.html
+	- For details, please refer to Axual Self-Service reference documentation: https://docs.axual.io/axual/2024.1/self-service/index.html
 
 ## Features
 
@@ -67,7 +67,7 @@ Next, take a look at the *full* example which shows you the capabilities of the 
 # TERRAFORM PROVIDER EXAMPLE
 #
 # This TerraForm file shows the capabilities of the TerraForm provider for Axual
-# It is tested on the latest version of Axual Platform (2023.2)
+# It is tested on the latest version of Axual Platform (2024.1)
 #
 # NOTE: execute ./init.sh to import the `tenant_admin` and `tenant_admin_group` resources which are created as part of a fresh installation
 #

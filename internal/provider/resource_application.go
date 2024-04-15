@@ -34,7 +34,7 @@ func (t applicationResourceType) GetSchema(_ context.Context) (tfsdk.Schema, dia
 				},
 			},
 			"application_id": {
-				MarkdownDescription: "The Application's ID. Usually a fully qualified class name. Must be unique. The application ID, used in logging and to determine the consumer group (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#app-id.",
+				MarkdownDescription: "The Application's ID. Usually a fully qualified class name. Must be unique. The application ID, used in logging and to determine the consumer group (if applicable). Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#app-id.",
 				Required:            true,
 				Type:                types.StringType,
 			},
@@ -78,7 +78,7 @@ func (t applicationResourceType) GetSchema(_ context.Context) (tfsdk.Schema, dia
 			},
 			"visibility": {
 				Required:            true,
-				MarkdownDescription: "Application Visibility. Defines the visibility of this application. Possible values are `Public` and `Private`. Set the visibility to `Private` if you don’t want your application to end up in overviews such as the topic graph. Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#app-visibility",
+				MarkdownDescription: "Application Visibility. Defines the visibility of this application. Possible values are `Public` and `Private`. Set the visibility to `Private` if you don’t want your application to end up in overviews such as the topic graph. Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#app-visibility",
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
 					validation.Compare(validation.OneOf, []string{"Public", "Private"}),

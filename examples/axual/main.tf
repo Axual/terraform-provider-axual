@@ -2,7 +2,7 @@
 # TERRAFORM PROVIDER EXAMPLE
 #
 # This TerraForm file shows the capabilities of the TerraForm provider for Axual
-# It is tested on the latest version of Axual Platform (2023.2)
+# It is tested on the latest version of Axual Platform (2024.1)
 #
 # NOTE: execute ./init.sh to import the `tenant_admin` and `tenant_admin_group` resources which are created as part of a fresh installation
 #

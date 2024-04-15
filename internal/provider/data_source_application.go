@@ -40,7 +40,7 @@ func (t applicationDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 				Type:                types.StringType,
 			},
 			"application_id": {
-				MarkdownDescription: "The Application Id of the Application, usually a fully qualified class name. Must be unique. The application ID, used in logging and to determine the consumer group (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#app-id",
+				MarkdownDescription: "The Application Id of the Application, usually a fully qualified class name. Must be unique. The application ID, used in logging and to determine the consumer group (if applicable). Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#app-id",
 				Computed:            true,
 				Type:                types.StringType,
 			},
@@ -66,7 +66,7 @@ func (t applicationDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema,
 			},
 			"visibility": {
 				Computed:            true,
-				MarkdownDescription: "Application Visibility. Defines the visibility of this application. Possible values are Public and Private. Set the visibility to “Private” if you don’t want your application to end up in overviews such as the topic graph. Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#app-visibility",
+				MarkdownDescription: "Application Visibility. Defines the visibility of this application. Possible values are Public and Private. Set the visibility to “Private” if you don’t want your application to end up in overviews such as the topic graph. Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#app-visibility",
 				Type:                types.StringType,
 			},
 			"description": {
@@ -118,9 +118,9 @@ func (d applicationDataSource) Read(ctx context.Context, req tfsdk.ReadDataSourc
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application by name, got error: %s", err))
 		return
 	}
-	if(len(appByName.Embedded.Applications)==0) {
+	if len(appByName.Embedded.Applications) == 0 {
 		resp.Diagnostics.AddError("Client Error", "Application not found")
-		return 
+		return
 	}
 	app, err := d.provider.client.GetApplication(appByName.Embedded.Applications[0].Uid)
 	if err != nil {

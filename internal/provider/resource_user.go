@@ -23,7 +23,7 @@ type userResourceType struct{}
 func (t userResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
 	return tfsdk.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "User resource. Read more: https://docs.axual.io/axual/2023.2/self-service/user-group-management.html#users",
+		MarkdownDescription: "User resource. Read more: https://docs.axual.io/axual/2024.1/self-service/user-group-management.html#users",
 
 		Attributes: map[string]tfsdk.Attribute{
 			"first_name": {

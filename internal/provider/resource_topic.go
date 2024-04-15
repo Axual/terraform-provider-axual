@@ -25,7 +25,7 @@ type topicResourceType struct{}
 func (t topicResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
 	return tfsdk.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "A topic represents a flow of information (messages), which is continuously updated. Read more: https://docs.axual.io/axual/2023.2/self-service/topic-management.html",
+		MarkdownDescription: "A topic represents a flow of information (messages), which is continuously updated. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html",
 
 		Attributes: map[string]tfsdk.Attribute{
 			"name": {
@@ -42,7 +42,7 @@ func (t topicResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Di
 				},
 			},
 			"key_type": {
-				MarkdownDescription: "The key type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/topic-management.html#key-type",
+				MarkdownDescription: "The key type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#key-type",
 				Required:            true,
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
@@ -55,7 +55,7 @@ func (t topicResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Di
 				Type:                types.StringType,
 			},
 			"value_type": {
-				MarkdownDescription: "The value type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/topic-management.html#value-type",
+				MarkdownDescription: "The value type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#value-type",
 				Required:            true,
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
@@ -68,12 +68,12 @@ func (t topicResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Di
 				Type:                types.StringType,
 			},
 			"owners": {
-				MarkdownDescription: "The team owning this topic. Read more: https://docs.axual.io/axual/2023.2/self-service/topic-management.html#topic-owner",
+				MarkdownDescription: "The team owning this topic. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#topic-owner",
 				Required:            true,
 				Type:                types.StringType,
 			},
 			"retention_policy": {
-				MarkdownDescription: "Determines what to do with messages after a certain period. Read more: https://docs.axual.io/axual/2023.2/self-service/topic-management.html#retention-policy",
+				MarkdownDescription: "Determines what to do with messages after a certain period. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#retention-policy",
 				Required:            true,
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
@@ -81,7 +81,7 @@ func (t topicResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Di
 				},
 			},
 			"properties": {
-				MarkdownDescription: "Advanced (Kafka) properties for a topic in a given environment. Read more: https://docs.axual.io/axual/2023.2/self-service/advanced-features.html#configuring-topic-properties",
+				MarkdownDescription: "Advanced (Kafka) properties for a topic in a given environment. Read more: https://docs.axual.io/axual/2024.1/self-service/advanced-features.html#configuring-topic-properties",
 				Required:            true,
 				Type:                types.MapType{ElemType: types.StringType},
 			},

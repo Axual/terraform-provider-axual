@@ -24,7 +24,7 @@ type schemaVersionResourceType struct{}
 
 func (r schemaVersionResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
 	return tfsdk.Schema{
-		MarkdownDescription: "Schema version resource. Read more: https://docs.axual.io/axual/2023.2/self-service/schema-management.html",
+		MarkdownDescription: "Schema version resource. Read more: https://docs.axual.io/axual/2024.1/self-service/schema-management.html",
 
 		Attributes: map[string]tfsdk.Attribute{
 			"body": {
