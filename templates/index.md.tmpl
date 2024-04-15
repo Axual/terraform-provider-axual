@@ -22,8 +22,6 @@ Axual Provider allows using Axual's Self-Service for Apache Kafka functionality 
 - Environment management
 - Request, Approval, Revocation, Rejection and Cancellation of Access Requests
 ## Limitations
-- Currently, there is a bug that deleting a resource that is managed by Terraform from UI results in Terraform not being able to recreate the resource again according to .tf configuration file. We do not recommend currently deleting resources managed by Terraform from UI. This bug has been reported to development team and is under investigation.
-- Public environments cannot be deleted, private environments can be deleted. This feature will be implemented in the future.
 - When deleting all resources at once, application.tf needs to have a dependency to make sure topic and topic_config get deleted first. This bug has been reported to development team and is under investigation.
 
 # Getting started

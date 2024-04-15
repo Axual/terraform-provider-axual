@@ -14,6 +14,7 @@
 
 ## Limitations
 Please make sure to use the depends_on as in the example below, because it guarantees the correct order when creating or deleting multiple resources.
+Including it guarantees that Terraform creates the required resources before application_deployment resource: application_principal, axual_application_access_grant, axual_application_access_grant_approval.
 
 {{ .SchemaMarkdown | trimspace }}
 
