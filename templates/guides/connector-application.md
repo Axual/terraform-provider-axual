@@ -7,30 +7,32 @@ page_title: "Connector Application Support"
 To create and start a connector application, we need these Axual Terraform resources:
   1. **axual_topic**
   2. **axual_environment**
-  3. **axual_application**. These are connector application specific properties: 
-      - application_type     = "Connector"
-        - application_class defined with a plugin class name. All supported plugin class names are listed here: https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html
-          - For example: application_class = "com.couchbase.connect.kafka.CouchbaseSinkConnector"
-        - type="SINK" or type="SOURCE"
-  4. **axual_application_principal** These are connector application specific properties:
-      - private_key = file("certs/example-connector.key")
+  3. **axual_application** 
+      - These are connector application specific properties: 
+      - **application_type**     = "Connector"
+        - **application_class** defined with a plugin class name. All supported plugin class names are listed here: https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html
+          - For example: **application_class** = "com.couchbase.connect.kafka.CouchbaseSinkConnector"
+        - **type**="SINK" or **type**="SOURCE"
+  4. **axual_application_principal** 
+      - These are connector application specific properties:
+      - **private_key** = file("certs/example-connector.key")
           - Please note that the value needs to be a string
           - Private key(private_key) is marked as "Sensitive" and doesn't get shown in server logs
   5. **axual_application_access_grant**
   6. **axual_application_access_grant_approval**
   7. **axual_application_deployment**
      - Please include **depends_on** like in the example below so Terraform Provider knows the correct order of execution when creating or deleting multiple resources.
-       - Configuration(configs) is marked as "Sensitive" and doesn't get shown in server logs
-       - Creating axual_application_deployment starts the connector
-       - Updating axual_application_deployment stops the connector if it was running, updates the config, and starts it
-       - Deleting axual_application_deployment stops the connector if it was running, then deletes it
+       - Configuration(**configs**) is marked as "Sensitive" and doesn't get shown in server logs
+       - Creating **axual_application_deployment** starts the connector
+       - Updating **axual_application_deployment** stops the connector if it was running, updates the config, and starts it
+       - Deleting **axual_application_deployment** stops the connector if it was running, then deletes it
 
 To read more about Connect Applications on Axual Platform: https://docs.axual.io/connect/Axual-Connect/developer/index-developer.html
 
 ### Example Resources:
 ```shell
 resource "axual_topic" "test-topic" {
-  name = test-topic-name"
+  name = "test-topic-name"
   key_type = "String"
   value_type = "String"
   owners = axual_group.team-test.id
