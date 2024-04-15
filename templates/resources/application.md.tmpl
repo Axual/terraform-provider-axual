@@ -6,9 +6,7 @@
 Axual Terraform Provider supports both Custom and Connector Application Type. Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#custom-vs-connector
 
 ## Limitations
-Please add depends_on when deleting all resources at once: depends_on = [axual_topic_config.XXX, axual_topic.YYY]. This is a workaround and the underlying issue is planned to be worked on.
-There might be issues when doing the hybrid setup: changing some resources in UI and then using Terraform to change the state of those resources.
-These issues are planned to be worked on.
+- Please add `depends_on` when deleting all resources at once: `depends_on = [axual_topic_config.XXX, axual_topic.YYY]`. This is a workaround and the underlying issue is planned to be worked on.
 
 {{ .SchemaMarkdown | trimspace }}
 

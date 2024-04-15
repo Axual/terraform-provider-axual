@@ -3,18 +3,18 @@
 {{ .Description | trimspace }}
 
 ## Usage
-- To see which configuration parameters are required for each connect-plugins, please refer to docs: https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html
-- Creating axual_application_deployment resource automatically starts it.
-- Updating axual_application_deployment resource automatically stops it if it was running, updates it and then starts it.
-- Deleting axual_application_deployment resource automatically stops it if it was running and then deletes it.
-- More information about connector applications in Axual: https://docs.axual.io/connect/Axual-Connect/developer/starting-connectors.html
+- To see which configuration parameters are required for each connect-plugins(`axual_application.application_class`), please refer to docs: `https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html`.
+- Creating `axual_application_deployment` resource automatically starts it.
+- Updating `axual_application_deployment` resource automatically stops it if it was running, updates it and then starts it.
+- Deleting `axual_application_deployment` resource automatically stops it if it was running and then deletes it.
+- More information about connector applications in Axual: `https://docs.axual.io/connect/Axual-Connect/developer/starting-connectors.html`.
 
 ## Required Roles
 - APPLICATION_ADMIN or be part of the Team that owns the Application
 
 ## Limitations
-Please make sure to use the depends_on as in the example below, because it guarantees the correct order when creating or deleting multiple resources.
-Including it guarantees that Terraform creates the required resources before application_deployment resource: application_principal, axual_application_access_grant, axual_application_access_grant_approval.
+- Please make sure to use the `depends_on` as in the example below, because it guarantees the correct order when creating or deleting multiple resources. Including it guarantees that Terraform creates the required resources before `application_deployment` resource: `application_principal`, `axual_application_access_grant`, `axual_application_access_grant_approval`.
+- Currently, we do not support a data source for a Connector application.
 
 {{ .SchemaMarkdown | trimspace }}
 

@@ -23,11 +23,11 @@ type applicationPrincipalResourceType struct{}
 func (t applicationPrincipalResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
 	return tfsdk.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "An ApplicationPrincipal is a security principal (certificate or comparable) that uniquely authenticates an Application on an Environment. Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#configuring-application-securityauthentication",
+		MarkdownDescription: "An Application Principal is a security principal (certificate or comparable) that uniquely authenticates an Application for an Environment. Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#configuring-application-securityauthentication",
 
 		Attributes: map[string]tfsdk.Attribute{
 			"principal": {
-				MarkdownDescription: "The principal of an Application for an Environment",
+				MarkdownDescription: "The principal of an Application for an Environment. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.",
 				Required:            true,
 				Sensitive:           true,
 				Type:                types.StringType,
@@ -36,7 +36,7 @@ func (t applicationPrincipalResourceType) GetSchema(ctx context.Context) (tfsdk.
 				},
 			},
 			"private_key": {
-				MarkdownDescription: "The private key of a Connector Application for an Environment. If committing terraform configuration(.tf) file in version control repository, please make sure there is a secure way of providing private key for a Connector application's Application Principal. Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/.",
+				MarkdownDescription: "The private key of a Connector Application for an Environment. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. If committing terraform configuration(.tf) file in version control repository, please make sure there is a secure way of providing private key for a Connector application's Application Principal. Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/.",
 				Optional:            true,
 				Sensitive:           true,
 				Type:                types.StringType,

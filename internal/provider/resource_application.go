@@ -26,7 +26,7 @@ func (t applicationResourceType) GetSchema(_ context.Context) (tfsdk.Schema, dia
 
 		Attributes: map[string]tfsdk.Attribute{
 			"application_type": {
-				MarkdownDescription: "Axual Application type. Possible values are Custom or Connector.",
+				MarkdownDescription: "Axual Application type. Possible values are `Custom` or `Connector`.",
 				Required:            true,
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
@@ -34,12 +34,12 @@ func (t applicationResourceType) GetSchema(_ context.Context) (tfsdk.Schema, dia
 				},
 			},
 			"application_id": {
-				MarkdownDescription: "The Application Id of the Application, usually a fully qualified class name. Must be unique. The application ID, used in logging and to determine the consumer group (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#app-id",
+				MarkdownDescription: "The Application's ID. Usually a fully qualified class name. Must be unique. The application ID, used in logging and to determine the consumer group (if applicable). Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#app-id.",
 				Required:            true,
 				Type:                types.StringType,
 			},
 			"name": {
-				MarkdownDescription: "The name of the Application. Must be unique. Only the special characters _ , - and . are valid as part of an application name",
+				MarkdownDescription: "The name of the Application. Must be unique. Only the special characters `_` , `-` and `.` are valid as part of an application name.",
 				Required:            true,
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
@@ -49,7 +49,7 @@ func (t applicationResourceType) GetSchema(_ context.Context) (tfsdk.Schema, dia
 				},
 			},
 			"short_name": {
-				MarkdownDescription: "Application short name. Unique human-readable name for the application. Only Alphanumeric and underscore allowed. Must be unique",
+				MarkdownDescription: "Application short name. Unique human-readable name for the application. Only alphanumeric characters and underscore is allowed. Must be unique.",
 				Required:            true,
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
@@ -65,20 +65,20 @@ func (t applicationResourceType) GetSchema(_ context.Context) (tfsdk.Schema, dia
 			},
 			"type": {
 				Required:            true,
-				MarkdownDescription: "If application_type is Custom, type can be: Java, Pega, SAP, DotNet, Bridge. If application_type is Connector, type can be: SINK, SOURCE",
+				MarkdownDescription: "If application_type is `Custom`, type can be: `Java`, `Pega`, `SAP`, `DotNet`, `Bridge`. If `application_type` is `Connector`, `type` must be: `SINK`, `SOURCE`",
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
 					validation.Compare(validation.OneOf, []string{"Java", "Pega", "SAP", "DotNet", "Bridge", "SINK", "SOURCE"}),
 				},
 			},
 			"application_class": {
-				MarkdownDescription: "The application's plugin class. Required if application_type is Connector. For example com.couchbase.connect.kafka.CouchbaseSinkConnector. All available application plugin class names, pluginTypes and pluginConfigs listed here- GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html",
+				MarkdownDescription: "The application's plugin class. Required if `application_type` is `Connector`. For example `com.couchbase.connect.kafka.CouchbaseSinkConnector`. All available application plugin class names, plugin types and plugin configs are listed here in API- `GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass` and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html",
 				Optional:            true,
 				Type:                types.StringType,
 			},
 			"visibility": {
 				Required:            true,
-				MarkdownDescription: "Application Visibility. Defines the visibility of this application. Possible values are Public and Private. Set the visibility to “Private” if you don’t want your application to end up in overviews such as the topic graph. Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#app-visibility",
+				MarkdownDescription: "Application Visibility. Defines the visibility of this application. Possible values are `Public` and `Private`. Set the visibility to `Private` if you don’t want your application to end up in overviews such as the topic graph. Read more: https://docs.axual.io/axual/2023.2/self-service/application-management.html#app-visibility",
 				Type:                types.StringType,
 				Validators: []tfsdk.AttributeValidator{
 					validation.Compare(validation.OneOf, []string{"Public", "Private"}),
