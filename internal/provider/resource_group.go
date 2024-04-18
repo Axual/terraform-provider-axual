@@ -5,65 +5,32 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"regexp"
 )
 
-var _ tfsdk.ResourceType = groupResourceType{}
-var _ tfsdk.Resource = groupResource{}
-var _ tfsdk.ResourceWithImportState = groupResource{}
+var _ resource.Resource = &groupResource{}
+var _ resource.ResourceWithImportState = &groupResource{}
 
 type groupResourceType struct{}
 
-func (t groupResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
-		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Group resource. Read more: https://docs.axual.io/axual/2024.1/self-service/user-group-management.html#groups",
-
-		Attributes: map[string]tfsdk.Attribute{
-			"name": {
-				MarkdownDescription: "Group's name",
-				Required:            true,
-				Type:                types.StringType,
-			},
-			"email_address": {
-				MarkdownDescription: "Group's email address",
-				Optional:            true,
-				Type:                types.StringType,
-			},
-			"phone_number": {
-				MarkdownDescription: "Group's phone number",
-				Optional:            true,
-				Type:                types.StringType,
-			},
-			"members": {
-				MarkdownDescription: "Group's members",
-				Optional:            true,
-				Type:                types.SetType{ElemType: types.StringType},
-			},
-			"id": {
-				Computed:            true,
-				MarkdownDescription: "Group's unique identifier",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.UseStateForUnknown(),
-				},
-				Type: types.StringType,
-			},
-		},
-	}, nil
+func NewGroupResource(provider AxualProvider) resource.Resource {
+	return &groupResource{
+		provider: provider,
+	}
 }
 
-func (t groupResourceType) NewResource(ctx context.Context, in tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
-	provider, diags := convertProviderType(in)
-
-	return groupResource{
-		provider: provider,
-	}, diags
+type groupResource struct {
+	provider AxualProvider
 }
 
 type groupResourceData struct {
@@ -74,11 +41,52 @@ type groupResourceData struct {
 	Id           types.String `tfsdk:"id"`
 }
 
-type groupResource struct {
-	provider provider
+func (r *groupResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_group"
 }
 
-func (r groupResource) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
+func (r *groupResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		// This description is used by the documentation generator and the language server.
+		MarkdownDescription: "Group resource. Read more: https://docs.axual.io/axual/2024.1/self-service/user-group-management.html#groups",
+
+		Attributes: map[string]schema.Attribute{
+			"name": schema.StringAttribute{
+				MarkdownDescription: "Group's name",
+				Required:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(3, 80),
+					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._ -]*$`), "can only contain letters, numbers, dots, dashes and underscores, but cannot begin with an underscore, dot or dash"),
+				},
+			},
+			"email_address": schema.StringAttribute{
+				MarkdownDescription: "Group's email address",
+				Optional:            true,
+			},
+			"phone_number": schema.StringAttribute{
+				MarkdownDescription: "Group's phone number",
+				Optional:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(1, 16),
+				},
+			},
+			"members": schema.SetAttribute{
+				MarkdownDescription: "Group's members",
+				Optional:            true,
+				ElementType:         types.StringType,
+			},
+			"id": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "Group's unique identifier",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+		},
+	}
+}
+
+func (r *groupResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data groupResourceData
 
 	diags := req.Config.Get(ctx, &data)
@@ -106,7 +114,7 @@ func (r groupResource) Create(ctx context.Context, req tfsdk.CreateResourceReque
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r groupResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+func (r *groupResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data groupResourceData
 
 	diags := req.State.Get(ctx, &data)
@@ -116,10 +124,10 @@ func (r groupResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, 
 		return
 	}
 
-	group, err := r.provider.client.GetGroup(data.Id.Value)
+	group, err := r.provider.client.GetGroup(data.Id.ValueString())
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
-			tflog.Warn(ctx, fmt.Sprintf("Group not found. Id: %s", data.Id.Value))
+			tflog.Warn(ctx, fmt.Sprintf("Group not found. Id: %s", data.Id.ValueString()))
 			resp.State.RemoveResource(ctx)
 		} else {
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read group, got error: %s", err))
@@ -135,7 +143,7 @@ func (r groupResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, 
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r groupResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r *groupResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data groupResourceData
 
 	diags := req.Plan.Get(ctx, &data)
@@ -150,7 +158,7 @@ func (r groupResource) Update(ctx context.Context, req tfsdk.UpdateResourceReque
 		resp.Diagnostics.AddError("Error creating UPDATE request struct for group resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
-	group, err := r.provider.client.UpdateGroup(data.Id.Value, groupRequest)
+	group, err := r.provider.client.UpdateGroup(data.Id.ValueString(), groupRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update group, got error: %s", err))
 		return
@@ -162,7 +170,7 @@ func (r groupResource) Update(ctx context.Context, req tfsdk.UpdateResourceReque
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r groupResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+func (r *groupResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data groupResourceData
 
 	diags := req.State.Get(ctx, &data)
@@ -172,40 +180,48 @@ func (r groupResource) Delete(ctx context.Context, req tfsdk.DeleteResourceReque
 		return
 	}
 
-	err := r.provider.client.DeleteGroup(data.Id.Value)
+	err := r.provider.client.DeleteGroup(data.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete group, got error: %s", err))
 		return
 	}
 }
 
-func (r groupResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
-	tfsdk.ResourceImportStatePassthroughID(ctx, tftypes.NewAttributePath().WithAttributeName("id"), req, resp)
+func (r *groupResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
 func mapGroupResponseToData(ctx context.Context, data *groupResourceData, group *webclient.GroupResponse) {
 	// mandatory fields first
 	tflog.Info(ctx, "mapping response to data")
-	data.Id = types.String{Value: group.Uid}
-	data.Name = types.String{Value: group.Name}
+	data.Id = types.StringValue(group.Uid)
+	data.Name = types.StringValue(group.Name)
+
 	var members []attr.Value
 	for _, member := range group.Embedded.Members {
-		members = append(members, types.String{Value: member.Uid})
+		members = append(members, types.StringValue(member.Uid))
 	}
-	data.Members = types.Set{Elems: members, ElemType: types.StringType}
+
+	setValue, diags := types.SetValue(types.StringType, members)
+
+	if diags.HasError() {
+		tflog.Error(ctx, "Error creating members slice when mapping group response")
+	}
+
+	data.Members = setValue
 
 	// optional fields
 	if nil == group.EmailAddress {
-		data.EmailAddress = types.String{Null: true}
+		data.EmailAddress = types.StringNull()
 	} else {
 		tflog.Info(ctx, fmt.Sprintf("email is %s", group.EmailAddress))
 		m := group.EmailAddress.(map[string]interface{})
-		data.EmailAddress = types.String{Value: m["email"].(string)}
+		data.EmailAddress = types.StringValue(m["email"].(string))
 	}
 	if group.PhoneNumber == nil {
-		data.PhoneNumber = types.String{Null: true}
+		data.PhoneNumber = types.StringNull()
 	} else {
-		data.PhoneNumber = types.String{Value: group.PhoneNumber.(string)}
+		data.PhoneNumber = types.StringValue(group.PhoneNumber.(string))
 	}
 
 }
@@ -214,7 +230,7 @@ func createGroupRequestFromData(ctx context.Context, data *groupResourceData, ap
 	// mandatory fields
 
 	var members []string
-	for _, raw := range data.Members.Elems {
+	for _, raw := range data.Members.Elements() {
 		value, err := raw.ToTerraformValue(ctx)
 		if err != nil {
 			return webclient.GroupRequest{}, err
@@ -226,23 +242,23 @@ func createGroupRequestFromData(ctx context.Context, data *groupResourceData, ap
 		}
 		members = append(members, fmt.Sprintf("%s/users/%v", apiUrl, member))
 	}
-	tflog.Info(ctx, fmt.Sprintf("Desired members list size %d", len(data.Members.Elems)))
+	tflog.Info(ctx, fmt.Sprintf("Desired members list size %d", len(data.Members.Elements())))
 	tflog.Info(ctx, fmt.Sprintf("Creating new members list of size %d", len(members)))
 
 	groupRequest := webclient.GroupRequest{
-		Name:    data.Name.Value,
+		Name:    data.Name.ValueString(),
 		Members: members,
 	}
 
 	// optional fields
-	if !data.PhoneNumber.Null {
+	if !data.PhoneNumber.IsNull() {
 		tflog.Info(ctx, "phone number is not null")
-		groupRequest.PhoneNumber = data.PhoneNumber.Value
+		groupRequest.PhoneNumber = data.PhoneNumber.ValueString()
 	}
 
-	if !data.EmailAddress.Null {
+	if !data.EmailAddress.IsNull() {
 		tflog.Info(ctx, "email is not null")
-		groupRequest.EmailAddress = data.EmailAddress.Value
+		groupRequest.EmailAddress = data.EmailAddress.ValueString()
 	}
 
 	tflog.Info(ctx, fmt.Sprintf("group request %q", groupRequest))

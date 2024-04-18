@@ -2,8 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 ## [master]
-* Bug: Fix unable to approve application access grant
-* Bug: Fix inconsistent datatype of Members property in Links and replace depricated endpoint
+
+## [2.3.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.2.0) - 2024-04-19
+* Update to terraform-plugin-framework v1.7.0
+
+## [2.2.3](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.2.3) - 2024-04-15
+* Documentation updates.
+
+## [2.2.2](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.2.2) - 2024-04-15
+* Documentation updates: application, application_deployment, application_principal. Connector application guide.
+
+## [2.2.1](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.2.1) - 2024-04-15
+* Documentation update: Connector application guide.
+
+## [2.2.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.2.0) - 2024-04-10
+* Feature: Support Connector Applications
+* Bugfix: When trying to approve an application access request made from the UI in terraform, it fails with an error
+* Bugfix: inconsistent datatype of Members property in Links and replace deprecated endpoint
 ---
 ## [2.1.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.1.0) - 2023-10-04
 * Support Managing Environments

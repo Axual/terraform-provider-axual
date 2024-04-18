@@ -5,87 +5,28 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
-
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"strings"
 )
 
-var _ tfsdk.ResourceType = applicationPrincipalResourceType{}
-var _ tfsdk.Resource = applicationPrincipalResource{}
-var _ tfsdk.ResourceWithImportState = applicationPrincipalResource{}
+var _ resource.Resource = &applicationPrincipalResource{}
+var _ resource.ResourceWithImportState = &applicationPrincipalResource{}
 
-type applicationPrincipalResourceType struct{}
-
-func (t applicationPrincipalResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
-		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "An Application Principal is a security principal (certificate or comparable) that uniquely authenticates an Application for an Environment. Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#configuring-application-securityauthentication",
-
-		Attributes: map[string]tfsdk.Attribute{
-			"principal": {
-				MarkdownDescription: "The principal of an Application for an Environment. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.",
-				Required:            true,
-				Sensitive:           true,
-				Type:                types.StringType,
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.RequiresReplace(),
-				},
-			},
-			"private_key": {
-				MarkdownDescription: "The private key of a Connector Application for an Environment. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. If committing terraform configuration(.tf) file in version control repository, please make sure there is a secure way of providing private key for a Connector application's Application Principal. Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/.",
-				Optional:            true,
-				Sensitive:           true,
-				Type:                types.StringType,
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.RequiresReplace(),
-				},
-			},
-			"application": {
-				MarkdownDescription: "A valid Uid of an existing application",
-				Required:            true,
-				Type:                types.StringType,
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.RequiresReplace(),
-				},
-			},
-			"environment": {
-				MarkdownDescription: "A valid Uid of an existing environment",
-				Required:            true,
-				Type:                types.StringType,
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.RequiresReplace(),
-				},
-			},
-			"id": {
-				Computed:            true,
-				MarkdownDescription: "Application Principal identifier",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.UseStateForUnknown(),
-				},
-				Type: types.StringType,
-			},
-			"custom": {
-				Optional:            true,
-				MarkdownDescription: "A boolean identifying whether we are creating a custom principal. If true, the custom principal will be stored in principal property.  Custom principal allows an application with SASL+OAUTHBEARER to produce/consume a topic. Custom Application Principal certificate is used to authenticate your application with an IAM provider using the custom ApplicationPrincipal as Client ID",
-				Type:                types.BoolType,
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.RequiresReplace(),
-				},
-			},
-		},
-	}, nil
+func NewApplicationPrincipalResource(provider AxualProvider) resource.Resource {
+	return &applicationPrincipalResource{
+		provider: provider,
+	}
 }
 
-func (t applicationPrincipalResourceType) NewResource(ctx context.Context, in tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
-	provider, diags := convertProviderType(in)
-
-	return applicationPrincipalResource{
-		provider: provider,
-	}, diags
+type applicationPrincipalResource struct {
+	provider AxualProvider
 }
 
 type applicationPrincipalResourceData struct {
@@ -97,11 +38,65 @@ type applicationPrincipalResourceData struct {
 	Id          types.String `tfsdk:"id"`
 }
 
-type applicationPrincipalResource struct {
-	provider provider
+func (r *applicationPrincipalResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_application_principal"
 }
 
-func (r applicationPrincipalResource) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
+func (r *applicationPrincipalResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		// This description is used by the documentation generator and the language server.
+		MarkdownDescription: "An Application Principal is a security principal (certificate or comparable) that uniquely authenticates an Application on an Environment. Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#configuring-application-securityauthentication",
+
+		Attributes: map[string]schema.Attribute{
+			"principal": schema.StringAttribute{
+				MarkdownDescription: "The principal of an Application for an Environment. Must be PEM-format.",
+				Required:            true,
+				Sensitive:           true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"private_key": schema.StringAttribute{
+				MarkdownDescription: "The private key of a Connector Application for an Environment. Must be PEM-format. If committing terraform configuration(.tf) file in version control repository, please make sure there is a secure way of providing private key for a Connector application's Application Principal. Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/.",
+				Optional:            true,
+				Sensitive:           true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"application": schema.StringAttribute{
+				MarkdownDescription: "A valid ID of an existing application",
+				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"environment": schema.StringAttribute{
+				MarkdownDescription: "A valid Uid of an existing environment",
+				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"id": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "Application Principal ID",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"custom": schema.BoolAttribute{
+				Optional:            true,
+				MarkdownDescription: "A boolean identifying whether we are creating a custom principal. If true, the custom principal will be stored in `principal` property. Custom principal allows an application with SASL+OAUTHBEARER to produce/consume a topic. Custom Application Principal certificate is used to authenticate your application with an IAM provider using the custom ApplicationPrincipal as Client ID",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.RequiresReplace(),
+				},
+			},
+		},
+	}
+}
+
+func (r *applicationPrincipalResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data applicationPrincipalResourceData
 
 	diags := req.Config.Get(ctx, &data)
@@ -126,7 +121,7 @@ func (r applicationPrincipalResource) Create(ctx context.Context, req tfsdk.Crea
 	var trimmedResponse = strings.Trim(string(applicationPrincipal), "\"")
 	returnedUid := strings.ReplaceAll(trimmedResponse, fmt.Sprintf("%s/%s", r.provider.client.ApiURL, "application_principals/"), "")
 
-	data.Id = types.String{Value: returnedUid}
+	data.Id = types.StringValue(returnedUid)
 
 	tflog.Trace(ctx, "Created an application principal resource")
 	tflog.Info(ctx, "Saving the resource to state")
@@ -134,7 +129,7 @@ func (r applicationPrincipalResource) Create(ctx context.Context, req tfsdk.Crea
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r applicationPrincipalResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+func (r *applicationPrincipalResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data applicationPrincipalResourceData
 
 	diags := req.State.Get(ctx, &data)
@@ -144,10 +139,10 @@ func (r applicationPrincipalResource) Read(ctx context.Context, req tfsdk.ReadRe
 		return
 	}
 
-	applicationPrincipal, err := r.provider.client.ReadApplicationPrincipal(data.Id.Value)
+	applicationPrincipal, err := r.provider.client.ReadApplicationPrincipal(data.Id.ValueString())
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
-			tflog.Warn(ctx, fmt.Sprintf("Application Principal not found. Id: %s", data.Id.Value))
+			tflog.Error(ctx, fmt.Sprintf("Application Principal not found. Id: %s", data.Id.ValueString()))
 			resp.State.RemoveResource(ctx)
 		} else {
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application principal, got error: %s", err))
@@ -163,7 +158,7 @@ func (r applicationPrincipalResource) Read(ctx context.Context, req tfsdk.ReadRe
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r applicationPrincipalResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r *applicationPrincipalResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data applicationPrincipalResourceData
 
 	diags := req.Plan.Get(ctx, &data)
@@ -171,24 +166,12 @@ func (r applicationPrincipalResource) Update(ctx context.Context, req tfsdk.Upda
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	var oldApplication string
-	var oldEnvironment string
-	req.State.GetAttribute(ctx, tftypes.NewAttributePath().WithAttributeName("application"), &oldApplication)
-	req.State.GetAttribute(ctx, tftypes.NewAttributePath().WithAttributeName("environment"), &oldEnvironment)
-
-	if data.Application.Value != oldApplication || data.Environment.Value != oldEnvironment {
-		resp.Diagnostics.AddError(
-			"Application Principal's environment Uid or application Uid cannot be updated",
-			fmt.Sprint("To update Application Principal's environment Uid or application Uid resource please create new axual_application_principal resource"),
-		)
-		return
-	}
 	var applicationPrincipalUpdateRequest webclient.ApplicationPrincipalUpdateRequest
 	applicationPrincipalUpdateRequest = webclient.ApplicationPrincipalUpdateRequest{
-		Principal: data.Principal.Value,
+		Principal: data.Principal.ValueString(),
 	}
 	tflog.Info(ctx, fmt.Sprintf("Update application principal request %q", applicationPrincipalUpdateRequest))
-	applicationPrincipal, err := r.provider.client.UpdateApplicationPrincipal(data.Id.Value, applicationPrincipalUpdateRequest)
+	applicationPrincipal, err := r.provider.client.UpdateApplicationPrincipal(data.Id.ValueString(), applicationPrincipalUpdateRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("PATCH request error for application principal resource", fmt.Sprintf("Error message: %s %s", applicationPrincipal, err))
 		return
@@ -197,7 +180,7 @@ func (r applicationPrincipalResource) Update(ctx context.Context, req tfsdk.Upda
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r applicationPrincipalResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+func (r *applicationPrincipalResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data applicationPrincipalResourceData
 
 	diags := req.State.Get(ctx, &data)
@@ -207,18 +190,18 @@ func (r applicationPrincipalResource) Delete(ctx context.Context, req tfsdk.Dele
 		return
 	}
 
-	err := r.provider.client.DeleteApplicationPrincipal(data.Id.Value)
+	err := r.provider.client.DeleteApplicationPrincipal(data.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete application principal, got error: %s", err))
 		return
 	}
 }
 
-func (r applicationPrincipalResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
-	tfsdk.ResourceImportStatePassthroughID(ctx, tftypes.NewAttributePath().WithAttributeName("id"), req, resp)
+func (r *applicationPrincipalResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-func createApplicationPrincipalRequestFromData(ctx context.Context, data *applicationPrincipalResourceData, r applicationPrincipalResource) ([1]webclient.ApplicationPrincipalRequest, error) {
+func createApplicationPrincipalRequestFromData(ctx context.Context, data *applicationPrincipalResourceData, r *applicationPrincipalResource) ([1]webclient.ApplicationPrincipalRequest, error) {
 	rawEnvironment, err := data.Environment.ToTerraformValue(ctx)
 	if err != nil {
 		return [1]webclient.ApplicationPrincipalRequest{}, err
@@ -248,22 +231,22 @@ func createApplicationPrincipalRequestFromData(ctx context.Context, data *applic
 	var applicationPrincipalRequestArray [1]webclient.ApplicationPrincipalRequest
 	applicationPrincipalRequestArray[0] =
 		webclient.ApplicationPrincipalRequest{
-			Principal:   data.Principal.Value,
+			Principal:   data.Principal.ValueString(),
 			Application: application,
 			Environment: environment,
 		}
 	// optional fields
-	if !data.Custom.Null && data.Custom.Value {
-		applicationPrincipalRequestArray[0].Custom = data.Custom.Value
+	if !data.Custom.IsNull() && data.Custom.ValueBool() {
+		applicationPrincipalRequestArray[0].Custom = data.Custom.ValueBool()
 	}
-	if !data.PrivateKey.Null {
-		applicationPrincipalRequestArray[0].PrivateKey = data.PrivateKey.Value
+	if !data.PrivateKey.IsNull() {
+		applicationPrincipalRequestArray[0].PrivateKey = data.PrivateKey.ValueString()
 	}
 	return applicationPrincipalRequestArray, err
 }
 
 func mapApplicationPrincipalResponseToData(_ context.Context, data *applicationPrincipalResourceData, applicationPrincipal *webclient.ApplicationPrincipalResponse) {
-	data.Id = types.String{Value: applicationPrincipal.Uid}
-	data.Environment = types.String{Value: applicationPrincipal.Embedded.Environment.Uid}
-	data.Application = types.String{Value: applicationPrincipal.Embedded.Application.Uid}
+	data.Id = types.StringValue(applicationPrincipal.Uid)
+	data.Environment = types.StringValue(applicationPrincipal.Embedded.Environment.Uid)
+	data.Application = types.StringValue(applicationPrincipal.Embedded.Application.Uid)
 }

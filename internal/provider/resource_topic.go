@@ -5,104 +5,31 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
-
-	"github.com/dcarbone/terraform-plugin-framework-utils/validation"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"regexp"
+	"strings"
 )
 
-var _ tfsdk.ResourceType = topicResourceType{}
-var _ tfsdk.Resource = topicResource{}
-var _ tfsdk.ResourceWithImportState = topicResource{}
+var _ resource.Resource = &topicResource{}
+var _ resource.ResourceWithImportState = &topicResource{}
 
-type topicResourceType struct{}
-
-func (t topicResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
-		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "A topic represents a flow of information (messages), which is continuously updated. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html",
-
-		Attributes: map[string]tfsdk.Attribute{
-			"name": {
-				MarkdownDescription: "The name of the topic. This must be in the format string-string (Needs to contain exactly one dash). The topic name is usually discussed and finalized as part of the Intake session or a follow up.",
-				Required:            true,
-				Type:                types.StringType,
-			},
-			"description": {
-				MarkdownDescription: "A text describing the purpose of the topic.",
-				Optional:            true,
-				Type:                types.StringType,
-				Validators: []tfsdk.AttributeValidator{
-					validation.Length(1, -1),
-				},
-			},
-			"key_type": {
-				MarkdownDescription: "The key type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#key-type",
-				Required:            true,
-				Type:                types.StringType,
-				Validators: []tfsdk.AttributeValidator{
-					validation.Compare(validation.OneOf, []string{"AVRO", "JSON", "Binary", "String", "Xml"}),
-				},
-			},
-			"key_schema": {
-				MarkdownDescription: "(if key type is AVRO) The key type and reference to the schema (if applicable).",
-				Optional:            true,
-				Type:                types.StringType,
-			},
-			"value_type": {
-				MarkdownDescription: "The value type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#value-type",
-				Required:            true,
-				Type:                types.StringType,
-				Validators: []tfsdk.AttributeValidator{
-					validation.Compare(validation.OneOf, []string{"AVRO", "JSON", "Binary", "String", "Xml"}),
-				},
-			},
-			"value_schema": {
-				MarkdownDescription: "(if key type is AVRO) The value type and reference to the schema (if applicable).",
-				Optional:            true,
-				Type:                types.StringType,
-			},
-			"owners": {
-				MarkdownDescription: "The team owning this topic. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#topic-owner",
-				Required:            true,
-				Type:                types.StringType,
-			},
-			"retention_policy": {
-				MarkdownDescription: "Determines what to do with messages after a certain period. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#retention-policy",
-				Required:            true,
-				Type:                types.StringType,
-				Validators: []tfsdk.AttributeValidator{
-					validation.Compare(validation.OneOf, []string{"compact", "delete"}),
-				},
-			},
-			"properties": {
-				MarkdownDescription: "Advanced (Kafka) properties for a topic in a given environment. Read more: https://docs.axual.io/axual/2024.1/self-service/advanced-features.html#configuring-topic-properties",
-				Required:            true,
-				Type:                types.MapType{ElemType: types.StringType},
-			},
-			"id": {
-				Computed:            true,
-				MarkdownDescription: "Topic unique identifier",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.UseStateForUnknown(),
-				},
-				Type: types.StringType,
-			},
-		},
-	}, nil
+func NewTopicResource(provider AxualProvider) resource.Resource {
+	return &topicResource{
+		provider: provider,
+	}
 }
 
-func (t topicResourceType) NewResource(ctx context.Context, in tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
-	provider, diags := convertProviderType(in)
-
-	return topicResource{
-		provider: provider,
-	}, diags
+type topicResource struct {
+	provider AxualProvider
 }
 
 type topicResourceData struct {
@@ -118,11 +45,80 @@ type topicResourceData struct {
 	Properties      types.Map    `tfsdk:"properties"`
 }
 
-type topicResource struct {
-	provider provider
+func (r *topicResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_topic"
 }
 
-func (r topicResource) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
+func (r *topicResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		// This description is used by the documentation generator and the language server.
+		MarkdownDescription: "A topic represents a flow of information (messages), which is continuously updated. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html",
+		Attributes: map[string]schema.Attribute{
+			"name": schema.StringAttribute{
+				MarkdownDescription: "The name of the topic. Can only contain letters, numbers, dots, dashes and underscores and cannot begin with an underscore, dot or dash, but can't start with underscore, dot or dash. The topic name is usually discussed and finalized as part of the Intake session or a follow up.",
+				Required:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(3, 180),
+					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`), "can only contain letters, numbers, dots, dashes and underscores, but cannot begin with an underscore, dot or dash"),
+				},
+			},
+			"description": schema.StringAttribute{
+				MarkdownDescription: "A text describing the purpose of the topic.",
+				Optional:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthAtLeast(1),
+				},
+			},
+			"key_type": schema.StringAttribute{
+				MarkdownDescription: "The key type and reference to the schema. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#key-type",
+				Required:            true,
+				Validators: []validator.String{
+					stringvalidator.OneOf("AVRO", "JSON", "Binary", "String", "Xml"),
+				},
+			},
+			"key_schema": schema.StringAttribute{
+				MarkdownDescription: "(if `key_type` is `AVRO`) The key type and reference to the schema (if applicable).",
+				Optional:            true,
+			},
+			"value_type": schema.StringAttribute{
+				MarkdownDescription: "The value type and reference to the schema. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#value-type",
+				Required:            true,
+				Validators: []validator.String{
+					stringvalidator.OneOf("AVRO", "JSON", "Binary", "String", "Xml"),
+				},
+			},
+			"value_schema": schema.StringAttribute{
+				MarkdownDescription: "(if `value_type` is `AVRO`) The value type and reference to the schema (if applicable).",
+				Optional:            true,
+			},
+			"owners": schema.StringAttribute{
+				MarkdownDescription: "The team owning this topic. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#topic-owner",
+				Required:            true,
+			},
+			"retention_policy": schema.StringAttribute{
+				MarkdownDescription: "Determines what to do with messages after a certain period. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#retention-policy",
+				Required:            true,
+				Validators: []validator.String{
+					stringvalidator.OneOf("compact", "delete"),
+				},
+			},
+			"properties": schema.MapAttribute{
+				MarkdownDescription: "Advanced (Kafka) properties for a topic in a given environment. If no properties please leave properties empty like this: properties = { }.  Read more: https://docs.axual.io/axual/2024.1/self-service/advanced-features.html#configuring-topic-properties",
+				Optional:            true,
+				ElementType:         types.StringType,
+			},
+			"id": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "Topic unique identifier",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+		},
+	}
+}
+
+func (r *topicResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data topicResourceData
 
 	diags := req.Config.Get(ctx, &data)
@@ -137,11 +133,13 @@ func (r topicResource) Create(ctx context.Context, req tfsdk.CreateResourceReque
 		resp.Diagnostics.AddError("Error creating CREATE request struct for topic resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
-	properties := make(map[string]interface{})
-	for key, value := range data.Properties.Elems {
-		properties[key] = strings.Trim(value.String(), "\"")
+	if data.Properties.Elements() != nil {
+		properties := make(map[string]interface{})
+		for key, value := range data.Properties.Elements() {
+			properties[key] = strings.Trim(value.String(), "\"")
+		}
+		topicRequest.Properties = properties
 	}
-	topicRequest.Properties = properties
 
 	tflog.Info(ctx, fmt.Sprintf("Create topic request %q", topicRequest))
 	topic, err := r.provider.client.CreateTopic(topicRequest)
@@ -157,7 +155,7 @@ func (r topicResource) Create(ctx context.Context, req tfsdk.CreateResourceReque
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r topicResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+func (r *topicResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data topicResourceData
 
 	diags := req.State.Get(ctx, &data)
@@ -167,10 +165,10 @@ func (r topicResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, 
 		return
 	}
 
-	topic, err := r.provider.client.GetTopic(data.Id.Value)
+	topic, err := r.provider.client.GetTopic(data.Id.ValueString())
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
-			tflog.Warn(ctx, fmt.Sprintf("Topic not found. Id: %s", data.Id.Value))
+			tflog.Warn(ctx, fmt.Sprintf("Topic not found. Id: %s", data.Id.ValueString()))
 			resp.State.RemoveResource(ctx)
 		} else {
 			resp.Diagnostics.AddError("READ request error for topic resource", fmt.Sprintf("Error message: %s", err.Error()))
@@ -186,7 +184,7 @@ func (r topicResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, 
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r topicResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r *topicResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data topicResourceData
 
 	diags := req.Plan.Get(ctx, &data)
@@ -201,7 +199,7 @@ func (r topicResource) Update(ctx context.Context, req tfsdk.UpdateResourceReque
 		return
 	}
 	var oldPropertiesState map[string]string
-	req.State.GetAttribute(ctx, tftypes.NewAttributePath().WithAttributeName("properties"), &oldPropertiesState)
+	req.State.GetAttribute(ctx, path.Root("properties"), &oldPropertiesState)
 
 	properties := make(map[string]interface{})
 
@@ -209,14 +207,14 @@ func (r topicResource) Update(ctx context.Context, req tfsdk.UpdateResourceReque
 		properties[key] = nil
 	}
 
-	for key, value := range data.Properties.Elems {
+	for key, value := range data.Properties.Elements() {
 		properties[key] = strings.Trim(value.String(), "\"")
 	}
 
 	topicRequest.Properties = properties
 
 	tflog.Info(ctx, fmt.Sprintf("Update topic request %q", topicRequest))
-	topic, err := r.provider.client.UpdateTopic(data.Id.Value, topicRequest)
+	topic, err := r.provider.client.UpdateTopic(data.Id.ValueString(), topicRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("UPDATE request error for topic resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
@@ -229,7 +227,7 @@ func (r topicResource) Update(ctx context.Context, req tfsdk.UpdateResourceReque
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r topicResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+func (r *topicResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data topicResourceData
 
 	diags := req.State.Get(ctx, &data)
@@ -239,18 +237,18 @@ func (r topicResource) Delete(ctx context.Context, req tfsdk.DeleteResourceReque
 		return
 	}
 
-	err := r.provider.client.DeleteTopic(data.Id.Value)
+	err := r.provider.client.DeleteTopic(data.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("DELETE request error for topic resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
 }
 
-func (r topicResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
-	tfsdk.ResourceImportStatePassthroughID(ctx, tftypes.NewAttributePath().WithAttributeName("id"), req, resp)
+func (r *topicResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-func createTopicRequestFromData(ctx context.Context, data *topicResourceData, r topicResource) (webclient.TopicRequest, error) {
+func createTopicRequestFromData(ctx context.Context, data *topicResourceData, r *topicResource) (webclient.TopicRequest, error) {
 	rawOwners, err := data.Owners.ToTerraformValue(ctx)
 	if err != nil {
 		return webclient.TopicRequest{}, err
@@ -263,60 +261,67 @@ func createTopicRequestFromData(ctx context.Context, data *topicResourceData, r 
 	owners = fmt.Sprintf("%s/groups/%v", r.provider.client.ApiURL, owners)
 
 	var keySchema string
-	if data.KeyType.Value == "AVRO" {
-		if !data.KeySchema.Null {
-			keySchema = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.KeySchema.Value)
+	if data.KeyType.ValueString() == "AVRO" {
+		if !data.KeySchema.IsNull() {
+			keySchema = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.KeySchema.ValueString())
 		} else {
 			return webclient.TopicRequest{}, fmt.Errorf("KeyType is AVRO but KeySchema is null")
 		}
 	}
 
 	var valueSchema string
-	if data.ValueType.Value == "AVRO" {
-		if !data.ValueSchema.Null {
-			valueSchema = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.ValueSchema.Value)
+	if data.ValueType.ValueString() == "AVRO" {
+		if !data.ValueSchema.IsNull() {
+			valueSchema = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.ValueSchema.ValueString())
 		} else {
 			return webclient.TopicRequest{}, fmt.Errorf("ValueType is AVRO but ValueSchema is null")
 		}
 	}
 
 	topicRequest := webclient.TopicRequest{
-		Name:            data.Name.Value,
-		KeyType:         data.KeyType.Value,
+		Name:            data.Name.ValueString(),
+		KeyType:         data.KeyType.ValueString(),
 		KeySchema:       keySchema,
-		ValueType:       data.ValueType.Value,
+		ValueType:       data.ValueType.ValueString(),
 		ValueSchema:     valueSchema,
 		Owners:          owners,
-		RetentionPolicy: data.RetentionPolicy.Value,
+		RetentionPolicy: data.RetentionPolicy.ValueString(),
 	}
 
 	// optional fields
-	if !data.Description.Null {
-		topicRequest.Description = data.Description.Value
+	if !data.Description.IsNull() {
+		topicRequest.Description = data.Description.ValueString()
 	}
 	return topicRequest, nil
 }
 
-func mapTopicResponseToData(_ context.Context, data *topicResourceData, topic *webclient.TopicResponse) {
-	data.Id = types.String{Value: topic.Uid}
-	data.Name = types.String{Value: topic.Name}
-	data.KeyType = types.String{Value: topic.KeyType}
-	data.ValueType = types.String{Value: topic.ValueType}
-	data.Owners = types.String{Value: topic.Embedded.Owners.Uid}
-	data.RetentionPolicy = types.String{Value: topic.RetentionPolicy}
+func mapTopicResponseToData(ctx context.Context, data *topicResourceData, topic *webclient.TopicResponse) {
+	data.Id = types.StringValue(topic.Uid)
+	data.Name = types.StringValue(topic.Name)
+	data.KeyType = types.StringValue(topic.KeyType)
+	data.ValueType = types.StringValue(topic.ValueType)
+	data.Owners = types.StringValue(topic.Embedded.Owners.Uid)
+	data.RetentionPolicy = types.StringValue(topic.RetentionPolicy)
 
 	properties := make(map[string]attr.Value)
 	for key, value := range topic.Properties {
 		if value != nil {
-			properties[key] = types.String{Value: value.(string)}
+			properties[key] = types.StringValue(value.(string))
 		}
 	}
-	data.Properties = types.Map{ElemType: types.StringType, Elems: properties}
+
+	mapValue, diags := types.MapValue(types.StringType, properties)
+
+	if diags.HasError() {
+		tflog.Error(ctx, "Error creating members slice when mapping group response")
+	}
+
+	data.Properties = mapValue
 
 	// optional fields
 	if topic.Description == nil || len(topic.Description.(string)) == 0 {
-		data.Description = types.String{Null: true}
+		data.Description = types.StringNull()
 	} else {
-		data.Description = types.String{Value: topic.Description.(string)}
+		data.Description = types.StringValue(topic.Description.(string))
 	}
 }

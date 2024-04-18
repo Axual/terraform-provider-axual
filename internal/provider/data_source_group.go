@@ -4,65 +4,26 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"fmt"
-
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"regexp"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces
-var _ tfsdk.DataSourceType = groupDataSourceType{}
-var _ tfsdk.DataSource = groupDataSource{}
+var _ datasource.DataSource = &groupDataSource{}
 
-type groupDataSourceType struct{}
-
-func (t groupDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
-		MarkdownDescription: "Group resource. Read more: https://docs.axual.io/axual/2024.1/self-service/user-group-management.html#groups",
-
-		Attributes: map[string]tfsdk.Attribute{
-			"name": {
-				MarkdownDescription: "Group's name",
-				Required:            true,
-				Type:                types.StringType,
-			},
-			"email_address": {
-				MarkdownDescription: "Group's email address",
-				Optional:            true,
-				Computed:            true,
-				Type:                types.StringType,
-			},
-			"phone_number": {
-				MarkdownDescription: "Group's phone number",
-				Optional:            true,
-				Computed:            true,
-				Type:                types.StringType,
-			},
-			"members": {
-				MarkdownDescription: "Group's members",
-				Optional:            true,
-				Computed:            true,
-				Type:                types.SetType{ElemType: types.StringType},
-			},
-			"id": {
-				Computed:            true,
-				MarkdownDescription: "Group's unique identifier",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.UseStateForUnknown(),
-				},
-				Type: types.StringType,
-			},
-		},
-	}, nil
+func NewGroupDataSource(provider AxualProvider) datasource.DataSource {
+	return &groupDataSource{
+		provider: provider,
+	}
 }
 
-func (t groupDataSourceType) NewDataSource(ctx context.Context, in tfsdk.Provider) (tfsdk.DataSource, diag.Diagnostics) {
-	provider, diags := convertProviderType(in)
-
-	return groupDataSource{
-		provider: provider,
-	}, diags
+type groupDataSource struct {
+	provider AxualProvider
 }
 
 type groupDataSourceData struct {
@@ -73,11 +34,45 @@ type groupDataSourceData struct {
 	Id           types.String `tfsdk:"id"`
 }
 
-type groupDataSource struct {
-	provider provider
+func (d *groupDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_group"
 }
 
-func (d groupDataSource) Read(ctx context.Context, req tfsdk.ReadDataSourceRequest, resp *tfsdk.ReadDataSourceResponse) {
+func (d *groupDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		MarkdownDescription: "Group resource. Read more: https://docs.axual.io/axual/2024.1/self-service/user-group-management.html#groups",
+
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				MarkdownDescription: "Group's unique identifier",
+				Computed:            true,
+			},
+			"name": schema.StringAttribute{
+				MarkdownDescription: "Group's name",
+				Required:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(3, 80),
+					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`), "can only contain letters, numbers, dots, dashes and underscores, but cannot begin with an underscore, dot or dash"),
+				},
+			},
+			"email_address": schema.StringAttribute{
+				MarkdownDescription: "Group's email address",
+				Computed:            true,
+			},
+			"phone_number": schema.StringAttribute{
+				MarkdownDescription: "Group's phone number",
+				Computed:            true,
+			},
+			"members": schema.SetAttribute{
+				MarkdownDescription: "Group's members",
+				Computed:            true,
+				ElementType:         types.StringType,
+			},
+		},
+	}
+}
+
+func (d *groupDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var data groupDataSourceData
 
 	diags := req.Config.Get(ctx, &data)
@@ -87,7 +82,7 @@ func (d groupDataSource) Read(ctx context.Context, req tfsdk.ReadDataSourceReque
 		return
 	}
 
-	groupByName, err := d.provider.client.GetGroupByName(data.Name.Value)
+	groupByName, err := d.provider.client.GetGroupByName(data.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read group by name, got error: %s", err))
 		return
@@ -107,25 +102,31 @@ func (d groupDataSource) Read(ctx context.Context, req tfsdk.ReadDataSourceReque
 
 func mapGroupDataSourceResponseToData(ctx context.Context, data *groupDataSourceData, group *webclient.GroupResponse) {
 
-	data.Id = types.String{Value: group.Uid}
-	data.Name = types.String{Value: group.Name}
+	data.Id = types.StringValue(group.Uid)
+	data.Name = types.StringValue(group.Name)
 	var members []attr.Value
 	for _, member := range group.Embedded.Members {
-		members = append(members, types.String{Value: member.Uid})
+		members = append(members, types.StringValue(member.Uid))
 	}
-	data.Members = types.Set{Elems: members, ElemType: types.StringType}
+
+	setValue, diags := types.SetValue(types.StringType, members)
+
+	if diags.HasError() {
+		tflog.Error(ctx, "Error creating members slice when mapping group response")
+	}
+
+	data.Members = setValue
 
 	// optional fields
 	if group.EmailAddress == nil {
-		data.EmailAddress = types.String{Null: true}
+		data.EmailAddress = types.StringNull()
 	} else {
 		m := group.EmailAddress.(map[string]interface{})
-		data.EmailAddress = types.String{Value: m["email"].(string)}
+		data.EmailAddress = types.StringValue(m["email"].(string))
 	}
 	if group.PhoneNumber == nil {
-		data.PhoneNumber = types.String{Null: true}
+		data.PhoneNumber = types.StringNull()
 	} else {
-		data.PhoneNumber = types.String{Value: group.PhoneNumber.(string)}
+		data.PhoneNumber = types.StringValue(group.PhoneNumber.(string))
 	}
-
 }

@@ -1,6 +1,6 @@
 # axual_application_principal (Resource)
 
-An Application Principal is a security principal (certificate or comparable) that uniquely authenticates an Application for an Environment. Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#configuring-application-securityauthentication
+An Application Principal is a security principal (certificate or comparable) that uniquely authenticates an Application on an Environment. Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#configuring-application-securityauthentication
 
 ## Limitations
 - Axual Terraform Provider only support these authentication methods:
@@ -22,18 +22,18 @@ An Application Principal is a security principal (certificate or comparable) tha
 
 ### Required
 
-- `application` (String) A valid Uid of an existing application
+- `application` (String) A valid ID of an existing application
 - `environment` (String) A valid Uid of an existing environment
-- `principal` (String, Sensitive) The principal of an Application for an Environment. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.
+- `principal` (String, Sensitive) The principal of an Application for an Environment. Must be PEM-format.
 
 ### Optional
 
-- `custom` (Boolean) A boolean identifying whether we are creating a custom principal. If true, the custom principal will be stored in principal property.  Custom principal allows an application with SASL+OAUTHBEARER to produce/consume a topic. Custom Application Principal certificate is used to authenticate your application with an IAM provider using the custom ApplicationPrincipal as Client ID
-- `private_key` (String, Sensitive) The private key of a Connector Application for an Environment. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. If committing terraform configuration(.tf) file in version control repository, please make sure there is a secure way of providing private key for a Connector application's Application Principal. Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/.
+- `custom` (Boolean) A boolean identifying whether we are creating a custom principal. If true, the custom principal will be stored in `principal` property. Custom principal allows an application with SASL+OAUTHBEARER to produce/consume a topic. Custom Application Principal certificate is used to authenticate your application with an IAM provider using the custom ApplicationPrincipal as Client ID
+- `private_key` (String, Sensitive) The private key of a Connector Application for an Environment. Must be PEM-format. If committing terraform configuration(.tf) file in version control repository, please make sure there is a secure way of providing private key for a Connector application's Application Principal. Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/.
 
 ### Read-Only
 
-- `id` (String) Application Principal identifier
+- `id` (String) Application Principal ID
 
 ## Example Usage
 
@@ -42,6 +42,20 @@ resource "axual_application_principal" "dev_dashboard_in_dev_principal" {
   environment = axual_environment.development.id
   application = axual_application.dev_dashboard.id
   principal = file("certs/certificate.pem")
+}
+
+resource "axual_application_principal" "example_connector_application" {
+  environment = axual_environment.development.id
+  application = axual_application.dev_dashboard.id
+  principal = file("certs/certificate.pem")
+  private_key = file("certs/example-connector.key")
+}
+
+resource "axual_application_principal" "example_sasl_oathbearer_app_principal" {
+  environment = "c82f56c4f8064a729e393c04f031c7bf"
+  application = "2de280a38df6490ea4ccf2f9b6e649a4"
+  principal = "example-principal"
+  custom = true
 }
 ```
 

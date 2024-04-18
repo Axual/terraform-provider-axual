@@ -5,83 +5,28 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
-	"github.com/dcarbone/terraform-plugin-framework-utils/validation"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-var _ tfsdk.ResourceType = userResourceType{}
-var _ tfsdk.Resource = userResource{}
-var _ tfsdk.ResourceWithImportState = userResource{}
+var _ resource.Resource = &userResource{}
+var _ resource.ResourceWithImportState = &userResource{}
 
-type userResourceType struct{}
-
-func (t userResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
-		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "User resource. Read more: https://docs.axual.io/axual/2024.1/self-service/user-group-management.html#users",
-
-		Attributes: map[string]tfsdk.Attribute{
-			"first_name": {
-				MarkdownDescription: "User's first name",
-				Required:            true,
-				Type:                types.StringType,
-			},
-			"middle_name": {
-				MarkdownDescription: "User's middle name",
-				Optional:            true,
-				Type:                types.StringType,
-				Validators: []tfsdk.AttributeValidator{
-					validation.Length(1, -1),
-				},
-			},
-			"last_name": {
-				MarkdownDescription: "User's last name",
-				Required:            true,
-				Type:                types.StringType,
-			},
-			"email_address": {
-				MarkdownDescription: "User's email address",
-				Required:            true,
-				Type:                types.StringType,
-			},
-			"phone_number": {
-				MarkdownDescription: "User's phone number",
-				Optional:            true,
-				Type:                types.StringType,
-			},
-			"roles": {
-				MarkdownDescription: "Roles attributed to the user. All possible roles with descriptions are listed here: https://docs.axual.io/apidocs/mgmt-api/6.12.1/index.html#valid-roles",
-				Optional:            true,
-				Attributes: tfsdk.SetNestedAttributes(map[string]tfsdk.Attribute{
-					"name": {
-						Type:     types.StringType,
-						Required: true,
-					},
-				}),
-			},
-			"id": {
-				Computed:            true,
-				MarkdownDescription: "User unique identifier",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.UseStateForUnknown(),
-				},
-				Type: types.StringType,
-			},
-		},
-	}, nil
+func NewUserResource(provider AxualProvider) resource.Resource {
+	return &userResource{
+		provider: provider,
+	}
 }
 
-func (t userResourceType) NewResource(ctx context.Context, in tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
-	provider, diags := convertProviderType(in)
-
-	return userResource{
-		provider: provider,
-	}, diags
+type userResource struct {
+	provider AxualProvider
 }
 
 type userResourceData struct {
@@ -98,11 +43,61 @@ type Role struct {
 	Name types.String `tfsdk:"name"`
 }
 
-type userResource struct {
-	provider provider
+func (r *userResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_user"
 }
 
-func (r userResource) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
+func (r *userResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		// This description is used by the documentation generator and the language server.
+		MarkdownDescription: "User resource. Read more: https://docs.axual.io/axual/2024.1/self-service/user-group-management.html#users",
+		Attributes: map[string]schema.Attribute{
+			"first_name": schema.StringAttribute{
+				MarkdownDescription: "User's first name",
+				Required:            true,
+			},
+			"middle_name": schema.StringAttribute{
+				MarkdownDescription: "User's middle name",
+				Optional:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthAtLeast(1),
+				},
+			},
+			"last_name": schema.StringAttribute{
+				MarkdownDescription: "User's last name",
+				Required:            true,
+			},
+			"email_address": schema.StringAttribute{
+				MarkdownDescription: "User's email address",
+				Required:            true,
+			},
+			"phone_number": schema.StringAttribute{
+				MarkdownDescription: "User's phone number",
+				Optional:            true,
+			},
+			"roles": schema.SetNestedAttribute{
+				MarkdownDescription: "Roles attributed to the user. All possible roles with descriptions are listed here: https://docs.axual.io/apidocs/mgmt-api/8.5.0/index.html#valid-roles",
+				Optional:            true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"name": schema.StringAttribute{
+							Required: true,
+						},
+					},
+				},
+			},
+			"id": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "User unique identifier",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+		},
+	}
+}
+
+func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data userResourceData
 
 	diags := req.Config.Get(ctx, &data)
@@ -127,7 +122,7 @@ func (r userResource) Create(ctx context.Context, req tfsdk.CreateResourceReques
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r userResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+func (r *userResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data userResourceData
 
 	diags := req.State.Get(ctx, &data)
@@ -137,10 +132,10 @@ func (r userResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, r
 		return
 	}
 
-	user, err := r.provider.client.GetUser(data.Id.Value)
+	user, err := r.provider.client.GetUser(data.Id.ValueString())
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
-			tflog.Warn(ctx, fmt.Sprintf("User not found. Id: %s", data.Id.Value))
+			tflog.Warn(ctx, fmt.Sprintf("User not found. Id: %s", data.Id.ValueString()))
 			resp.State.RemoveResource(ctx)
 		} else {
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read user, got error: %s", err))
@@ -156,7 +151,7 @@ func (r userResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, r
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r userResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r *userResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data userResourceData
 
 	diags := req.Plan.Get(ctx, &data)
@@ -168,7 +163,7 @@ func (r userResource) Update(ctx context.Context, req tfsdk.UpdateResourceReques
 
 	userRequest := createUserRequestFromData(ctx, &data)
 
-	user, err := r.provider.client.UpdateUser(data.Id.Value, userRequest)
+	user, err := r.provider.client.UpdateUser(data.Id.ValueString(), userRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update user, got error: %s", err))
 		return
@@ -180,7 +175,7 @@ func (r userResource) Update(ctx context.Context, req tfsdk.UpdateResourceReques
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r userResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+func (r *userResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data userResourceData
 
 	diags := req.State.Get(ctx, &data)
@@ -190,40 +185,40 @@ func (r userResource) Delete(ctx context.Context, req tfsdk.DeleteResourceReques
 		return
 	}
 
-	err := r.provider.client.DeleteUser(data.Id.Value)
+	err := r.provider.client.DeleteUser(data.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete user, got error: %s", err))
 		return
 	}
 }
 
-func (r userResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
-	tfsdk.ResourceImportStatePassthroughID(ctx, tftypes.NewAttributePath().WithAttributeName("id"), req, resp)
+func (r *userResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
 func mapUserResponseToData(_ context.Context, data *userResourceData, user *webclient.UserResponse) {
 	// mandatory fields first
-	data.Id = types.String{Value: user.Uid}
-	data.FirstName = types.String{Value: user.FirstName}
-	data.LastName = types.String{Value: user.LastName}
-	data.EmailAddress = types.String{Value: user.EmailAddress.Email}
+	data.Id = types.StringValue(user.Uid)
+	data.FirstName = types.StringValue(user.FirstName)
+	data.LastName = types.StringValue(user.LastName)
+	data.EmailAddress = types.StringValue(user.EmailAddress.Email)
 	var newRoles []Role
 	for _, role := range user.Roles {
-		newRoles = append(newRoles, Role{Name: types.String{Value: role.Name}})
+		newRoles = append(newRoles, Role{Name: types.StringValue(role.Name)})
 	}
 	data.Roles = newRoles
 
 	// optional fields
 	if user.PhoneNumber == nil {
-		data.PhoneNumber = types.String{Null: true}
+		data.PhoneNumber = types.StringNull()
 	} else {
-		data.PhoneNumber = types.String{Value: user.PhoneNumber.(string)}
+		data.PhoneNumber = types.StringValue(user.PhoneNumber.(string))
 	}
 
 	if user.MiddleName == nil || len(user.MiddleName.(string)) == 0 {
-		data.MiddleName = types.String{Null: true}
+		data.MiddleName = types.StringNull()
 	} else {
-		data.MiddleName = types.String{Value: user.MiddleName.(string)}
+		data.MiddleName = types.StringValue(user.MiddleName.(string))
 	}
 }
 
@@ -232,24 +227,24 @@ func createUserRequestFromData(ctx context.Context, data *userResourceData) webc
 	var roles []webclient.UserRole
 
 	for _, raw := range data.Roles {
-		roles = append(roles, webclient.UserRole{raw.Name.Value})
+		roles = append(roles, webclient.UserRole{raw.Name.ValueString()})
 	}
 	tflog.Info(ctx, fmt.Sprintf("Desired roles list size %d", len(data.Roles)))
 	tflog.Info(ctx, fmt.Sprintf("Creating new roles list of size %d", len(roles)))
 	userRequest := webclient.UserRequest{
-		FirstName:    data.FirstName.Value,
-		LastName:     data.LastName.Value,
-		EmailAddress: data.EmailAddress.Value,
+		FirstName:    data.FirstName.ValueString(),
+		LastName:     data.LastName.ValueString(),
+		EmailAddress: data.EmailAddress.ValueString(),
 		Roles:        roles,
 	}
 
 	// optional fields
-	if !data.PhoneNumber.Null {
-		userRequest.PhoneNumber = data.PhoneNumber.Value
+	if !data.PhoneNumber.IsNull() {
+		userRequest.PhoneNumber = data.PhoneNumber.ValueString()
 	}
 
-	if !data.MiddleName.Null {
-		userRequest.MiddleName = data.MiddleName.Value
+	if !data.MiddleName.IsNull() {
+		userRequest.MiddleName = data.MiddleName.ValueString()
 	}
 
 	tflog.Info(ctx, fmt.Sprintf("user request %q", userRequest))

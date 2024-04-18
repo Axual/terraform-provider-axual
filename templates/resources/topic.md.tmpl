@@ -3,7 +3,8 @@
 {{ .Description | trimspace }}
 
 ## Limitations
-Axual Terraform Provider does not support AVRO key type and AVRO value type. AVRO key and value type will be supported in the future. To use AVRO key or value type please use the Self Service UI.
+- Axual Terraform Provider does not support AVRO key type and AVRO value type. AVRO key and value type will be supported in the future. To use AVRO key or value type please use the Self Service UI.
+- If no properties please leave properties empty like this: properties = { }
 
 {{ .SchemaMarkdown | trimspace }}
 
@@ -16,8 +17,20 @@ resource "axual_topic" "logs" {
   value_type = "String"
   owners = axual_group.team-bonanza.id
   retention_policy = "delete"
-  properties = { }
+  properties = { propertyKey1: "propertyValue1", propertyKey2: "propertyValue2"}
   description = "Logs from all applications"
+}
+
+resource "axual_topic" "example_avro" {
+  name = "example_avro_topic"
+  key_type = "AVRO"
+  key_schema = axual_schema_version.axual_gitops_test_schema_version1.schema_id
+  value_type = "AVRO"
+  value_schema = axual_schema_version.axual_gitops_test_schema_version2.schema_id
+  owners = axual_group.team-bonanza.id
+  retention_policy = "delete"
+  properties = { }
+  description = "Logs from all applications with Avro schema"
 }
 ```
 

@@ -5,88 +5,26 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
-	"github.com/dcarbone/terraform-plugin-framework-utils/validation"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-var (
-	_ tfsdk.ResourceType            = schemaVersionResourceType{}
-	_ tfsdk.Resource                = schemaVersionResource{}
-	_ tfsdk.ResourceWithImportState = schemaVersionResource{}
-)
+var _ resource.Resource = &schemaVersionResource{}
 
-type schemaVersionResourceType struct{}
-
-func (r schemaVersionResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
-		MarkdownDescription: "Schema version resource. Read more: https://docs.axual.io/axual/2024.1/self-service/schema-management.html",
-
-		Attributes: map[string]tfsdk.Attribute{
-			"body": {
-				MarkdownDescription: "Avro schema",
-				Required:            true,
-				Type:                types.StringType,
-			},
-			"version": {
-				MarkdownDescription: "The version of the schema",
-				Required:            true,
-				Type:                types.StringType,
-			},
-			"description": {
-				MarkdownDescription: "A short text describing the Schema version",
-				Optional:            true,
-				Type:                types.StringType,
-				Validators: []tfsdk.AttributeValidator{
-					validation.Length(0, 500),
-				},
-			},
-			"id": {
-				Computed:            true,
-				MarkdownDescription: "Schema version unique identifier",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.UseStateForUnknown(),
-				},
-				Type: types.StringType,
-				Validators: []tfsdk.AttributeValidator{
-					validation.RegexpMatch(`^[0-9a-fA-F]{32}$`),
-				},
-			},
-
-			"schema_id": {
-				Computed:            true,
-				MarkdownDescription: "Schema unique identifier",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.UseStateForUnknown(),
-				},
-				Type: types.StringType,
-				Validators: []tfsdk.AttributeValidator{
-					validation.RegexpMatch(`^[0-9a-fA-F]{32}$`),
-				},
-			},
-
-			"full_name": {
-				Computed:            true,
-				MarkdownDescription: "Full name of the schema",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.UseStateForUnknown(),
-				},
-				Type: types.StringType,
-			},
-		},
-	}, nil
+func NewSchemaVersionResource(provider AxualProvider) resource.Resource {
+	return &schemaVersionResource{
+		provider: provider,
+	}
 }
 
-func (r schemaVersionResourceType) NewResource(ctx context.Context, in tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
-	provider, diags := convertProviderType(in)
-
-	return schemaVersionResource{
-		provider: provider,
-	}, diags
+type schemaVersionResource struct {
+	provider AxualProvider
 }
 
 type schemaVersionResourceData struct {
@@ -98,11 +36,66 @@ type schemaVersionResourceData struct {
 	FullName    types.String `tfsdk:"full_name"`
 }
 
-type schemaVersionResource struct {
-	provider provider
+func (r *schemaVersionResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_schema_version"
 }
 
-func (r schemaVersionResource) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
+func (r *schemaVersionResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		MarkdownDescription: "Schema version resource. Only version can be updated - this creates a new 'axual_schema_version'. Read more: https://docs.axual.io/axual/2024.1/self-service/schema-management.html",
+
+		Attributes: map[string]schema.Attribute{
+			"body": schema.StringAttribute{
+				MarkdownDescription: "Avro schema",
+				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"version": schema.StringAttribute{
+				MarkdownDescription: "The version of the schema",
+				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"description": schema.StringAttribute{
+				MarkdownDescription: "A short text describing the Schema version",
+				Optional:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(1, 500),
+				},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"id": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "Schema version unique identifier",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"schema_id": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "Schema unique identifier",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+
+			"full_name": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "Full name of the schema",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+		},
+	}
+}
+
+func (r *schemaVersionResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data schemaVersionResourceData
 
 	diags := req.Config.Get(ctx, &data)
@@ -135,7 +128,7 @@ func (r schemaVersionResource) Create(ctx context.Context, req tfsdk.CreateResou
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r schemaVersionResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+func (r *schemaVersionResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data schemaVersionResourceData
 
 	diags := req.State.Get(ctx, &data)
@@ -145,10 +138,10 @@ func (r schemaVersionResource) Read(ctx context.Context, req tfsdk.ReadResourceR
 		return
 	}
 
-	svResp, err := r.provider.client.GetSchemaVersion(data.Id.Value)
+	svResp, err := r.provider.client.GetSchemaVersion(data.Id.ValueString())
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
-			tflog.Warn(ctx, fmt.Sprintf("Schema version not found. Id: %s", data.Id.Value))
+			tflog.Warn(ctx, fmt.Sprintf("Schema version not found. Id: %s", data.Id.ValueString()))
 			resp.State.RemoveResource(ctx)
 		} else {
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read schema, got error: %s", err))
@@ -164,12 +157,11 @@ func (r schemaVersionResource) Read(ctx context.Context, req tfsdk.ReadResourceR
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r schemaVersionResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
-
+func (r *schemaVersionResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	resp.Diagnostics.AddError("Client Error", "API does not allow update of schema version. Please create another version of the schema")
 }
 
-func (r schemaVersionResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+func (r *schemaVersionResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data schemaVersionResourceData
 
 	diags := req.State.Get(ctx, &data)
@@ -179,39 +171,20 @@ func (r schemaVersionResource) Delete(ctx context.Context, req tfsdk.DeleteResou
 		return
 	}
 
-	err := r.provider.client.DeleteSchemaVersion(data.Id.Value)
+	err := r.provider.client.DeleteSchemaVersion(data.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("DELETE request error for schema version resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
 }
 
-func (r schemaVersionResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
-	tfsdk.ResourceImportStatePassthroughID(ctx, tftypes.NewAttributePath().WithAttributeName("id"), req, resp)
-}
-
-func mapCreateSchemaVersionResponseToData(_ context.Context, data *schemaVersionResourceData, resp *webclient.CreateSchemaVersionResponse) {
-
-	data.SchemaId = types.String{Value: resp.SchemaId}
-	data.Id = types.String{Value: resp.Id}
-	data.FullName = types.String{Value: resp.FullName}
-	data.Version = types.String{Value: resp.Version}
-}
-func mapGetSchemaVersionResponseToData(_ context.Context, data *schemaVersionResourceData, resp *webclient.GetSchemaVersionResponse) {
-
-	data.SchemaId = types.String{Value: resp.Schema.SchemaId}
-	data.Id = types.String{Value: resp.Id}
-	data.FullName = types.String{Value: resp.Schema.Name}
-	data.Version = types.String{Value: resp.Version}
-}
-
 func createValidateSchemaVersionRequestFromData(ctx context.Context, data *schemaVersionResourceData) webclient.ValidateSchemaVersionRequest {
 
 	r := webclient.ValidateSchemaVersionRequest{
-		Schema: data.Body.Value,
+		Schema: data.Body.ValueString(),
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("schema version request %q", r))
+	tflog.Info(ctx, fmt.Sprintf("validating schema version request %q", r))
 	return r
 }
 
@@ -219,14 +192,27 @@ func createSchemaVersionRequestFromData(ctx context.Context, parsedSchema *webcl
 
 	r := webclient.SchemaVersionRequest{
 		Schema:  parsedSchema.Schema,
-		Version: data.Version.Value,
+		Version: data.Version.ValueString(),
 	}
 
 	// optional fields
-	if !data.Description.Null {
-		r.Description = data.Description.Value
+	if !data.Description.IsNull() {
+		r.Description = data.Description.ValueString()
 	}
 
 	tflog.Info(ctx, fmt.Sprintf("schema version request %q", r))
 	return r
+}
+
+func mapCreateSchemaVersionResponseToData(_ context.Context, data *schemaVersionResourceData, resp *webclient.CreateSchemaVersionResponse) {
+	data.SchemaId = types.StringValue(resp.SchemaId)
+	data.Id = types.StringValue(resp.Id)
+	data.FullName = types.StringValue(resp.FullName)
+	data.Version = types.StringValue(resp.Version)
+}
+func mapGetSchemaVersionResponseToData(_ context.Context, data *schemaVersionResourceData, resp *webclient.GetSchemaVersionResponse) {
+	data.SchemaId = types.StringValue(resp.Schema.SchemaId)
+	data.Id = types.StringValue(resp.Id)
+	data.FullName = types.StringValue(resp.Schema.Name)
+	data.Version = types.StringValue(resp.Version)
 }

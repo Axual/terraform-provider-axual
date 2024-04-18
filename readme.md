@@ -63,21 +63,6 @@ Otherwise, this is the correct resource deletion order:
 5. Topic
 6. Group
 7. User
-### Milestone 1 Features
-- Added support for Tenant, User, Group
-- Added support for Application, ApplicationPrincipal
-- Added support for Topic, TopicConfig
-- Topic key type and value type has to be String/Binary/JSON/XML
-  Topic retention_policy has to be string “compact” or “delete’
-
-### Milestone 2 Features
-- Added support for Environment
-- Added support for Topic Access
-
-### Work in progress
-- Support schema and schemaVersion resource
-- Support AVRO topic and AVRO topicConfig
-- Data Sources
 
 ## Terraform Documentation
 

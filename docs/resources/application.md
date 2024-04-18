@@ -1,6 +1,6 @@
 # axual_application (Resource)
 
-An application represents anything that is responsible for producing and/or consuming data on a topic, whether it is a Java or .NET app or a connector.
+An application is responsible for producing and/or consuming data on a topic, whether it is a Java or .NET app or a connector.
 
 ## Features
 Axual Terraform Provider supports both Custom and Connector Application Type. Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#custom-vs-connector
@@ -13,22 +13,22 @@ Axual Terraform Provider supports both Custom and Connector Application Type. Re
 
 ### Required
 
-- `application_id` (String) The Application's ID. Usually a fully qualified class name. Must be unique. The application ID, used in logging and to determine the consumer group (if applicable). Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#app-id.
-- `application_type` (String) Axual Application type. Possible values are `Custom` or `Connector`.
-- `name` (String) The name of the Application. Must be unique. Only the special characters `_` , `-` and `.` are valid as part of an application name.
+- `application_id` (String) The Application Id of the Application, usually a fully qualified class name. Must be unique. The application ID, used in logging and to determine the consumer group (if applicable). Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#app-id
+- `application_type` (String) Axual Application type. Possible values are Custom or Connector.
+- `name` (String) The name of the Application. Must be unique. Only the special characters _, -, and . are valid as part of an application name.
 - `owners` (String) Application Owner
-- `short_name` (String) Application short name. Unique human-readable name for the application. Only alphanumeric characters and underscore is allowed. Must be unique.
-- `type` (String) If application_type is `Custom`, type can be: `Java`, `Pega`, `SAP`, `DotNet`, `Bridge`. If `application_type` is `Connector`, `type` must be: `SINK`, `SOURCE`
-- `visibility` (String) Application Visibility. Defines the visibility of this application. Possible values are `Public` and `Private`. Set the visibility to `Private` if you don’t want your application to end up in overviews such as the topic graph. Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#app-visibility
+- `short_name` (String) Application short name. Unique human-readable name for the application. Only Alphanumeric and underscore allowed. Must be unique
+- `type` (String) If application_type is Custom, type can be: Java, Pega, SAP, DotNet, Bridge. If application_type is Connector, type can be: SINK, SOURCE
+- `visibility` (String) Application Visibility. Defines the visibility of this application. Possible values are Public and Private. Set the visibility to “Private” if you don’t want your application to end up in overviews such as the topic graph. Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#app-visibility
 
 ### Optional
 
-- `application_class` (String) The application's plugin class. Required if `application_type` is `Connector`. For example `com.couchbase.connect.kafka.CouchbaseSinkConnector`. All available application plugin class names, plugin types and plugin configs are listed here in API- `GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass` and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html
+- `application_class` (String) The application's plugin class. Required if application_type is Connector. For example com.couchbase.connect.kafka.CouchbaseSinkConnector. All available application plugin class names, pluginTypes and pluginConfigs listed here- GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html
 - `description` (String) Application Description. A short summary describing the application
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) Application unique identifier
 
 ## Example Usage
 

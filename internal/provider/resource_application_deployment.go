@@ -5,67 +5,25 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/dcarbone/terraform-plugin-framework-utils/validation"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-var _ tfsdk.ResourceType = applicationDeploymentResourceType{}
-var _ tfsdk.Resource = applicationDeploymentResource{}
+var _ resource.Resource = &applicationDeploymentResource{}
 
-type applicationDeploymentResourceType struct{}
-
-func (t applicationDeploymentResourceType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
-		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "An Application Deployment stores the configs for connector application type that is saved for an Application on an Environment.",
-
-		Attributes: map[string]tfsdk.Attribute{
-			"application": {
-				MarkdownDescription: "A valid Uid of an existing application",
-				Required:            true,
-				Type:                types.StringType,
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.RequiresReplace(),
-				},
-			},
-			"environment": {
-				MarkdownDescription: "A valid Uid of an existing environment",
-				Required:            true,
-				Type:                types.StringType,
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.RequiresReplace(),
-				},
-			},
-			"configs": {
-				MarkdownDescription: "Connector config for Application Deployment. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. All available application plugin class names, plugin types and plugin configs are listed here in API- `GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass` and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html",
-				Required:            true,
-				Type:                types.MapType{ElemType: types.StringType},
-				Sensitive:           true,
-			},
-			"id": {
-				Type:     types.StringType,
-				Computed: true,
-				Validators: []tfsdk.AttributeValidator{
-					validation.RegexpMatch(`^[0-9a-fA-F]{32}$`),
-				},
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.UseStateForUnknown(),
-				},
-			},
-		},
-	}, nil
+func NewApplicationDeploymentResource(provider AxualProvider) resource.Resource {
+	return &applicationDeploymentResource{
+		provider: provider,
+	}
 }
 
-func (t applicationDeploymentResourceType) NewResource(_ context.Context, in tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
-	provider, diags := convertProviderType(in)
-
-	return applicationDeploymentResource{
-		provider: provider,
-	}, diags
+type applicationDeploymentResource struct {
+	provider AxualProvider
 }
 
 type ApplicationDeploymentResourceData struct {
@@ -75,11 +33,46 @@ type ApplicationDeploymentResourceData struct {
 	Configs     types.Map    `tfsdk:"configs"`
 }
 
-type applicationDeploymentResource struct {
-	provider provider
+func (r *applicationDeploymentResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_application_deployment"
+}
+func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		// This description is used by the documentation generator and the language server.
+		MarkdownDescription: "An Application Deployment stores the configs for connector application type that is saved for an Application on an Environment.",
+
+		Attributes: map[string]schema.Attribute{
+			"application": schema.StringAttribute{
+				MarkdownDescription: "A valid Uid of an existing application",
+				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"environment": schema.StringAttribute{
+				MarkdownDescription: "A valid Uid of an existing environment",
+				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"configs": schema.MapAttribute{
+				MarkdownDescription: "Connector config for Application Deployment",
+				Required:            true,
+				ElementType:         types.StringType,
+				Sensitive:           true,
+			},
+			"id": schema.StringAttribute{
+				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+		},
+	}
 }
 
-func (r applicationDeploymentResource) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
+func (r *applicationDeploymentResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data ApplicationDeploymentResourceData
 
 	diags := req.Plan.Get(ctx, &data)
@@ -88,8 +81,8 @@ func (r applicationDeploymentResource) Create(ctx context.Context, req tfsdk.Cre
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	applicationURL := fmt.Sprintf("%s/applications/%v", r.provider.client.ApiURL, data.Application.Value)
-	environmentURL := fmt.Sprintf("%s/environments/%v", r.provider.client.ApiURL, data.Environment.Value)
+	applicationURL := fmt.Sprintf("%s/applications/%v", r.provider.client.ApiURL, data.Application.ValueString())
+	environmentURL := fmt.Sprintf("%s/environments/%v", r.provider.client.ApiURL, data.Environment.ValueString())
 
 	// We check if Application Principal exists for this environment and application
 	ApplicationPrincipalFindByApplicationAndEnvironmentResponse, err := r.provider.client.FindApplicationPrincipalByApplicationAndEnvironment(applicationURL, environmentURL)
@@ -105,8 +98,8 @@ func (r applicationDeploymentResource) Create(ctx context.Context, req tfsdk.Cre
 
 	// We check if Approved Application Access Grant exists for this environment and application
 	accessGrantRequest := webclient.ApplicationAccessGrantAttributes{
-		ApplicationId: data.Application.Value,
-		EnvironmentId: data.Environment.Value,
+		ApplicationId: data.Application.ValueString(),
+		EnvironmentId: data.Environment.ValueString(),
 		Statuses:      "APPROVED",
 	}
 	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrantsByAttributes(accessGrantRequest)
@@ -156,7 +149,7 @@ func (r applicationDeploymentResource) Create(ctx context.Context, req tfsdk.Cre
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r applicationDeploymentResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+func (r *applicationDeploymentResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data ApplicationDeploymentResourceData
 
 	diags := req.State.Get(ctx, &data)
@@ -166,12 +159,12 @@ func (r applicationDeploymentResource) Read(ctx context.Context, req tfsdk.ReadR
 		return
 	}
 
-	applicationWithUrl := fmt.Sprintf("%s/applications/%v", r.provider.client.ApiURL, data.Application.Value)
-	environmentWithUrl := fmt.Sprintf("%s/environments/%v", r.provider.client.ApiURL, data.Environment.Value)
+	applicationWithUrl := fmt.Sprintf("%s/applications/%v", r.provider.client.ApiURL, data.Application.ValueString())
+	environmentWithUrl := fmt.Sprintf("%s/environments/%v", r.provider.client.ApiURL, data.Environment.ValueString())
 	ApplicationDeploymentFindByApplicationAndEnvironmentResponse, err := r.provider.client.FindApplicationDeploymentByApplicationAndEnvironment(applicationWithUrl, environmentWithUrl)
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
-			resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to find Application Deployment with ID: %s, got error: %s", data.Id.Value, err))
+			resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to find Application Deployment with ID: %s, got error: %s", data.Id.ValueString(), err))
 		} else {
 			resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to read Application Deployment, got error: %s", err))
 		}
@@ -183,7 +176,7 @@ func (r applicationDeploymentResource) Read(ctx context.Context, req tfsdk.ReadR
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r applicationDeploymentResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r *applicationDeploymentResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var stateData ApplicationDeploymentResourceData
 	var configData ApplicationDeploymentResourceData
 	var planData ApplicationDeploymentResourceData
@@ -199,7 +192,7 @@ func (r applicationDeploymentResource) Update(ctx context.Context, req tfsdk.Upd
 	}
 
 	// Get the current status of the application deployment
-	applicationDeploymentStatus, err := r.provider.client.GetApplicationDeploymentStatus(planData.Id.Value)
+	applicationDeploymentStatus, err := r.provider.client.GetApplicationDeploymentStatus(planData.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get Application Deployment status, got error: %s", err))
 		return
@@ -211,7 +204,7 @@ func (r applicationDeploymentResource) Update(ctx context.Context, req tfsdk.Upd
 		var applicationStopRequest = webclient.ApplicationDeploymentOperationRequest{
 			Action: "STOP",
 		}
-		err := r.provider.client.OperateApplicationDeployment(planData.Id.Value, "STOP", applicationStopRequest)
+		err := r.provider.client.OperateApplicationDeployment(planData.Id.ValueString(), "STOP", applicationStopRequest)
 		if err != nil {
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to stop Application, got error: %s", err))
 			return
@@ -220,7 +213,7 @@ func (r applicationDeploymentResource) Update(ctx context.Context, req tfsdk.Upd
 
 	ApplicationDeploymentUpdateRequest, err := createApplicationUpdateDeploymentRequestFromData(ctx, &planData, r)
 
-	_, err = r.provider.client.UpdateApplicationDeployment(planData.Id.Value, ApplicationDeploymentUpdateRequest)
+	_, err = r.provider.client.UpdateApplicationDeployment(planData.Id.ValueString(), ApplicationDeploymentUpdateRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete Application Deployment, got error: %s", err))
 		return
@@ -233,14 +226,14 @@ func (r applicationDeploymentResource) Update(ctx context.Context, req tfsdk.Upd
 	var applicationStartRequest = webclient.ApplicationDeploymentOperationRequest{
 		Action: "START",
 	}
-	err = r.provider.client.OperateApplicationDeployment(planData.Id.Value, "START", applicationStartRequest)
+	err = r.provider.client.OperateApplicationDeployment(planData.Id.ValueString(), "START", applicationStartRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to start Application, got error: %s", err))
 		return
 	}
 }
 
-func (r applicationDeploymentResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data ApplicationDeploymentResourceData
 
 	diags := req.State.Get(ctx, &data)
@@ -251,7 +244,7 @@ func (r applicationDeploymentResource) Delete(ctx context.Context, req tfsdk.Del
 	}
 
 	// Get the current status of the application deployment
-	applicationDeploymentStatus, err := r.provider.client.GetApplicationDeploymentStatus(data.Id.Value)
+	applicationDeploymentStatus, err := r.provider.client.GetApplicationDeploymentStatus(data.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get Application Deployment status, got error: %s", err))
 		return
@@ -263,24 +256,24 @@ func (r applicationDeploymentResource) Delete(ctx context.Context, req tfsdk.Del
 		var applicationStopRequest = webclient.ApplicationDeploymentOperationRequest{
 			Action: "STOP",
 		}
-		err := r.provider.client.OperateApplicationDeployment(data.Id.Value, "STOP", applicationStopRequest)
+		err := r.provider.client.OperateApplicationDeployment(data.Id.ValueString(), "STOP", applicationStopRequest)
 		if err != nil {
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to stop Application, got error: %s", err))
 			return
 		}
 	}
 
-	err = r.provider.client.DeleteApplicationDeployment(data.Id.Value)
+	err = r.provider.client.DeleteApplicationDeployment(data.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete Application Deployment, got error: %s", err))
 		return
 	}
 }
 
-func mapApplicationDeploymentResponseToData(_ context.Context, data *ApplicationDeploymentResourceData, applicationDeploymentResponse *webclient.ApplicationDeploymentFindByApplicationAndEnvironmentResponse) {
-	data.Id = types.String{Value: applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Uid}
-	data.Environment = types.String{Value: applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Environment.Uid}
-	data.Application = types.String{Value: applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Application.Uid}
+func mapApplicationDeploymentResponseToData(ctx context.Context, data *ApplicationDeploymentResourceData, applicationDeploymentResponse *webclient.ApplicationDeploymentFindByApplicationAndEnvironmentResponse) {
+	data.Id = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Uid)
+	data.Environment = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Environment.Uid)
+	data.Application = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Application.Uid)
 
 	// Initialize the map for configs
 	configs := make(map[string]attr.Value)
@@ -292,29 +285,33 @@ func mapApplicationDeploymentResponseToData(_ context.Context, data *Application
 		fmt.Printf("firstDeploymentResponse: %+v\n", firstDeploymentResponse)
 		// We iterate through the Configs and add them to the map
 		for _, config := range firstDeploymentResponse.Configs {
-			configs[config.ConfigKey] = types.String{Value: config.ConfigValue}
+			configs[config.ConfigKey] = types.StringValue(config.ConfigValue)
 		}
 	}
-
+	mapValue, diags := types.MapValue(types.StringType, configs)
+	if diags.HasError() {
+		tflog.Error(ctx, "Error creating members slice when mapping group response")
+	}
 	// Set the Configs in the ApplicationDeploymentResourceData
-	data.Configs = types.Map{ElemType: types.StringType, Elems: configs}
+	data.Configs = mapValue
+
 	fmt.Printf("data.Configs: %+v\n", data.Configs)
 }
 
-func createApplicationDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData, r applicationDeploymentResource) (webclient.ApplicationDeploymentCreateRequest, error) {
+func createApplicationDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData, r *applicationDeploymentResource) (webclient.ApplicationDeploymentCreateRequest, error) {
 	configs := make(map[string]string)
 
-	for key, value := range data.Configs.Elems {
+	for key, value := range data.Configs.Elements() {
 		strValue, ok := value.(types.String)
 		if !ok {
 			return webclient.ApplicationDeploymentCreateRequest{}, fmt.Errorf("type assertion to types.String failed for key: %s", key)
 		}
-		configs[key] = strValue.Value
+		configs[key] = strValue.ValueString()
 	}
 
 	ApplicationDeploymentRequest := webclient.ApplicationDeploymentCreateRequest{
-		Application: data.Application.Value,
-		Environment: data.Environment.Value,
+		Application: data.Application.ValueString(),
+		Environment: data.Environment.ValueString(),
 		Configs:     configs,
 	}
 
@@ -322,15 +319,15 @@ func createApplicationDeploymentRequestFromData(ctx context.Context, data *Appli
 	return ApplicationDeploymentRequest, nil
 }
 
-func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData, r applicationDeploymentResource) (webclient.ApplicationDeploymentUpdateRequest, error) {
+func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData, r *applicationDeploymentResource) (webclient.ApplicationDeploymentUpdateRequest, error) {
 	configs := make(map[string]string)
 
-	for key, value := range data.Configs.Elems {
+	for key, value := range data.Configs.Elements() {
 		strValue, ok := value.(types.String)
 		if !ok {
 			return webclient.ApplicationDeploymentUpdateRequest{}, fmt.Errorf("type assertion to types.String failed for key: %s", key)
 		}
-		configs[key] = strValue.Value
+		configs[key] = strValue.ValueString()
 	}
 
 	ApplicationDeploymentUpdateRequest := webclient.ApplicationDeploymentUpdateRequest{

@@ -3,77 +3,21 @@ package provider
 import (
 	"context"
 	"fmt"
-
-	"github.com/dcarbone/terraform-plugin-framework-utils/validation"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces
-var _ tfsdk.DataSourceType = schemaVersionDataSourceType{}
-var _ tfsdk.DataSource = schemaVersionDataSource{}
+var _ datasource.DataSource = &schemaVersionDataSource{}
 
-type schemaVersionDataSourceType struct{}
-
-func (t schemaVersionDataSourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
-		MarkdownDescription: "Schema version resource. Read more: https://docs.axual.io/axual/2024.1/self-service/schema-management.html",
-
-		Attributes: map[string]tfsdk.Attribute{
-			"id": {
-				Computed:            true,
-				MarkdownDescription: "Schema version unique identifier",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.UseStateForUnknown(),
-				},
-				Type: types.StringType,
-				Validators: []tfsdk.AttributeValidator{
-					validation.RegexpMatch(`^[0-9a-fA-F]{32}$`),
-				},
-			},
-			"body": {
-				MarkdownDescription: "Avro schema",
-				Computed:            true,
-				Type:                types.StringType,
-			},
-			"version": {
-				MarkdownDescription: "The version of the schema",
-				Required:            true,
-				Type:                types.StringType,
-			},
-			"description": {
-				MarkdownDescription: "A short text describing the Schema version",
-				Computed:            true,
-				Type:                types.StringType,
-			},
-			"schema_id": {
-				Computed:            true,
-				MarkdownDescription: "Schema unique identifier",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.UseStateForUnknown(),
-				},
-				Type: types.StringType,
-			},
-
-			"full_name": {
-				Required:            true,
-				MarkdownDescription: "Full name of the schema",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.UseStateForUnknown(),
-				},
-				Type: types.StringType,
-			},
-		},
-	}, nil
+func NewSchemaVersionDataSource(provider AxualProvider) datasource.DataSource {
+	return &schemaVersionDataSource{
+		provider: provider,
+	}
 }
 
-func (t schemaVersionDataSourceType) NewDataSource(ctx context.Context, in tfsdk.Provider) (tfsdk.DataSource, diag.Diagnostics) {
-	provider, diags := convertProviderType(in)
-
-	return schemaVersionDataSource{
-		provider: provider,
-	}, diags
+type schemaVersionDataSource struct {
+	provider AxualProvider
 }
 
 type schemaVersionDataSourceData struct {
@@ -85,11 +29,44 @@ type schemaVersionDataSourceData struct {
 	FullName    types.String `tfsdk:"full_name"`
 }
 
-type schemaVersionDataSource struct {
-	provider provider
+func (d *schemaVersionDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_schema_version"
 }
 
-func (d schemaVersionDataSource) Read(ctx context.Context, req tfsdk.ReadDataSourceRequest, resp *tfsdk.ReadDataSourceResponse) {
+func (d *schemaVersionDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		MarkdownDescription: "Schema version resource. Read more: https://docs.axual.io/axual/2024.1/self-service/schema-management.html",
+
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "Schema version unique identifier",
+			},
+			"body": schema.StringAttribute{
+				MarkdownDescription: "Avro schema body",
+				Computed:            true,
+			},
+			"version": schema.StringAttribute{
+				MarkdownDescription: "The version of the schema Version.",
+				Required:            true,
+			},
+			"description": schema.StringAttribute{
+				MarkdownDescription: "A short text describing the schema version",
+				Computed:            true,
+			},
+			"schema_id": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "Schema unique identifier",
+			},
+			"full_name": schema.StringAttribute{
+				Required:            true,
+				MarkdownDescription: "Full name of the schema. Full name is schema's <namespace>.<name>. For example: io.axual.qa.general.GitOpsTest",
+			},
+		},
+	}
+}
+
+func (d *schemaVersionDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var data schemaVersionDataSourceData
 
 	diags := req.Config.Get(ctx, &data)
@@ -99,35 +76,44 @@ func (d schemaVersionDataSource) Read(ctx context.Context, req tfsdk.ReadDataSou
 		return
 	}
 
-	schema, err := d.provider.client.GetSchemaByName(data.FullName.Value)
+	axualSchema, err := d.provider.client.GetSchemaByName(data.FullName.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read schema version, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read axualSchema version, got error: %s", err))
+		return
+	}
+	if len(axualSchema.Embedded.Schemas) == 0 {
+		resp.Diagnostics.AddError("Schema not found error", "Schema matching the full name you requested was not found")
 		return
 	}
 
-	sv, err2 := d.provider.client.GetSchemaVersionsBySchema(schema.Embedded.Schemas[0].Links.Self.Href)
+	sv, err2 := d.provider.client.GetSchemaVersionsBySchema(axualSchema.Embedded.Schemas[0].Links.Self.Href)
 
 	if err2 != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read schema version, got error: %s", err2))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read axualSchema version, got error: %s", err2))
 		return
 	}
 
 	foundMatchingVersion := false
 
 	for i := range sv.Embedded.SchemaVersion {
-		if sv.Embedded.SchemaVersion[i].Version == data.Version.Value {
+		if sv.Embedded.SchemaVersion[i].Version == data.Version.ValueString() {
 			foundMatchingVersion = true
-			data.Id = types.String{Value: sv.Embedded.SchemaVersion[i].Uid}
-			data.Version = types.String{Value: sv.Embedded.SchemaVersion[i].Version}
-			data.Body = types.String{Value: sv.Embedded.SchemaVersion[i].SchemaBody}
-			data.SchemaId = types.String{Value: sv.Embedded.SchemaVersion[i].Embedded.Schema.Uid}
-			data.FullName = types.String{Value: sv.Embedded.SchemaVersion[i].Embedded.Schema.Name}
-			data.Description = types.String{Value: sv.Embedded.SchemaVersion[i].Embedded.Schema.Description}
+			data.Id = types.StringValue(sv.Embedded.SchemaVersion[i].Uid)
+		}
+		data.Version = types.StringValue(sv.Embedded.SchemaVersion[i].Version)
+
+		data.Body = types.StringValue(sv.Embedded.SchemaVersion[i].SchemaBody)
+		data.SchemaId = types.StringValue(sv.Embedded.SchemaVersion[i].Embedded.Schema.Uid)
+		data.FullName = types.StringValue(sv.Embedded.SchemaVersion[i].Embedded.Schema.Name)
+		data.Description = types.StringValue(sv.Embedded.SchemaVersion[i].Embedded.Schema.Description)
+		if foundMatchingVersion {
+			break
 		}
 	}
 
 	if !foundMatchingVersion {
 		resp.Diagnostics.AddError("Client Error", "Schema version matching the name you requested was not found")
+		return
 	}
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
