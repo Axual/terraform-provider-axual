@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 ## [master]
 
-## [2.3.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.2.0) - 2024-04-19
+## [2.3.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.3.0) - 2024-04-19
 * Update to terraform-plugin-framework v1.7.0
 
 ## [2.2.3](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.2.3) - 2024-04-15

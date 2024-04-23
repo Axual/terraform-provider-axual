@@ -45,7 +45,7 @@ func (r *applicationPrincipalResource) Metadata(ctx context.Context, req resourc
 func (r *applicationPrincipalResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "An Application Principal is a security principal (certificate or comparable) that uniquely authenticates an Application on an Environment. Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#configuring-application-securityauthentication",
+		MarkdownDescription: "An Application Principal is a security principal (certificate or comparable) that uniquely authenticates an Application in an Environment. Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#configuring-application-securityauthentication",
 
 		Attributes: map[string]schema.Attribute{
 			"principal": schema.StringAttribute{
@@ -65,7 +65,7 @@ func (r *applicationPrincipalResource) Schema(ctx context.Context, req resource.
 				},
 			},
 			"application": schema.StringAttribute{
-				MarkdownDescription: "A valid ID of an existing application",
+				MarkdownDescription: "A valid UID of an existing application",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),

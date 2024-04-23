@@ -1,6 +1,6 @@
 # axual_application_principal (Resource)
 
-An Application Principal is a security principal (certificate or comparable) that uniquely authenticates an Application on an Environment. Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#configuring-application-securityauthentication
+An Application Principal is a security principal (certificate or comparable) that uniquely authenticates an Application in an Environment. Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#configuring-application-securityauthentication
 
 ## Limitations
 - Axual Terraform Provider only support these authentication methods:
@@ -22,7 +22,7 @@ An Application Principal is a security principal (certificate or comparable) tha
 
 ### Required
 
-- `application` (String) A valid ID of an existing application
+- `application` (String) A valid UID of an existing application
 - `environment` (String) A valid Uid of an existing environment
 - `principal` (String, Sensitive) The principal of an Application for an Environment. Must be PEM-format.
 

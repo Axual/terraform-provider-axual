@@ -22,7 +22,7 @@ An Application Deployment stores the configs for connector application type that
 ### Required
 
 - `application` (String) A valid Uid of an existing application
-- `configs` (Map of String, Sensitive) Connector config for Application Deployment
+- `configs` (Map of String, Sensitive) Connector config for Application Deployment. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. All available application plugin class names, plugin types and plugin configs are listed here in API- `GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass` and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html
 - `environment` (String) A valid Uid of an existing environment
 
 ### Read-Only
