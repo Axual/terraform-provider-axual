@@ -60,7 +60,7 @@ func (r *applicationResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"application_id": schema.StringAttribute{
-				MarkdownDescription: "The Application Id of the Application, usually a fully qualified class name. Must be unique. The application ID, used in logging and to determine the consumer group (if applicable). Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#app-id",
+				MarkdownDescription: "The Application ID of the Application, usually a fully qualified class name. Must be unique. The application ID, used in logging and to determine the consumer group (if applicable). Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#app-id",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{

@@ -4,9 +4,12 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"net/url"
+	"regexp"
 
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -24,15 +27,16 @@ type applicationDataSource struct {
 }
 
 type applicationDataSourceData struct {
-	Id              types.String `tfsdk:"id"`
-	Name            types.String `tfsdk:"name"`
-	ShortName       types.String `tfsdk:"short_name"`
-	Description     types.String `tfsdk:"description"`
-	ApplicationType types.String `tfsdk:"application_type"`
-	ApplicationId   types.String `tfsdk:"application_id"`
-	Type            types.String `tfsdk:"type"`
-	Owners          types.String `tfsdk:"owners"`
-	Visibility      types.String `tfsdk:"visibility"`
+	Id               types.String `tfsdk:"id"`
+	Name             types.String `tfsdk:"name"`
+	ShortName        types.String `tfsdk:"short_name"`
+	Description      types.String `tfsdk:"description"`
+	ApplicationType  types.String `tfsdk:"application_type"`
+	ApplicationClass types.String `tfsdk:"application_class"`
+	ApplicationId    types.String `tfsdk:"application_id"`
+	Type             types.String `tfsdk:"type"`
+	Owners           types.String `tfsdk:"owners"`
+	Visibility       types.String `tfsdk:"visibility"`
 }
 
 func (d *applicationDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -50,7 +54,7 @@ func (d *applicationDataSource) Schema(ctx context.Context, req datasource.Schem
 				Computed:            true,
 			},
 			"application_type": schema.StringAttribute{
-				MarkdownDescription: "Axual Application type. Possible values are Custom.",
+				MarkdownDescription: "Axual Application type. Possible values are Custom or Connector.",
 				Computed:            true,
 			},
 			"application_id": schema.StringAttribute{
@@ -60,6 +64,10 @@ func (d *applicationDataSource) Schema(ctx context.Context, req datasource.Schem
 			"name": schema.StringAttribute{
 				MarkdownDescription: "The name of the Application. Must be unique. Only the special characters _ , - and . are valid as part of an application name",
 				Required:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(3, 100),
+					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`), "can only contain letters, numbers, dots, dashes and underscores and cannot begin with an underscore, dot or dash"),
+				},
 			},
 			"short_name": schema.StringAttribute{
 				MarkdownDescription: "Application short name. Unique human-readable name for the application. Only Alphanumeric and underscore allowed. Must be unique",
@@ -71,7 +79,11 @@ func (d *applicationDataSource) Schema(ctx context.Context, req datasource.Schem
 			},
 			"type": schema.StringAttribute{
 				Computed:            true,
-				MarkdownDescription: "Application software. Possible values: Java, Pega, SAP, DotNet, Bridge",
+				MarkdownDescription: "If application_type is Custom, type can be: Java, Pega, SAP, DotNet, Bridge. If application_type is Connector, type can be: SINK, SOURCE",
+			},
+			"application_class": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "The application's plugin class. Required if application_type is Connector. For example com.couchbase.connect.kafka.CouchbaseSinkConnector. All available application plugin class names, pluginTypes and pluginConfigs listed here- GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html",
 			},
 			"visibility": schema.StringAttribute{
 				Computed:            true,
@@ -133,5 +145,11 @@ func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, app
 		data.Description = types.StringNull()
 	} else {
 		data.Description = types.StringValue(app.Description)
+	}
+
+	if app.ApplicationClass == "" {
+		data.ApplicationClass = types.StringNull()
+	} else {
+		data.ApplicationClass = types.StringValue(app.ApplicationClass)
 	}
 }

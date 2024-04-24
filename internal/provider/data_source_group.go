@@ -52,7 +52,7 @@ func (d *groupDataSource) Schema(ctx context.Context, req datasource.SchemaReque
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(3, 80),
-					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`), "can only contain letters, numbers, dots, dashes and underscores, but cannot begin with an underscore, dot or dash"),
+					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 ._-]*$`), "can only contain letters, numbers, dots, spaces, dashes and underscores, but cannot begin with an underscore, dot, space or dash"),
 				},
 			},
 			"email_address": schema.StringAttribute{
