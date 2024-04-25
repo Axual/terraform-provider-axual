@@ -3,8 +3,10 @@ page_title: "Data Source: axual_topic"
 ---
 Use this data source to get an axual topic in Self-Service, you can reference it by name.
 
-## Example Usage
+## Limitations
+- Axual Terraform Provider does not currently support AVRO key type and AVRO value type for data source. For resource AVRO is supported. AVRO key and value type will be supported in the future for data source.
 
+## Example Usage
 
 ```hcl
 data "axual_topic" "logs" {

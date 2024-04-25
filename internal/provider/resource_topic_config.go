@@ -5,101 +5,33 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
-
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/mapvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"strings"
 )
 
-var _ tfsdk.ResourceType = topicConfigResourceType{}
-var _ tfsdk.Resource = topicConfigResource{}
-var _ tfsdk.ResourceWithImportState = topicConfigResource{}
+var _ resource.Resource = &topicConfigResource{}
+var _ resource.ResourceWithImportState = &topicConfigResource{}
 
-type topicConfigResourceType struct{}
-
-func (t topicConfigResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
-		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Topic Config resource. Once the Topic has been created, the next step to actually configure the topic for any environment is to configure the topic. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#configuring-a-topic-for-an-environment",
-
-		Attributes: map[string]tfsdk.Attribute{
-			"partitions": {
-				MarkdownDescription: "The number of partitions define how many consumer instances can be started in parallel on this topic. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#partitions-number",
-				Required:            true,
-				Type:                types.Int64Type,
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.RequiresReplace(),
-				},
-			},
-			"retention_time": {
-				MarkdownDescription: "Determine how long the messages should be available on a topic. There should be an agreed value most likely discussed in Intake session with the team supporting Axual Platform. In most cases, it is 7 days. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#retention-time",
-				Required:            true,
-				Type:                types.Int64Type,
-				Validators: []tfsdk.AttributeValidator{
-					int64validator.AtLeast(1000),
-				},
-			},
-			"topic": {
-				MarkdownDescription: "The Topic this topic configuration is associated with",
-				Required:            true,
-				Type:                types.StringType,
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.RequiresReplace(),
-				},
-			},
-			"environment": {
-				MarkdownDescription: "The environment this topic configuration is associated with",
-				Required:            true,
-				Type:                types.StringType,
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.RequiresReplace(),
-				},
-			},
-			"key_schema_version": {
-				MarkdownDescription: "The schema version this topic config supports for the key.",
-				Optional:            true,
-				Type:                types.StringType,
-			},
-			"value_schema_version": {
-				MarkdownDescription: "The schema version this topic config supports for the value.",
-				Optional:            true,
-				Type:                types.StringType,
-			},
-			"properties": {
-				MarkdownDescription: "You can define Kafka properties for your topic here. segment.ms property needs to always be included. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#configuring-a-topic-for-an-environment",
-				Required:            true,
-				Type:                types.MapType{ElemType: types.StringType},
-				Validators: []tfsdk.AttributeValidator{
-					mapvalidator.SizeAtLeast(1),
-					mapvalidator.KeysAre(stringvalidator.OneOf("segment.ms", "retention.bytes", "min.compaction.lag.ms", "max.compaction.lag.ms", "message.timestamp.difference.max.ms", "message.timestamp.type")),
-					mapvalidator.ValuesAre(stringvalidator.LengthAtLeast(1)),
-				},
-			},
-			"id": {
-				Computed:            true,
-				MarkdownDescription: "topic config identifier",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.UseStateForUnknown(),
-				},
-				Type: types.StringType,
-			},
-		},
-	}, nil
+func NewTopicConfigResource(provider AxualProvider) resource.Resource {
+	return &topicConfigResource{
+		provider: provider,
+	}
 }
 
-func (t topicConfigResourceType) NewResource(ctx context.Context, in tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
-	provider, diags := convertProviderType(in)
-
-	return topicConfigResource{
-		provider: provider,
-	}, diags
+type topicConfigResource struct {
+	provider AxualProvider
 }
 
 type topicConfigResourceData struct {
@@ -113,11 +45,73 @@ type topicConfigResourceData struct {
 	Properties         types.Map    `tfsdk:"properties"`
 }
 
-type topicConfigResource struct {
-	provider provider
+func (r *topicConfigResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_topic_config"
 }
 
-func (r topicConfigResource) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
+func (r *topicConfigResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		// This description is used by the documentation generator and the language server.
+		MarkdownDescription: "Topic Config resource. Once the Topic has been created, the next step to actually configure the topic for any environment is to configure the topic. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#configuring-a-topic-for-an-environment",
+
+		Attributes: map[string]schema.Attribute{
+			"partitions": schema.Int64Attribute{
+				MarkdownDescription: "The number of partitions define how many consumer instances can be started in parallel on this topic. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#partitions-number",
+				Required:            true,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.RequiresReplace(),
+				},
+			},
+			"retention_time": schema.Int64Attribute{
+				MarkdownDescription: "Determine how long the messages should be available on a topic. There should be an agreed value most likely discussed in Intake session with the team supporting Axual Platform. In most cases, it is 7 days. Minimum value is 1000 (ms). Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#retention-time",
+				Required:            true,
+				Validators: []validator.Int64{
+					int64validator.AtLeast(1000),
+				},
+			},
+			"topic": schema.StringAttribute{
+				MarkdownDescription: "The Topic this topic configuration is associated with",
+				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"environment": schema.StringAttribute{
+				MarkdownDescription: "The environment this topic configuration is associated with",
+				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"key_schema_version": schema.StringAttribute{
+				MarkdownDescription: "The schema version this topic config supports for the key.",
+				Optional:            true,
+			},
+			"value_schema_version": schema.StringAttribute{
+				MarkdownDescription: "The schema version this topic config supports for the value.",
+				Optional:            true,
+			},
+			"properties": schema.MapAttribute{
+				MarkdownDescription: "You can define Kafka properties for your topic here. segment.ms property needs to always be included. All options are: `segment.ms`, `retention.bytes`, `min.compaction.lag.ms`, `max.compaction.lag.ms`, `message.timestamp.difference.max.ms`, `message.timestamp.type` Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#configuring-a-topic-for-an-environment",
+				Required:            true,
+				ElementType:         types.StringType,
+				Validators: []validator.Map{
+					mapvalidator.SizeAtLeast(1),
+					mapvalidator.KeysAre(stringvalidator.OneOf("segment.ms", "retention.bytes", "min.compaction.lag.ms", "max.compaction.lag.ms", "message.timestamp.difference.max.ms", "message.timestamp.type")),
+					mapvalidator.ValueStringsAre(stringvalidator.LengthAtLeast(1)),
+				},
+			},
+			"id": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "topic config identifier",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+		},
+	}
+}
+func (r *topicConfigResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data topicConfigResourceData
 
 	diags := req.Config.Get(ctx, &data)
@@ -127,20 +121,20 @@ func (r topicConfigResource) Create(ctx context.Context, req tfsdk.CreateResourc
 		return
 	}
 
-	topic, err := r.provider.client.GetTopic(data.Topic.Value)
+	topic, err := r.provider.client.GetTopic(data.Topic.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("CREATE request error for topic config resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
 
-	if !data.KeySchemaVersion.Null {
+	if !data.KeySchemaVersion.IsNull() {
 		if topic.KeyType != "AVRO" {
 			resp.Diagnostics.AddError(
 				"CREATE request error for topic config resource",
-				fmt.Sprintf("Topic doesn't have an AVRO Key Schema. Please don't set the KeySchemaVersion: %s", data.KeySchemaVersion.Value))
+				fmt.Sprintf("Topic doesn't have an AVRO Key Schema. Please don't set the KeySchemaVersion: %s", data.KeySchemaVersion.ValueString()))
 			return
 		} else {
-			r.validateSchemaVersionsForCreate(topic.Embedded.KeySchema.Uid, data.KeySchemaVersion.Value, resp)
+			r.validateSchemaVersionsForCreate(topic.Embedded.KeySchema.Uid, data.KeySchemaVersion.ValueString(), resp)
 			if resp.Diagnostics.HasError() {
 				return
 			}
@@ -148,14 +142,14 @@ func (r topicConfigResource) Create(ctx context.Context, req tfsdk.CreateResourc
 		}
 	}
 
-	if !data.ValueSchemaVersion.Null {
+	if !data.ValueSchemaVersion.IsNull() {
 		if topic.ValueType != "AVRO" {
 			resp.Diagnostics.AddError(
 				"CREATE request error for topic config resource",
 				fmt.Sprintf("Topic doesn't have an AVRO Value Schema. Please don't set the ValueSchemaVersion: %s", data.ValueSchemaVersion))
 			return
 		} else {
-			r.validateSchemaVersionsForCreate(topic.Embedded.ValueSchema.Uid, data.ValueSchemaVersion.Value, resp)
+			r.validateSchemaVersionsForCreate(topic.Embedded.ValueSchema.Uid, data.ValueSchemaVersion.ValueString(), resp)
 			if resp.Diagnostics.HasError() {
 				return
 			}
@@ -164,7 +158,7 @@ func (r topicConfigResource) Create(ctx context.Context, req tfsdk.CreateResourc
 
 	topicConfigRequest, err := createTopicConfigRequestFromData(ctx, &data, r)
 	properties := make(map[string]interface{})
-	for key, value := range data.Properties.Elems {
+	for key, value := range data.Properties.Elements() {
 		properties[key] = strings.Trim(value.String(), "\"")
 	}
 	topicConfigRequest.Properties = properties
@@ -182,7 +176,7 @@ func (r topicConfigResource) Create(ctx context.Context, req tfsdk.CreateResourc
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r topicConfigResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+func (r *topicConfigResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data topicConfigResourceData
 
 	diags := req.State.Get(ctx, &data)
@@ -192,10 +186,10 @@ func (r topicConfigResource) Read(ctx context.Context, req tfsdk.ReadResourceReq
 		return
 	}
 
-	topicConfig, err := r.provider.client.ReadTopicConfig(data.Id.Value)
+	topicConfig, err := r.provider.client.ReadTopicConfig(data.Id.ValueString())
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
-			tflog.Warn(ctx, fmt.Sprintf("Topic config not found. Id: %s", data.Id.Value))
+			tflog.Warn(ctx, fmt.Sprintf("Topic config not found. Id: %s", data.Id.ValueString()))
 			resp.State.RemoveResource(ctx)
 		} else {
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read topic config, got error: %s", err))
@@ -211,7 +205,7 @@ func (r topicConfigResource) Read(ctx context.Context, req tfsdk.ReadResourceReq
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r topicConfigResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r *topicConfigResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data topicConfigResourceData
 
 	diags := req.Plan.Get(ctx, &data)
@@ -221,20 +215,20 @@ func (r topicConfigResource) Update(ctx context.Context, req tfsdk.UpdateResourc
 		return
 	}
 
-	topic, err := r.provider.client.GetTopic(data.Topic.Value)
+	topic, err := r.provider.client.GetTopic(data.Topic.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("CREATE request error for topic config resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
 
-	if !data.KeySchemaVersion.Null {
+	if !data.KeySchemaVersion.IsNull() {
 		if topic.KeyType != "AVRO" {
 			resp.Diagnostics.AddError(
 				"CREATE request error for topic config resource",
-				fmt.Sprintf("Topic doesn't have an AVRO Key Schema. Please don't set the KeySchemaVersion: %s", data.KeySchemaVersion.Value))
+				fmt.Sprintf("Topic doesn't have an AVRO Key Schema. Please don't set the KeySchemaVersion: %s", data.KeySchemaVersion.ValueString()))
 			return
 		} else {
-			r.validateSchemaVersionsForUpdate(topic.Embedded.KeySchema.Uid, data.KeySchemaVersion.Value, resp)
+			r.validateSchemaVersionsForUpdate(topic.Embedded.KeySchema.Uid, data.KeySchemaVersion.ValueString(), resp)
 			if resp.Diagnostics.HasError() {
 				return
 			}
@@ -242,14 +236,14 @@ func (r topicConfigResource) Update(ctx context.Context, req tfsdk.UpdateResourc
 		}
 	}
 
-	if !data.ValueSchemaVersion.Null {
+	if !data.ValueSchemaVersion.IsNull() {
 		if topic.ValueType != "AVRO" {
 			resp.Diagnostics.AddError(
 				"CREATE request error for topic config resource",
 				fmt.Sprintf("Topic doesn't have an AVRO Value Schema. Please don't set the ValueSchemaVersion: %s", data.ValueSchemaVersion))
 			return
 		} else {
-			r.validateSchemaVersionsForUpdate(topic.Embedded.ValueSchema.Uid, data.ValueSchemaVersion.Value, resp)
+			r.validateSchemaVersionsForUpdate(topic.Embedded.ValueSchema.Uid, data.ValueSchemaVersion.ValueString(), resp)
 			if resp.Diagnostics.HasError() {
 				return
 			}
@@ -262,7 +256,7 @@ func (r topicConfigResource) Update(ctx context.Context, req tfsdk.UpdateResourc
 		return
 	}
 	var oldPropertiesState map[string]string
-	req.State.GetAttribute(ctx, tftypes.NewAttributePath().WithAttributeName("properties"), &oldPropertiesState)
+	req.State.GetAttribute(ctx, path.Root("properties"), &oldPropertiesState)
 
 	properties := make(map[string]interface{})
 
@@ -270,14 +264,14 @@ func (r topicConfigResource) Update(ctx context.Context, req tfsdk.UpdateResourc
 		properties[key] = nil
 	}
 
-	for key, value := range data.Properties.Elems {
+	for key, value := range data.Properties.Elements() {
 		properties[key] = strings.Trim(value.String(), "\"")
 	}
 
 	topicConfigRequest.Properties = properties
 
 	tflog.Info(ctx, fmt.Sprintf("Update topic config request %q", topicConfigRequest))
-	topicConfig, err := r.provider.client.UpdateTopicConfig(data.Id.Value, topicConfigRequest)
+	topicConfig, err := r.provider.client.UpdateTopicConfig(data.Id.ValueString(), topicConfigRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update topic config, got error: %s", err))
 		return
@@ -290,7 +284,7 @@ func (r topicConfigResource) Update(ctx context.Context, req tfsdk.UpdateResourc
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r topicConfigResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+func (r *topicConfigResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data topicConfigResourceData
 
 	diags := req.State.Get(ctx, &data)
@@ -300,18 +294,18 @@ func (r topicConfigResource) Delete(ctx context.Context, req tfsdk.DeleteResourc
 		return
 	}
 
-	err := r.provider.client.DeleteTopicConfig(data.Id.Value)
+	err := r.provider.client.DeleteTopicConfig(data.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete topic config, got error: %s", err))
 		return
 	}
 }
 
-func (r topicConfigResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
-	tfsdk.ResourceImportStatePassthroughID(ctx, tftypes.NewAttributePath().WithAttributeName("id"), req, resp)
+func (r *topicConfigResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-func createTopicConfigRequestFromData(ctx context.Context, data *topicConfigResourceData, r topicConfigResource) (webclient.TopicConfigRequest, error) {
+func createTopicConfigRequestFromData(ctx context.Context, data *topicConfigResourceData, r *topicConfigResource) (webclient.TopicConfigRequest, error) {
 	rawTopic, err := data.Topic.ToTerraformValue(ctx)
 	if err != nil {
 		return webclient.TopicConfigRequest{}, err
@@ -335,39 +329,43 @@ func createTopicConfigRequestFromData(ctx context.Context, data *topicConfigReso
 	environment = fmt.Sprintf("%s/environments/%v", r.provider.client.ApiURL, environment)
 
 	topicConfigRequest := webclient.TopicConfigRequest{
-		Partitions:    int(data.Partitions.Value),
-		RetentionTime: int(data.RetentionTime.Value),
+		Partitions:    int(data.Partitions.ValueInt64()),
+		RetentionTime: int(data.RetentionTime.ValueInt64()),
 		Stream:        topic,
 		Environment:   environment,
 	}
 
 	// optional fields
-	if !data.KeySchemaVersion.Null {
-		topicConfigRequest.KeySchemaVersion = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.KeySchemaVersion.Value)
+	if !data.KeySchemaVersion.IsNull() {
+		topicConfigRequest.KeySchemaVersion = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.KeySchemaVersion.ValueString())
 	}
-	if !data.ValueSchemaVersion.Null {
-		topicConfigRequest.ValueSchemaVersion = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.ValueSchemaVersion.Value)
+	if !data.ValueSchemaVersion.IsNull() {
+		topicConfigRequest.ValueSchemaVersion = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.ValueSchemaVersion.ValueString())
 	}
 
 	return topicConfigRequest, nil
 }
 
-func mapTopicConfigResponseToData(_ context.Context, data *topicConfigResourceData, topicConfig *webclient.TopicConfigResponse) {
-	data.Id = types.String{Value: topicConfig.Uid}
-	data.Partitions = types.Int64{Value: int64(topicConfig.Partitions)}
-	data.RetentionTime = types.Int64{Value: int64(topicConfig.RetentionTime)}
-	data.Topic = types.String{Value: topicConfig.Embedded.Stream.Uid}
-	data.Environment = types.String{Value: topicConfig.Embedded.Environment.Uid}
+func mapTopicConfigResponseToData(ctx context.Context, data *topicConfigResourceData, topicConfig *webclient.TopicConfigResponse) {
+	data.Id = types.StringValue(topicConfig.Uid)
+	data.Partitions = types.Int64Value(int64(topicConfig.Partitions))
+	data.RetentionTime = types.Int64Value(int64(topicConfig.RetentionTime))
+	data.Topic = types.StringValue(topicConfig.Embedded.Stream.Uid)
+	data.Environment = types.StringValue(topicConfig.Embedded.Environment.Uid)
 	properties := make(map[string]attr.Value)
 	for key, value := range topicConfig.Properties {
 		if value != nil {
-			properties[key] = types.String{Value: value.(string)}
+			properties[key] = types.StringValue(value.(string))
 		}
 	}
-	data.Properties = types.Map{ElemType: types.StringType, Elems: properties}
+	mapValue, diags := types.MapValue(types.StringType, properties)
+	if diags.HasError() {
+		tflog.Error(ctx, "Error creating members slice when mapping group response")
+	}
+	data.Properties = mapValue
 }
 
-func (r topicConfigResource) validateSchemaVersionsForUpdate(schemaUid string, schemaVersionUid string, resp *tfsdk.UpdateResourceResponse) {
+func (r *topicConfigResource) validateSchemaVersionsForUpdate(schemaUid string, schemaVersionUid string, resp *resource.UpdateResponse) {
 	keySchemaVersions, err := r.provider.client.GetSchemaVersionsBySchema(fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, schemaUid))
 	if err != nil {
 		resp.Diagnostics.AddError("CREATE request error for topic config resource",
@@ -390,7 +388,7 @@ func (r topicConfigResource) validateSchemaVersionsForUpdate(schemaUid string, s
 	}
 }
 
-func (r topicConfigResource) validateSchemaVersionsForCreate(schemaUid string, schemaVersionUid string, resp *tfsdk.CreateResourceResponse) {
+func (r *topicConfigResource) validateSchemaVersionsForCreate(schemaUid string, schemaVersionUid string, resp *resource.CreateResponse) {
 	schemaVersions, err := r.provider.client.GetSchemaVersionsBySchema(fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, schemaUid))
 	if err != nil {
 		resp.Diagnostics.AddError("CREATE request error for topic config resource",

@@ -15,7 +15,7 @@ User resource. Read more: https://docs.axual.io/axual/2024.1/self-service/user-g
 
 - `middle_name` (String) User's middle name
 - `phone_number` (String) User's phone number
-- `roles` (Attributes Set) Roles attributed to the user. All possible roles with descriptions are listed here: https://docs.axual.io/apidocs/mgmt-api/6.12.1/index.html#valid-roles (see [below for nested schema](#nestedatt--roles))
+- `roles` (Attributes Set) Roles attributed to the user. All possible roles with descriptions are listed here: https://docs.axual.io/apidocs/mgmt-api/8.5.0/index.html#valid-roles (see [below for nested schema](#nestedatt--roles))
 
 ### Read-Only
 

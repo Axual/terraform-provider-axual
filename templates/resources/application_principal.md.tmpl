@@ -27,6 +27,20 @@ resource "axual_application_principal" "dev_dashboard_in_dev_principal" {
   application = axual_application.dev_dashboard.id
   principal = file("certs/certificate.pem")
 }
+
+resource "axual_application_principal" "example_connector_application" {
+  environment = axual_environment.development.id
+  application = axual_application.dev_dashboard.id
+  principal = file("certs/certificate.pem")
+  private_key = file("certs/example-connector.key")
+}
+
+resource "axual_application_principal" "example_sasl_oathbearer_app_principal" {
+  environment = "c82f56c4f8064a729e393c04f031c7bf"
+  application = "2de280a38df6490ea4ccf2f9b6e649a4"
+  principal = "example-principal"
+  custom = true
+}
 ```
 
 For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.

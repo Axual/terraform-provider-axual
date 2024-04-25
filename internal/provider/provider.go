@@ -3,21 +3,21 @@ package provider
 import (
 	webclient "axual-webclient"
 	"context"
-	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/function"
+	"github.com/hashicorp/terraform-plugin-framework/provider"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"os"
 	"strings"
 
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces
-var _ tfsdk.Provider = &provider{}
+var _ provider.Provider = &AxualProvider{}
+var _ provider.ProviderWithFunctions = &AxualProvider{}
 
-// provider satisfies the tfsdk.Provider interface and usually is included
-// with all Resource and DataSource implementations.
-type provider struct {
+type AxualProvider struct {
 	// client can contain the upstream provider SDK or HTTP client used to
 	// communicate with the upstream service. Resource and DataSource
 	// implementations can then make calls using this client.
@@ -45,7 +45,7 @@ type providerData struct {
 	Scopes   types.List   `tfsdk:"scopes"`
 }
 
-func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderRequest, resp *tfsdk.ConfigureProviderResponse) {
+func (p *AxualProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
 	var data providerData
 	diags := req.Config.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
@@ -54,11 +54,11 @@ func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderReq
 		return
 	}
 
-	apiurl := data.ApiUrl.Value
-	realm := data.Realm.Value
+	apiurl := data.ApiUrl.ValueString()
+	realm := data.Realm.ValueString()
 
 	var username string
-	if data.Username.Null {
+	if data.Username.IsNull() {
 		username = os.Getenv("AXUAL_AUTH_USERNAME")
 		if username == "" {
 			resp.Diagnostics.AddError(
@@ -68,11 +68,11 @@ func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderReq
 			return
 		}
 	} else {
-		username = data.Username.Value
+		username = data.Username.ValueString()
 	}
 
 	var password string
-	if data.Password.Unknown {
+	if data.Password.IsUnknown() {
 		// Cannot connect to client with an unknown value
 		resp.Diagnostics.AddError(
 			"Unable to create client",
@@ -80,7 +80,7 @@ func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderReq
 		)
 		return
 	}
-	if data.Password.Null {
+	if data.Password.IsNull() {
 		password = os.Getenv("AXUAL_AUTH_PASSWORD")
 		if password == "" {
 			resp.Diagnostics.AddError(
@@ -90,19 +90,19 @@ func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderReq
 			return
 		}
 	} else {
-		password = data.Password.Value
+		password = data.Password.ValueString()
 	}
 
 	auth := webclient.AuthStruct{
 		Username: username,
 		Password: password,
-		Url:      data.AuthUrl.Value,
-		ClientId: data.ClientID.Value,
+		Url:      data.AuthUrl.ValueString(),
+		ClientId: data.ClientID.ValueString(),
 	}
 
-	if !data.Scopes.Null {
+	if !data.Scopes.IsNull() {
 		var scopes []string
-		for _, s := range data.Scopes.Elems {
+		for _, s := range data.Scopes.Elements() {
 			scopes = append(scopes, strings.Trim(s.String(), "\""))
 		}
 		auth.Scopes = scopes
@@ -120,110 +120,84 @@ func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderReq
 	p.client = c
 }
 
-func (p *provider) GetResources(_ context.Context) (map[string]tfsdk.ResourceType, diag.Diagnostics) {
-	return map[string]tfsdk.ResourceType{
-		"axual_user":                               userResourceType{},
-		"axual_group":                              groupResourceType{},
-		"axual_environment":                        environmentResourceType{},
-		"axual_topic":                              topicResourceType{},
-		"axual_topic_config":                       topicConfigResourceType{},
-		"axual_application":                        applicationResourceType{},
-		"axual_application_principal":              applicationPrincipalResourceType{},
-		"axual_application_deployment":             applicationDeploymentResourceType{},
-		"axual_application_access_grant":           applicationAccessGrantResourceType{},
-		"axual_application_access_grant_approval":  applicationAccessGrantApprovalResourceType{},
-		"axual_application_access_grant_rejection": applicationAccessGrantRejectionResourceType{},
-		"axual_schema_version":                     schemaVersionResourceType{},
-	}, nil
+func (p *AxualProvider) Resources(ctx context.Context) []func() resource.Resource {
+	return []func() resource.Resource{
+		func() resource.Resource { return NewApplicationResource(*p) },
+		func() resource.Resource { return NewUserResource(*p) },
+		func() resource.Resource { return NewGroupResource(*p) },
+		func() resource.Resource { return NewTopicResource(*p) },
+		func() resource.Resource { return NewTopicConfigResource(*p) },
+		func() resource.Resource { return NewEnvironmentResource(*p) },
+		func() resource.Resource { return NewApplicationPrincipalResource(*p) },
+		func() resource.Resource { return NewSchemaVersionResource(*p) },
+		func() resource.Resource { return NewApplicationAccessGrantResource(*p) },
+		func() resource.Resource { return NewApplicationAccessGrantRejectionResource(*p) },
+		func() resource.Resource { return NewApplicationAccessGrantApprovalResource(*p) },
+		func() resource.Resource { return NewApplicationDeploymentResource(*p) },
+	}
 }
 
-func (p *provider) GetDataSources(_ context.Context) (map[string]tfsdk.DataSourceType, diag.Diagnostics) {
-	return map[string]tfsdk.DataSourceType{
-		"axual_environment":              environmentDataSourceType{},
-		"axual_group":                    groupDataSourceType{},
-		"axual_topic":                    topicDataSourceType{},
-		"axual_application":              applicationDataSourceType{},
-		"axual_schema_version":           schemaVersionDataSourceType{},
-		"axual_application_access_grant": applicationAccessGrantDataSourceType{},
-	}, nil
+func (p *AxualProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
+	resp.TypeName = "axual"
+	resp.Version = p.version
 }
 
-func (p *provider) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
-		Attributes: map[string]tfsdk.Attribute{
-			"apiurl": {
+func (p *AxualProvider) Functions(ctx context.Context) []func() function.Function {
+	return []func() function.Function{}
+}
+
+func (p *AxualProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
+	return []func() datasource.DataSource{
+		func() datasource.DataSource { return NewApplicationDataSource(*p) },
+		func() datasource.DataSource { return NewGroupDataSource(*p) },
+		func() datasource.DataSource { return NewTopicDataSource(*p) },
+		func() datasource.DataSource { return NewEnvironmentDataSource(*p) },
+		func() datasource.DataSource { return NewSchemaVersionDataSource(*p) },
+		func() datasource.DataSource { return NewApplicationAccessGrantDataSource(*p) },
+	}
+}
+
+func (p *AxualProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"apiurl": schema.StringAttribute{
 				MarkdownDescription: "URL that will be used by the client for all resource requests",
 				Required:            true,
-				Type:                types.StringType,
 			},
-			"realm": {
+			"realm": schema.StringAttribute{
 				MarkdownDescription: "Axual realm used for the requests",
 				Required:            true,
-				Type:                types.StringType,
 			},
-			"username": {
+			"username": schema.StringAttribute{
 				MarkdownDescription: "Username for all requests. Will be used to acquire a token",
 				Optional:            true,
-				Type:                types.StringType,
 			},
-			"password": {
+			"password": schema.StringAttribute{
 				MarkdownDescription: "Password belonging to the user",
 				Optional:            true,
 				Sensitive:           true,
-				Type:                types.StringType,
 			},
-			"clientid": {
+			"clientid": schema.StringAttribute{
 				MarkdownDescription: "Client ID to be used for oauth",
 				Required:            true,
-				Type:                types.StringType,
 			},
-			"authurl": {
+			"authurl": schema.StringAttribute{
 				MarkdownDescription: "Token url",
 				Required:            true,
-				Type:                types.StringType,
 			},
-			"scopes": {
+			"scopes": schema.ListAttribute{
 				MarkdownDescription: "OAuth authorization server scopes",
 				Optional:            true,
-				Type:                types.ListType{ElemType: types.StringType},
+				ElementType:         types.StringType,
 			},
 		},
-	}, nil
+	}
 }
 
-func New(version string) func() tfsdk.Provider {
-	return func() tfsdk.Provider {
-		return &provider{
+func New(version string) func() provider.Provider {
+	return func() provider.Provider {
+		return &AxualProvider{
 			version: version,
 		}
 	}
-}
-
-// convertProviderType is a helper function for NewResource and NewDataSource
-// implementations to associate the concrete provider type. Alternatively,
-// this helper can be skipped and the provider type can be directly type
-// asserted (e.g. provider: in.(*provider)), however using this can prevent
-// potential panics.
-func convertProviderType(in tfsdk.Provider) (provider, diag.Diagnostics) {
-	var diags diag.Diagnostics
-
-	p, ok := in.(*provider)
-
-	if !ok {
-		diags.AddError(
-			"Unexpected Provider Instance Type",
-			fmt.Sprintf("While creating the data source or resource, an unexpected provider type (%T) was received. This is always a bug in the provider code and should be reported to the provider developers.", p),
-		)
-		return provider{}, diags
-	}
-
-	if p == nil {
-		diags.AddError(
-			"Unexpected Provider Instance Type",
-			"While creating the data source or resource, an unexpected empty provider instance was received. This is always a bug in the provider code and should be reported to the provider developers.",
-		)
-		return provider{}, diags
-	}
-
-	return *p, diags
 }

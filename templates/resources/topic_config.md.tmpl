@@ -14,6 +14,16 @@ resource "axual_topic_config" "logs_in_dev" {
   environment = axual_environment.development.id
   properties = {"segment.ms"="600012", "retention.bytes"="1"}
 }
+
+resource "axual_topic_config" "example-with-schema-version" {
+  partitions = 1
+  retention_time = 864000
+  topic = axual_topic.logs_with_avro.id
+  environment = axual_environment.development.id
+  key_schema_version = axual_schema_version.axual_gitops_test_schema_version2.id
+  value_schema_version = axual_schema_version.axual_gitops_test_schema_version1.id
+  properties = {"segment.ms"="600012", "retention.bytes"="1"}
+}
 ```
 
 For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.

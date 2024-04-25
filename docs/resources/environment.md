@@ -10,20 +10,20 @@ Environments are used typically to support the application lifecycle, as it is m
 
 ### Required
 
-- `authorization_issuer` (String) This indicates if any deployments on this environment should be AUTO approved or requires approval from Stream Owner. For private environments, only AUTO can be selected.
-- `color` (String) The color used display the environment
+- `authorization_issuer` (String) Allowed values: `Stream owner` and `Auto`. This indicates if any deployments on this environment should be AUTO approved or requires approval from Stream Owner. For private environments, only AUTO can be selected.
+- `color` (String) The color used display the environment. Only these colors are allowed: `#80affe`, `#4686f0`, `#3347e1`, `#1a2dbc`, `#fee492`, `#fbd04e`, `#c2a7f9`, `#8b58f3`,`#e9b105`, `#d19e02`, `#6bdde0`, `#21ccd2`, `#19b9be`, `#069499`, `#532cd`, `#3b0d98`
 - `instance` (String) The id of the instance where this environment should be deployed.
-- `name` (String) A suitable name identifying this environment. This must be in the format string-string (Alphabetical characters, digits and the following characters are allowed: `- `,` _` ,` .`)
+- `name` (String) A suitable name identifying this environment. Alphabetical characters, digits and the following characters are allowed: `- `,` _` ,` .`, but not as the first character.)
 - `owners` (String) The id of the team owning this environment.
-- `short_name` (String) A short name that will uniquely identify this environment. The short name should be between 3 and 20 characters. no special characters are allowed.
-- `visibility` (String) Thi Private environments are only visible to the owning group (your team). They are not included in dashboard visualisations.
+- `short_name` (String) A short name that will uniquely identify this environment. The short name should be between 3 and 20 characters. Only alphanumeric characters are allowed.
+- `visibility` (String) Can be `Public` or `Private`. The Private environments are only visible to the owning group (your team). They are not included in dashboard visualisations.
 
 ### Optional
 
-- `description` (String) A text describing the purpose of the environment.
-- `partitions` (Number) Defines the number of partitions configured for every topic of this tenant. This is an optional field. If not specified, default value is 12
+- `description` (String) A text describing the purpose of the environment. Description must be between 1 and 200 characters.
+- `partitions` (Number) Defines the number of partitions configured for every topic of this tenant. If not specified, default value is 12. Value must be between 1 and 120000
 - `properties` (Map of String) Environment-wide properties for all topics and applications.
-- `retention_time` (Number) The time in milliseconds after which the messages can be deleted from all topics. This is an optional field. If not specified, default value is 7 days (604800000).
+- `retention_time` (Number) The time in milliseconds after which the messages can be deleted from all topics. If not specified, default value is 7 days (604800000). Value must be between 1000 and 160704000000 (ms).
 
 ### Read-Only
 

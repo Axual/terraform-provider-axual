@@ -9,8 +9,8 @@ Topic Config resource. Once the Topic has been created, the next step to actuall
 
 - `environment` (String) The environment this topic configuration is associated with
 - `partitions` (Number) The number of partitions define how many consumer instances can be started in parallel on this topic. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#partitions-number
-- `properties` (Map of String) You can define Kafka properties for your topic here. segment.ms property needs to always be included. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#configuring-a-topic-for-an-environment
-- `retention_time` (Number) Determine how long the messages should be available on a topic. There should be an agreed value most likely discussed in Intake session with the team supporting Axual Platform. In most cases, it is 7 days. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#retention-time
+- `properties` (Map of String) You can define Kafka properties for your topic here. segment.ms property needs to always be included. All options are: `segment.ms`, `retention.bytes`, `min.compaction.lag.ms`, `max.compaction.lag.ms`, `message.timestamp.difference.max.ms`, `message.timestamp.type` Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#configuring-a-topic-for-an-environment
+- `retention_time` (Number) Determine how long the messages should be available on a topic. There should be an agreed value most likely discussed in Intake session with the team supporting Axual Platform. In most cases, it is 7 days. Minimum value is 1000 (ms). Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#retention-time
 - `topic` (String) The Topic this topic configuration is associated with
 
 ### Optional
@@ -30,6 +30,16 @@ resource "axual_topic_config" "logs_in_dev" {
   retention_time = 864000
   topic = axual_topic.logs.id
   environment = axual_environment.development.id
+  properties = {"segment.ms"="600012", "retention.bytes"="1"}
+}
+
+resource "axual_topic_config" "example-with-schema-version" {
+  partitions = 1
+  retention_time = 864000
+  topic = axual_topic.logs_with_avro.id
+  environment = axual_environment.development.id
+  key_schema_version = axual_schema_version.axual_gitops_test_schema_version2.id
+  value_schema_version = axual_schema_version.axual_gitops_test_schema_version1.id
   properties = {"segment.ms"="600012", "retention.bytes"="1"}
 }
 ```

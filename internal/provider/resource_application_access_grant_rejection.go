@@ -3,52 +3,26 @@ package provider
 import (
 	"context"
 	"fmt"
-
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-var _ tfsdk.ResourceType = applicationAccessGrantRejectionResourceType{}
-var _ tfsdk.Resource = applicationAccessGrantRejectionResource{}
-var _ tfsdk.ResourceWithImportState = applicationAccessGrantRejectionResource{}
+var _ resource.Resource = &applicationAccessGrantRejectionResource{}
+var _ resource.ResourceWithImportState = &applicationAccessGrantRejectionResource{}
 
-type applicationAccessGrantRejectionResourceType struct{}
-
-func (t applicationAccessGrantRejectionResourceType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
-
-	return tfsdk.Schema{
-		MarkdownDescription: `Application Access Grant Rejection: Reject a request to access a topic`,
-		Attributes: map[string]tfsdk.Attribute{
-			"application_access_grant": {
-				MarkdownDescription: "Application Access Grant Unique Identifier.",
-				Required:            true,
-				Type:                types.StringType,
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.UseStateForUnknown(),
-				},
-			},
-			"reason": {
-				MarkdownDescription: "Reason for denying approval.",
-				Optional:            true,
-				Computed:            true,
-				Type:                types.StringType,
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.UseStateForUnknown(),
-				},
-			},
-		},
-	}, nil
+func NewApplicationAccessGrantRejectionResource(provider AxualProvider) resource.Resource {
+	return &applicationAccessGrantRejectionResource{
+		provider: provider,
+	}
 }
 
-func (t applicationAccessGrantRejectionResourceType) NewResource(_ context.Context, in tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
-	provider, diags := convertProviderType(in)
-
-	return applicationAccessGrantRejectionResource{
-		provider: provider,
-	}, diags
+type applicationAccessGrantRejectionResource struct {
+	provider AxualProvider
 }
 
 type GrantRejectionData struct {
@@ -56,11 +30,30 @@ type GrantRejectionData struct {
 	Reason                 types.String `tfsdk:"reason"`
 }
 
-type applicationAccessGrantRejectionResource struct {
-	provider provider
+func (r *applicationAccessGrantRejectionResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_application_access_grant_rejection"
 }
 
-func (r applicationAccessGrantRejectionResource) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
+func (r *applicationAccessGrantRejectionResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		MarkdownDescription: `Application Access Grant Rejection: Reject a request to access a topic`,
+		Attributes: map[string]schema.Attribute{
+			"application_access_grant": schema.StringAttribute{
+				MarkdownDescription: "Application Access Grant Unique Identifier.",
+				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"reason": schema.StringAttribute{
+				MarkdownDescription: "Reason for denying approval.",
+				Optional:            true,
+			},
+		},
+	}
+}
+
+func (r *applicationAccessGrantRejectionResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data GrantRejectionData
 
 	diags := req.Config.Get(ctx, &data)
@@ -70,7 +63,7 @@ func (r applicationAccessGrantRejectionResource) Create(ctx context.Context, req
 		return
 	}
 
-	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.ApplicationAccessGrant.Value)
+	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.ApplicationAccessGrant.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
 		return
@@ -78,7 +71,7 @@ func (r applicationAccessGrantRejectionResource) Create(ctx context.Context, req
 
 	if applicationAccessGrant.Links.Deny.Href != "" {
 
-		err := r.provider.client.RevokeOrDenyGrant(data.ApplicationAccessGrant.Value, data.Reason.Value)
+		err := r.provider.client.RevokeOrDenyGrant(data.ApplicationAccessGrant.ValueString(), data.Reason.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError("Failed to reject grant", fmt.Sprintf("Error message: %s", err.Error()))
 			return
@@ -102,7 +95,7 @@ func (r applicationAccessGrantRejectionResource) Create(ctx context.Context, req
 
 }
 
-func (r applicationAccessGrantRejectionResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+func (r *applicationAccessGrantRejectionResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data GrantRejectionData
 
 	diags := req.State.Get(ctx, &data)
@@ -112,7 +105,7 @@ func (r applicationAccessGrantRejectionResource) Read(ctx context.Context, req t
 		return
 	}
 
-	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.ApplicationAccessGrant.Value)
+	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.ApplicationAccessGrant.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
 		return
@@ -128,17 +121,17 @@ func (r applicationAccessGrantRejectionResource) Read(ctx context.Context, req t
 
 }
 
-func (r applicationAccessGrantRejectionResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r *applicationAccessGrantRejectionResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	resp.Diagnostics.AddError(
 		"Application Access Grant Rejection cannot be Edited",
 		"Please delete the Application Access Grant Approval to revoke Approval",
 	)
 }
 
-func (r applicationAccessGrantRejectionResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+func (r *applicationAccessGrantRejectionResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	// We should be able to delete a rejection in whatever state it's in.
 }
 
-func (r applicationAccessGrantRejectionResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
-	tfsdk.ResourceImportStatePassthroughID(ctx, tftypes.NewAttributePath().WithAttributeName("application_access_grant"), req, resp)
+func (r *applicationAccessGrantRejectionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
