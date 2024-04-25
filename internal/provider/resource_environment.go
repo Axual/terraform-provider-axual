@@ -42,7 +42,7 @@ type environmentResourceData struct {
 	Visibility          types.String `tfsdk:"visibility"`
 	Owners              types.String `tfsdk:"owners"`
 	RetentionTime       types.Int64  `tfsdk:"retention_time"`
-	Instnce             types.String `tfsdk:"instance"`
+	Instance            types.String `tfsdk:"instance"`
 	Id                  types.String `tfsdk:"id"`
 	Partitions          types.Int64  `tfsdk:"partitions"`
 	Properties          types.Map    `tfsdk:"properties"`
@@ -285,7 +285,7 @@ func createEnvironmentRequestFromData(ctx context.Context, data *environmentReso
 		return webclient.EnvironmentRequest{}, err
 	}
 	owners = fmt.Sprintf("%s/groups/%v", r.provider.client.ApiURL, owners)
-	instance := fmt.Sprintf("%s/instances/%v", r.provider.client.ApiURL, data.Instnce.ValueString())
+	instance := fmt.Sprintf("%s/instances/%v", r.provider.client.ApiURL, data.Instance.ValueString())
 
 	environmentRequest := webclient.EnvironmentRequest{
 		Name:                data.Name.ValueString(),
