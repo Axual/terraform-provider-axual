@@ -38,8 +38,7 @@ First, make sure to define and configure the provider:
 terraform {
   required_providers {
     axual = {
-      source  = "Axual/axual"
-      version = "2.3.0"
+      source  = "axual.com/hackz/axual"
     }
   }
 }
