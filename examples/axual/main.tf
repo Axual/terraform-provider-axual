@@ -195,6 +195,20 @@ resource "axual_environment" "production" {
   }
  }
 
+  resource "axual_environment" "test" {
+    name = "test"
+    short_name = "t"
+    description = "Testing environment with single character shortname"
+    color = "#3b0d98"
+    visibility = "Public"
+    authorization_issuer = "Stream owner"
+    instance = "51be2a6a5eee481198787dc346ab6608"
+    owners = axual_group.tenant_admin_group.id
+    properties = {
+      "segment.ms"="60002"
+    }
+}
+
 #
 # An APPLICATION is anything that produces or consumes data from a topic.
 # In Axual Platform we distinguish CUSTOM and CONNECTOR type applications.

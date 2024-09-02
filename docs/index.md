@@ -260,6 +260,20 @@ resource "axual_environment" "production" {
   }
 }
 
+  resource "axual_environment" "test" {
+    name = "test"
+    short_name = "t"
+    description = "Testing environment with single character shortname"
+    color = "#3b0d98"
+    visibility = "Public"
+    authorization_issuer = "Stream owner"
+    instance = "51be2a6a5eee481198787dc346ab6608"
+    owners = axual_group.tenant_admin_group.id
+    properties = {
+      "segment.ms"="60002"
+    }
+}
+
 #
 # An APPLICATION is anything that produces or consumes data from a topic.
 # In Axual Platform we distinguish CUSTOM and CONNECTOR type applications.
@@ -726,7 +740,7 @@ resource "axual_application_deployment" "connector_axual_application_deployment"
 
 
 ## Compatibility
-- This terraform provider requires Management API 8.5.0+ due to some incompatible return types bugs fixed and replacement of depricated endpoint
+ - This terraform provider requires Management API 8.5.0+ due to some incompatible return types bugs fixed and replacement of deprecated endpoint
 
 
 ## Output
