@@ -71,7 +71,7 @@ func (r *environmentResource) Schema(ctx context.Context, req resource.SchemaReq
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(1, 20),
-					stringvalidator.RegexMatches(regexp.MustCompile((`(?i)^[a-z][a-z0-9]*$$`)), "can only contain letters, numbers"),
+					stringvalidator.RegexMatches(regexp.MustCompile((`(?i)^[a-z][a-z0-9]*$`)), "can only contain letters, numbers"),
 				},
 			},
 			"description": schema.StringAttribute{
