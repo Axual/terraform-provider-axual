@@ -27,8 +27,8 @@ Axual Provider allows using Axual's Self-Service for Apache Kafka functionality 
 # Getting started
 ## Required User Roles
 - The Terraform User who is logged in(Default username kubernetes@axual.com), needs to have both of the following user roles:
-  - **APPLICATION_ADMIN** - for creating application principal resource(axual_application_principal) and for create access request()
-  - **STREAM_ADMIN** - for revoking access request
+	- **APPLICATION_ADMIN** - for creating application principal resource(axual_application_principal) and for create access request()
+	- **STREAM_ADMIN** - for revoking access request
 - Alternatively, they can be the owner of both the application and the topic, which entails being a user in the same group as the owner group of the application and topic.
 ## Example Usage
 
@@ -258,7 +258,7 @@ resource "axual_environment" "production" {
   properties = {
     "segment.ms"="60002"
   }
- }
+}
 
 #
 # An APPLICATION is anything that produces or consumes data from a topic.
@@ -726,7 +726,7 @@ resource "axual_application_deployment" "connector_axual_application_deployment"
 
 
 ## Compatibility
- - This terraform provider requires Management API 8.5.0+ due to some incompatible return types bugs fixed and replacement of depricated endpoint
+- This terraform provider requires Management API 8.5.0+ due to some incompatible return types bugs fixed and replacement of depricated endpoint
 
 
 ## Output
