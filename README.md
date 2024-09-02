@@ -1,7 +1,7 @@
 ## Terraform Provider development
 
-Create the file `~/.terraformrc` and add the following to make the provider local installation work,
-put the correct path, for the record `~/go/bin` did not seem to work... 
+Create the file `~/.terraformrc` and add the following to make the provider local installation work:
+This points to the locally compiled Terraform Provider on your computer.
 
 Replace `<user>` with the correct username.
 
@@ -18,9 +18,6 @@ provider_installation {
   direct {}
 }
 ```
-
-Make sure `GO111MODULE` is set to `on` by running the command `go env GO111MODULE`. 
-If it is not on, change it with the command `go env -w GO111MODULE="on"`.
 
 Go to `terraform-provider-axual` directory and run `go mod tidy`. 
 This will download the libraries.

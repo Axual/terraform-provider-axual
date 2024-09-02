@@ -58,6 +58,34 @@ type ApplicationResponse struct {
 			} `json:"members"`
 		} `json:"_links"`
 	} `json:"owners"`
+	Embedded struct {
+		Viewers []struct {
+			Name         string      `json:"name"`
+			EmailAddress interface{} `json:"emailAddress"`
+			PhoneNumber  interface{} `json:"phoneNumber"`
+			Uid          string      `json:"uid"`
+			CreatedAt    string      `json:"created_at"`
+			CreatedBy    string      `json:"created_by"`
+			ModifiedAt   string      `json:"modified_at"`
+			ModifiedBy   string      `json:"modified_by"`
+			Links        struct {
+				Managers struct {
+					Href      string `json:"href"`
+					Templated bool   `json:"templated"`
+				} `json:"managers"`
+				Members []struct {
+					Href      string `json:"href"`
+					Templated bool   `json:"templated"`
+					Title     string `json:"title"`
+				} `json:"members"`
+				Self struct {
+					Href      string `json:"href"`
+					Templated bool   `json:"templated"`
+					Title     string `json:"title"`
+				} `json:"self"`
+			} `json:"_links"`
+		} `json:"viewers,omitempty"`
+	} `json:"_embedded"`
 	AllApplicationIds []string `json:"allApplicationIds"`
 	Uid               string   `json:"uid"`
 	CreatedAt         string   `json:"created_at"`
@@ -75,6 +103,11 @@ type ApplicationResponse struct {
 			Templated bool   `json:"templated"`
 			Title     string `json:"title"`
 		} `json:"application"`
+		Viewers struct {
+			Href      string `json:"href"`
+			Templated bool   `json:"templated"`
+			Title     string `json:"title"`
+		} `json:"viewers"`
 		Edit struct {
 			Href  string `json:"href"`
 			Title string `json:"title"`
@@ -93,15 +126,16 @@ type ApplicationResponse struct {
 }
 
 type ApplicationRequest struct {
-	ApplicationType  string `json:"applicationType"`
-	ApplicationId    string `json:"applicationId"`
-	Name             string `json:"name"`
-	ShortName        string `json:"shortName"`
-	Owners           string `json:"owners"`
-	Type             string `json:"type"`
-	ApplicationClass string `json:"applicationClass,omitempty"`
-	Visibility       string `json:"visibility"`
-	Description      string `json:"description"`
+	ApplicationType  string   `json:"applicationType"`
+	ApplicationId    string   `json:"applicationId"`
+	Name             string   `json:"name"`
+	ShortName        string   `json:"shortName"`
+	Owners           string   `json:"owners"`
+	Viewers          []string `json:"viewers"`
+	Type             string   `json:"type"`
+	ApplicationClass string   `json:"applicationClass,omitempty"`
+	Visibility       string   `json:"visibility"`
+	Description      string   `json:"description"`
 }
 
 type ApplicationsByAttributesResponse struct {

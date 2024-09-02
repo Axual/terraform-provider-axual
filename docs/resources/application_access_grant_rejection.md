@@ -5,7 +5,7 @@ Application Access Grant Rejection: Reject a request to access a topic
 ## Note
 - Rejection cannot be edited
 - Only Pending grants can be rejected
-- Read more: https://docs.axual.io/axual/2024.1/self-service/topic-authorizations.html#contents
+- Read more: https://docs.axual.io/axual/2024.2/self-service/topic-authorizations.html#contents
 
 ## Usage
 - To reject/deny a grant, create an application_access_grant_rejection with the application_access_grant id.

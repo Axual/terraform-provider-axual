@@ -131,6 +131,32 @@ type EnvironmentResponse struct {
 				} `json:"members"`
 			} `json:"_links"`
 		} `json:"owners"`
+		Viewers []struct {
+			Name         string      `json:"name"`
+			EmailAddress interface{} `json:"emailAddress"`
+			PhoneNumber  interface{} `json:"phoneNumber"`
+			Uid          string      `json:"uid"`
+			CreatedAt    string      `json:"created_at"`
+			CreatedBy    string      `json:"created_by"`
+			ModifiedAt   string      `json:"modified_at"`
+			ModifiedBy   string      `json:"modified_by"`
+			Links        struct {
+				Managers struct {
+					Href      string `json:"href"`
+					Templated bool   `json:"templated"`
+				} `json:"managers"`
+				Members []struct {
+					Href      string `json:"href"`
+					Templated bool   `json:"templated"`
+					Title     string `json:"title"`
+				} `json:"members"`
+				Self struct {
+					Href      string `json:"href"`
+					Templated bool   `json:"templated"`
+					Title     string `json:"title"`
+				} `json:"self"`
+			} `json:"_links"`
+		} `json:"viewers,omitempty"`
 	} `json:"_embedded"`
 	Links struct {
 		Self struct {
@@ -163,6 +189,11 @@ type EnvironmentResponse struct {
 			Templated bool   `json:"templated"`
 			Title     string `json:"title"`
 		} `json:"owners"`
+		Viewers struct {
+			Href      string `json:"href"`
+			Templated bool   `json:"templated"`
+			Title     string `json:"title"`
+		} `json:"viewers"`
 	} `json:"_links"`
 }
 
@@ -177,5 +208,6 @@ type EnvironmentRequest struct {
 	Visibility          string                 `json:"visibility,omitempty"`
 	Instance            string                 `json:"instance,omitempty"`
 	Owners              string                 `json:"owners,omitempty"`
+	Viewers             []string               `json:"viewers"`
 	Properties          map[string]interface{} `json:"properties,omitempty"`
 }

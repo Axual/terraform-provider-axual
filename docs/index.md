@@ -9,7 +9,7 @@ Axual Provider allows using Axual's Self-Service for Apache Kafka functionality 
 	- How long until the data is removed from the topic
 	- Which applications are the producers and the consumers of this data
 - Self Service provides control of your topic properties for individual environments and get an overview of the streaming landscape inside your organization.
-	- For details, please refer to Axual Self-Service reference documentation: https://docs.axual.io/axual/2024.1/self-service/index.html
+	- For details, please refer to Axual Self-Service reference documentation: https://docs.axual.io/axual/2024.2/self-service/index.html
 
 ## Features
 
@@ -67,7 +67,7 @@ Next, take a look at the *full* example which shows you the capabilities of the 
 # TERRAFORM PROVIDER EXAMPLE
 #
 # This TerraForm file shows the capabilities of the TerraForm provider for Axual
-# It is tested on the latest version of Axual Platform (2024.1)
+# It is tested on the latest version of Axual Platform (2024.2)
 #
 # NOTE: execute ./init.sh to import the `tenant_admin` and `tenant_admin_group` resources which are created as part of a fresh installation
 #
@@ -178,6 +178,9 @@ resource "axual_group" "team-bonanza" {
   members     	= [
 	axual_user.dwight.id
   ]
+  managers     	= [
+    axual_user.dwight.id
+  ]
 }
 
 resource "axual_group" "team-support" {
@@ -186,6 +189,9 @@ resource "axual_group" "team-support" {
   email_address = "team.support@example.com"
   members       = [
         axual_user.green.id
+  ]
+  managers       = [
+    axual_user.green.id
   ]
 }
 
@@ -196,6 +202,9 @@ resource "axual_group" "team-support" {
 resource "axual_group" "tenant_admin_group" {
  name          = "Tenant Admin Group"
  members       = [
+   axual_user.tenant_admin.id,
+ ]
+ managers       = [
    axual_user.tenant_admin.id,
  ]
 }
@@ -222,6 +231,7 @@ resource "axual_environment" "team-awesome" {
   authorization_issuer = "Auto"
   instance = "51be2a6a5eee481198787dc346ab6608"
   owners = axual_group.team-awesome.id
+  viewers = [axual_group.team-support.id]
 }
 
 resource "axual_environment" "development" {
@@ -275,6 +285,7 @@ resource "axual_application" "dev_dashboard" {
   short_name = "dev_dash"
   application_id = "io.axual.devs.dashboard"
   owners = axual_group.team-awesome.id
+  viewers = [axual_group.team-support.id]
   type = "Java"
   visibility = "Public"
   description = "Dashboard with crucial information for Developers"
@@ -405,6 +416,7 @@ resource "axual_topic" "logs" {
   key_type = "String"
   value_type = "String"
   owners = axual_group.team-bonanza.id
+  viewers = [axual_group.team-support.id]
   retention_policy = "delete"
   properties = { }
   description = "Logs from all applications"
@@ -726,7 +738,7 @@ resource "axual_application_deployment" "connector_axual_application_deployment"
 
 
 ## Compatibility
- - This terraform provider requires Management API 8.5.0+ due to some incompatible return types bugs fixed and replacement of depricated endpoint
+ - This Axual Terraform provider version (2.4.0) requires Management API 8.6.0+ because that's when these features were added: viewer groups (for Environment, Application and Topic) and Group Managers.
 
 
 ## Output

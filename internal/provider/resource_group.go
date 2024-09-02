@@ -2,6 +2,7 @@ package provider
 
 import (
 	webclient "axual-webclient"
+	custom_validator "axual.com/terraform-provider-axual/internal/custom-validator"
 	"context"
 	"errors"
 	"fmt"
@@ -38,6 +39,7 @@ type groupResourceData struct {
 	EmailAddress types.String `tfsdk:"email_address"`
 	PhoneNumber  types.String `tfsdk:"phone_number"`
 	Members      types.Set    `tfsdk:"members"`
+	Managers     types.Set    `tfsdk:"managers"`
 	Id           types.String `tfsdk:"id"`
 }
 
@@ -48,7 +50,7 @@ func (r *groupResource) Metadata(ctx context.Context, req resource.MetadataReque
 func (r *groupResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Group resource. Read more: https://docs.axual.io/axual/2024.1/self-service/user-group-management.html#groups",
+		MarkdownDescription: "Group resource. Read more: https://docs.axual.io/axual/2024.2/self-service/user-group-management.html#groups",
 
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
@@ -74,6 +76,14 @@ func (r *groupResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				MarkdownDescription: "Group's members",
 				Optional:            true,
 				ElementType:         types.StringType,
+			},
+			"managers": schema.SetAttribute{
+				MarkdownDescription: "A Group Manager can edit this group, including adding or removing users and other group managers. Read more: https://docs.axual.io/axual/2024.2/self-service/user-group-management.html#making-a-group-member-manager-of-the-group",
+				Optional:            true,
+				ElementType:         types.StringType,
+				Validators: []validator.Set{
+					custom_validator.NewNonEmptySetValidator(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -210,6 +220,19 @@ func mapGroupResponseToData(ctx context.Context, data *groupResourceData, group 
 
 	data.Members = setValue
 
+	if group.Embedded.Managers == nil || len(group.Embedded.Managers) == 0 {
+		data.Managers = types.SetNull(types.StringType)
+	} else {
+		managerSet := make([]attr.Value, len(group.Embedded.Managers))
+		for i, manager := range group.Embedded.Managers {
+			managerSet[i] = types.StringValue(manager.Uid)
+		}
+		data.Managers, diags = types.SetValue(types.StringType, managerSet)
+		if diags.HasError() {
+			tflog.Error(ctx, "Error creating managers set")
+		}
+	}
+
 	// optional fields
 	if nil == group.EmailAddress {
 		data.EmailAddress = types.StringNull()
@@ -245,9 +268,24 @@ func createGroupRequestFromData(ctx context.Context, data *groupResourceData, ap
 	tflog.Info(ctx, fmt.Sprintf("Desired members list size %d", len(data.Members.Elements())))
 	tflog.Info(ctx, fmt.Sprintf("Creating new members list of size %d", len(members)))
 
+	managers := []string{}
+	if !data.Managers.IsNull() {
+		var managerUIDs []string
+		diags := data.Managers.ElementsAs(ctx, &managerUIDs, false)
+		if diags.HasError() {
+			return webclient.GroupRequest{}, fmt.Errorf("failed to extract managers: %v", diags)
+		}
+
+		for _, manager := range managerUIDs {
+			fullURL := fmt.Sprintf("%s/groups/%v", apiUrl, manager)
+			managers = append(managers, fullURL)
+		}
+	}
+
 	groupRequest := webclient.GroupRequest{
-		Name:    data.Name.ValueString(),
-		Members: members,
+		Name:     data.Name.ValueString(),
+		Members:  members,
+		Managers: managers,
 	}
 
 	// optional fields

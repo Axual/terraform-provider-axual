@@ -2,7 +2,7 @@
 # TERRAFORM PROVIDER EXAMPLE
 #
 # This TerraForm file shows the capabilities of the TerraForm provider for Axual
-# It is tested on the latest version of Axual Platform (2024.1)
+# It is tested on the latest version of Axual Platform (2024.2)
 #
 # NOTE: execute ./init.sh to import the `tenant_admin` and `tenant_admin_group` resources which are created as part of a fresh installation
 #
@@ -113,6 +113,9 @@ resource "axual_group" "team-bonanza" {
   members     	= [
 	axual_user.dwight.id
   ]
+  managers     	= [
+    axual_user.dwight.id
+  ]
 }
 
 resource "axual_group" "team-support" {
@@ -121,6 +124,9 @@ resource "axual_group" "team-support" {
   email_address = "team.support@example.com"
   members       = [
         axual_user.green.id
+  ]
+  managers       = [
+    axual_user.green.id
   ]
 }
 
@@ -131,6 +137,9 @@ resource "axual_group" "team-support" {
 resource "axual_group" "tenant_admin_group" {
  name          = "Tenant Admin Group"
  members       = [
+   axual_user.tenant_admin.id,
+ ]
+ managers       = [
    axual_user.tenant_admin.id,
  ]
 }
@@ -157,6 +166,7 @@ resource "axual_environment" "team-awesome" {
   authorization_issuer = "Auto"
   instance = "51be2a6a5eee481198787dc346ab6608"
   owners = axual_group.team-awesome.id
+  viewers = [axual_group.team-support.id]
 }
 
 resource "axual_environment" "development" {
@@ -210,6 +220,7 @@ resource "axual_application" "dev_dashboard" {
   short_name = "dev_dash"
   application_id = "io.axual.devs.dashboard"
   owners = axual_group.team-awesome.id
+  viewers = [axual_group.team-support.id]
   type = "Java"
   visibility = "Public"
   description = "Dashboard with crucial information for Developers"
@@ -340,6 +351,7 @@ resource "axual_topic" "logs" {
   key_type = "String"
   value_type = "String"
   owners = axual_group.team-bonanza.id
+  viewers = [axual_group.team-support.id]
   retention_policy = "delete"
   properties = { }
   description = "Logs from all applications"
