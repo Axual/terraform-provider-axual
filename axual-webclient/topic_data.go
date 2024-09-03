@@ -43,6 +43,32 @@ type TopicResponse struct {
 				} `json:"self"`
 			} `json:"_links"`
 		} `json:"owners"`
+		Viewers []struct {
+			Name         string      `json:"name"`
+			EmailAddress interface{} `json:"emailAddress"`
+			PhoneNumber  interface{} `json:"phoneNumber"`
+			Uid          string      `json:"uid"`
+			CreatedAt    string      `json:"created_at"`
+			CreatedBy    string      `json:"created_by"`
+			ModifiedAt   string      `json:"modified_at"`
+			ModifiedBy   string      `json:"modified_by"`
+			Links        struct {
+				Managers struct {
+					Href      string `json:"href"`
+					Templated bool   `json:"templated"`
+				} `json:"managers"`
+				Members []struct {
+					Href      string `json:"href"`
+					Templated bool   `json:"templated"`
+					Title     string `json:"title"`
+				} `json:"members"`
+				Self struct {
+					Href      string `json:"href"`
+					Templated bool   `json:"templated"`
+					Title     string `json:"title"`
+				} `json:"self"`
+			} `json:"_links"`
+		} `json:"viewers,omitempty"`
 		KeySchema struct {
 			Description string `json:"description"`
 			Name        string `json:"name"`
@@ -89,6 +115,11 @@ type TopicResponse struct {
 			Templated bool   `json:"templated"`
 			Title     string `json:"title"`
 		} `json:"owners"`
+		Viewers struct {
+			Href      string `json:"href"`
+			Templated bool   `json:"templated"`
+			Title     string `json:"title"`
+		} `json:"viewers"`
 		KeySchema struct {
 			Href      string `json:"href"`
 			Templated bool   `json:"templated"`
@@ -110,6 +141,7 @@ type TopicRequest struct {
 	ValueType       string                 `json:"valueType,omitempty"`
 	ValueSchema     string                 `json:"valueSchema,omitempty"`
 	Owners          string                 `json:"owners,omitempty"`
+	Viewers         []string               `json:"viewers"`
 	RetentionPolicy string                 `json:"retentionPolicy,omitempty"`
 	Properties      map[string]interface{} `json:"properties,omitempty"`
 }

@@ -65,6 +65,27 @@ type GroupResponse struct {
 	CreatedBy    string      `json:"created_by"`
 	ModifiedBy   string      `json:"modified_by"`
 	Embedded     struct {
+		Managers []struct {
+			Uid          string `json:"uid"`
+			EmailAddress struct {
+				Email string `json:"email"`
+			} `json:"emailAddress"`
+			LastName    string      `json:"lastName"`
+			MiddleName  interface{} `json:"middleName"`
+			PhoneNumber interface{} `json:"phoneNumber"`
+			FirstName   string      `json:"firstName"`
+			Links       struct {
+				Self struct {
+					Href      string `json:"href"`
+					Templated bool   `json:"templated"`
+					Title     string `json:"title"`
+				} `json:"self"`
+				Tenant struct {
+					Href  string `json:"href"`
+					Title string `json:"title"`
+				} `json:"tenant"`
+			} `json:"_links"`
+		} `json:"managers"`
 		Members []struct {
 			Uid          string `json:"uid"`
 			EmailAddress struct {
@@ -118,6 +139,7 @@ type GroupRequest struct {
 	EmailAddress interface{} `json:"emailAddress,omitempty"`
 	PhoneNumber  interface{} `json:"phoneNumber,omitempty"`
 	Members      []string    `json:"members,omitempty"`
+	Managers     []string    `json:"managers"`
 }
 
 type GetGroupByNameResponse struct {

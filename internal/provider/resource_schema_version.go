@@ -42,7 +42,7 @@ func (r *schemaVersionResource) Metadata(ctx context.Context, req resource.Metad
 
 func (r *schemaVersionResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Schema version resource. Only version can be updated - this creates a new 'axual_schema_version'. Read more: https://docs.axual.io/axual/2024.1/self-service/schema-management.html",
+		MarkdownDescription: "Schema version resource. Only version can be updated - this creates a new 'axual_schema_version'. Read more: https://docs.axual.io/axual/2024.2/self-service/schema-management.html",
 
 		Attributes: map[string]schema.Attribute{
 			"body": schema.StringAttribute{

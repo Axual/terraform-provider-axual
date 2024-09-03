@@ -3,6 +3,7 @@ package webclient
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/url"
 	"strings"
 )
@@ -19,6 +20,7 @@ func (c *Client) GetTopic(id string) (*TopicResponse, error) {
 func (c *Client) CreateTopic(topic TopicRequest) (*TopicResponse, error) {
 	o := TopicResponse{}
 	marshal, err := json.Marshal(topic)
+	log.Printf("Creating topic with request: %+v", marshal)
 	if err != nil {
 		return nil, err
 	}

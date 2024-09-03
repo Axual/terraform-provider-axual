@@ -1,6 +1,6 @@
 # axual_environment (Resource)
 
-Environments are used typically to support the application lifecycle, as it is moving from Development to Production.  In Self Service, they also allow you to test a feature in isolation, by making the environment Private. Read more: https://docs.axual.io/axual/2024.1/self-service/environment-management.html#managing-environments
+Environments are used typically to support the application lifecycle, as it is moving from Development to Production.  In Self Service, they also allow you to test a feature in isolation, by making the environment Private. Read more: https://docs.axual.io/axual/2024.2/self-service/environment-management.html#managing-environments
 
 ## Required Roles
 - ENVIRONMENT_AUTHOR or ENVIRONMENT_ADMIN
@@ -24,6 +24,7 @@ Environments are used typically to support the application lifecycle, as it is m
 - `partitions` (Number) Defines the number of partitions configured for every topic of this tenant. If not specified, default value is 12. Value must be between 1 and 120000
 - `properties` (Map of String) Environment-wide properties for all topics and applications.
 - `retention_time` (Number) The time in milliseconds after which the messages can be deleted from all topics. If not specified, default value is 7 days (604800000). Value must be between 1000 and 160704000000 (ms).
+- `viewers` (Set of String) Environment Viewer Groups define which Groups are authorized to view all Topic Configurations and Application Authentications within the Environment, regardless of ownership and visibility. Read more: https://docs.axual.io/axual/2024.2/self-service/user-group-management.html#viewer-groups
 
 ### Read-Only
 

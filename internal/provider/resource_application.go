@@ -2,10 +2,12 @@ package provider
 
 import (
 	webclient "axual-webclient"
+	custom_validator "axual.com/terraform-provider-axual/internal/custom-validator"
 	"context"
 	"errors"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -39,6 +41,7 @@ type ApplicationResourceData struct {
 	ApplicationId    types.String `tfsdk:"application_id"`
 	Type             types.String `tfsdk:"type"`
 	Owners           types.String `tfsdk:"owners"`
+	Viewers          types.Set    `tfsdk:"viewers"`
 	Visibility       types.String `tfsdk:"visibility"`
 	Id               types.String `tfsdk:"id"`
 }
@@ -60,7 +63,7 @@ func (r *applicationResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"application_id": schema.StringAttribute{
-				MarkdownDescription: "The Application ID of the Application, usually a fully qualified class name. Must be unique. The application ID, used in logging and to determine the consumer group (if applicable). Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#app-id",
+				MarkdownDescription: "The Application ID of the Application, usually a fully qualified class name. Must be unique. The application ID, used in logging and to determine the consumer group (if applicable). Read more: https://docs.axual.io/axual/2024.2/self-service/application-management.html#app-id",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
@@ -83,6 +86,14 @@ func (r *applicationResource) Schema(ctx context.Context, req resource.SchemaReq
 				MarkdownDescription: "Application Owner",
 				Required:            true,
 			},
+			"viewers": schema.SetAttribute{
+				MarkdownDescription: "Application Viewer Groups define which Groups are authorized to View Application Configuration, regardless of ownership and visibility. Read more: https://docs.axual.io/axual/2024.2/self-service/user-group-management.html#viewer-groups",
+				Optional:            true,
+				ElementType:         types.StringType,
+				Validators: []validator.Set{
+					custom_validator.NewNonEmptySetValidator(),
+				},
+			},
 			"type": schema.StringAttribute{
 				Required:            true,
 				MarkdownDescription: "If application_type is Custom, type can be: Java, Pega, SAP, DotNet, Bridge. If application_type is Connector, type can be: SINK, SOURCE",
@@ -96,7 +107,7 @@ func (r *applicationResource) Schema(ctx context.Context, req resource.SchemaReq
 			},
 			"visibility": schema.StringAttribute{
 				Required:            true,
-				MarkdownDescription: "Application Visibility. Defines the visibility of this application. Possible values are Public and Private. Set the visibility to “Private” if you don’t want your application to end up in overviews such as the topic graph. Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#app-visibility",
+				MarkdownDescription: "Application Visibility. Defines the visibility of this application. Possible values are Public and Private. Set the visibility to “Private” if you don’t want your application to end up in overviews such as the topic graph. Read more: https://docs.axual.io/axual/2024.2/self-service/application-management.html#app-visibility",
 				Validators: []validator.String{
 					stringvalidator.OneOf("Public", "Private"),
 				},
@@ -237,12 +248,28 @@ func createApplicationRequestFromData(ctx context.Context, data *ApplicationReso
 		return webclient.ApplicationRequest{}, err
 	}
 	owners = fmt.Sprintf("%s/groups/%v", r.provider.client.ApiURL, owners)
+
+	viewers := []string{}
+	if !data.Viewers.IsNull() {
+		var viewerUIDs []string
+		diags := data.Viewers.ElementsAs(ctx, &viewerUIDs, false)
+		if diags.HasError() {
+			return webclient.ApplicationRequest{}, fmt.Errorf("failed to extract viewers: %v", diags)
+		}
+
+		for _, viewer := range viewerUIDs {
+			fullURL := fmt.Sprintf("%s/groups/%v", r.provider.client.ApiURL, viewer)
+			viewers = append(viewers, fullURL)
+		}
+	}
+
 	ApplicationRequest := webclient.ApplicationRequest{
 		Name:            data.Name.ValueString(),
 		ApplicationType: data.ApplicationType.ValueString(),
 		ApplicationId:   data.ApplicationId.ValueString(),
 		ShortName:       data.ShortName.ValueString(),
 		Owners:          owners,
+		Viewers:         viewers,
 		Type:            data.Type.ValueString(),
 		Visibility:      data.Visibility.ValueString(),
 	}
@@ -281,5 +308,15 @@ func mapApplicationResponseToData(_ context.Context, data *ApplicationResourceDa
 		data.ApplicationClass = types.StringNull()
 	} else {
 		data.ApplicationClass = types.StringValue(application.ApplicationClass)
+	}
+
+	if application.Embedded.Viewers == nil || len(application.Embedded.Viewers) == 0 {
+		data.Viewers = types.SetNull(types.StringType)
+	} else {
+		viewerSet := make([]attr.Value, len(application.Embedded.Viewers))
+		for i, viewer := range application.Embedded.Viewers {
+			viewerSet[i] = types.StringValue(viewer.Uid)
+		}
+		data.Viewers, _ = types.SetValue(types.StringType, viewerSet)
 	}
 }

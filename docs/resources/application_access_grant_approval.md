@@ -5,7 +5,7 @@ Application Access Grant Approval: Approve access to a topic
 ## Note
 - Approval cannot be edited
 - Revoke grant by destroying application_access_grant_approval
-- Read more: https://docs.axual.io/axual/2024.1/self-service/topic-authorizations.html#contents
+- Read more: https://docs.axual.io/axual/2024.2/self-service/topic-authorizations.html#contents
 
 ## Usage
 - To approve a grant create an application_access_grant_approval with the grant id

@@ -2,6 +2,7 @@ package provider
 
 import (
 	webclient "axual-webclient"
+	custom_validator "axual.com/terraform-provider-axual/internal/custom-validator"
 	"context"
 	"errors"
 	"fmt"
@@ -40,6 +41,7 @@ type topicResourceData struct {
 	ValueType       types.String `tfsdk:"value_type"`
 	ValueSchema     types.String `tfsdk:"value_schema"`
 	Owners          types.String `tfsdk:"owners"`
+	Viewers         types.Set    `tfsdk:"viewers"`
 	RetentionPolicy types.String `tfsdk:"retention_policy"`
 	Id              types.String `tfsdk:"id"`
 	Properties      types.Map    `tfsdk:"properties"`
@@ -52,7 +54,7 @@ func (r *topicResource) Metadata(ctx context.Context, req resource.MetadataReque
 func (r *topicResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "A topic represents a flow of information (messages), which is continuously updated. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html",
+		MarkdownDescription: "A topic represents a flow of information (messages), which is continuously updated. Read more: https://docs.axual.io/axual/2024.2/self-service/topic-management.html",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
 				MarkdownDescription: "The name of the topic. Can only contain letters, numbers, dots, dashes and underscores and cannot begin with an underscore, dot or dash, but can't start with underscore, dot or dash. The topic name is usually discussed and finalized as part of the Intake session or a follow up.",
@@ -70,7 +72,7 @@ func (r *topicResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				},
 			},
 			"key_type": schema.StringAttribute{
-				MarkdownDescription: "The key type and reference to the schema. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#key-type",
+				MarkdownDescription: "The key type and reference to the schema. Read more: https://docs.axual.io/axual/2024.2/self-service/topic-management.html#key-type",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.OneOf("AVRO", "JSON", "Binary", "String", "Xml"),
@@ -81,7 +83,7 @@ func (r *topicResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				Optional:            true,
 			},
 			"value_type": schema.StringAttribute{
-				MarkdownDescription: "The value type and reference to the schema. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#value-type",
+				MarkdownDescription: "The value type and reference to the schema. Read more: https://docs.axual.io/axual/2024.2/self-service/topic-management.html#value-type",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.OneOf("AVRO", "JSON", "Binary", "String", "Xml"),
@@ -92,18 +94,26 @@ func (r *topicResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				Optional:            true,
 			},
 			"owners": schema.StringAttribute{
-				MarkdownDescription: "The team owning this topic. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#topic-owner",
+				MarkdownDescription: "The team owning this topic. Read more: https://docs.axual.io/axual/2024.2/self-service/topic-management.html#topic-owner",
 				Required:            true,
 			},
+			"viewers": schema.SetAttribute{
+				MarkdownDescription: "The Viewer Groups of this topic. Topic Viewer Groups define which Groups are authorized to View Topic Configurations, regardless of ownership and visibility. Read more: https://docs.axual.io/axual/2024.2/self-service/user-group-management.html#viewer-groups",
+				Optional:            true,
+				ElementType:         types.StringType,
+				Validators: []validator.Set{
+					custom_validator.NewNonEmptySetValidator(),
+				},
+			},
 			"retention_policy": schema.StringAttribute{
-				MarkdownDescription: "Determines what to do with messages after a certain period. Read more: https://docs.axual.io/axual/2024.1/self-service/topic-management.html#retention-policy",
+				MarkdownDescription: "Determines what to do with messages after a certain period. Read more: https://docs.axual.io/axual/2024.2/self-service/topic-management.html#retention-policy",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.OneOf("compact", "delete"),
 				},
 			},
 			"properties": schema.MapAttribute{
-				MarkdownDescription: "Advanced (Kafka) properties for a topic in a given environment. If no properties please leave properties empty like this: properties = { }.  Read more: https://docs.axual.io/axual/2024.1/self-service/advanced-features.html#configuring-topic-properties",
+				MarkdownDescription: "Advanced (Kafka) properties for a topic in a given environment. If no properties please leave properties empty like this: properties = { }.  Read more: https://docs.axual.io/axual/2024.2/self-service/advanced-features.html#configuring-topic-properties",
 				Optional:            true,
 				ElementType:         types.StringType,
 			},
@@ -278,6 +288,20 @@ func createTopicRequestFromData(ctx context.Context, data *topicResourceData, r 
 		}
 	}
 
+	viewers := []string{}
+	if !data.Viewers.IsNull() {
+		var viewerUIDs []string
+		diags := data.Viewers.ElementsAs(ctx, &viewerUIDs, false)
+		if diags.HasError() {
+			return webclient.TopicRequest{}, fmt.Errorf("failed to extract viewers: %v", diags)
+		}
+
+		for _, viewer := range viewerUIDs {
+			fullURL := fmt.Sprintf("%s/groups/%v", r.provider.client.ApiURL, viewer)
+			viewers = append(viewers, fullURL)
+		}
+	}
+
 	topicRequest := webclient.TopicRequest{
 		Name:            data.Name.ValueString(),
 		KeyType:         data.KeyType.ValueString(),
@@ -285,6 +309,7 @@ func createTopicRequestFromData(ctx context.Context, data *topicResourceData, r 
 		ValueType:       data.ValueType.ValueString(),
 		ValueSchema:     valueSchema,
 		Owners:          owners,
+		Viewers:         viewers,
 		RetentionPolicy: data.RetentionPolicy.ValueString(),
 	}
 
@@ -323,5 +348,22 @@ func mapTopicResponseToData(ctx context.Context, data *topicResourceData, topic 
 		data.Description = types.StringNull()
 	} else {
 		data.Description = types.StringValue(topic.Description.(string))
+	}
+
+	if topic.Embedded.Viewers == nil || len(topic.Embedded.Viewers) == 0 {
+		data.Viewers = types.SetNull(types.StringType)
+	} else {
+		viewerSet := make([]attr.Value, len(topic.Embedded.Viewers))
+		for i, viewer := range topic.Embedded.Viewers {
+			viewerSet[i] = types.StringValue(viewer.Uid)
+		}
+		data.Viewers, diags = types.SetValue(types.StringType, viewerSet)
+		if diags.HasError() {
+			// Convert diagnostics to a map[string]interface{} expected by tflog.Error
+			errorDetails := map[string]interface{}{
+				"diagnostics": diags.Errors(),
+			}
+			tflog.Error(ctx, "Error creating viewers set", errorDetails)
+		}
 	}
 }

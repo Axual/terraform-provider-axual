@@ -58,7 +58,7 @@ func (d *applicationDataSource) Schema(ctx context.Context, req datasource.Schem
 				Computed:            true,
 			},
 			"application_id": schema.StringAttribute{
-				MarkdownDescription: "The Application Id of the Application, usually a fully qualified class name. Must be unique. The application ID, used in logging and to determine the consumer group (if applicable). Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#app-id",
+				MarkdownDescription: "The Application Id of the Application, usually a fully qualified class name. Must be unique. The application ID, used in logging and to determine the consumer group (if applicable). Read more: https://docs.axual.io/axual/2024.2/self-service/application-management.html#app-id",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
@@ -87,7 +87,7 @@ func (d *applicationDataSource) Schema(ctx context.Context, req datasource.Schem
 			},
 			"visibility": schema.StringAttribute{
 				Computed:            true,
-				MarkdownDescription: "Application Visibility. Defines the visibility of this application. Possible values are Public and Private. Set the visibility to “Private” if you don’t want your application to end up in overviews such as the topic graph. Read more: https://docs.axual.io/axual/2024.1/self-service/application-management.html#app-visibility",
+				MarkdownDescription: "Application Visibility. Defines the visibility of this application. Possible values are Public and Private. Set the visibility to “Private” if you don’t want your application to end up in overviews such as the topic graph. Read more: https://docs.axual.io/axual/2024.2/self-service/application-management.html#app-visibility",
 			},
 			"description": schema.StringAttribute{
 				Computed:            true,

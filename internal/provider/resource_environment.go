@@ -2,6 +2,7 @@ package provider
 
 import (
 	webclient "axual-webclient"
+	custom_validator "axual.com/terraform-provider-axual/internal/custom-validator"
 	"context"
 	"errors"
 	"fmt"
@@ -41,6 +42,7 @@ type environmentResourceData struct {
 	AuthorizationIssuer types.String `tfsdk:"authorization_issuer"`
 	Visibility          types.String `tfsdk:"visibility"`
 	Owners              types.String `tfsdk:"owners"`
+	Viewers             types.Set    `tfsdk:"viewers"`
 	RetentionTime       types.Int64  `tfsdk:"retention_time"`
 	Instance            types.String `tfsdk:"instance"`
 	Id                  types.String `tfsdk:"id"`
@@ -55,7 +57,7 @@ func (r *environmentResource) Metadata(ctx context.Context, req resource.Metadat
 func (r *environmentResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Environments are used typically to support the application lifecycle, as it is moving from Development to Production.  In Self Service, they also allow you to test a feature in isolation, by making the environment Private. Read more: https://docs.axual.io/axual/2024.1/self-service/environment-management.html#managing-environments",
+		MarkdownDescription: "Environments are used typically to support the application lifecycle, as it is moving from Development to Production.  In Self Service, they also allow you to test a feature in isolation, by making the environment Private. Read more: https://docs.axual.io/axual/2024.2/self-service/environment-management.html#managing-environments",
 
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
@@ -106,6 +108,14 @@ func (r *environmentResource) Schema(ctx context.Context, req resource.SchemaReq
 			"owners": schema.StringAttribute{
 				MarkdownDescription: "The id of the team owning this environment.",
 				Required:            true,
+			},
+			"viewers": schema.SetAttribute{
+				MarkdownDescription: "Environment Viewer Groups define which Groups are authorized to view all Topic Configurations and Application Authentications within the Environment, regardless of ownership and visibility. Read more: https://docs.axual.io/axual/2024.2/self-service/user-group-management.html#viewer-groups",
+				Optional:            true,
+				ElementType:         types.StringType,
+				Validators: []validator.Set{
+					custom_validator.NewNonEmptySetValidator(),
+				},
 			},
 			"instance": schema.StringAttribute{
 				MarkdownDescription: "The id of the instance where this environment should be deployed.",
@@ -287,6 +297,20 @@ func createEnvironmentRequestFromData(ctx context.Context, data *environmentReso
 	owners = fmt.Sprintf("%s/groups/%v", r.provider.client.ApiURL, owners)
 	instance := fmt.Sprintf("%s/instances/%v", r.provider.client.ApiURL, data.Instance.ValueString())
 
+	viewers := []string{}
+	if !data.Viewers.IsNull() {
+		var viewerUIDs []string
+		diags := data.Viewers.ElementsAs(ctx, &viewerUIDs, false)
+		if diags.HasError() {
+			return webclient.EnvironmentRequest{}, fmt.Errorf("failed to extract viewers: %v", diags)
+		}
+
+		for _, viewer := range viewerUIDs {
+			fullURL := fmt.Sprintf("%s/groups/%v", r.provider.client.ApiURL, viewer)
+			viewers = append(viewers, fullURL)
+		}
+	}
+
 	environmentRequest := webclient.EnvironmentRequest{
 		Name:                data.Name.ValueString(),
 		ShortName:           data.ShortName.ValueString(),
@@ -295,12 +319,13 @@ func createEnvironmentRequestFromData(ctx context.Context, data *environmentReso
 		AuthorizationIssuer: data.AuthorizationIssuer.ValueString(),
 		Visibility:          data.Visibility.ValueString(),
 		Owners:              owners,
+		Viewers:             viewers,
 		Instance:            instance,
 		RetentionTime:       int(data.RetentionTime.ValueInt64()),
 		Partitions:          int(data.Partitions.ValueInt64()),
 	}
 
-	// optional fields
+	// Optional fields
 	if !data.Description.IsNull() {
 		environmentRequest.Description = data.Description.ValueString()
 	}
@@ -342,5 +367,22 @@ func mapEnvironmentResponseToData(ctx context.Context, data *environmentResource
 		data.Description = types.StringNull()
 	} else {
 		data.Description = types.StringValue(environment.Description.(string))
+	}
+
+	if environment.Embedded.Viewers == nil || len(environment.Embedded.Viewers) == 0 {
+		data.Viewers = types.SetNull(types.StringType)
+	} else {
+		viewerSet := make([]attr.Value, len(environment.Embedded.Viewers))
+		for i, viewer := range environment.Embedded.Viewers {
+			viewerSet[i] = types.StringValue(viewer.Uid)
+		}
+		data.Viewers, diags = types.SetValue(types.StringType, viewerSet)
+		if diags.HasError() {
+			// Convert diagnostics to a map[string]interface{} expected by tflog.Error
+			errorDetails := map[string]interface{}{
+				"diagnostics": diags.Errors(),
+			}
+			tflog.Error(ctx, "Error creating viewers set", errorDetails)
+		}
 	}
 }
