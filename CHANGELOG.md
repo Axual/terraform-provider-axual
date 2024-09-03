@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [master](https://github.com/Axual/terraform-provider-axual/blob/master) - TBR
+* Updated shortName in Environment resource to have min length 1
 * Support for Viewers(Environment, Topic, Application) and Group managers
 
 ## [2.3.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.3.0) - 2024-04-25

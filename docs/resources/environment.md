@@ -15,7 +15,7 @@ Environments are used typically to support the application lifecycle, as it is m
 - `instance` (String) The id of the instance where this environment should be deployed.
 - `name` (String) A suitable name identifying this environment. Alphabetical characters, digits and the following characters are allowed: `- `,` _` ,` .`, but not as the first character.)
 - `owners` (String) The id of the team owning this environment.
-- `short_name` (String) A short name that will uniquely identify this environment. The short name should be between 3 and 20 characters. Only alphanumeric characters are allowed.
+- `short_name` (String) A short name that will uniquely identify this environment. The short name should be between 1 and 20 characters. Only alphanumeric characters are allowed.
 - `visibility` (String) Can be `Public` or `Private`. The Private environments are only visible to the owning group (your team). They are not included in dashboard visualisations.
 
 ### Optional

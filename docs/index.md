@@ -270,6 +270,20 @@ resource "axual_environment" "production" {
   }
 }
 
+  resource "axual_environment" "test" {
+    name = "test"
+    short_name = "t"
+    description = "Testing environment with single character shortname"
+    color = "#3b0d98"
+    visibility = "Public"
+    authorization_issuer = "Stream owner"
+    instance = "51be2a6a5eee481198787dc346ab6608"
+    owners = axual_group.tenant_admin_group.id
+    properties = {
+      "segment.ms"="60002"
+    }
+}
+
 #
 # An APPLICATION is anything that produces or consumes data from a topic.
 # In Axual Platform we distinguish CUSTOM and CONNECTOR type applications.
@@ -736,10 +750,8 @@ resource "axual_application_deployment" "connector_axual_application_deployment"
 	- Setting up Terraform with Axual Trial: [Axual Trial setup](guides/axual-trial-setup.md)
 	- Managing application access to topics: [Axual Trial setup](guides/manage-application-access-to-topics.md)
 
-
 ## Compatibility
  - This Axual Terraform provider version (2.4.0) requires Management API 8.6.0 or later because that is the version where these features were added: Viewer Groups (for Environment, Application, and Topic) and Group Managers.
-
 
 ## Output
 Please include output if you want to have detailed information, e.g. for debugging purposes or for data sources.
