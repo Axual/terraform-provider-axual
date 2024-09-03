@@ -378,7 +378,11 @@ func mapEnvironmentResponseToData(ctx context.Context, data *environmentResource
 		}
 		data.Viewers, diags = types.SetValue(types.StringType, viewerSet)
 		if diags.HasError() {
-			tflog.Error(ctx, "Error creating viewers set")
+			// Convert diagnostics to a map[string]interface{} expected by tflog.Error
+			errorDetails := map[string]interface{}{
+				"diagnostics": diags.Errors(),
+			}
+			tflog.Error(ctx, "Error creating viewers set", errorDetails)
 		}
 	}
 }

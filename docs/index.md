@@ -738,7 +738,7 @@ resource "axual_application_deployment" "connector_axual_application_deployment"
 
 
 ## Compatibility
- - This Axual Terraform provider version (2.4.0) requires Management API 8.6.0+ because that's when these features were added: viewer groups (for Environment, Application and Topic) and Group Managers.
+ - This Axual Terraform provider version (2.4.0) requires Management API 8.6.0 or later because that is the version where these features were added: Viewer Groups (for Environment, Application, and Topic) and Group Managers.
 
 
 ## Output
