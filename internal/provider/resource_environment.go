@@ -67,11 +67,11 @@ func (r *environmentResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"short_name": schema.StringAttribute{
-				MarkdownDescription: "A short name that will uniquely identify this environment. The short name should be between 3 and 20 characters. Only alphanumeric characters are allowed.",
+				MarkdownDescription: "A short name that will uniquely identify this environment. The short name should be between 1 and 20 characters. Only alphanumeric characters are allowed.",
 				Required:            true,
 				Validators: []validator.String{
-					stringvalidator.LengthBetween(3, 20),
-					stringvalidator.RegexMatches(regexp.MustCompile((`^[a-z0-9]+$`)), "can only contain letters, numbers"),
+					stringvalidator.LengthBetween(1, 20),
+					stringvalidator.RegexMatches(regexp.MustCompile((`(?i)^[a-z][a-z0-9]*$`)), "can only contain letters, numbers"),
 				},
 			},
 			"description": schema.StringAttribute{
