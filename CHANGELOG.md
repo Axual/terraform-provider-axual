@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [master](https://github.com/Axual/terraform-provider-axual/blob/master) - TBR
 * Updated shortName in Environment resource to have min length 1
 * Support for Viewers(Environment, Topic, Application) and Group managers
+* Support for Topic Browse Permissions: Users and Groups can be added with new resource axual_topic_browse_permissions
 
 ## [2.3.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.3.0) - 2024-04-25
 * Update to terraform-plugin-framework v1.7.0
