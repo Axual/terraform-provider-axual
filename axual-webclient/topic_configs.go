@@ -70,7 +70,7 @@ func (c *Client) GetTopicConfigPermissions(topicConfigID string, permType string
 	var perms []PermissionResponse
 	err := c.RequestAndMap("GET", fmt.Sprintf("%s/stream_configs/%s/permissions?type=%s", c.ApiURL, topicConfigID, permType), nil, nil, &perms)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get browse permissions of type '%s' for topic config with ID '%s': %w", permType, topicConfigID, err)
 	}
 	return perms, nil
 }
@@ -78,12 +78,12 @@ func (c *Client) GetTopicConfigPermissions(topicConfigID string, permType string
 func (c *Client) DeleteTopicConfigPermissions(topicConfigID string, request PermissionRequest) error {
 	marshal, err := json.Marshal(request)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal browse permission request for topic config with ID '%s': %w", topicConfigID, err)
 	}
 	headers := map[string]string{"Content-Type": "application/json"}
 	err = c.RequestAndMap("DELETE", fmt.Sprintf("%s/stream_configs/%s/permissions?type=browse", c.ApiURL, topicConfigID), strings.NewReader(string(marshal)), headers, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to delete browse permissions for topic config with ID '%s': %w", topicConfigID, err)
 	}
 	return nil
 }
@@ -91,12 +91,12 @@ func (c *Client) DeleteTopicConfigPermissions(topicConfigID string, request Perm
 func (c *Client) AddTopicConfigPermissions(topicConfigID string, request PermissionRequest) error {
 	marshal, err := json.Marshal(request)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal browse permission request for topic config with ID '%s': %w", topicConfigID, err)
 	}
 	headers := map[string]string{"Content-Type": "application/json"}
 	err = c.RequestAndMap("POST", fmt.Sprintf("%s/stream_configs/%s/permissions", c.ApiURL, topicConfigID), strings.NewReader(string(marshal)), headers, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to add browse permissions for topic config with ID '%s': %w", topicConfigID, err)
 	}
 	return nil
 }
