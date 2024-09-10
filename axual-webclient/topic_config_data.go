@@ -147,3 +147,23 @@ type TopicConfigRequest struct {
 	KeySchemaVersion   string                 `json:"keySchemaVersion,omitempty"`
 	ValueSchemaVersion string                 `json:"valueSchemaVersion,omitempty"`
 }
+
+type PermissionRequest struct {
+	Type   string   `json:"type"`
+	Groups []string `json:"groups,omitempty"`
+	Users  []string `json:"users,omitempty"`
+}
+
+type PermissionResponse struct {
+	Uid          string `json:"uid"`
+	FirstName    string `json:"firstName,omitempty"`
+	LastName     string `json:"lastName,omitempty"`
+	MiddleName   string `json:"middleName,omitempty"`
+	EmailAddress Email  `json:"emailAddress"`
+	Name         string `json:"name,omitempty"`
+	Type         string `json:"type"`
+}
+
+type Email struct {
+	Email string `json:"email"`
+}

@@ -268,7 +268,7 @@ resource "axual_environment" "production" {
   properties = {
     "segment.ms"="60002"
   }
-}
+ }
 
   resource "axual_environment" "test" {
     name = "test"
@@ -526,6 +526,21 @@ resource "axual_topic_config" "support_in_production" {
   topic = axual_topic.support.id
   environment = axual_environment.production.id
   properties = {"segment.ms"="600000", "retention.bytes"="10089"}
+}
+
+
+#
+# TOPIC_BROWSE_PERMISSIONS allows to configure who can browse topic's messages in a specified
+# environment. Only works if the Environment's Instance has Granular Stream Browse Permissions turned on.
+# Granular Stream browse permissions are disabled in private environments and in public environments
+# with the authorization issuer set to "auto".
+# Read more: https://docs.axual.io/axual/2024.2/self-service/stream-browse.html#controlling-permissions-to-browse-a-stream
+#
+
+resource "axual_topic_browse_permissions" "support_browse_users_and_groups" {
+  topic_config = axual_topic_config.support_in_production.id
+  users= [axual_user.jane.id, axual_user.john.id]
+  groups= [axual_group.team-awesome.id, axual_group.team-bonanza.id]
 }
 
 #
