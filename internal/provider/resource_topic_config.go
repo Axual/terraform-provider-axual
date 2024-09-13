@@ -278,9 +278,17 @@ func (r *topicConfigResource) Update(ctx context.Context, req resource.UpdateReq
 	topicConfigRequest.Properties = properties
 
 	tflog.Info(ctx, fmt.Sprintf("Update topic config request %q", topicConfigRequest))
-	topicConfig, err := r.provider.client.UpdateTopicConfig(data.Id.ValueString(), topicConfigRequest)
+
+	// Retry logic for updating the topic config
+	var topicConfig *webclient.TopicConfigResponse
+	err = Retry(3, 2*time.Second, func() error {
+		var updateErr error
+		topicConfig, updateErr = r.provider.client.UpdateTopicConfig(data.Id.ValueString(), topicConfigRequest)
+		return updateErr
+	})
+
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update topic config, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update topic config after retries, got error: %s", err))
 		return
 	}
 
@@ -289,7 +297,6 @@ func (r *topicConfigResource) Update(ctx context.Context, req resource.UpdateReq
 	tflog.Info(ctx, "Saving the resource to state")
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
-	time.Sleep(25 * time.Second) // ACL application can take some time to apply in Kafka cluster for all the brokers, especially with multiple topic configs
 }
 
 func (r *topicConfigResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

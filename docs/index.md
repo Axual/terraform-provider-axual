@@ -738,7 +738,8 @@ resource "axual_application_deployment" "connector_axual_application_deployment"
   }
   depends_on = [ axual_application_principal.connector_axual_application_principal,
     axual_application_access_grant.dash_consume_from_logs_in_dev,
-    axual_application_access_grant_approval.dash_consume_logs_dev
+    axual_application_access_grant_approval.dash_consume_logs_dev,
+    axual_topic_config.logs_in_dev
   ]
 }
 ```

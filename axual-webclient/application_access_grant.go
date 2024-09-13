@@ -58,6 +58,7 @@ func (c *Client) CancelGrant(applicationAccessGrantId string) error {
 	if err != nil {
 		return err
 	}
+	time.Sleep(10 * time.Second)
 	return nil
 }
 

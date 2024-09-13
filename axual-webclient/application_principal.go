@@ -43,6 +43,7 @@ func (c *Client) UpdateApplicationPrincipal(id string, applicationUpdatePrincipa
 	if err != nil {
 		return "Error sending PATCH request for application principal", err
 	}
+	time.Sleep(5 * time.Second) // Principal application can take significant time to apply in Kafka cluster
 	return o, nil
 }
 

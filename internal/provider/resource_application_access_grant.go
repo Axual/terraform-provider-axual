@@ -167,7 +167,6 @@ func (r *applicationAccessGrantResource) Update(ctx context.Context, req resourc
 }
 
 func (r *applicationAccessGrantResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	time.Sleep(10 * time.Second) // Just retry does not work
 	var data applicationAccessGrantData
 
 	diags := req.State.Get(ctx, &data)
