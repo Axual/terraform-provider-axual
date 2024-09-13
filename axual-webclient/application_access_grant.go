@@ -58,7 +58,7 @@ func (c *Client) CancelGrant(applicationAccessGrantId string) error {
 	if err != nil {
 		return err
 	}
-	time.Sleep(10 * time.Second)
+	time.Sleep(10 * time.Second) //to give time for Connect/Kafka to propagate changes
 	return nil
 }
 

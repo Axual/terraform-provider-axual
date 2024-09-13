@@ -166,6 +166,7 @@ func (r *topicConfigResource) Create(ctx context.Context, req resource.CreateReq
 	tflog.Info(ctx, fmt.Sprintf("Create topic config request %q", topicConfigRequest))
 
 	var topicConfig *webclient.TopicConfigResponse
+	// We retry to give time to Kafka to propagate changes
 	retryErr := Retry(4, 5*time.Second, func() (err error) {
 		topicConfig, err = r.provider.client.CreateTopicConfig(topicConfigRequest)
 		return err
@@ -309,7 +310,7 @@ func (r *topicConfigResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	// Retry logic for deleting the topic config
+	// Retry logic for deleting the topic config to give time for Kafka to propagate changes
 	err := Retry(3, 3*time.Second, func() error {
 		return r.provider.client.DeleteTopicConfig(data.Id.ValueString())
 	})

@@ -183,7 +183,7 @@ func (r *applicationAccessGrantResource) Delete(ctx context.Context, req resourc
 	}
 
 	if applicationAccessGrant.Links.Cancel.Href != "" {
-		// Retry logic for cancelling the grant
+		// Retry logic for cancelling the grant to give time for Kafka to propagate changes
 		err1 := Retry(3, 3*time.Second, func() error {
 			return r.provider.client.CancelGrant(data.Id.ValueString())
 		})

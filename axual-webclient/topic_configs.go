@@ -66,7 +66,7 @@ func (c *Client) DeleteTopicConfig(id string) error {
 	if err != nil {
 		return err
 	}
-	time.Sleep(2 * time.Second)
+	time.Sleep(2 * time.Second) // To give time for Kafka to propagate changes
 	return nil
 }
 
