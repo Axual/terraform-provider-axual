@@ -572,30 +572,37 @@ resource "axual_application_access_grant" "connector_axual_application_access_gr
 
 resource "axual_application_access_grant_approval" "dash_consume_logs_dev" {
   application_access_grant = axual_application_access_grant.dash_consume_from_logs_in_dev.id
+  depends_on = [axual_topic_config.logs_in_dev]
 }
 
 resource "axual_application_access_grant_approval" "dash_consume_logs_staging" {
   application_access_grant = axual_application_access_grant.dash_consume_from_logs_in_staging.id
+  depends_on = [axual_topic_config.logs_in_staging]
 }
 
 resource "axual_application_access_grant_approval" "dash_consume_support_production"{
   application_access_grant = axual_application_access_grant.dash_consume_from_support_in_production.id
+  depends_on = [axual_topic_config.support_in_production]
 }
 
 resource "axual_application_access_grant_approval" "log_consume_support_dev"{
   application_access_grant = axual_application_access_grant.log_scraper_consume_from_support_in_dev.id
+  depends_on = [axual_topic_config.logs_avro_in_dev]
 }
 
 resource "axual_application_access_grant_approval" "dash_consume_logs_production"{
   application_access_grant = axual_application_access_grant.dash_consume_from_logs_in_production.id
+  depends_on = [axual_topic_config.logs_in_production]
 }
 
 resource "axual_application_access_grant_approval" "scraper_produce_logs_production"{
   application_access_grant = axual_application_access_grant.scraper_produce_to_logs_in_production.id
+  depends_on = [axual_topic_config.logs_in_production]
 }
 
 resource "axual_application_access_grant_approval" "connector_axual_application_access_grant_approval"{
   application_access_grant = axual_application_access_grant.connector_axual_application_access_grant.id
+  depends_on = [axual_topic_config.logs_avro_in_production]
 }
 
 #
@@ -606,6 +613,7 @@ resource "axual_application_access_grant_approval" "connector_axual_application_
 
 resource "axual_application_access_grant_rejection" "scraper_produce_logs_staging_rejection" {
   application_access_grant = axual_application_access_grant.scraper_produce_to_logs_in_staging.id
+  depends_on = [axual_topic_config.logs_in_staging]
 }
 
 ##
@@ -671,9 +679,14 @@ resource "axual_application_deployment" "connector_axual_application_deployment"
     "transforms"= "",
     "couchbase.password"= "INSERT_PASSWORD",
   }
-  depends_on = [ axual_application_principal.connector_axual_application_principal,
-    axual_application_access_grant.dash_consume_from_logs_in_dev,
+  depends_on = [
     axual_application_access_grant_approval.dash_consume_logs_dev,
-    axual_topic_config.logs_in_dev
+    axual_application_access_grant_approval.dash_consume_logs_staging,
+    axual_application_access_grant_approval.dash_consume_logs_staging,
+    axual_application_access_grant_approval.dash_consume_support_production,
+    axual_application_access_grant_approval.log_consume_support_dev,
+    axual_application_access_grant_approval.dash_consume_logs_production,
+    axual_application_access_grant_approval.scraper_produce_logs_production,
+    axual_application_access_grant_approval.connector_axual_application_access_grant_approval,
   ]
 }

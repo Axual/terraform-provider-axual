@@ -29,7 +29,7 @@ Application Access Grant Approval: Approve access to a topic
 ```hcl
 resource "axual_application_access_grant_approval" "dash_consume_logs_dev" {
   application_access_grant = axual_application_access_grant.dash_consume_from_logs_in_dev.id
-  depends_on = [ axual_application_access_grant.dash_consume_from_logs_in_dev ]
+  depends_on = [ axual_topic_config.topic-azure-sql-cdc-schema-in-sandbox ]
 }
 ```
 

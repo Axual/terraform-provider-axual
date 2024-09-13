@@ -22,7 +22,7 @@ func (c *Client) DeleteApplicationDeployment(id string) error {
 	if err != nil {
 		return err
 	}
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 	return nil
 }
 
@@ -76,7 +76,7 @@ func (c *Client) OperateApplicationDeployment(id string, action string, data App
 	if err != nil {
 		return err
 	}
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 	return nil
 }
 
