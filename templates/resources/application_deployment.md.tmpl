@@ -78,7 +78,8 @@ resource "axual_application_deployment" "dev_dashboard_in_dev_principal" {
   }
   depends_on = [ axual_application_principal.dev_dashboard_in_dev_principal,
     axual_application_access_grant.dash_consume_from_logs_in_dev,
-    axual_application_access_grant_approval.dash_consume_logs_dev
+    axual_application_access_grant_approval.dash_consume_logs_dev,
+    axual_topic_config.topic-azure-log-source,
   ]
 }
 ```
