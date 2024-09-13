@@ -18,6 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"regexp"
 	"strings"
+	"time"
 )
 
 var _ resource.Resource = &topicResource{}
@@ -247,9 +248,12 @@ func (r *topicResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 		return
 	}
 
-	err := r.provider.client.DeleteTopic(data.Id.ValueString())
+	// Retry logic for deleting the topic
+	err := Retry(3, 3*time.Second, func() error {
+		return r.provider.client.DeleteTopic(data.Id.ValueString())
+	})
 	if err != nil {
-		resp.Diagnostics.AddError("DELETE request error for topic resource", fmt.Sprintf("Error message: %s", err.Error()))
+		resp.Diagnostics.AddError("DELETE request error for topic resource", fmt.Sprintf("Error message after retries: %s", err.Error()))
 		return
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 func (c *Client) ReadTopicConfig(id string) (*TopicConfigResponse, error) {
@@ -41,6 +42,7 @@ func (c *Client) CreateTopicConfig(topic TopicConfigRequest) (*TopicConfigRespon
 	if err != nil {
 		return nil, err
 	}
+	time.Sleep(10 * time.Second) // ACL application can take significant time to apply in Kafka cluster for all the brokers, we have no control over how long it takes, especially with multiple topic configs
 	return &o, nil
 }
 
