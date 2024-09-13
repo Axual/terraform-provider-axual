@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"time"
 )
 
 var _ resource.Resource = &applicationAccessGrantResource{}
@@ -182,9 +183,12 @@ func (r *applicationAccessGrantResource) Delete(ctx context.Context, req resourc
 	}
 
 	if applicationAccessGrant.Links.Cancel.Href != "" {
-		err1 := r.provider.client.CancelGrant(data.Id.ValueString())
+		// Retry logic for cancelling the grant to give time for Kafka to propagate changes
+		err1 := Retry(3, 3*time.Second, func() error {
+			return r.provider.client.CancelGrant(data.Id.ValueString())
+		})
 		if err1 != nil {
-			resp.Diagnostics.AddError("Unable to cancel Application Access Grant", fmt.Sprintf("Error message: %s", err1))
+			resp.Diagnostics.AddError("Unable to cancel Application Access Grant", fmt.Sprintf("Error message after retries: %s", err1))
 			return
 		}
 		return

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 )
 
 func (c *Client) ReadApplicationPrincipal(id string) (*ApplicationPrincipalResponse, error) {
@@ -27,6 +28,7 @@ func (c *Client) CreateApplicationPrincipal(applicationPrincipalRequest [1]Appli
 	if err != nil {
 		return "Error sending POST request for application principal", err
 	}
+	time.Sleep(2 * time.Second) // Principal application can take significant time to apply in Kafka cluster
 	return o, nil
 }
 
@@ -41,6 +43,7 @@ func (c *Client) UpdateApplicationPrincipal(id string, applicationUpdatePrincipa
 	if err != nil {
 		return "Error sending PATCH request for application principal", err
 	}
+	time.Sleep(2 * time.Second) // Principal application can take significant time to apply in Kafka cluster
 	return o, nil
 }
 

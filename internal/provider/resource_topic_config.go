@@ -19,6 +19,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"strings"
+	"time"
 )
 
 var _ resource.Resource = &topicConfigResource{}
@@ -163,9 +164,16 @@ func (r *topicConfigResource) Create(ctx context.Context, req resource.CreateReq
 	}
 	topicConfigRequest.Properties = properties
 	tflog.Info(ctx, fmt.Sprintf("Create topic config request %q", topicConfigRequest))
-	topicConfig, err := r.provider.client.CreateTopicConfig(topicConfigRequest)
-	if err != nil {
-		resp.Diagnostics.AddError("CREATE request error for topic config resource", fmt.Sprintf("Error message: %s", err.Error()))
+
+	var topicConfig *webclient.TopicConfigResponse
+	// We retry to give time to Kafka to propagate changes
+	retryErr := Retry(4, 5*time.Second, func() (err error) {
+		topicConfig, err = r.provider.client.CreateTopicConfig(topicConfigRequest)
+		return err
+	})
+
+	if retryErr != nil {
+		resp.Diagnostics.AddError("CREATE request error for topic config resource", fmt.Sprintf("Error message after retries: %s", retryErr.Error()))
 		return
 	}
 
@@ -271,9 +279,17 @@ func (r *topicConfigResource) Update(ctx context.Context, req resource.UpdateReq
 	topicConfigRequest.Properties = properties
 
 	tflog.Info(ctx, fmt.Sprintf("Update topic config request %q", topicConfigRequest))
-	topicConfig, err := r.provider.client.UpdateTopicConfig(data.Id.ValueString(), topicConfigRequest)
+
+	// Retry logic for updating the topic config
+	var topicConfig *webclient.TopicConfigResponse
+	err = Retry(3, 2*time.Second, func() error {
+		var updateErr error
+		topicConfig, updateErr = r.provider.client.UpdateTopicConfig(data.Id.ValueString(), topicConfigRequest)
+		return updateErr
+	})
+
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update topic config, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update topic config after retries, got error: %s", err))
 		return
 	}
 
@@ -294,9 +310,12 @@ func (r *topicConfigResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	err := r.provider.client.DeleteTopicConfig(data.Id.ValueString())
+	// Retry logic for deleting the topic config to give time for Kafka to propagate changes
+	err := Retry(3, 3*time.Second, func() error {
+		return r.provider.client.DeleteTopicConfig(data.Id.ValueString())
+	})
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete topic config, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete topic config after retries, got error: %s", err))
 		return
 	}
 }

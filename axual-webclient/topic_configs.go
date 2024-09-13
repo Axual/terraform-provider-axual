@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 func (c *Client) ReadTopicConfig(id string) (*TopicConfigResponse, error) {
@@ -41,6 +42,7 @@ func (c *Client) CreateTopicConfig(topic TopicConfigRequest) (*TopicConfigRespon
 	if err != nil {
 		return nil, err
 	}
+	time.Sleep(2 * time.Second) // ACL application can take significant time to apply in Kafka cluster for all the brokers, we have no control over how long it takes, especially with multiple topic configs
 	return &o, nil
 }
 
@@ -55,6 +57,7 @@ func (c *Client) UpdateTopicConfig(id string, topicRequest TopicConfigRequest) (
 		return nil, err
 	}
 	fmt.Println("UPDATE TOPIC CONFIG RESPONSE", &o)
+	time.Sleep(2 * time.Second) // ACL application can take significant time to apply in Kafka cluster for all the brokers, we have no control over how long it takes, especially with multiple topic configs
 	return &o, nil
 }
 
@@ -63,6 +66,7 @@ func (c *Client) DeleteTopicConfig(id string) error {
 	if err != nil {
 		return err
 	}
+	time.Sleep(2 * time.Second) // To give time for Kafka to propagate changes
 	return nil
 }
 

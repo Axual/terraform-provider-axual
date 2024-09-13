@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"reflect"
 	"strings"
+	"time"
 )
 
 func (c *Client) GetApplicationAccessGrant(id string) (*ApplicationAccessGrant, error) {
@@ -45,6 +46,7 @@ func (c *Client) ApproveGrant(applicationAccessGrantId string) error {
 
 		return err
 	}
+	time.Sleep(10 * time.Second) // Grant approval can take significant time
 	return nil
 }
 
@@ -56,6 +58,7 @@ func (c *Client) CancelGrant(applicationAccessGrantId string) error {
 	if err != nil {
 		return err
 	}
+	time.Sleep(10 * time.Second) //to give time for Connect/Kafka to propagate changes
 	return nil
 }
 
