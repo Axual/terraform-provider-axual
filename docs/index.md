@@ -1,145 +1,48 @@
 # Axual Provider
 
-Axual Provider allows using Axual's Self-Service for Apache Kafka functionality within Terraform configurations.
+Axual's Terraform Provider integrates Axual's Self-Service for Apache Kafka into Terraform, enabling users to manage Kafka configurations through infrastructure as code. Self-Service offers fine-grained access control, visibility into topic metadata, and management of topic properties, allowing users to monitor and control their Kafka streaming environment efficiently. Read more: https://docs.axual.io/axual/2024.2/self-service/index.html
 
-## Axual Self Service
-- Self Service allows fine-grained access control over your applications and topics, who is accessing your topics and for what purpose.
-- Self Service displays valuable metadata about topics and the applications interacting with them, such as:
-	- The format of the data that’s present on the topic
-	- How long until the data is removed from the topic
-	- Which applications are the producers and the consumers of this data
-- Self Service provides control of your topic properties for individual environments and get an overview of the streaming landscape inside your organization.
-	- For details, please refer to Axual Self-Service reference documentation: https://docs.axual.io/axual/2024.2/self-service/index.html
-
-## Features
-
-- User/group management
-- Topic and application management
-- Security
-	- To secure which applications are authorised to access topics, we support
-		- SSL (MUTUAL TLS) as a Certificate(PEM)
-		- SASL (OAUTHBEARER) as a Custom Principal that specifies the ID referenced in URI and tokens. For example, 'my-client'
-- Environment management
-- Request, Approval, Revocation, Rejection and Cancellation of Access Requests
-## Limitations
-- When deleting all resources at once, application.tf needs to have a dependency to make sure topic and topic_config get deleted first. This bug has been reported to development team and is under investigation.
-
-# Getting started
-## Required User Roles
-- The Terraform User who is logged in(Default username kubernetes@axual.com), needs to have both of the following user roles:
-  - **APPLICATION_ADMIN** - for creating application principal resource(axual_application_principal) and for create access request()
-  - **STREAM_ADMIN** - for revoking access request
-- Alternatively, they can be the owner of both the application and the topic, which entails being a user in the same group as the owner group of the application and topic.
 ## Example Usage
 
-First, make sure to define and configure the provider:
+First, make sure to configure the connection to the Trial Account:
 
 ```terraform
 terraform {
   required_providers {
     axual = {
       source  = "Axual/axual"
-      version = "2.3.0"
+      version = "2.4.0"
     }
   }
 }
 
-# PROVIDER CONFIGURATION
-#
-# Below example configuration is for when you have deployed Axual Platform locally. Contact your administrator if you
-# need the details for your organization's installation.
-#
+# Provider Configuration for local Axual platform installation
+
 provider "axual" {
+  # (String) URL that will be used by the client for all resource requests
   apiurl   = "https://platform.local/api"
+  # (String) Axual realm used for the requests
   realm    = "axual"
-  username = "kubernetes@axual.com"   #- or set using env property export AXUAL_AUTH_USERNAME=
-  password = "PLEASE_CHANGE_PASSWORD" #- or set using env property export AXUAL_AUTH_PASSWORD=
+  # (String) Username for all requests. Will be used to acquire a token. It can be omitted if the environment variable AXUAL_AUTH_USERNAME is used.
+  username = "kubernetes@axual.com"
+  # (String, Sensitive) Password belonging to the user. It can be omitted if the environment variable AXUAL_AUTH_PASSWORD is used.
+  password = "PLEASE_CHANGE_PASSWORD"
+  # (String) Client ID to be used for OAUTH
   clientid = "self-service"
+  # (String) Token url
   authurl  = "https://platform.local/auth/realms/axual/protocol/openid-connect/token"
+  # (List of String) OAuth authorization server scopes
   scopes   = ["openid", "profile", "email"]
 }
 ```
 
-Next, take a look at the *full* example which shows you the capabilities of the TerraForm Provider for Axual:
+The following example demonstrates the basic functionality of Axual Self-Service. For more advanced features, refer to the 'Resources' and 'Guides' sections.
 
 ```terraform
 #
-# TERRAFORM PROVIDER EXAMPLE
+# Axual TERRAFORM PROVIDER EXAMPLE
 #
-# This TerraForm file shows the capabilities of the TerraForm provider for Axual
-# It is tested on the latest version of Axual Platform (2024.2)
-#
-# NOTE: execute ./init.sh to import the `tenant_admin` and `tenant_admin_group` resources which are created as part of a fresh installation
-#
-#
-
-
-#
-# GROUPS and USERS
-# ----------------
-# GROUPS own entities like TOPIC, APPLICATION  and ENVIRONMENT. USERS are members of a GROUP
-# Below, three users are declared with certain roles in the system.
-
-#
-# Users "john", "jane" and "dwight" have roles which new users typically have
-#
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/user
-#
-
-resource "axual_user" "john" {
-  first_name    = "John"
-  last_name     = "Doe"
-  email_address = "john.doe@example.com"
-  phone_number = "+37253412551"
-  roles         = [
-    { name = "APPLICATION_AUTHOR" },
-    { name = "ENVIRONMENT_AUTHOR" },
-    { name = "STREAM_AUTHOR" }
-  ]
-}
-
-resource "axual_user" "jane" {
-  first_name    = "Jane"
-  last_name     = "Walker"
-  email_address = "jane.walker@example.com"
-  phone_number = "+37253412553"
-  roles         = [
-    { name = "APPLICATION_AUTHOR" },
-    { name = "ENVIRONMENT_AUTHOR" },
-    { name = "STREAM_AUTHOR" }
-  ]
-}
-
-resource "axual_user" "dwight" {
-  first_name    = "Dwight"
-  last_name     = "Corner"
-  email_address = "dwight.corner@example.com"
-  phone_number = "+37253412553"
-  roles         = [
-    { name = "APPLICATION_AUTHOR" },
-    { name = "ENVIRONMENT_AUTHOR" },
-    { name = "STREAM_AUTHOR" }
-  ]
-}
-
-#
-# User "green" has elevated permissions, he has the TENANT_ADMIN role
-#
-
-resource "axual_user" "green" {
-  first_name    = "Green"
-  last_name     = "Stones"
-  email_address = "green.stones@example.com"
-  phone_number = "+37253412552"
-  roles         = [
-    { name = "TENANT_ADMIN" },
-  ]
-}
-
-#
-# WARNING: built-in user, execute `init.sh` if you have not done that already
-#
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/user#import
+# This TerraForm file shows the basic capabilities of the TerraForm provider for Axual
 #
 
 resource "axual_user" "tenant_admin" {
@@ -156,82 +59,12 @@ resource "axual_user" "tenant_admin" {
   ]
 }
 
-#
-# Users "john" and "jane" are members of group "Team Awesome", "dwight" is a member of "Team Bonanza" while "green" is a member of "Team Support"
-#
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/group
-#
-
-resource "axual_group" "team-awesome" {
-  name          = "Team Awesome"
-  phone_number="+37253412559"
-  email_address="team.awesome@example.com"
-  members       = [
-    	axual_user.jane.id,
-    	axual_user.john.id  ]
-}
-
-resource "axual_group" "team-bonanza" {
-  name		= "Team Bonanza"
-  phone_number	= "+37253412558"
-  email_address	= "team.bonanza@example.com"
-  members     	= [
-	axual_user.dwight.id
-  ]
-  managers     	= [
-    axual_user.dwight.id
-  ]
-}
-
-resource "axual_group" "team-support" {
-  name          = "Team Support"
-  phone_number  = "+37253412550"
-  email_address = "team.support@example.com"
-  members       = [
-        axual_user.green.id
-  ]
-  managers       = [
-    axual_user.green.id
-  ]
-}
-
-#
-# WARNING: built-in group, execute `init.sh` if you have not done that already
-#
-
 resource "axual_group" "tenant_admin_group" {
  name          = "Tenant Admin Group"
  members       = [
    axual_user.tenant_admin.id,
- ]
- managers       = [
    axual_user.tenant_admin.id,
  ]
-}
-
-#
-# Below, environments are defined which are in use for the tenant.
-# PRIVATE environments can only be used by members of the owning group.
-# PUBLIC environments can be used by the entire organization
-#
-
-#
-# Team Awesome has its own environment, called "team-awesome", which they use as a sandbox
-# ENVIRONMENTs "development", "staging" and "production" are environments used by all teams and therefore declared PUBLIC
-#
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/environment
-#
-
-resource "axual_environment" "team-awesome" {
-  name = "team-awesome"
-  short_name = "awesome"
-  description = "This is the sandbox environment of Team Awesome"
-  color = "#4686f0"
-  visibility = "Private"
-  authorization_issuer = "Auto"
-  instance = "51be2a6a5eee481198787dc346ab6608"
-  owners = axual_group.team-awesome.id
-  viewers = [axual_group.team-support.id]
 }
 
 resource "axual_environment" "development" {
@@ -245,109 +78,15 @@ resource "axual_environment" "development" {
   owners = axual_group.tenant_admin_group.id
 }
 
-resource "axual_environment" "staging" {
-  name = "staging"
-  short_name = "staging"
-  description = "Staging contains close to real world data"
-  color = "#3b0d98"
-  visibility = "Public"
-  authorization_issuer = "Stream owner"
-  instance = "51be2a6a5eee481198787dc346ab6608"
-  owners = axual_group.tenant_admin_group.id
-}
-
-resource "axual_environment" "production" {
-  name = "production"
-  short_name = "production"
-  description = "Real world production environment"
-  color = "#3b0d98"
-  visibility = "Public"
-  authorization_issuer = "Stream owner"
-  instance = "51be2a6a5eee481198787dc346ab6608"
-  owners = axual_group.tenant_admin_group.id
-  properties = {
-    "segment.ms"="60002"
-  }
- }
-
-  resource "axual_environment" "test" {
-    name = "test"
-    short_name = "t"
-    description = "Testing environment with single character shortname"
-    color = "#3b0d98"
-    visibility = "Public"
-    authorization_issuer = "Stream owner"
-    instance = "51be2a6a5eee481198787dc346ab6608"
-    owners = axual_group.tenant_admin_group.id
-    properties = {
-      "segment.ms"="60002"
-    }
-}
-
-#
-# An APPLICATION is anything that produces or consumes data from a topic.
-# In Axual Platform we distinguish CUSTOM and CONNECTOR type applications.
-#
-# In the example below, applications "dev_dashboard" and "log_scraper" are declared
-#
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/application
-#
-
-resource "axual_application" "dev_dashboard" {
-  name    = "DeveloperDashboard"
-  application_type     = "Custom"
-  short_name = "dev_dash"
-  application_id = "io.axual.devs.dashboard"
-  owners = axual_group.team-awesome.id
-  viewers = [axual_group.team-support.id]
-  type = "Java"
-  visibility = "Public"
-  description = "Dashboard with crucial information for Developers"
-#  depends_on = [axual_topic_config.logs_in_production, axual_topic.support] # This is a workaround when all resources get deleted at once, to delete topic_config and topic before application. Mentioned in index.md
-}
-
 resource "axual_application" "log_scraper" {
   name    = "LogScraper"
   application_type     = "Custom"
   short_name = "log_scraper"
   application_id = "io.axual.gitops.scraper"
-  owners = axual_group.team-awesome.id
+  owners = axual_group.tenant_admin_group.id
   type = "Java"
   visibility = "Public"
   description = "Axual's Test Application for finding all Logs for developers"
-#  depends_on = [axual_topic_config.logs_in_dev, axual_topic.logs] # This is a workaround when all resources get deleted at once, to delete topic_config and topic before application. Mentioned in index.md
-}
-
-resource "axual_application" "connector_test_application" {
-  name    = "connector_test"
-  application_type     = "Connector"
-  application_class = "com.couchbase.connect.kafka.CouchbaseSinkConnector"
-  short_name = "connector_test"
-  application_id = "connector_test"
-  owners = axual_group.team-awesome.id
-  visibility = "Public"
-  description = "Testing connector apps"
-  type="SINK"
-  #  depends_on = [axual_topic_config.logs_in_dev, axual_topic.logs] # This is a workaround when all resources get deleted at once, to delete topic_config and topic before application. Mentioned in index.md
-}
-
-#
-# Every application has an APPLICATION_PRINCIPAL which defines how the application authenticates
-# to Axual Platform. Every APPLICATION_PRINCIPAL is defined per ENVIRONMENT the APPLICATION is used in
-#
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/application_principal
-#
-
-resource "axual_application_principal" "dev_dashboard_in_dev_principal" {
-  environment = axual_environment.development.id
-  application = axual_application.dev_dashboard.id
-  principal = file("certs/certificate.pem")
-}
-
-resource "axual_application_principal" "dev_dashboard_in_staging_principal" {
-  environment = axual_environment.staging.id
-  application = axual_application.dev_dashboard.id
-  principal = file("certs/certificate.pem")
 }
 
 resource "axual_application_principal" "log_scraper_in_dev_principal" {
@@ -356,81 +95,17 @@ resource "axual_application_principal" "log_scraper_in_dev_principal" {
   principal = file("certs/certificate.pem")
 }
 
-resource "axual_application_principal" "log_scraper_in_staging_principal" {
-  environment = axual_environment.staging.id
-  application = axual_application.log_scraper.id
-  principal = file("certs/certificate.pem")
-}
-
-resource "axual_application_principal" "dev_dashboard_in_production_principal" {
-  environment = axual_environment.production.id
-  application = axual_application.dev_dashboard.id
-  principal = file("certs/certificate.pem")
-}
-
-resource "axual_application_principal" "log_scraper_in_production_principal" {
-  environment = axual_environment.production.id
-  application = axual_application.log_scraper.id
-  principal = file("certs/certificate.pem")
-}
-
-# This axual_application_principal will be used with a Connector application.
-
-# If committing terraform configuration(.tf) file in version control repository, please make sure
-# there is a secure way of providing private key for a Connector application's Application Principal.
-# Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/
-
-# The query from this Terraform provider to Axual Platform Manager API is secured with a TLS connection, just like in Axual Self Service UI.
-resource "axual_application_principal" "connector_axual_application_principal" {
-  environment = axual_environment.development.id
-  application = axual_application.connector_test_application.id
-  principal = file("certs/example-connector.pem")
-  private_key = file("certs/example-connector.key")
-}
-
-#
-# A Schema is an AVRO definition formatted in JSON.
-# In Axual Platform Schemas are used by Topics of data type AVRO (avsc file).
-# Note: An attempt at uploading a duplicate schema is rejected with an error message containing the duplicated version
-#
-# In the example below, schema_version "axual_gitops_test_schema_version1", "axual_gitops_test_schema_version2" and "axual_gitops_test_schema_version3" are declared referencing their respective schema version
-#
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/schema_version
-#
-
 resource "axual_schema_version" "axual_gitops_test_schema_version1" {
   body = file("avro-schemas/gitops_test_v1.avsc")
   version = "1.0.0"
   description = "Gitops test schema version"
 }
 
-resource "axual_schema_version" "axual_gitops_test_schema_version2" {
-  body = file("avro-schemas/gitops_test_v2.avsc")
-  version = "2.0.0"
-  description = "Gitops test schema version"
-}
-
-resource "axual_schema_version" "axual_gitops_test_schema_version3" {
-  body = file("avro-schemas/gitops_test_v3.avsc")
-  version = "3.0.0"
-  description = "Gitops test schema version"
-}
-
-#
-# While TOPIC mostly holds metadata, such as the owner and data type,
-# the TOPIC_CONFIG configures a TOPIC in an ENVIRONMENT
-#
-# Below, some TOPICs are declared and configured in different environments and owned by different GROUPs
-#
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/topic
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/topic_config
-
 resource "axual_topic" "logs" {
   name = "logs"
   key_type = "String"
   value_type = "String"
-  owners = axual_group.team-bonanza.id
-  viewers = [axual_group.team-support.id]
+  owners = axual_group.tenant_admin_group.id
   retention_policy = "delete"
   properties = { }
   description = "Logs from all applications"
@@ -444,354 +119,40 @@ resource "axual_topic_config" "logs_in_dev" {
   properties = {"segment.ms"="600012", "retention.bytes"="1"}
 }
 
-resource "axual_topic_config" "logs_in_staging" {
-  partitions = 1
-  retention_time = 1001000
-  topic = axual_topic.logs.id
-  environment = axual_environment.staging.id
-  properties = {"segment.ms"="60002", "retention.bytes"="100"}
-}
-
-resource "axual_topic_config" "logs_in_production" {
-  partitions = 2
-  retention_time = 86400000
-  topic = axual_topic.logs.id
-  environment = axual_environment.production.id
-  properties = {"segment.ms"="600000", "retention.bytes"="10089"}
-}
-
-resource "axual_topic" "logs_with_avro" {
-  name = "logswithavro"
-  key_type = "AVRO"
-  key_schema = axual_schema_version.axual_gitops_test_schema_version1.schema_id
-  value_type = "AVRO"
-  value_schema = axual_schema_version.axual_gitops_test_schema_version2.schema_id
-  owners = axual_group.team-bonanza.id
-  retention_policy = "delete"
-  properties = { }
-  description = "Logs from all applications with Avro schema"
-}
-
-resource "axual_topic_config" "logs_avro_in_dev" {
-  partitions = 1
-  retention_time = 864000
-  topic = axual_topic.logs_with_avro.id
-  environment = axual_environment.development.id
-  key_schema_version = axual_schema_version.axual_gitops_test_schema_version2.id
-  value_schema_version = axual_schema_version.axual_gitops_test_schema_version1.id
-  properties = {"segment.ms"="600012", "retention.bytes"="1"}
-}
-
-resource "axual_topic_config" "logs_avro_in_staging" {
-  partitions = 1
-  retention_time = 1001000
-  topic = axual_topic.logs_with_avro.id
-  environment = axual_environment.staging.id
-  key_schema_version = axual_schema_version.axual_gitops_test_schema_version2.id
-  value_schema_version = axual_schema_version.axual_gitops_test_schema_version3.id
-  properties = {"segment.ms"="60002", "retention.bytes"="100"}
-}
-
-resource "axual_topic_config" "logs_avro_in_production" {
-  partitions = 2
-  retention_time = 86400000
-  topic = axual_topic.logs_with_avro.id
-  environment = axual_environment.production.id
-  key_schema_version = axual_schema_version.axual_gitops_test_schema_version3.id
-  value_schema_version = axual_schema_version.axual_gitops_test_schema_version3.id
-  properties = {"segment.ms"="600000", "retention.bytes"="10089"}
-}
-
-resource "axual_topic" "support" {
-  name = "support"
-  key_type = "String"
-  value_type = "String"
-  owners = axual_group.team-support.id
-  retention_policy = "delete"
-  properties = { }
-  description = "Support tickets from Help Desk"
-}
-
-resource "axual_topic_config" "support_in_staging" {
-  partitions = 1
-  retention_time = 1001
-  topic = axual_topic.support.id
-  environment = axual_environment.staging.id
-  properties = {"segment.ms"="60002", "retention.bytes"="1234"}
-}
-
-resource "axual_topic_config" "support_in_production" {
-  partitions = 4
-  retention_time = 10000000
-  topic = axual_topic.support.id
-  environment = axual_environment.production.id
-  properties = {"segment.ms"="600000", "retention.bytes"="10089"}
-}
-
-
-#
-# TOPIC_BROWSE_PERMISSIONS allows to configure who can browse topic's messages in a specified
-# environment. Only works if the Environment's Instance has Granular Stream Browse Permissions turned on.
-# Granular Stream browse permissions are disabled in private environments and in public environments
-# with the authorization issuer set to "auto".
-# Read more: https://docs.axual.io/axual/2024.2/self-service/stream-browse.html#controlling-permissions-to-browse-a-stream
-#
-
-resource "axual_topic_browse_permissions" "support_browse_users_and_groups" {
-  topic_config = axual_topic_config.support_in_production.id
-  users= [axual_user.jane.id, axual_user.john.id]
-  groups= [axual_group.team-awesome.id, axual_group.team-bonanza.id]
-}
-
-#
-# An APPLICATION_ACCESS_GRANT represents a connection between an APPLICATION and a TOPIC
-# Its ACCESS_TYPE is either PRODUCER or CONSUMER, depending on the use case
-# The grant refers to the principal, because the principal is used by the application to
-# identify itself to the platform
-#
-# Below, APPLICATION_ACCESS_GRANTs are created for the APPLICATIONs defined above,
-# with different ACCESS_TYPEs
-#
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/application_access_grant
-#
-
 resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
-  application = axual_application.dev_dashboard.id
-  topic = axual_topic.logs.id
-  environment = axual_environment.development.id
-  access_type = "CONSUMER"
-  depends_on = [ axual_application_principal.dev_dashboard_in_dev_principal ]
-}
-
-resource "axual_application_access_grant" "log_scraper_consume_from_support_in_dev" {
   application = axual_application.log_scraper.id
-  topic = axual_topic.support.id
+  topic = axual_topic.logs.id
   environment = axual_environment.development.id
   access_type = "CONSUMER"
   depends_on = [ axual_application_principal.log_scraper_in_dev_principal ]
 }
 
-resource "axual_application_access_grant" "dash_consume_from_logs_in_staging" {
-  application = axual_application.dev_dashboard.id
-  topic = axual_topic.logs.id
-  environment = axual_environment.staging.id
-  access_type = "CONSUMER"
-  depends_on = [ axual_application_principal.dev_dashboard_in_staging_principal ]
-}
-
-resource "axual_application_access_grant" "dash_consume_from_support_in_staging" {
-  application = axual_application.dev_dashboard.id
-  topic = axual_topic.support.id
-  environment = axual_environment.staging.id
-  access_type = "CONSUMER"
-  depends_on = [ axual_application_principal.dev_dashboard_in_staging_principal ]
-}
-
-resource "axual_application_access_grant" "scraper_produce_to_logs_in_staging" {
-  application = axual_application.log_scraper.id
-  topic = axual_topic.logs.id
-  environment = axual_environment.staging.id
-  access_type = "PRODUCER"
-  depends_on = [ axual_application_principal.log_scraper_in_staging_principal ]
-}
-
-resource "axual_application_access_grant" "dash_consume_from_logs_in_production" {
-  application = axual_application.dev_dashboard.id
-  topic = axual_topic.logs.id
-  environment = axual_environment.production.id
-  access_type = "CONSUMER"
-  depends_on = [ axual_application_principal.dev_dashboard_in_production_principal ]
-}
-
-resource "axual_application_access_grant" "dash_consume_from_support_in_production" {
-  application = axual_application.dev_dashboard.id
-  topic = axual_topic.support.id
-  environment = axual_environment.production.id
-  access_type = "CONSUMER"
-  depends_on = [ axual_application_principal.dev_dashboard_in_production_principal ]
-}
-
-resource "axual_application_access_grant" "scraper_produce_to_logs_in_production" {
-  application = axual_application.log_scraper.id
-  topic = axual_topic.logs.id
-  environment = axual_environment.production.id
-  access_type = "PRODUCER"
-  depends_on = [ axual_application_principal.log_scraper_in_production_principal ]
-}
-
-resource "axual_application_access_grant" "connector_axual_application_access_grant" {
-  application = axual_application.connector_test_application.id
-  topic = axual_topic.logs.id
-  environment = axual_environment.development.id
-  access_type = "CONSUMER"
-  depends_on = [ axual_application_principal.connector_axual_application_principal ]
-}
-
-#
-# An APPLICATION_ACCESS_GRANT can be approved by creating an APPLICATION_ACCESS_GRANT_APPROVAL with
-# a reference to the APPLICATION_ACCESS_GRANT which needs to be approved, as can be seen
-# in the example below
-#
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/application_access_grant_approval
-#
-
-resource "axual_application_access_grant_approval" "dash_consume_logs_dev" {
+resource "axual_application_access_grant_approval" "connector_axual_application_access_grant_approval"{
   application_access_grant = axual_application_access_grant.dash_consume_from_logs_in_dev.id
   depends_on = [axual_topic_config.logs_in_dev]
 }
-
-resource "axual_application_access_grant_approval" "dash_consume_logs_staging" {
-  application_access_grant = axual_application_access_grant.dash_consume_from_logs_in_staging.id
-  depends_on = [axual_topic_config.logs_in_staging]
-}
-
-resource "axual_application_access_grant_approval" "dash_consume_support_production"{
-  application_access_grant = axual_application_access_grant.dash_consume_from_support_in_production.id
-  depends_on = [axual_topic_config.support_in_production]
-}
-
-resource "axual_application_access_grant_approval" "log_consume_support_dev"{
-  application_access_grant = axual_application_access_grant.log_scraper_consume_from_support_in_dev.id
-  depends_on = [axual_topic_config.logs_avro_in_dev]
-}
-
-resource "axual_application_access_grant_approval" "dash_consume_logs_production"{
-  application_access_grant = axual_application_access_grant.dash_consume_from_logs_in_production.id
-  depends_on = [axual_topic_config.logs_in_production]
-}
-
-resource "axual_application_access_grant_approval" "scraper_produce_logs_production"{
-  application_access_grant = axual_application_access_grant.scraper_produce_to_logs_in_production.id
-  depends_on = [axual_topic_config.logs_in_production]
-}
-
-resource "axual_application_access_grant_approval" "connector_axual_application_access_grant_approval"{
-  application_access_grant = axual_application_access_grant.connector_axual_application_access_grant.id
-  depends_on = [axual_topic_config.logs_avro_in_production]
-}
-
-#
-# To reject an APPLICATION_ACCESS_GRANT, create an APPLICATION_ACCESS_GRANT_REJECTION
-#
-# Reference: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/application_access_grant_rejection
-#
-
-resource "axual_application_access_grant_rejection" "scraper_produce_logs_staging_rejection" {
-  application_access_grant = axual_application_access_grant.scraper_produce_to_logs_in_staging.id
-  depends_on = [axual_topic_config.logs_in_staging]
-}
-
-##
-## Connector application has an APPLICATION_DEPLOYMENT which defines the Connector application
-## To make APPLICATION_DEPLOYMENT, application principal with private key is required and application
-## with type Connector is required. Creating APPLICATION_DEPLOYMENT automatically starts it
-##
-## Reference: https://docs.axual.io/connect/Axual-Connect/developer/starting-connectors.html
-##
-
-resource "axual_application_deployment" "connector_axual_application_deployment" {
-  environment = axual_environment.development.id
-  application = axual_application.connector_test_application.id
-  configs = {
-    "config.action.reload"= "restart",
-    "header.converter"= "",
-    "key.converter"= "",
-    "tasks.max"= "1",
-    "topics"= "2",
-    "topics.regex"= "",
-    "value.converter"= "",
-    "couchbase.bootstrap.timeout"= "30s",
-    "couchbase.bucket"= "2",
-    "couchbase.network"= "user",
-    "couchbase.seed.nodes"= "1",
-    "couchbase.username"= "q",
-    "couchbase.durability"= "NONE",
-    "couchbase.persist.to"= "NONE",
-    "couchbase.replicate.to"= "NONE",
-    "errors.deadletterqueue.context.headers.enable"= "false",
-    "errors.deadletterqueue.topic.name"= "",
-    "errors.deadletterqueue.topic.replication.factor"= "3",
-    "errors.log.enable"= "false",
-    "errors.log.include.messages"= "false",
-    "errors.retry.delay.max.ms"= "60000",
-    "errors.retry.timeout"= "0",
-    "errors.tolerance"= "none",
-    "couchbase.log.document.lifecycle"= "false",
-    "couchbase.log.redaction"= "NONE",
-    "couchbase.n1ql.create.document"= "true",
-    "couchbase.n1ql.operation"= "UPDATE",
-    "couchbase.n1ql.where.fields"= "",
-    "predicates"= "",
-    "couchbase.client.certificate.password"= "INSERT_PASSWORD",
-    "couchbase.client.certificate.path"= "",
-    "couchbase.enable.hostname.verification"= "true",
-    "couchbase.enable.tls"= "false",
-    "couchbase.trust.certificate.path"= "",
-    "couchbase.trust.store.password"= "INSERT_PASSWORD",
-    "couchbase.trust.store.path"= "",
-    "couchbase.default.collection"= "_default._default",
-    "couchbase.document.expiration"= "0",
-    "couchbase.document.id"= "",
-    "couchbase.document.mode"= "DOCUMENT",
-    "couchbase.remove.document.id"= "false",
-    "couchbase.retry.timeout"= "0",
-    "couchbase.sink.handler"= "com.couchbase.connect.kafka.handler.sink.UpsertSinkHandler",
-    "couchbase.topic.to.collection"= "",
-    "couchbase.subdocument.create.document"= "true",
-    "couchbase.subdocument.create.path"= "true",
-    "couchbase.subdocument.operation"= "UPSERT",
-    "couchbase.subdocument.path"= "",
-    "transforms"= "",
-    "couchbase.password"= "INSERT_PASSWORD",
-  }
-  depends_on = [
-    axual_application_access_grant_approval.dash_consume_logs_dev,
-    axual_application_access_grant_approval.dash_consume_logs_staging,
-    axual_application_access_grant_approval.dash_consume_logs_staging,
-    axual_application_access_grant_approval.dash_consume_support_production,
-    axual_application_access_grant_approval.log_consume_support_dev,
-    axual_application_access_grant_approval.dash_consume_logs_production,
-    axual_application_access_grant_approval.scraper_produce_logs_production,
-    axual_application_access_grant_approval.connector_axual_application_access_grant_approval,
-  ]
-}
 ```
 
-<!-- schema generated by tfplugindocs -->
-## Schema
+To create all the resources in this example, the logged-in user (defined in provider.tf) must have the following roles:
 
-### Required
+- **TENANT_ADMIN** - Required for creating the resources `axual_user` and `axual_group`
+- **STREAM_ADMIN** - for creating resources: `axual_topic`, `axual_topic_config`, `axual_application_access_grant_approval`
+- **APPLICATION_ADMIN** - for creating resources: `axual_application`, `axual_application_principal`, `axual_application_access_grant`
+- **ENVIRONMENT_ADMIN** - for creating resource: `axual_environment`
 
-- `apiurl` (String) URL that will be used by the client for all resource requests
-- `authurl` (String) Token url
-- `clientid` (String) Client ID to be used for oauth
-- `password` (String, Sensitive) Password belonging to the user
-- `realm` (String) Axual realm used for the requests
-- `username` (String) Username for all requests. Will be used to acquire a token
 
-### Optional
-- `scopes` (List of String) OAuth authorization server scopes
+# Getting started
+## Required User Roles
+- The Terraform User who is logged in (With a Trial account, the default username kubernetes@axual.com), needs to have at least both of the following user roles:
+  - **APPLICATION_ADMIN** - for creating `axual_application`, `axual_application_principal`, `axual_application`
+  - **STREAM_ADMIN** - for revoking access request
+- Alternatively, they can be the owner of both the application and the topic, which entails being a user in the same group as the owner group of the application and topic.
 
-## Guides
-
-- Our guides are in the guides folder:
-	- How to import user and group: [Importing user and group](guides/importing-user-and-groups.md)
-	- Setting up Terraform with Axual Trial: [Axual Trial setup](guides/axual-trial-setup.md)
-	- Managing application access to topics: [Axual Trial setup](guides/manage-application-access-to-topics.md)
 
 ## Compatibility
- - This Axual Terraform provider version (2.4.0) requires Management API 8.6.0 or later because that is the version where these features were added: Viewer Groups (for Environment, Application, and Topic) and Group Managers.
-
-## Output
-Please include output if you want to have detailed information, e.g. for debugging purposes or for data sources.
-Example of an output for the environment resource.
-
-```
-output "staging_id" {
-	value = axual_environment.staging.id
-  }
-  
-  output "staging_name" {
-	value = axual_environment.staging.name
-  }
-```
+| Terraform Provider Version | Supported Platform Manager Version(s) |
+|----------------------------|---------------------------------------|
+| 2.1.0                      | 7.0.7 - 8.4.x                        |
+| 2.2.0                      | 8.5.x                                |
+| 2.3.0                      | 8.5.x                                |
+| 2.4.0                      | 8.6.0+                               |

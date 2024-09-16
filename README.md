@@ -55,12 +55,10 @@ provider "axual" {
 }
 ```
 
-Update the `init.sh` file to point to the correct TENANT_ADMIN and TENANT_ADMIN_GROUP resources and
-execute the `init.sh` script.
-
 Now you can run `terraform plan` to test the provider.
 > Note you don't need to run `terraform init`.
-
+> 
+### Troubleshooting
 Usually if Go is installed with brew, you don't need to set any environment variables,
 but just in case things are not working, you can try the setting below in `~/.zshrc`.
 
@@ -70,48 +68,7 @@ export GOROOT=“$(brew --prefix golang)/libexec”
 export PATH=“$PATH:${GOPATH}/bin:${GOROOT}/bin”
 ```
 
-## Terraform configuration
-### Create order
-All resources can be created at once if **depends_on** argument is used like in examples.
-Otherwise, this is the correct resource creation order:
-1. User
-2. Group
-3. Topic
-4. Topic Config
-5. Application
-6. Application Principal
-7. Application Deployment 
-8. Application Access Grant
-
-### Delete order
-All resources can be deleted at once if **depends_on** argument is used like in examples.
-Otherwise, this is the correct resource deletion order:
-1. Application Access Grant
-2. Application Deployment
-3. Application Principal
-4. Application
-5. Topic Config
-6. Topic
-7. Group
-8. User
-
 ## Terraform Documentation
-
-### Upgrading to version 2.0.0+
-In version 2.0.0 all wording of stream has been changed to topic. i.e the axual resource `axual_stream` has been renamed to `axual_topic`. To update from versions 1.x.x to 2.0.0 or above you need to 
-1. Replace all references of stream in state files with topic
- below are commands to run for the provided examples project, you need to run the same commands in the root of your project
- ```shell
-  sed -i='' "s/axual_stream_config/axual_topic_config/" terraform.tfstate
-  sed -i='' "s/axual_stream/axual_topic/" terraform.tfstate
-  sed -i='' "s/\"stream\":/\"topic\":/" terraform.tfstate
- ```
-2. Replace all references of stream in configuration files with topic
- ```shell
-sed -i='' "s/axual_stream_config/axual_topic_config/" main.tf
-sed -i='' "s/axual_stream/axual_topic/" main.tf
-sed -i='' "s/stream =/topic =/" main.tf
- ```
 
 ### Generate
 
@@ -121,7 +78,7 @@ go generate
 ```
 - This command generates documentation based on the templates in the templates' directory.
 
-## Terraform Manifest
+## Terraform Manifest file(terraform-registry-manifest.json)
 
 - **version** is the numeric version of the manifest format, not the version of our provider.
 - **protocol_versions** is the Terraform protocol version. This is set to 6.0 because we are using Terraform Plugin Framework to develop our provider.
