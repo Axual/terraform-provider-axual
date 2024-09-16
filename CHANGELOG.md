@@ -3,8 +3,9 @@
 All notable changes to this project will be documented in this file.
 
 ## [master](https://github.com/Axual/terraform-provider-axual/blob/master) - TBR
+## [2.4.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.4.0) - 2024-09-16
 * Updated shortName in Environment resource to have min length 1
-* Support for Viewers(Environment, Topic, Application) and Group managers
+* Support for Viewers (Environment, Topic, Application) and Group managers
 * Support for Topic Browse Permissions: Users and Groups can be added with new resource axual_topic_browse_permissions
 * Added waiting and retry when creating/updating/deleting all resources resulting in a Kafka resource.
 
