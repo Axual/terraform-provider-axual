@@ -39,7 +39,10 @@ resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
   topic = axual_topic.logs.id
   environment = axual_environment.development.id
   access_type = "CONSUMER"
-  depends_on = [ axual_application_principal.dev_dashboard_in_dev_principal ]
+  depends_on = [
+    axual_application_principal.log_scraper_in_dev_principal,
+    axual_topic_config.logs_in_dev
+  ]
 }
 ```
 

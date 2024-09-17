@@ -41,8 +41,7 @@ terraform {
 
 # PROVIDER CONFIGURATION
 #
-# Below example configuration is for when you have deployed Axual Platform locally. Contact your administrator if you
-# need the details for your organization's installation.
+# Below example configuration is for when you have deployed Axual Platform locally.
 
 provider "axual" {
   apiurl   = "https://platform.local/api"
@@ -53,6 +52,18 @@ provider "axual" {
   authurl  = "https://platform.local/auth/realms/axual/protocol/openid-connect/token"
   scopes   = ["openid", "profile", "email"]
 }
+
+# Below example configuration is for when you have deployed Axual Platform in Axual Cloud.
+
+# provider "axual" {
+  apiurl   = "https://axual.cloud/api"
+  realm    = "PLEASE_CHANGE_REALM"
+  username = "PLEASE_CHANGE_USERNAME"
+  password = "PLEASE_CHANGE_PASSWORD"
+  clientid = "self-service"
+  authurl = "https://axual.cloud/auth/realms/PLEASE_CHANGE_REALM/protocol/openid-connect/token"
+  scopes = ["openid", "profile", "email"]
+# }
 ```
 
 Now you can run `terraform plan` to test the provider.

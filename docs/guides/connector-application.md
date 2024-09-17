@@ -31,117 +31,96 @@ To read more about Connect Applications on Axual Platform: https://docs.axual.io
 
 ### Example Resources:
 ```shell
-resource "axual_topic" "test-topic" {
-  name = "test-topic-name"
-  key_type = "String"
-  value_type = "String"
-  owners = axual_group.team-test.id
-  retention_policy = "delete"
-  properties = { }
-  description = "Logs from all applications"
+
+locals {
+  retention_time = 604800000
 }
 
-resource "axual_environment" "test_env" {
-  name = "test-env-name"
-  short_name = "test-env-short-name"
-  description = "test env description"
-  color = "#4686f0"
-  visibility = "Public"
-  authorization_issuer = "Auto"
-  instance = "1be6269156d14ab09f40ea5133316a33"
-  owners = axual_group.team-test.id
+resource "axual_group" "team-integrations" {
+  name          = "team-Integrations2"
+  phone_number  = "+6112356789"
+  email_address = "test.user@axual.com"
+  members       = [
+    "40a11a71e0374cb8986d4bf7394f2ccb",
+  ]
+}
+
+resource "axual_topic" "topic-log-source-1" {
+  name = "tf-testing-source-1-2"
+  key_type = "String"
+  value_type = "String"
+  owners = axual_group.team-integrations.id
+  retention_policy = "delete"
+  properties = { }
+  description = "Demo of deploying a topic via Terraform"
+}
+
+resource "axual_topic_config" "topic-log-source-1-in-cicd" {
+  partitions = 1
+  retention_time = local.retention_time
+  topic = axual_topic.topic-log-source-1.id
+  environment = "09412f2ac3cb436598c68f5822ec3572"
+  properties = { "segment.ms"="600012", "retention.bytes"="-1" }
 }
 
 resource "axual_application" "connector_test_application" {
-  name    = "Connector Application Name"
+  name    = "tf-logsource2"
   application_type     = "Connector"
-  application_class = "com.couchbase.connect.kafka.CouchbaseSinkConnector"
-  short_name = "connector_app_short_name"
-  application_id = "connector_app1"
-  owners = axual_group.team-test.id
+  application_class = "org.apache.kafka.connect.axual.utils.LogSourceConnector"
+  short_name = "tf_logsource2"
+  application_id = "terraform-log-source2"
+  owners = axual_group.team-integrations.id
   visibility = "Public"
-  description = "Connect Application description"
-  type="SINK"
-#  depends_on = [axual_topic_config.logs_in_production, axual_topic.support] # This is a workaround when all resources get deleted at once, to delete topic_config and topic before application. Mentioned in index.md
+  description = "Demo of deploying connector via Terraform"
+  type="SOURCE"
 }
 
-resource "axual_application_principal" "test_application_principal" {
-  environment = axual_environment.test_env.id
+resource "axual_application_principal" "connector_axual_application_principal" {
+  environment = "09412f2ac3cb436598c68f5822ec3572"
   application = axual_application.connector_test_application.id
-  principal = file("certs/example-connector.pem")
-  private_key = file("certs/example-connector.key")
+  principal = file("certs/demo1.app.dizzl.com.cer.pem")
+  private_key = file("certs/demo1.app.dizzl.com.p8.pem")
 }
 
-resource "axual_application_access_grant" "test_application_access_grant" {
+resource "axual_application_access_grant" "connector_axual_application_access_grant_logsource-1" {
   application = axual_application.connector_test_application.id
-  topic = axual_topic.test-topic.id
-  environment = axual_environment.test_env.id
-  access_type = "CONSUMER"
-  depends_on = [ axual_application_principal.dev_dashboard_in_dev_principal ]
-}
-
-resource "axual_application_access_grant_approval" "test_application_access_grant_approval" {
-  application_access_grant = axual_application_access_grant.dash_consume_from_logs_in_dev.id
-}
-
-resource "axual_application_deployment" "dev_dashboard_in_dev_principal" {
-  environment = axual_environment.test_env.id
-  application = axual_application.connector_test_application.id
-  configs = {
-    "config.action.reload"= "restart",
-    "header.converter"= "",
-    "key.converter"= "",
-    "tasks.max"= "1",
-    "topics"= "3",
-    "topics.regex"= "",
-    "value.converter"= "",
-    "couchbase.bootstrap.timeout"= "30s",
-    "couchbase.bucket"= "2",
-    "couchbase.network"= "test@test.com",
-    "couchbase.seed.nodes"= "1",
-    "couchbase.username"= "q",
-    "couchbase.durability"= "NONE",
-    "couchbase.persist.to"= "NONE",
-    "couchbase.replicate.to"= "NONE",
-    "errors.deadletterqueue.context.headers.enable"= "false",
-    "errors.deadletterqueue.topic.name"= "",
-    "errors.deadletterqueue.topic.replication.factor"= "3",
-    "errors.log.enable"= "false",
-    "errors.log.include.messages"= "false",
-    "errors.retry.delay.max.ms"= "60000",
-    "errors.retry.timeout"= "0",
-    "errors.tolerance"= "none",
-    "couchbase.log.document.lifecycle"= "false",
-    "couchbase.log.redaction"= "NONE",
-    "couchbase.n1ql.create.document"= "true",
-    "couchbase.n1ql.operation"= "UPDATE",
-    "couchbase.n1ql.where.fields"= "",
-    "predicates"= "",
-    "couchbase.client.certificate.password"= "[hidden]",
-    "couchbase.client.certificate.path"= "",
-    "couchbase.enable.hostname.verification"= "true",
-    "couchbase.enable.tls"= "false",
-    "couchbase.trust.certificate.path"= "",
-    "couchbase.trust.store.password"= "[hidden]",
-    "couchbase.trust.store.path"= "",
-    "couchbase.default.collection"= "_default._default",
-    "couchbase.document.expiration"= "0",
-    "couchbase.document.id"= "",
-    "couchbase.document.mode"= "DOCUMENT",
-    "couchbase.remove.document.id"= "false",
-    "couchbase.retry.timeout"= "0",
-    "couchbase.sink.handler"= "com.couchbase.connect.kafka.handler.sink.UpsertSinkHandler",
-    "couchbase.topic.to.collection"= "",
-    "couchbase.subdocument.create.document"= "true",
-    "couchbase.subdocument.create.path"= "true",
-    "couchbase.subdocument.operation"= "UPSERT",
-    "couchbase.subdocument.path"= "",
-    "transforms"= "",
-    "couchbase.password"= "1",
-  }
-  depends_on = [ axual_application_principal.test_application_principal,
-    axual_application_access_grant.test_application_access_grant,
-    axual_application_access_grant_approval.test_application_access_grant_approval
+  topic = axual_topic.topic-log-source-1.id
+  environment =  "09412f2ac3cb436598c68f5822ec3572"
+  access_type = "PRODUCER"
+  depends_on = [
+    axual_topic_config.topic-log-source-1-in-cicd,
+    axual_application_principal.connector_axual_application_principal,
   ]
 }
+
+resource "axual_application_access_grant_approval" "connector_axual_application_access_grant_approval-logsource-1"{
+  application_access_grant = axual_application_access_grant.connector_axual_application_access_grant_logsource-1.id
+}
+
+resource "axual_application_deployment" "connector_axual_application_deployment" {
+  environment =  "09412f2ac3cb436598c68f5822ec3572"
+  application = axual_application.connector_test_application.id
+  configs = {
+    "logger.name" = "tflogger",
+    "throughput" = "10",
+    "topic" = "tf-testing-source-1-2",
+    "key.converter" = "StringConverter",
+    "value.converter" = "StringConverter",
+    "header.converter" = "",
+    "config.action.reload" = "restart",
+    "tasks.max" = "1",
+    "errors.log.include.messages" = "false",
+    "errors.log.enable" = "false",
+    "errors.retry.timeout" = "0",
+    "errors.retry.delay.max.ms" = "60000",
+    "errors.tolerance" = "none",
+    "predicates" = "",
+    "topic.creation.groups" = "",
+    "transforms" = ""
+  }
+  depends_on = [
+    axual_application_access_grant_approval.connector_axual_application_access_grant_approval-logsource-1,
+  ]
+}
+
 ```

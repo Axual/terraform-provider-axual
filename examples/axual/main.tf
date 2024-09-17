@@ -75,7 +75,7 @@ resource "axual_topic_config" "logs_in_dev" {
   retention_time = 864000
   topic = axual_topic.logs.id
   environment = axual_environment.development.id
-  properties = {"segment.ms"="600012", "retention.bytes"="1"}
+  properties = {"segment.ms"="600012", "retention.bytes"="-1"}
 }
 
 resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
@@ -83,10 +83,12 @@ resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
   topic = axual_topic.logs.id
   environment = axual_environment.development.id
   access_type = "CONSUMER"
-  depends_on = [ axual_application_principal.log_scraper_in_dev_principal ]
+  depends_on = [
+    axual_application_principal.log_scraper_in_dev_principal,
+    axual_topic_config.logs_in_dev
+  ]
 }
 
 resource "axual_application_access_grant_approval" "connector_axual_application_access_grant_approval"{
   application_access_grant = axual_application_access_grant.dash_consume_from_logs_in_dev.id
-  depends_on = [axual_topic_config.logs_in_dev]
 }

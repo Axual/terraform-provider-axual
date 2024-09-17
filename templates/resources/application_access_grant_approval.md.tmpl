@@ -15,7 +15,7 @@
   - Then delete that application_access_grant_approval
 
 ## Required Roles
-- TOPIC_ADMIN or be part of the Team that owns the Topic
+- STREAM_ADMIN or be part of the Team that owns the Topic
 
 {{ .SchemaMarkdown | trimspace }}
 
@@ -24,7 +24,6 @@
 ```hcl
 resource "axual_application_access_grant_approval" "dash_consume_logs_dev" {
   application_access_grant = axual_application_access_grant.dash_consume_from_logs_in_dev.id
-  depends_on = [ axual_topic_config.topic-azure-sql-cdc-schema-in-sandbox ]
 }
 ```
 

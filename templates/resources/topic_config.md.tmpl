@@ -2,6 +2,9 @@
 
 {{ .Description | trimspace }}
 
+## Required Roles
+- STREAM_ADMIN or be part of the group owning the Topic
+
 {{ .SchemaMarkdown | trimspace }}
 
 ## Example Usage
@@ -12,7 +15,7 @@ resource "axual_topic_config" "logs_in_dev" {
   retention_time = 864000
   topic = axual_topic.logs.id
   environment = axual_environment.development.id
-  properties = {"segment.ms"="600012", "retention.bytes"="1"}
+  properties = {"segment.ms"="600012", "retention.bytes"="-1"}
 }
 
 resource "axual_topic_config" "example-with-schema-version" {
@@ -22,7 +25,7 @@ resource "axual_topic_config" "example-with-schema-version" {
   environment = axual_environment.development.id
   key_schema_version = axual_schema_version.axual_gitops_test_schema_version2.id
   value_schema_version = axual_schema_version.axual_gitops_test_schema_version1.id
-  properties = {"segment.ms"="600012", "retention.bytes"="1"}
+  properties = {"segment.ms"="600012", "retention.bytes"="-1"}
 }
 ```
 
