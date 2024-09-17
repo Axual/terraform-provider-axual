@@ -2,19 +2,21 @@
 
 {{ .Description | trimspace }}
 
+
 ## Usage
-- To see which configuration parameters are required for each connect-plugins(`axual_application.application_class`), please refer to docs: `https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html`.
-- Creating `axual_application_deployment` resource automatically starts it.
-- Updating `axual_application_deployment` resource automatically stops it if it was running, updates it and then starts it.
-- Deleting `axual_application_deployment` resource automatically stops it if it was running and then deletes it.
-- More information about connector applications in Axual: `https://docs.axual.io/connect/Axual-Connect/developer/starting-connectors.html`.
+- To see the required configuration parameters for each connect-plugin (`axual_application.application_class`), refer to the documentation: [Axual Connect Plugins Catalog](https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html).
+- Creating the `axual_application_deployment` resource automatically starts the application.
+- Updating the `axual_application_deployment` resource automatically stops the application (if it is running), applies the update, and then restarts it.
+- Deleting the `axual_application_deployment` resource automatically stops the application (if it is running) before removing it.
+- For more information about connector applications in Axual, refer to the documentation: [Starting Connectors](https://docs.axual.io/connect/Axual-Connect/developer/starting-connectors.html).
+- Currently, a data source for `axual_application_deployment` is not supported.
+
+### Design Decision: Use of `depends_on`
+- Ensure the use of the `depends_on` attribute as shown in the example below. This guarantees that Terraform creates the required `axual_application_access_grant_approval` resource before creating `axual_application_deployment` resource.
+- We use the `depends_on` attribute because each connector plugin determines the topic names it should use in its own way. By explicitly specifying `depends_on`, the connector owner can protect the deployment until the necessary approvals are in place. Due to the dynamic nature of Connect, this structure is necessary to maintain flexibility and control over the resource creation process.
 
 ## Required Roles
 - APPLICATION_ADMIN or be part of the Team that owns the Application
-
-## Limitations
-- Please make sure to use the `depends_on` as in the example below, because it guarantees the correct order when creating or deleting multiple resources. Including it guarantees that Terraform creates the required resources before `application_deployment` resource: `application_principal`, `axual_application_access_grant`, `axual_application_access_grant_approval`.
-- Currently, we do not support a data source for a Connector application.
 
 {{ .SchemaMarkdown | trimspace }}
 
