@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -202,24 +203,29 @@ func (r *groupResource) ImportState(ctx context.Context, req resource.ImportStat
 }
 
 func mapGroupResponseToData(ctx context.Context, data *groupResourceData, group *webclient.GroupResponse) {
+	// Initialize diagnostics variable
+	var diags diag.Diagnostics
+
 	// mandatory fields first
 	tflog.Info(ctx, "mapping response to data")
 	data.Id = types.StringValue(group.Uid)
 	data.Name = types.StringValue(group.Name)
 
-	var members []attr.Value
-	for _, member := range group.Embedded.Members {
-		members = append(members, types.StringValue(member.Uid))
+	// Handle members
+	if group.Embedded.Members == nil || len(group.Embedded.Members) == 0 {
+		data.Members = types.SetNull(types.StringType)
+	} else {
+		memberSet := make([]attr.Value, len(group.Embedded.Members))
+		for i, member := range group.Embedded.Members {
+			memberSet[i] = types.StringValue(member.Uid)
+		}
+		data.Members, diags = types.SetValue(types.StringType, memberSet)
+		if diags.HasError() {
+			tflog.Error(ctx, "Error creating members set")
+		}
 	}
 
-	setValue, diags := types.SetValue(types.StringType, members)
-
-	if diags.HasError() {
-		tflog.Error(ctx, "Error creating members slice when mapping group response")
-	}
-
-	data.Members = setValue
-
+	// Handle managers
 	if group.Embedded.Managers == nil || len(group.Embedded.Managers) == 0 {
 		data.Managers = types.SetNull(types.StringType)
 	} else {
@@ -234,40 +240,39 @@ func mapGroupResponseToData(ctx context.Context, data *groupResourceData, group 
 	}
 
 	// optional fields
-	if nil == group.EmailAddress {
+	if group.EmailAddress.Email == "" {
 		data.EmailAddress = types.StringNull()
 	} else {
-		tflog.Info(ctx, fmt.Sprintf("email is %s", group.EmailAddress))
-		m := group.EmailAddress.(map[string]interface{})
-		data.EmailAddress = types.StringValue(m["email"].(string))
+		tflog.Info(ctx, fmt.Sprintf("email is %s", group.EmailAddress.Email))
+		data.EmailAddress = types.StringValue(group.EmailAddress.Email)
 	}
 	if group.PhoneNumber == nil {
 		data.PhoneNumber = types.StringNull()
 	} else {
 		data.PhoneNumber = types.StringValue(group.PhoneNumber.(string))
 	}
-
 }
 
 func createGroupRequestFromData(ctx context.Context, data *groupResourceData, apiUrl string) (webclient.GroupRequest, error) {
-	// mandatory fields
+	// Create members list
+	members := []string{}
+	if !data.Members.IsNull() {
+		var memberUIDs []string
+		diags := data.Members.ElementsAs(ctx, &memberUIDs, false)
+		if diags.HasError() {
+			return webclient.GroupRequest{}, fmt.Errorf("failed to extract members: %v", diags)
+		}
 
-	var members []string
-	for _, raw := range data.Members.Elements() {
-		value, err := raw.ToTerraformValue(ctx)
-		if err != nil {
-			return webclient.GroupRequest{}, err
+		for _, member := range memberUIDs {
+			fullURL := fmt.Sprintf("%s/users/%v", apiUrl, member)
+			members = append(members, fullURL)
 		}
-		var member string
-		err = value.As(&member)
-		if err != nil {
-			return webclient.GroupRequest{}, err
-		}
-		members = append(members, fmt.Sprintf("%s/users/%v", apiUrl, member))
 	}
+
 	tflog.Info(ctx, fmt.Sprintf("Desired members list size %d", len(data.Members.Elements())))
 	tflog.Info(ctx, fmt.Sprintf("Creating new members list of size %d", len(members)))
 
+	// Create managers list
 	managers := []string{}
 	if !data.Managers.IsNull() {
 		var managerUIDs []string
@@ -288,7 +293,7 @@ func createGroupRequestFromData(ctx context.Context, data *groupResourceData, ap
 		Managers: managers,
 	}
 
-	// optional fields
+	// Optional fields
 	if !data.PhoneNumber.IsNull() {
 		tflog.Info(ctx, "phone number is not null")
 		groupRequest.PhoneNumber = data.PhoneNumber.ValueString()
