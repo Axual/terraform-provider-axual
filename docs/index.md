@@ -161,4 +161,4 @@ To create all the resources in this example, the logged-in user (defined in prov
 | 2.1.x                      | 7.0.7 - 8.4.x                        |
 | 2.2.x                      | 8.5.x                                |
 | 2.3.x                      | 8.5.x                                |
-| 2.4.x                      | 8.6.0+                               |
+| 2.4.x                      | 8.6.x                                |
