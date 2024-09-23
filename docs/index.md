@@ -44,6 +44,10 @@ The following example demonstrates the basic functionality of Axual Self-Service
 #
 # This TerraForm file shows the basic capabilities of the TerraForm provider for Axual
 #
+# - When trying out this example:
+# - replace `instance` UID
+# - make sure that the user, group, topic and other resource names already do not exist in the environment
+
 
 resource "axual_user" "tenant_admin" {
   first_name    = "Tenant"
@@ -154,7 +158,7 @@ To create all the resources in this example, the logged-in user (defined in prov
 ## Compatibility
 | Terraform Provider Version | Supported Platform Manager Version(s) |
 |----------------------------|---------------------------------------|
-| 2.1.0                      | 7.0.7 - 8.4.x                        |
-| 2.2.0                      | 8.5.x                                |
-| 2.3.0                      | 8.5.x                                |
-| 2.4.0                      | 8.6.0+                               |
+| 2.1.x                      | 7.0.7 - 8.4.x                        |
+| 2.2.x                      | 8.5.x                                |
+| 2.3.x                      | 8.5.x                                |
+| 2.4.x                      | 8.6.0+                               |

@@ -30,6 +30,12 @@ To create and start a connector application, we need these Axual Terraform resou
 To read more about Connect Applications on Axual Platform: https://docs.axual.io/connect/Axual-Connect/developer/index-developer.html
 
 ### Example Resources:
+- When trying out this example, make sure to:
+ - replace `members` UID
+ - replace `environment` UID or create/import your own environment.
+ - replace CERT and Private key required for Application Principal.
+- Also notice that in `axual_application_deployment` the configuration option: `"topic" = "tf-testing-source-1-2"` needs to match the topic name. 
+
 ```shell
 
 locals {
@@ -78,8 +84,8 @@ resource "axual_application" "connector_test_application" {
 resource "axual_application_principal" "connector_axual_application_principal" {
   environment = "09412f2ac3cb436598c68f5822ec3572"
   application = axual_application.connector_test_application.id
-  principal = file("certs/demo1.app.dizzl.com.cer.pem")
-  private_key = file("certs/demo1.app.dizzl.com.p8.pem")
+  principal = file("certs/example-connector-cert.pem")
+  private_key = file("certs/example-connector-private-key.key")
 }
 
 resource "axual_application_access_grant" "connector_axual_application_access_grant_logsource-1" {

@@ -3,6 +3,10 @@
 #
 # This TerraForm file shows the basic capabilities of the TerraForm provider for Axual
 #
+# - When trying out this example:
+# - replace `instance` UID
+# - make sure that the user, group, topic and other resource names already do not exist in the environment
+
 
 resource "axual_user" "tenant_admin" {
   first_name    = "Tenant"

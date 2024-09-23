@@ -3,7 +3,9 @@
 All notable changes to this project will be documented in this file.
 
 ## [master](https://github.com/Axual/terraform-provider-axual/blob/master) - TBR
-* Documentation improvements: Concise front page
+* Documentation improvements: Concise front page and improved Connector guide
+* Fixed a bug where user can't delete group's phone number
+* Fixed a bug where user can't delete all members of a group
 
 ## [2.4.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.4.0) - 2024-09-16
 * Updated shortName in Environment resource to have min length 1
