@@ -2,6 +2,9 @@
 
 {{ .Description | trimspace }}
 
+## Required Roles
+- TENANT_ADMIN
+
 {{ .SchemaMarkdown | trimspace }}
 
 ## Example Usage
@@ -13,7 +16,12 @@ resource "axual_group" "team-awesome" {
   email_address="team.awesome@example.com"
   members       = [
     	axual_user.jane.id,
-    	axual_user.john.id  ]
+    	axual_user.john.id
+    	]
+  managers       = [
+      	axual_user.tom.id,
+      	axual_user.kate.id
+      	]
 }
 ```
 

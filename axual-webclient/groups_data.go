@@ -56,15 +56,17 @@ type GroupsResponse struct {
 }
 
 type GroupResponse struct {
-	Name         string      `json:"name"`
-	EmailAddress interface{} `json:"emailAddress"`
-	PhoneNumber  interface{} `json:"phoneNumber"`
-	Uid          string      `json:"uid"`
-	CreatedAt    string      `json:"created_at"`
-	ModifiedAt   string      `json:"modified_at"`
-	CreatedBy    string      `json:"created_by"`
-	ModifiedBy   string      `json:"modified_by"`
-	Embedded     struct {
+	Name         string `json:"name"`
+	EmailAddress struct {
+		Email string `json:"email"`
+	} `json:"emailAddress"`
+	PhoneNumber interface{} `json:"phoneNumber"`
+	Uid         string      `json:"uid"`
+	CreatedAt   string      `json:"created_at"`
+	ModifiedAt  string      `json:"modified_at"`
+	CreatedBy   string      `json:"created_by"`
+	ModifiedBy  string      `json:"modified_by"`
+	Embedded    struct {
 		Managers []struct {
 			Uid          string `json:"uid"`
 			EmailAddress struct {
@@ -136,9 +138,9 @@ type GroupResponse struct {
 
 type GroupRequest struct {
 	Name         string      `json:"name,omitempty"`
-	EmailAddress interface{} `json:"emailAddress,omitempty"`
-	PhoneNumber  interface{} `json:"phoneNumber,omitempty"`
-	Members      []string    `json:"members,omitempty"`
+	EmailAddress interface{} `json:"emailAddress"`
+	PhoneNumber  interface{} `json:"phoneNumber"`
+	Members      []string    `json:"members"`
 	Managers     []string    `json:"managers"`
 }
 

@@ -53,6 +53,10 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 		req.Header.Set("Accept", "application/hal+json")
 	}
 
+	if req.Header.Get("Content-Type") == "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
 	res, err := c.HTTPClient.Do(req)
 	if res.StatusCode == http.StatusNotFound {
 		return nil, NotFoundError

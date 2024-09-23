@@ -118,11 +118,11 @@ func mapGroupDataSourceResponseToData(ctx context.Context, data *groupDataSource
 	data.Members = setValue
 
 	// optional fields
-	if group.EmailAddress == nil {
+	if group.EmailAddress.Email == "" {
 		data.EmailAddress = types.StringNull()
 	} else {
-		m := group.EmailAddress.(map[string]interface{})
-		data.EmailAddress = types.StringValue(m["email"].(string))
+		tflog.Info(ctx, fmt.Sprintf("email is %s", group.EmailAddress.Email))
+		data.EmailAddress = types.StringValue(group.EmailAddress.Email)
 	}
 	if group.PhoneNumber == nil {
 		data.PhoneNumber = types.StringNull()

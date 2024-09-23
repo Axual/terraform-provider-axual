@@ -2,6 +2,9 @@
 
 A topic represents a flow of information (messages), which is continuously updated. Read more: https://docs.axual.io/axual/2024.2/self-service/topic-management.html
 
+## Required Roles
+- ENVIRONMENT_AUTHOR or ENVIRONMENT_ADMIN
+
 ## Limitations
 - If no properties please leave properties empty like this: properties = { }
 
