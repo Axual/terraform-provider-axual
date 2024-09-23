@@ -138,7 +138,7 @@ type GroupResponse struct {
 
 type GroupRequest struct {
 	Name         string      `json:"name,omitempty"`
-	EmailAddress interface{} `json:"emailAddress,omitempty"`
+	EmailAddress interface{} `json:"emailAddress"`
 	PhoneNumber  interface{} `json:"phoneNumber"`
 	Members      []string    `json:"members"`
 	Managers     []string    `json:"managers"`

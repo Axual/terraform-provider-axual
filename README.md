@@ -1,5 +1,12 @@
 ## Terraform Provider development
 
+Prerequisites
+- Install terraform
+  - Recommended approach: `brew install terraform`
+- Install golang
+  - Recommended approach: `brew install go`
+
+
 Create the file `~/.terraformrc` and add the following to make the provider local installation work:
 This points to the locally compiled Terraform Provider on your computer.
 

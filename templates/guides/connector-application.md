@@ -32,7 +32,7 @@ To read more about Connect Applications on Axual Platform: https://docs.axual.io
 ### Example Resources:
 - When trying out this example, make sure to:
  - replace `members` UID
- - replace `environment` UID or create/import your own environment.
+ - replace `environment` UID or create/import your own environment. The environment for this example has to have: `Visibility`: Public and `Authorization Issuer`: Grant Owner.
  - replace CERT and Private key required for Application Principal.
 - Also notice that in `axual_application_deployment` the configuration option: `"topic" = "tf-testing-source-1-2"` needs to match the topic name. 
 
