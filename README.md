@@ -132,3 +132,71 @@ go generate
       "MARSHAL": string(marshal),
       })
     - Run: TF_LOG=ERROR terraform apply -auto-approve
+
+## Acceptance tests
+### How to run tests
+- Need to specify these environment variables. For IntelliJ IDEA click edit configuration -> env variables -> add
+  - AXUAL_USERNAME
+    - For logging into API
+  - AXUAL_PASSWORD
+    - For logging into API
+  - TF_ACC=1
+    - Built in safety env var for accidentally running the tests on a live environment 
+  - TF_LOG=INFO
+    - Optional but highly recommended
+
+### How to connect to a different API
+- Change provider block in `test_provider.go`. For example for Axual Cloud:
+```terraform
+provider "axual" {
+  apiurl   = "https://axual.cloud/api"
+  realm    = "<replace with realm name>"
+  username = "<replace with username>"
+  password = "<replace with password>"
+  clientid = "self-service"
+  authurl = "https://axual.cloud/auth/realms/dizzl/protocol/openid-connect/token"
+  scopes = ["openid", "profile", "email"]
+}
+```
+### How to write tests
+- Make sure to test:
+  - Creating the resource
+  - Updating every field:
+    - Optional fields should be able to be removed
+    - Sets and Maps
+      - test if they can be empty
+      - should test if they can contain more than 1 element
+  - Importing
+- Deletion is automatic by the acceptance test
+
+### Prevent test automatically deleting resources
+- To prevent the test from destroying a resource(for testing):
+  - The test will fail but useful for checking in the API what the test actually created
+```terraform
+resource "axual_group" "team-integrations" {
+  name          = "testgroup9999"
+  phone_number  = "+6112356789"
+  email_address = "test.user@axual.com"
+  members       = [
+    "18ac7e79ce4d4063b53787d969742ddd",
+  ]
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+```
+
+### Logging
+- Intellij IDEA
+  - Edit Configuration for Go Test
+  - Add ENV Variable: TF_LOG=INFO
+  - Add statements like these into code: tflog.Info(ctx, fmt.Sprintf("delete group successful for group: %q", data.Id.ValueString()))
+    - Consider keeping these statements there
+- - Does not work if testing with a provider from registry(not locally compiled)
+
+### Debugging
+- IntelliJ IDEA
+  - Put a breakpoint in resource file, for example resource_group.go.
+  - Either put username and password env variables into run configuration(look at Run all `Run acceptance tests.run.xml` in .`run`) or hardcode username and password temporarily.
+  - Click on `debug`
+- Does not work if testing with a provider from registry(not locally compiled)

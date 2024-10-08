@@ -1,0 +1,19 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Run all acceptance tests" type="GoTestRunConfiguration" factoryName="Go Test">
+    <module name="terraform-provider-axual" />
+    <working_directory value="$PROJECT_DIR$/internal/tests" />
+    <envs>
+      <env name="AXUAL_PASSWORD" value="<INSERT YOUR PASSWORD>" />
+      <env name="AXUAL_USERNAME" value="<INSERT YOUR USERNAME>" />
+      <env name="TF_ACC" value="1" />
+      <env name="TF_LOG" value="INFO" />
+    </envs>
+    <root_directory value="$PROJECT_DIR$" />
+    <kind value="DIRECTORY" />
+    <package value="axual.com/terraform-provider-axual/internal/tests" />
+    <directory value="$PROJECT_DIR$/internal/tests" />
+    <filePath value="$PROJECT_DIR$" />
+    <framework value="gotest" />
+    <method v="2" />
+  </configuration>
+</component>

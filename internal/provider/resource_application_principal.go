@@ -170,7 +170,7 @@ func (r *applicationPrincipalResource) Update(ctx context.Context, req resource.
 	applicationPrincipalUpdateRequest = webclient.ApplicationPrincipalUpdateRequest{
 		Principal: data.Principal.ValueString(),
 	}
-	tflog.Info(ctx, fmt.Sprintf("Update application principal request %q", applicationPrincipalUpdateRequest))
+	tflog.Info(ctx, fmt.Sprintf("Update application principal request %v", applicationPrincipalUpdateRequest))
 	applicationPrincipal, err := r.provider.client.UpdateApplicationPrincipal(data.Id.ValueString(), applicationPrincipalUpdateRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("PATCH request error for application principal resource", fmt.Sprintf("Error message: %s %s", applicationPrincipal, err))

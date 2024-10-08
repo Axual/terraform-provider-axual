@@ -191,11 +191,15 @@ func (r *groupResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 		return
 	}
 
+	tflog.Info(ctx, fmt.Sprintf("delete request for group %q", data.Id.ValueString()))
+
 	err := r.provider.client.DeleteGroup(data.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete group, got error: %s", err))
 		return
 	}
+
+	tflog.Info(ctx, fmt.Sprintf("delete group successful for group3: %q", data.Id.ValueString()))
 }
 
 func (r *groupResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
