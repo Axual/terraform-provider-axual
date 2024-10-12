@@ -2,11 +2,15 @@ package tests
 
 import (
 	"axual.com/terraform-provider-axual/internal/provider"
+	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"gopkg.in/yaml.v3"
+	"log"
 	"os"
+	"testing"
 )
 
 // Struct to hold provider configuration from YAML file
@@ -18,7 +22,7 @@ type ProviderConfig struct {
 
 // Function to load the configuration from a YAML file
 func loadProviderConfig() (ProviderConfig, error) {
-	file, err := os.ReadFile("test_config.yaml")
+	file, err := os.ReadFile("../test_config.yaml")
 	if err != nil {
 		return ProviderConfig{}, err
 	}
@@ -57,6 +61,14 @@ func testProviderConfig() (resource.TestCase, error) {
 	}
 }
 
+func GetProviderConfig(t *testing.T) resource.TestCase {
+	providerConfig, err := testProviderConfig()
+	if err != nil {
+		t.Fatalf("Error loading provider config: %v", err)
+	}
+	return providerConfig
+}
+
 // Factory function for creating local provider instances
 func testAccProviderFactories() map[string]func() (tfprotov6.ProviderServer, error) {
 	return map[string]func() (tfprotov6.ProviderServer, error){
@@ -65,7 +77,7 @@ func testAccProviderFactories() map[string]func() (tfprotov6.ProviderServer, err
 }
 
 // Reusable provider configuration for resource creation
-func testAccProviderConfig() string {
+func GetProvider() string {
 	// Load the provider configuration from the YAML file
 	config, err := loadProviderConfig()
 	if err != nil {
@@ -101,4 +113,45 @@ terraform {
 
 	// Return only the provider block if using the local provider
 	return providerBlock
+}
+
+func GetFile(paths ...string) string {
+	var combinedConfig string
+
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			log.Panicf("Error reading %s: %s", path, err)
+		}
+		combinedConfig += string(data) + "\n" // Add file content and newline for separation
+	}
+
+	return combinedConfig
+}
+
+// Helper function to read the file and compare its content
+func CheckBodyMatchesFile(resourceName, attrName, filePath string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		// Read the file
+		fileContent, err := os.ReadFile(filePath)
+		if err != nil {
+			return err
+		}
+
+		// Get the resource from the state
+		rs, ok := s.RootModule().Resources[resourceName]
+		if !ok {
+			return fmt.Errorf("no resource in state")
+		}
+
+		// Get the value of the `body` attribute from the resource
+		attrValue := rs.Primary.Attributes[attrName]
+
+		// Compare the file content with the `body` attribute
+		if string(fileContent) != attrValue {
+			return fmt.Errorf("expected body to be '%s', got '%s'", string(fileContent), attrValue)
+		}
+
+		return nil
+	}
 }

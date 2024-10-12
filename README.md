@@ -142,8 +142,23 @@ go generate
     - For logging into API
   - TF_ACC=1
     - Built in safety env var for accidentally running the tests on a live environment 
+  - TF_ACC_TERRAFORM_PATH
+    - path to Terraform binary in your local system
   - TF_LOG=INFO
     - Optional but highly recommended
+  - Here is a full env variables example: `AXUAL_PASSWORD=<INSERT API PASSWORD>;AXUAL_USERNAME=<INSERT API USERNAME>;TF_ACC=1;TF_ACC_TERRAFORM_PATH=/opt/homebrew/bin/terraform;TF_LOG=INFO`
+- Make sure to turn off parallelization for running go tests
+  - Use this go tool argument: `-p 1`
+    - For IntelliJ IDEA click edit configuration -> Go tool arguments
+- In all test .tf files replace instance UID with a real instance UID. Search globally for `instance = "` and replace the UID in all tests.
+- Make sure the certs in the tests match the CA for the Instance, replace them if not.
+- Make sure OAUTHBEARER auth method is turned on: in PM conf(`api.available.auth.methods`), Tenant auth method, Instance auth method
+  - Needed for testing OAUTHBEARER Application Principal
+- Make sure Granular Stream Browse Permissions are turned on for the instance
+  - Needed for testing Topic Browse Permissions
+- Make sure you replace `data "axual_group" "root_user_group"` with a group name that your logged-in user is a member of in files `axual_topic_browse_permissions_initial.tf` and `axual_topic_browse_permissions_updated.tf`.
+- First try to run one acceptance test, before trying to run all the tests. It might happen that if a test fails, you have to manually delete resources using UI. 
+```
 
 ### How to connect to a different API
 - Change provider block in `test_provider.go`. For example for Axual Cloud:
