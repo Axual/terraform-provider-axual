@@ -62,7 +62,7 @@ resource "axual_environment" "tf-test-env" {
   color = "#19b9be"
   visibility = "Public"
   authorization_issuer = "Stream owner"
-  instance = "ee6e12e5301b41bf8a00ef3388806f17"
+  instance = "1be6269156d14ab09f40ea5133316a33"
   owners = axual_group.team-integrations.id
 }
 

@@ -71,7 +71,7 @@ resource "axual_environment" "tf-test-env" {
   color = "#21ccd2"
   visibility = "Public"
   authorization_issuer = "Stream owner"
-  instance = "ee6e12e5301b41bf8a00ef3388806f17"
+  instance = "1be6269156d14ab09f40ea5133316a33"
   owners = axual_group.team-integrations2.id
   retention_time = 80000
   partitions = 1

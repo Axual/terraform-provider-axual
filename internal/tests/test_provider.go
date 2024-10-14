@@ -83,15 +83,27 @@ func GetProvider() string {
 	if err != nil {
 		panic("Error loading provider config: " + err.Error())
 	}
+	// Local Platform.local setup
+	//	providerBlock := `
+	//provider "axual" {
+	//  apiurl   = "https://platform.local/api"
+	//  realm    = "local"
+	//  username = "` + os.Getenv("AXUAL_USERNAME") + `"
+	//  password = "` + os.Getenv("AXUAL_PASSWORD") + `"
+	//  clientid = "self-service"
+	//  authurl  = "https://platform.local/auth/realms/local/protocol/openid-connect/token"
+	//  scopes   = ["openid", "profile", "email"]
+	//}
+	//`
 
 	providerBlock := `
 provider "axual" {
-  apiurl   = "https://platform.local/api"
-  realm    = "local"
+  apiurl   = "https://self-service.qa.np.westeurope.azure.axual.cloud/api"
+  realm    = "axual"
   username = "` + os.Getenv("AXUAL_USERNAME") + `"
   password = "` + os.Getenv("AXUAL_PASSWORD") + `"
   clientid = "self-service"
-  authurl  = "https://platform.local/auth/realms/local/protocol/openid-connect/token"
+  authurl  = "https://self-service.qa.np.westeurope.azure.axual.cloud/auth/realms/axual/protocol/openid-connect/token"
   scopes   = ["openid", "profile", "email"]
 }
 `

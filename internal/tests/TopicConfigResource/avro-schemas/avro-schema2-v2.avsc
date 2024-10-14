@@ -7,7 +7,7 @@
     {
       "name": "gitops1",
       "type": "string",
-      "doc": "The gitops test value. v 1.0.0"
+      "doc": "The gitops test value. v 2.0.0"
     },
     {
       "name": "gitopsVersion",

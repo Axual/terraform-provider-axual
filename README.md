@@ -135,6 +135,7 @@ go generate
 
 ## Acceptance tests
 ### How to run tests
+- When using IntellJ IDEA please use and edit this run configuration included in this repo: `.run/Run all the tests.run.xml`
 - Need to specify these environment variables. For IntelliJ IDEA click edit configuration -> env variables -> add
   - AXUAL_USERNAME
     - For logging into API
@@ -147,9 +148,11 @@ go generate
   - TF_LOG=INFO
     - Optional but highly recommended
   - Here is a full env variables example: `AXUAL_PASSWORD=<INSERT API PASSWORD>;AXUAL_USERNAME=<INSERT API USERNAME>;TF_ACC=1;TF_ACC_TERRAFORM_PATH=/opt/homebrew/bin/terraform;TF_LOG=INFO`
-- Make sure to turn off parallelization for running go tests
+- Make sure to turn off parallelization for running go tests, because of conflicts when creating shared resources many times
   - Use this go tool argument: `-p 1`
     - For IntelliJ IDEA click edit configuration -> Go tool arguments
+- Make sure to turn off test caching, because then we can run the same tests multiple times to test stability without having to change the test.
+  - - Use this go tool argument: `-count 1`
 - In all test .tf files replace instance UID with a real instance UID. Search globally for `instance = "` and replace the UID in all tests.
 - Make sure the certs in the tests match the CA for the Instance, replace them if not.
 - Make sure OAUTHBEARER auth method is turned on: in PM conf(`api.available.auth.methods`), Tenant auth method, Instance auth method
@@ -157,7 +160,12 @@ go generate
 - Make sure Granular Stream Browse Permissions are turned on for the instance
   - Needed for testing Topic Browse Permissions
 - Make sure you replace `data "axual_group" "root_user_group"` with a group name that your logged-in user is a member of in files `axual_topic_browse_permissions_initial.tf` and `axual_topic_browse_permissions_updated.tf`.
-- First try to run one acceptance test, before trying to run all the tests. It might happen that if a test fails, you have to manually delete resources using UI. 
+- First try to run one acceptance test, before trying to run all the tests. It might happen that if a test fails, you have to manually delete resources using UI.
+  - We recommend to try to run in this order:
+    - user_resource_test.go
+    - topic_data_source_test.go
+    - application_deployment_resource_test.go
+    - All the tests together
 ```
 
 ### How to connect to a different API
