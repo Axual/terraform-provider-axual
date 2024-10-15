@@ -166,6 +166,12 @@ go generate
     - topic_data_source_test.go
     - application_deployment_resource_test.go
     - All the tests together
+- To run only 1 test in IntelliJ IDEA:
+  - Click on test icon in IntelliJ IDEA
+  - Choose `Modify Run Configurations`
+  - Paste the full env variables:
+    - For example: `AXUAL_PASSWORD=<INSERT API PASSWORD>;AXUAL_USERNAME=<INSERT API USERNAME>;TF_ACC=1;TF_ACC_TERRAFORM_PATH=/opt/homebrew/bin/terraform;TF_LOG=INFO`
+  - Apply -> Run test
 ```
 
 ### How to connect to a different API
