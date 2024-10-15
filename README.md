@@ -167,7 +167,7 @@ go generate
     - application_deployment_resource_test.go
     - All the tests together
 - To run only 1 test in IntelliJ IDEA:
-  - Click on test icon in IntelliJ IDEA
+  - Click on test icon in IntelliJ IDEA for a test file like `user_resource_test.go`(left of func, in gutter)
   - Choose `Modify Run Configurations`
   - Paste the full env variables:
     - For example: `AXUAL_PASSWORD=<INSERT API PASSWORD>;AXUAL_USERNAME=<INSERT API USERNAME>;TF_ACC=1;TF_ACC_TERRAFORM_PATH=/opt/homebrew/bin/terraform;TF_LOG=INFO`
