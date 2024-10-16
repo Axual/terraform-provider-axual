@@ -1,6 +1,6 @@
 module axual.com/terraform-provider-axual
 
-go 1.22
+go 1.23.0
 
 require (
 	axual-webclient v0.0.0

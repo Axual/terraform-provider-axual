@@ -199,7 +199,7 @@ func (r *groupResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 		return
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("delete group successful for group3: %q", data.Id.ValueString()))
+	tflog.Info(ctx, fmt.Sprintf("delete group successful for group: %q", data.Id.ValueString()))
 }
 
 func (r *groupResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

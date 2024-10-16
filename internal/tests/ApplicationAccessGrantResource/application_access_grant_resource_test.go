@@ -49,7 +49,7 @@ func TestApplicationAccessGrantStreamOwnerRejectionResource(t *testing.T) {
 	})
 }
 
-func TestApplicationAccessGrantStreamGrantApprovalResource(t *testing.T) {
+func TestApplicationAccessGrantStreamOwnerApprovalResource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
 		ExternalProviders:        GetProviderConfig(t).ExternalProviders,

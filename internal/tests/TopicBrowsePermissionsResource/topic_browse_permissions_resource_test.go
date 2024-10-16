@@ -2,6 +2,7 @@ package TopicBrowsePermissionsResource
 
 import (
 	. "axual.com/terraform-provider-axual/internal/tests"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -28,9 +29,13 @@ func TestTopicBrowsePermissionsResource(t *testing.T) {
 				),
 			},
 			{
+				Config:      GetProvider() + GetFile("axual_topic_browse_permissions_updated_missing_groups_users.tf"),
+				ExpectError: regexp.MustCompile(`Error message: either 'users' or 'groups' must be provided`),
+			},
+			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
-				Config:  GetProvider() + GetFile("axual_topic_browse_permissions_updated.tf"),
+				Config:  GetProvider() + GetFile("axual_topic_browse_permissions_updated_missing_groups_users.tf"),
 			},
 		},
 	})
