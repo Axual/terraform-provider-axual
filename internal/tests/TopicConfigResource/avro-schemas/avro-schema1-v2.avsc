@@ -1,0 +1,25 @@
+{
+  "type": "record",
+  "name": "GitOpsTest1",
+  "namespace": "io.axual.qa.general",
+  "doc": "Updated schema with backward-compatible changes. New fields are added, and the original field remains unchanged.",
+  "fields": [
+    {
+      "name": "gitops1",
+      "type": "string",
+      "doc": "The gitops test value. v 1.0.0"
+    },
+    {
+      "name": "gitopsVersion",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Optional version field added for schema evolution."
+    },
+    {
+      "name": "timestamp",
+      "type": ["null", "long"],
+      "default": null,
+      "doc": "Optional timestamp field to track when the record was created."
+    }
+  ]
+}
