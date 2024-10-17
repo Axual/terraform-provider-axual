@@ -172,6 +172,14 @@ go generate
   - Paste the full env variables:
     - For example: `AXUAL_PASSWORD=<INSERT API PASSWORD>;AXUAL_USERNAME=<INSERT API USERNAME>;TF_ACC=1;TF_ACC_TERRAFORM_PATH=/opt/homebrew/bin/terraform;TF_LOG=INFO`
   - Apply -> Run test
+
+### How to run tests in VS Code or command line
+- Ensure you have Go installed and set the GOPATH in your system environment variables.
+- Add the Go extension to your VS Code
+- Create a local.env file in your project root to store your environment variables:
+  - AXUAL_PASSWORD=<INSERT API PASSWORD>;AXUAL_USERNAME=<INSERT API USERNAME>;TF_ACC=1;TF_ACC_TERRAFORM_PATH=/opt/homebrew/bin/terraform;TF_LOG=INFO
+- Run `go test -p 1 -count 1 ./internal/tests/…`  to run the tests
+- You can also run `AXUAL_PASSWORD='your_password' AXUAL_USERNAME='your_username' TF_ACC=1 TF_ACC_TERRAFORM_PATH='/opt/homebrew/bin/terraform' TF_LOG='INFO' go test -p 1 -count 1 ./internal/tests/..` if you don't want to create a local.env file.
 ```
 
 ### How to connect to a different API
