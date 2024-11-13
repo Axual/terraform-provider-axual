@@ -9,6 +9,7 @@ Currently we support data sources for the following resources:
 - axual_application
 - axual_application_access_grant
 - axual_schema_version
+- axual_instance
 
 
 ### Examples usage 
@@ -131,3 +132,24 @@ resource "axual_application_access_grant_approval" "logs_producer_produce_to_log
   application_access_grant = "data.logs_producer_produce_to_logs_in_dev.id"
 }
 ```
+
+- To define a `axual_group` data source, provide the group name:
+
+```hcl
+data "axual_instance" "test_instance" {
+ name = "Test Instance"
+}
+```
+Now we can use this data source when creating a resource:
+
+```hcl
+resource "axual_environment" "test" {
+  name = "test"
+  short_name = "test"
+  description = "This is the development environment"
+  color = "#19b9be"
+  visibility = "Public"
+  authorization_issuer = "Auto"
+  instance = data.axual_instance.test_instance.id
+  owners = axual_group.tenant_admin_group1.id
+}
