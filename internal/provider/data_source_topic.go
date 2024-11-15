@@ -106,6 +106,15 @@ func (d *topicDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 		return
 	}
 
+	// Check if Embedded or topic is nil or empty
+	if len(topicByName.Embedded.Topics) == 0 {
+		resp.Diagnostics.AddError(
+			"Resource Not Found",
+			fmt.Sprintf("No Topic resources found with name '%s'.", data.Name.ValueString()),
+		)
+		return
+	}
+
 	topic, err := d.provider.client.GetTopic(topicByName.Embedded.Topics[0].Uid)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read topic, got error: %s", err))
