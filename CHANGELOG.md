@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [master](https://github.com/Axual/terraform-provider-axual/blob/master) - TBR
+* Added `Instance` data source.
+* Added error handling for environment, group and topic datasources.
 
 ## [2.4.1](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.4.1) - 2024-09-23
 * Documentation improvements: Concise front page and improved Connector guide.
