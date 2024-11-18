@@ -1,8 +1,9 @@
 package EnvironmentResource
 
 import (
-	. "axual.com/terraform-provider-axual/internal/tests"
 	"testing"
+
+	. "axual.com/terraform-provider-axual/internal/tests"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )

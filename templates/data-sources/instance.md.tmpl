@@ -22,4 +22,4 @@ This data source exports the following attributes in addition to the one listed 
 
 - id instance unique identifier.
 - short_name The instance short name.
-- description The group description.
+- description The instance description.

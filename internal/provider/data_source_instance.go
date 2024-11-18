@@ -4,11 +4,12 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"fmt"
+	"regexp"
+
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
-	"regexp"
 
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -50,8 +51,8 @@ func (d *instanceDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 				MarkdownDescription: "Instance's name",
 				Required:            true,
 				Validators: []validator.String{
-					stringvalidator.LengthBetween(3, 80),
-					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 ._-]*$`), "can only contain letters, numbers, dots, spaces, dashes and underscores, but cannot begin with an underscore, dot, space or dash"),
+					stringvalidator.LengthBetween(3, 50),
+					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`), "can only contain letters, numbers, dots, spaces, dashes and underscores, but cannot begin with an underscore, dot, space or dash"),
 				},
 			},
 			"short_name": schema.StringAttribute{

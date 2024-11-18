@@ -1,9 +1,10 @@
 package EnvironmentDataSource
 
 import (
-	. "axual.com/terraform-provider-axual/internal/tests"
+	"regexp"
 	"testing"
 
+	. "axual.com/terraform-provider-axual/internal/tests"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
@@ -23,6 +24,10 @@ func TestEnvironmentDataSource(t *testing.T) {
 					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env", "authorization_issuer", "Auto"),
 					resource.TestCheckResourceAttrPair("data.axual_environment.tf-test-env", "owners", "axual_group.team-integrations", "id"),
 				),
+			},
+			{
+				Config:      GetProvider() + GetFile("axual_environment_not_found.tf"),
+				ExpectError: regexp.MustCompile("Resource Not Found: No Environment resources found with name 'non_existent_resource'"),
 			},
 		},
 	})

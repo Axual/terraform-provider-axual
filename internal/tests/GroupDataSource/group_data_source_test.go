@@ -1,8 +1,10 @@
 package GroupDataSource
 
 import (
-	. "axual.com/terraform-provider-axual/internal/tests"
+	"regexp"
 	"testing"
+
+	. "axual.com/terraform-provider-axual/internal/tests"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
@@ -21,6 +23,10 @@ func TestGroupDataSource(t *testing.T) {
 					resource.TestCheckResourceAttr("data.axual_group.frontend_developers", "members.#", "1"),
 					resource.TestCheckResourceAttrPair("data.axual_group.frontend_developers", "members.0", "axual_user.bob", "id"),
 				),
+			},
+			{
+				Config:      GetProvider() + GetFile("axual_group_not_found.tf"),
+				ExpectError: regexp.MustCompile("Resource Not Found: No Group resources found with name 'non_existent_resource'"),
 			},
 		},
 	})
