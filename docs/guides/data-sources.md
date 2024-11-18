@@ -133,7 +133,7 @@ resource "axual_application_access_grant_approval" "logs_producer_produce_to_log
 }
 ```
 
-- To define a `axual_group` data source, provide the group name:
+- To define a `axual_instance` data source, provide the instance name:
 
 ```hcl
 data "axual_instance" "test_instance" {

@@ -14,12 +14,12 @@ data "axual_instance" "testInstance" {
 
 ## Argument Reference
 
-- name - (Required) The group name.
+- name - (Required) The instance name.
 
 ## Attribute Reference
 
 This data source exports the following attributes in addition to the one listed above:
 
-- id group unique identifier.
+- id instance unique identifier.
 - short_name The instance short name.
 - description The group description.
