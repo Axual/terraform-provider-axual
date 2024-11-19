@@ -25,7 +25,12 @@ func TestInstanceDataSource(t *testing.T) {
 			},
 			{
 				Config:      GetProvider() + GetFile("axual_instance_not_found.tf"),
-				ExpectError: regexp.MustCompile("Resource Not Found: No Instance resources found with name 'non_existent_resource'"),
+				ExpectError: regexp.MustCompile("Unable to read instance by name, got error: resource not found"),
+			},
+			{
+				// Invalid name attribute
+				Config:      GetProvider() + GetFile("axual_instance_invalid_name.tf"),
+				ExpectError: regexp.MustCompile("Attribute name string length must be between 3 and 50, got: 2"),
 			},
 			{
 				// To ensure cleanup if one of the test cases had an error
