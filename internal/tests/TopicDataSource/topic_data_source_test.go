@@ -30,7 +30,7 @@ func TestTopicDataSource(t *testing.T) {
 			},
 			{
 				Config:      GetProvider() + GetFile("axual_topic_not_found.tf"),
-				ExpectError: regexp.MustCompile("Resource Not Found: No Topic resources found with name 'non_existent_resource'"),
+				ExpectError: regexp.MustCompile("No Topic resources found with name 'non_existent_resource'"),
 			},
 			{
 				// To ensure cleanup if one of the test cases had an error

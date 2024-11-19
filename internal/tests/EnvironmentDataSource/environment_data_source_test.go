@@ -27,7 +27,7 @@ func TestEnvironmentDataSource(t *testing.T) {
 			},
 			{
 				Config:      GetProvider() + GetFile("axual_environment_not_found.tf"),
-				ExpectError: regexp.MustCompile("Resource Not Found: No Environment resources found with name 'non_existent_resource'"),
+				ExpectError: regexp.MustCompile("No Environment resources found with name 'non_existent_resource'"),
 			},
 		},
 	})

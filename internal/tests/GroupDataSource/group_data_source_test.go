@@ -26,7 +26,7 @@ func TestGroupDataSource(t *testing.T) {
 			},
 			{
 				Config:      GetProvider() + GetFile("axual_group_not_found.tf"),
-				ExpectError: regexp.MustCompile("Resource Not Found: No Group resources found with name 'non_existent_resource'"),
+				ExpectError: regexp.MustCompile("No Group resources found with name 'non_existent_resource'"),
 			},
 		},
 	})
