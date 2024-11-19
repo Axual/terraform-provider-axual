@@ -84,7 +84,7 @@ func (d *instanceDataSource) Read(ctx context.Context, req datasource.ReadReques
 
 	instance, err2 := d.provider.client.GetInstance(instanceByName.Uid)
 	if err2 != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read instance, got error: %s", err2))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read instance with ID '%s', got error: %s", instanceByName.Uid, err2))
 		return
 	}
 
