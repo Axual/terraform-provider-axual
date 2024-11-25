@@ -64,6 +64,10 @@ resource "axual_group" "team-integrations3" {
   ]
 }
 
+data "axual_instance" "testInstance"{
+  name = "testInstance"
+}
+
 resource "axual_environment" "tf-test-env" {
   name = "tf-development1"
   short_name = "tfdev"
@@ -71,7 +75,7 @@ resource "axual_environment" "tf-test-env" {
   color = "#21ccd2"
   visibility = "Public"
   authorization_issuer = "Stream owner"
-  instance = "1be6269156d14ab09f40ea5133316a33"
+  instance = data.axual_instance.testInstance.id
   owners = axual_group.team-integrations2.id
   retention_time = 80000
   partitions = 1

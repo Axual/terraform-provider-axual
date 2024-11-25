@@ -1,8 +1,10 @@
 package TopicDataSource
 
 import (
-	. "axual.com/terraform-provider-axual/internal/tests"
+	"regexp"
 	"testing"
+
+	. "axual.com/terraform-provider-axual/internal/tests"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
@@ -25,6 +27,10 @@ func TestTopicDataSource(t *testing.T) {
 					resource.TestCheckResourceAttrPair("data.axual_topic.topic-test", "owners", "axual_topic.topic-test", "owners"),
 					resource.TestCheckResourceAttrPair("data.axual_topic.topic-test", "id", "axual_topic.topic-test", "id"),
 				),
+			},
+			{
+				Config:      GetProvider() + GetFile("axual_topic_not_found.tf"),
+				ExpectError: regexp.MustCompile("No Topic resources found with name 'non_existent_resource'"),
 			},
 			{
 				// To ensure cleanup if one of the test cases had an error

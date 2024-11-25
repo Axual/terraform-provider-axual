@@ -127,6 +127,15 @@ func (d *environmentDataSource) Read(ctx context.Context, req datasource.ReadReq
 		return
 	}
 
+	// Check if Embedded or environment is nil or empty
+	if len(environmentByName.Embedded.Environments) == 0 {
+		resp.Diagnostics.AddError(
+			"Resource Not Found",
+			fmt.Sprintf("No Environment resources found with name '%s'.", data.Name.ValueString()),
+		)
+		return
+	}
+
 	environment, err := d.provider.client.GetEnvironment(environmentByName.Embedded.Environments[0].Uid)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment, got error: %s", err))

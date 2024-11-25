@@ -35,6 +35,12 @@ Environments are used typically to support the application lifecycle, as it is m
 ## Example Usage
 
 ```hcl
+data "axual_instance" "testInstance"{
+  name = "testInstance"
+}
+```
+
+```hcl
 resource "axual_environment" "development" {
   name = "development"
   short_name = "dev"
@@ -42,7 +48,7 @@ resource "axual_environment" "development" {
   color = "#19b9be"
   visibility = "Public"
   authorization_issuer = "Auto"
-  instance = "51be2a6a5eee481198787dc346ab6608"
+  instance = data.axual_instance.testInstance.id
   owners = axual_group.tenant_admin_group.id
 }
 ```

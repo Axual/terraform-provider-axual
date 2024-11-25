@@ -153,7 +153,7 @@ go generate
     - For IntelliJ IDEA click edit configuration -> Go tool arguments
 - Make sure to turn off test caching, because then we can run the same tests multiple times to test stability without having to change the test.
   - - Use this go tool argument: `-count 1`
-- In all test .tf files replace instance UID with a real instance UID. Search globally for `instance = "` and replace the UID in all tests.
+- In all test .tf files replace the instance name inside the data block `data "axual_instance" "testInstance"` with the existing real instance name in your platform
 - Make sure the certs in the tests match the CA for the Instance, replace them if not.
 - Make sure OAUTHBEARER auth method is turned on: in PM conf(`api.available.auth.methods`), Tenant auth method, Instance auth method
   - Needed for testing OAUTHBEARER Application Principal

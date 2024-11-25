@@ -88,6 +88,15 @@ func (d *groupDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 		return
 	}
 
+	// Check if Embedded or group is nil or empty
+	if len(groupByName.Embedded.Groups) == 0 {
+		resp.Diagnostics.AddError(
+			"Resource Not Found",
+			fmt.Sprintf("No Group resources found with name '%s'.", data.Name.ValueString()),
+		)
+		return
+	}
+
 	group, err2 := d.provider.client.GetGroup(groupByName.Embedded.Groups[0].Uid)
 	if err2 != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read group, got error: %s", err2))

@@ -83,6 +83,10 @@ data "axual_group" "root_user_group" {
   name = "Kaspar test 888"
 }
 
+data "axual_instance" "testInstance"{
+  name = "testInstance"
+}
+
 resource "axual_environment" "tf-test-env" {
   name = "tf-development"
   short_name = "tfdev"
@@ -90,7 +94,7 @@ resource "axual_environment" "tf-test-env" {
   color = "#19b9be"
   visibility = "Public"
   authorization_issuer = "Stream owner"
-  instance = "1be6269156d14ab09f40ea5133316a33"
+  instance = data.axual_instance.testInstance.id
   owners = axual_group.team-group1.id
 }
 
