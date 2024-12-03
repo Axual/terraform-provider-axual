@@ -18,6 +18,8 @@ type ProviderConfig struct {
 	Provider struct {
 		Version string `yaml:"version"` // Can be "local" or a version from the registry (e.g., "2.4.1")
 	} `yaml:"provider"`
+	InstanceName string `yaml:"instanceName"`
+	UserGroup    string `yaml:"userGroup"`
 }
 
 // Function to load the configuration from a YAML file
@@ -84,29 +86,38 @@ func GetProvider() string {
 		panic("Error loading provider config: " + err.Error())
 	}
 	// Local Platform.local setup
+	providerBlock := `
+	provider "axual" {
+	 apiurl   = "https://platform.local/api"
+	 realm    = "local"
+	 username = "` + os.Getenv("AXUAL_USERNAME") + `"
+	 password = "` + os.Getenv("AXUAL_PASSWORD") + `"
+	 clientid = "self-service"
+	 authurl  = "https://platform.local/auth/realms/local/protocol/openid-connect/token"
+	 scopes   = ["openid", "profile", "email"]
+	}
+	`
+
 	//	providerBlock := `
 	//provider "axual" {
-	//  apiurl   = "https://platform.local/api"
-	//  realm    = "local"
+	//  apiurl   = "https://self-service.qa.np.westeurope.azure.axual.cloud/api"
+	//  realm    = "axual"
 	//  username = "` + os.Getenv("AXUAL_USERNAME") + `"
 	//  password = "` + os.Getenv("AXUAL_PASSWORD") + `"
 	//  clientid = "self-service"
-	//  authurl  = "https://platform.local/auth/realms/local/protocol/openid-connect/token"
+	//  authurl  = "https://self-service.qa.np.westeurope.azure.axual.cloud/auth/realms/axual/protocol/openid-connect/token"
 	//  scopes   = ["openid", "profile", "email"]
 	//}
 	//`
 
-	providerBlock := `
-provider "axual" {
-  apiurl   = "https://self-service.qa.np.westeurope.azure.axual.cloud/api"
-  realm    = "axual"
-  username = "` + os.Getenv("AXUAL_USERNAME") + `"
-  password = "` + os.Getenv("AXUAL_PASSWORD") + `"
-  clientid = "self-service"
-  authurl  = "https://self-service.qa.np.westeurope.azure.axual.cloud/auth/realms/axual/protocol/openid-connect/token"
-  scopes   = ["openid", "profile", "email"]
-}
-`
+	dataBlock := `
+	data "axual_instance" "testInstance" {
+	  name = "` + config.InstanceName + `"
+	}
+	data "axual_group" "user_group" {
+	  name = "` + config.UserGroup + `"
+	}
+	`
 
 	// If the version is not "local", include the required_providers block with the version from the configuration file
 	if config.Provider.Version != "local" {
@@ -120,11 +131,11 @@ terraform {
   }
 }
 
-` + providerBlock
+` + providerBlock + dataBlock
 	}
 
 	// Return only the provider block if using the local provider
-	return providerBlock
+	return providerBlock + dataBlock
 }
 
 func GetFile(paths ...string) string {

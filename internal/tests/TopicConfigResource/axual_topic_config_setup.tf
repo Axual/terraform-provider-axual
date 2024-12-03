@@ -17,10 +17,6 @@ resource "axual_group" "team-group1" {
   members       = [ axual_user.bob.id ]
 }
 
-data "axual_instance" "testInstance"{
-  name = "testInstance"
-}
-
 resource "axual_environment" "tf-test-env" {
   name = "tf-development"
   short_name = "tfdev"

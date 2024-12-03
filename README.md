@@ -153,13 +153,16 @@ go generate
     - For IntelliJ IDEA click edit configuration -> Go tool arguments
 - Make sure to turn off test caching, because then we can run the same tests multiple times to test stability without having to change the test.
   - - Use this go tool argument: `-count 1`
-- In all test .tf files replace the instance name inside the data block `data "axual_instance" "testInstance"` with the existing real instance name in your platform
+- In the file `test_config.yaml`:
+  - Replace the value of the `instanceName` with the existing real instance name in your platform.
+  - Replace the value of the `userGroup` with any group name that the logged-in user is a member of.
 - Make sure the certs in the tests match the CA for the Instance, replace them if not.
+  - Easiest way to do this is to change Instance CA to `axual-dummy-intermediate` using the UI.
+    - For Axual employees download it from here: https://gitlab.com/axual/qa/local-development/-/blob/main/governance/files/axual-dummy-intermediate
 - Make sure OAUTHBEARER auth method is turned on: in PM conf(`api.available.auth.methods`), Tenant auth method, Instance auth method
   - Needed for testing OAUTHBEARER Application Principal
 - Make sure Granular Stream Browse Permissions are turned on for the instance
   - Needed for testing Topic Browse Permissions
-- Make sure you replace `data "axual_group" "root_user_group"` with a group name that your logged-in user is a member of in files `axual_topic_browse_permissions_initial.tf` and `axual_topic_browse_permissions_updated.tf`.
 - First try to run one acceptance test, before trying to run all the tests. It might happen that if a test fails, you have to manually delete resources using UI.
   - We recommend to try to run in this order:
     - user_resource_test.go

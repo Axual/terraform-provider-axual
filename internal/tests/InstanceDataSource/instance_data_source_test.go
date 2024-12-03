@@ -15,12 +15,9 @@ func TestInstanceDataSource(t *testing.T) {
 		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: GetProvider() + GetFile("axual_instance_initial.tf"),
+				Config: GetProvider(),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("data.axual_instance.dta", "name", "Dev Test Acceptance"),
-					resource.TestCheckResourceAttr("data.axual_instance.dta", "description", "Dev Test Acceptance"),
-					resource.TestCheckResourceAttr("data.axual_instance.dta", "short_name", "dta"),
-					resource.TestCheckResourceAttr("data.axual_instance.dta", "id", "4b0f204ede6542dfae6bf836f8185c5e"),
+					resource.TestCheckResourceAttr("data.axual_instance.testInstance", "name", "Dev Test Acceptance"),
 				),
 			},
 			{
@@ -33,9 +30,8 @@ func TestInstanceDataSource(t *testing.T) {
 				ExpectError: regexp.MustCompile("Attribute name string length must be between 3 and 50, got: 2"),
 			},
 			{
-				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
-				Config:  GetProvider() + GetFile("axual_instance_initial.tf"),
+				Config:  GetProvider(),
 			},
 		},
 	})

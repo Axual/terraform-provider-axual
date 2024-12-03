@@ -4,7 +4,7 @@
 # This TerraForm file shows the basic capabilities of the TerraForm provider for Axual
 #
 # - When trying out this example:
-# - replace `instance` UID
+# - replace `instance` name from `Dev Test Acceptance` to the name of your instance.
 # - make sure that the user, group, topic and other resource names already do not exist in the environment
 
 
@@ -30,6 +30,10 @@ resource "axual_group" "tenant_admin_group" {
  ]
 }
 
+data "axual_instance" "testInstance"{
+  name = "Dev Test Acceptance" # Replace with the name of your instance
+}
+
 resource "axual_environment" "development" {
   name = "development"
   short_name = "dev"
@@ -37,7 +41,7 @@ resource "axual_environment" "development" {
   color = "#19b9be"
   visibility = "Public"
   authorization_issuer = "Auto"
-  instance = "51be2a6a5eee481198787dc346ab6608"
+  instance = data.axual_instance.testInstance.id
   owners = axual_group.tenant_admin_group.id
 }
 

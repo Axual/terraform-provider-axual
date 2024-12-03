@@ -370,4 +370,18 @@ func mapTopicResponseToData(ctx context.Context, data *topicResourceData, topic 
 			tflog.Error(ctx, "Error creating viewers set", errorDetails)
 		}
 	}
+
+	// Map key_schema
+	if topic.Embedded.KeySchema.Uid != "" {
+		data.KeySchema = types.StringValue(topic.Embedded.KeySchema.Uid)
+	} else {
+		data.KeySchema = types.StringNull()
+	}
+
+	// Map value_schema
+	if topic.Embedded.ValueSchema.Uid != "" {
+		data.ValueSchema = types.StringValue(topic.Embedded.ValueSchema.Uid)
+	} else {
+		data.ValueSchema = types.StringNull()
+	}
 }

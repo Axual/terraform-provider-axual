@@ -26,6 +26,8 @@ func TestTopicDataSource(t *testing.T) {
 					resource.TestCheckResourceAttr("data.axual_topic.topic-test", "properties.propertyKey2", "propertyValue2"),
 					resource.TestCheckResourceAttrPair("data.axual_topic.topic-test", "owners", "axual_topic.topic-test", "owners"),
 					resource.TestCheckResourceAttrPair("data.axual_topic.topic-test", "id", "axual_topic.topic-test", "id"),
+					resource.TestCheckResourceAttrPair("data.axual_topic.topic-test", "key_schema", "axual_topic.topic-test", "key_schema"),
+					resource.TestCheckResourceAttrPair("data.axual_topic.topic-test", "value_schema", "axual_topic.topic-test", "value_schema"),
 				),
 			},
 			{

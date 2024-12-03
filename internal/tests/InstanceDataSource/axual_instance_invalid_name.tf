@@ -1,3 +1,3 @@
-data "axual_instance" "testInstance" {
+data "axual_instance" "wrong_name" {
   name = "dt"
 }

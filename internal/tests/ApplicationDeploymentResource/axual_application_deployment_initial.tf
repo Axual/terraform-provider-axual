@@ -57,10 +57,6 @@ resource "axual_topic_config" "tf-topic-config" {
   properties = {"segment.ms"="600012", "retention.bytes"="-1"}
 }
 
-data "axual_instance" "testInstance"{
-  name = "testInstance"
-}
-
 resource "axual_environment" "tf-test-env" {
   name = "tf-development"
   short_name = "tfdev"
