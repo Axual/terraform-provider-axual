@@ -34,6 +34,7 @@ type schemaVersionResourceData struct {
 	Id          types.String `tfsdk:"id"`
 	SchemaId    types.String `tfsdk:"schema_id"`
 	FullName    types.String `tfsdk:"full_name"`
+	Owners      types.String `tfsdk:"owners"`
 }
 
 func (r *schemaVersionResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -91,6 +92,10 @@ func (r *schemaVersionResource) Schema(ctx context.Context, req resource.SchemaR
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"owners": schema.StringAttribute{
+				MarkdownDescription: "Schema Owner",
+				Optional:            true,
+			},
 		},
 	}
 }
@@ -108,16 +113,21 @@ func (r *schemaVersionResource) Create(ctx context.Context, req resource.CreateR
 	vsReq := createValidateSchemaVersionRequestFromData(ctx, &data)
 	valid, valErr := r.provider.client.ValidateSchemaVersion(vsReq)
 
+	const errorMsg = "Error message: %s"
+
 	if valErr != nil {
-		resp.Diagnostics.AddError("Validate Schema request error for schema version resource", fmt.Sprintf("Error message: %s", valErr.Error()))
+		resp.Diagnostics.AddError("Validate Schema request error for schema version resource", fmt.Sprintf(errorMsg, valErr.Error()))
 		return
 	}
 
-	svReq := createSchemaVersionRequestFromData(ctx, valid, &data)
-
+	svReq, err := createSchemaVersionRequestFromData(ctx, valid, &data, r)
+	if err != nil {
+		resp.Diagnostics.AddError("Error creating CREATE request struct for schemaVersion resource", fmt.Sprintf(errorMsg, err.Error()))
+		return
+	}
 	svResp, err := r.provider.client.CreateSchemaVersion(svReq)
 	if err != nil {
-		resp.Diagnostics.AddError("CREATE request error for schema version resource", fmt.Sprintf("Error message: %s", err.Error()))
+		resp.Diagnostics.AddError("CREATE request error for schema version resource", fmt.Sprintf(errorMsg, err.Error()))
 		return
 	}
 
@@ -188,20 +198,32 @@ func createValidateSchemaVersionRequestFromData(ctx context.Context, data *schem
 	return r
 }
 
-func createSchemaVersionRequestFromData(ctx context.Context, parsedSchema *webclient.ValidateSchemaVersionResponse, data *schemaVersionResourceData) webclient.SchemaVersionRequest {
+func createSchemaVersionRequestFromData(ctx context.Context, parsedSchema *webclient.ValidateSchemaVersionResponse, data *schemaVersionResourceData, r *schemaVersionResource) (webclient.SchemaVersionRequest, error) {
 
-	r := webclient.SchemaVersionRequest{
+	rawOwners, err := data.Owners.ToTerraformValue(ctx)
+	if err != nil {
+		return webclient.SchemaVersionRequest{}, err
+	}
+	var owners string
+	err = rawOwners.As(&owners)
+	if err != nil {
+		return webclient.SchemaVersionRequest{}, err
+	}
+	owners = fmt.Sprintf("%s/groups/%v", r.provider.client.ApiURL, owners)
+
+	schemaVersionRequest := webclient.SchemaVersionRequest{
 		Schema:  parsedSchema.Schema,
 		Version: data.Version.ValueString(),
+		Owners:  owners,
 	}
 
 	// optional fields
 	if !data.Description.IsNull() {
-		r.Description = data.Description.ValueString()
+		schemaVersionRequest.Description = data.Description.ValueString()
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("schema version request %q", r))
-	return r
+	tflog.Info(ctx, fmt.Sprintf("schema version request %q", schemaVersionRequest))
+	return schemaVersionRequest, nil
 }
 
 func mapCreateSchemaVersionResponseToData(_ context.Context, data *schemaVersionResourceData, resp *webclient.CreateSchemaVersionResponse) {
@@ -209,10 +231,12 @@ func mapCreateSchemaVersionResponseToData(_ context.Context, data *schemaVersion
 	data.Id = types.StringValue(resp.Id)
 	data.FullName = types.StringValue(resp.FullName)
 	data.Version = types.StringValue(resp.Version)
+	data.Owners = types.StringValue(resp.Owners.ID)
 }
 func mapGetSchemaVersionResponseToData(_ context.Context, data *schemaVersionResourceData, resp *webclient.GetSchemaVersionResponse) {
 	data.SchemaId = types.StringValue(resp.Schema.SchemaId)
 	data.Id = types.StringValue(resp.Id)
 	data.FullName = types.StringValue(resp.Schema.Name)
 	data.Version = types.StringValue(resp.Version)
+	data.Owners = types.StringValue(resp.Schema.Owners.ID)
 }
