@@ -2,6 +2,7 @@ package provider
 
 import (
 	webclient "axual-webclient"
+	"axual.com/terraform-provider-axual/internal/provider/utils"
 	"context"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -167,24 +168,14 @@ func mapTopicDataSourceResponseToData(ctx context.Context, data *topicDataSource
 		data.Description = types.StringValue(topic.Description.(string))
 	}
 
-	// Map key_schema if KeyType is AVRO
 	if data.KeyType.ValueString() == "AVRO" {
-		if topic.Embedded.KeySchema.Uid != "" {
-			data.KeySchema = types.StringValue(topic.Embedded.KeySchema.Uid)
-		} else {
-			data.KeySchema = types.StringNull()
-		}
+		data.KeySchema = utils.SetStringValue(topic.Embedded.KeySchema.Uid)
 	} else {
 		data.KeySchema = types.StringNull()
 	}
 
-	// Map value_schema if ValueType is AVRO
 	if data.ValueType.ValueString() == "AVRO" {
-		if topic.Embedded.ValueSchema.Uid != "" {
-			data.ValueSchema = types.StringValue(topic.Embedded.ValueSchema.Uid)
-		} else {
-			data.ValueSchema = types.StringNull()
-		}
+		data.ValueSchema = utils.SetStringValue(topic.Embedded.ValueSchema.Uid)
 	} else {
 		data.ValueSchema = types.StringNull()
 	}
