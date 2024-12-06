@@ -47,10 +47,6 @@ resource "axual_topic" "topic-test" {
   description = "Demo of deploying a topic config via Terraform"
 }
 
-data "axual_instance" "testInstance"{
-  name = "testInstance"
-}
-
 resource "axual_environment" "tf-test-env" {
   name = "tf-development"
   short_name = "tfdev"

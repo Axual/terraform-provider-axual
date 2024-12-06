@@ -64,10 +64,6 @@ resource "axual_group" "team-integrations3" {
   ]
 }
 
-data "axual_instance" "testInstance"{
-  name = "testInstance"
-}
-
 resource "axual_environment" "tf-test-env" {
   name = "tf-development1"
   short_name = "tfdev"

@@ -41,10 +41,6 @@ resource "axual_schema_version" "axual_gitops_test_schema_version2_v2" {
   description = "Gitops test schema version"
 }
 
-data "axual_instance" "testInstance"{
-  name = "testInstance"
-}
-
 resource "axual_environment" "tf-test-env" {
   name = "tf-development"
   short_name = "tfdev"

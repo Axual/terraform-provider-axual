@@ -3,6 +3,7 @@ package provider
 import (
 	webclient "axual-webclient"
 	custom_validator "axual.com/terraform-provider-axual/internal/custom-validator"
+	"axual.com/terraform-provider-axual/internal/provider/utils"
 	"context"
 	"errors"
 	"fmt"
@@ -369,5 +370,17 @@ func mapTopicResponseToData(ctx context.Context, data *topicResourceData, topic 
 			}
 			tflog.Error(ctx, "Error creating viewers set", errorDetails)
 		}
+	}
+
+	if data.KeyType.ValueString() == "AVRO" {
+		data.KeySchema = utils.SetStringValue(topic.Embedded.KeySchema.Uid)
+	} else {
+		data.KeySchema = types.StringNull()
+	}
+
+	if data.ValueType.ValueString() == "AVRO" {
+		data.ValueSchema = utils.SetStringValue(topic.Embedded.ValueSchema.Uid)
+	} else {
+		data.ValueSchema = types.StringNull()
 	}
 }
