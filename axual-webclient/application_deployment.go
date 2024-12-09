@@ -76,7 +76,12 @@ func (c *Client) OperateApplicationDeployment(id string, action string, data App
 	if err != nil {
 		return err
 	}
-	time.Sleep(2 * time.Second) //to give time for Connect/Kafka to propagate changes
+	// To give time for Connect/Kafka to propagate changes
+	if action == "STOP" {
+		time.Sleep(4 * time.Second) // 4-second delay for STOP action
+	} else {
+		time.Sleep(2 * time.Second) // 2-second delay for other actions
+	}
 	return nil
 }
 
