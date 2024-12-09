@@ -39,6 +39,7 @@ func TestEnvironmentResource(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "partitions", "1"),
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "properties.propertyKey1", "propertyValue1"),
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "properties.propertyKey2", "propertyValue2"),
+					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "settings.enforceDataMasking", "true"),
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "viewers.#", "2"),
 				),
 			},

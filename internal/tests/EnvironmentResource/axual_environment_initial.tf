@@ -29,4 +29,7 @@ resource "axual_environment" "tf-test-env" {
   authorization_issuer = "Auto"
   instance = data.axual_instance.testInstance.id
   owners = axual_group.team-integrations.id
+  settings ={
+    enforceDataMasking = true
+  }
 }
