@@ -163,6 +163,7 @@ go generate
   - Needed for testing OAUTHBEARER Application Principal
 - Make sure Granular Stream Browse Permissions are turned on for the instance
   - Needed for testing Topic Browse Permissions
+- Make sure that Axual-Connect is running on the testing environment
 - First try to run one acceptance test, before trying to run all the tests. It might happen that if a test fails, you have to manually delete resources using UI.
   - We recommend to try to run in this order:
     - user_resource_test.go

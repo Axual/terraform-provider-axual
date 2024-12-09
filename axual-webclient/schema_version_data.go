@@ -10,7 +10,7 @@ type SchemaType struct {
 	ModifiedAt  string `json:"modified_at"`
 	CreatedBy   string `json:"created_by"`
 	ModifiedBy  string `json:"modified_by"`
-	Owners      struct {
+	Owners      *struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
 	} `json:"owners"`
@@ -31,7 +31,7 @@ type CreateSchemaVersionResponse struct {
 	SchemaId string `json:"schemaUid"`
 	Version  string `json:"version"`
 	FullName string `json:"fullName"`
-	Owners   struct {
+	Owners   *struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
 	} `json:"owners"`
@@ -52,17 +52,17 @@ type SchemaVersionResponse struct {
 	SchemaId string `json:"schemaUid"`
 	Version  string `json:"version"`
 	FullName string `json:"fullName"`
-	Owners   struct {
+	Owners   *struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
 	} `json:"owners"`
 }
 
 type SchemaVersionRequest struct {
-	Schema      string `json:"schema"`
-	Version     string `json:"version"`
-	Description string `json:"description"`
-	Owners      string `json:"owners,omitempty"`
+	Schema      string  `json:"schema"`
+	Version     string  `json:"version"`
+	Description string  `json:"description"`
+	Owners      *string `json:"owners"`
 }
 
 type GetSchemaVersionsResponse struct {
