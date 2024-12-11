@@ -1,6 +1,6 @@
 # axual_schema_version (Resource)
 
-Schema version resource. Only version can be updated - this creates a new 'axual_schema_version'. Read more: https://docs.axual.io/axual/2024.2/self-service/schema-management.html
+Schema version resource. None of the fields can be update. Read more: https://docs.axual.io/axual/2024.2/self-service/schema-management.html
 
 ## Required Roles
 - SCHEMA_AUTHOR or SCHEMA_ADMIN
@@ -16,7 +16,7 @@ Schema version resource. Only version can be updated - this creates a new 'axual
 ### Optional
 
 - `description` (String) A short text describing the Schema version
-- `owners` (String) The id of the team owning this Schema version .
+- `owners` (String) The id of the team owning this schemaVersion
 
 ### Read-Only
 
@@ -32,7 +32,7 @@ Schema version resource. Only version can be updated - this creates a new 'axual
 - `terraform import` functionality is not implemented, will be implemented soon
 - To assign an owner to an existing schema or updating the owner, you need to first delete the schema and recreate it.
 - To update the description, please delete and recreate the schema version.
-- Make sure that you have required roles. Please note that you might have the permission to delete the schema(as `Schema Owner` if owner is present) but you might not have the `SCHEMA_AUTHOR` role(in a Tenant where `schema-roles-enforced=true`) that is required to create the schema.
+- Make sure that you have required roles. Please note that you might have the permission to delete the schema(as Schema Owner if owner is present) but you might not have the SCHEMA_AUTHOR role(in a Tenant where schema-roles-enforced=true) that is required to create the schema.
 
 ## Example Usage
 

@@ -25,6 +25,9 @@ resource "axual_environment" "development" {
   authorization_issuer = "Auto"
   instance = data.axual_instance.testInstance.id
   owners = axual_group.tenant_admin_group.id
+   settings = {
+      enforceDataMasking = true
+    }
 }
 ```
 
