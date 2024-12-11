@@ -112,7 +112,9 @@ func (d *schemaVersionDataSource) Read(ctx context.Context, req datasource.ReadR
 		data.SchemaId = types.StringValue(sv.Embedded.SchemaVersion[i].Embedded.Schema.Uid)
 		data.FullName = types.StringValue(sv.Embedded.SchemaVersion[i].Embedded.Schema.Name)
 		data.Description = types.StringValue(sv.Embedded.SchemaVersion[i].Embedded.Schema.Description)
-		data.Owners = types.StringValue(sv.Embedded.SchemaVersion[i].Embedded.Schema.Owners.UID)
+		if sv.Embedded.SchemaVersion[i].Embedded.Schema.Owners != nil {
+			data.Owners = types.StringValue(sv.Embedded.SchemaVersion[i].Embedded.Schema.Owners.UID)
+		}
 		if foundMatchingVersion {
 			break
 		}
