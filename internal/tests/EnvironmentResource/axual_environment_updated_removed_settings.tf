@@ -79,9 +79,7 @@ resource "axual_environment" "tf-test-env" {
     propertyKey1 = "propertyValue1",
     propertyKey2 = "propertyValue2"
   }
-  settings = {
-    testKey = "TestValue"
-  }
+  settings = {}
   viewers = [
     axual_group.team-integrations2.id,
     axual_group.team-integrations3.id

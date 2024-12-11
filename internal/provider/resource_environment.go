@@ -141,7 +141,7 @@ func (r *environmentResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"properties": schema.MapAttribute{
-				MarkdownDescription: "Environment-wide settings for all topics and applications.",
+				MarkdownDescription: "Environment-wide properties for all topics and applications.",
 				Optional:            true,
 				Computed:            true,
 				ElementType:         types.StringType,
@@ -150,6 +150,7 @@ func (r *environmentResource) Schema(ctx context.Context, req resource.SchemaReq
 				MarkdownDescription: "A list of Environment specific settings in Key,Value format.",
 				Optional:            true,
 				Computed:            true,
+				Default:             nil,
 				ElementType:         types.StringType,
 			},
 			"id": schema.StringAttribute{
@@ -262,10 +263,7 @@ func (r *environmentResource) Update(ctx context.Context, req resource.UpdateReq
 	settings := make(map[string]interface{})
 
 	// Check if the updated settings are empty
-	if data.Settings.IsNull() || len(data.Settings.Elements()) == 0 {
-		// Clear all settings if the updated settings are empty
-		settings = nil
-	} else {
+	if !data.Settings.IsNull() || len(data.Settings.Elements()) != 0 {
 		// Iterate over old settings and set them to nil by default
 		for key := range oldSettingsState {
 			settings[key] = nil
@@ -275,12 +273,6 @@ func (r *environmentResource) Update(ctx context.Context, req resource.UpdateReq
 		for key, value := range data.Settings.Elements() {
 			settings[key] = strings.Trim(value.String(), "\"")
 		}
-	}
-
-	// If settings is nil, ensure the request clears the settings properly
-	if settings == nil {
-		// Explicitly clear the settings in the environment request
-		settings = make(map[string]interface{})
 	}
 
 	environmentRequest.Settings = settings
@@ -334,7 +326,11 @@ func createEnvironmentRequestFromData(ctx context.Context, data *environmentReso
 	instance := fmt.Sprintf("%s/instances/%v", r.provider.client.ApiURL, data.Instance.ValueString())
 
 	settings := make(map[string]interface{})
-	if !data.Settings.IsNull() && !data.Settings.IsUnknown() {
+	if data.Settings.IsNull() || data.Settings.IsUnknown() {
+		settings = nil // Send "settings": null to API
+	} else if len(data.Settings.Elements()) == 0 {
+		settings = map[string]interface{}{} // Send empty map
+	} else {
 		for key, value := range data.Settings.Elements() {
 			settings[key] = strings.Trim(value.String(), "\"")
 		}

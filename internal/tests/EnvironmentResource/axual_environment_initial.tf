@@ -30,6 +30,7 @@ resource "axual_environment" "tf-test-env" {
   instance = data.axual_instance.testInstance.id
   owners = axual_group.team-integrations.id
   settings ={
-    enforceDataMasking = true
+    enforceDataMasking = "true",
+    testKey = "TestValue"
   }
 }
