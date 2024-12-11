@@ -80,7 +80,11 @@ type GetSchemaVersionsResponse struct {
 					CreatedAt   string `json:"created_at"`
 					CreatedBy   string `json:"created_by"`
 					ModifiedAt  string `json:"modified_at"`
-					Links       struct {
+					Owners      *struct {
+						UID  string `json:"uid"`
+						Name string `json:"name"`
+					} `json:"owners"`
+					Links struct {
 						Self struct {
 							Href      string `json:"href"`
 							Templated bool   `json:"templated"`

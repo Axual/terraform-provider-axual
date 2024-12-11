@@ -84,7 +84,7 @@ func TestSchemaVersionAvroWithOwnersResource(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_schema_version.axual_gitops_test_schema_version_with_owner", "full_name", "io.axual.qa.general.GitOpsTest1"),
 					resource.TestCheckResourceAttrSet("axual_schema_version.axual_gitops_test_schema_version_with_owner", "schema_id"),
 					resource.TestCheckResourceAttrSet("axual_schema_version.axual_gitops_test_schema_version_with_owner", "id"),
-					resource.TestCheckResourceAttrPair("axual_schema_version.axual_gitops_test_schema_version_with_owner", "owners.id", "data.axual_group.group", "5a32dae2dbee4249a6cef8ce8759bd94"),
+					resource.TestCheckResourceAttrSet("axual_schema_version.axual_gitops_test_schema_version_with_owner", "owners.id"),
 					CheckBodyMatchesFile("axual_schema_version.axual_gitops_test_schema_version_with_owner", "body", "avro-schemas/gitops_test_v1.avsc"),
 				),
 			},

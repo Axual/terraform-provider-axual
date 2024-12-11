@@ -84,7 +84,7 @@ func (r *schemaVersionResource) Schema(ctx context.Context, req resource.SchemaR
 				},
 			},
 			"owners": schema.StringAttribute{
-				MarkdownDescription: "Schema Owner",
+				MarkdownDescription: "The id of the team owning this schemaVersion",
 				Optional:            true,
 				Computed:            false,
 				Validators: []validator.String{
