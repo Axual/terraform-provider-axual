@@ -30,8 +30,6 @@ Environments are used typically to support the application lifecycle, as it is m
 
 - `id` (String) Environment unique identifier
 
- - Public Environments cannot be deleted
-
 ## Example Usage
 
 ```hcl
