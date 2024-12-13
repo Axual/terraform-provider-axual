@@ -150,7 +150,6 @@ func (r *environmentResource) Schema(ctx context.Context, req resource.SchemaReq
 				MarkdownDescription: "A list of Environment specific settings in Key,Value format.",
 				Optional:            true,
 				Computed:            true,
-				Default:             nil,
 				ElementType:         types.StringType,
 			},
 			"id": schema.StringAttribute{
@@ -184,6 +183,12 @@ func (r *environmentResource) Create(ctx context.Context, req resource.CreateReq
 		properties[key] = strings.Trim(value.String(), "\"")
 	}
 	environmentRequest.Properties = properties
+
+	settings := make(map[string]interface{})
+	for key, value := range data.Settings.Elements() {
+		settings[key] = strings.Trim(value.String(), "\"")
+	}
+	environmentRequest.Settings = settings
 
 	tflog.Info(ctx, fmt.Sprintf("Create environment request %q", environmentRequest))
 	environment, err := r.provider.client.CreateEnvironment(environmentRequest)
@@ -259,20 +264,14 @@ func (r *environmentResource) Update(ctx context.Context, req resource.UpdateReq
 
 	var oldSettingsState map[string]string
 	req.State.GetAttribute(ctx, path.Root("settings"), &oldSettingsState)
-
 	settings := make(map[string]interface{})
 
-	// Check if the updated settings are empty
-	if !data.Settings.IsNull() || len(data.Settings.Elements()) != 0 {
-		// Iterate over old settings and set them to nil by default
-		for key := range oldSettingsState {
-			settings[key] = nil
-		}
+	for key, _ := range oldSettingsState {
+		settings[key] = nil
+	}
 
-		// Add or update settings from the updated data
-		for key, value := range data.Settings.Elements() {
-			settings[key] = strings.Trim(value.String(), "\"")
-		}
+	for key, value := range data.Settings.Elements() {
+		settings[key] = strings.Trim(value.String(), "\"")
 	}
 
 	environmentRequest.Settings = settings
@@ -325,17 +324,6 @@ func createEnvironmentRequestFromData(ctx context.Context, data *environmentReso
 	owners = fmt.Sprintf("%s/groups/%v", r.provider.client.ApiURL, owners)
 	instance := fmt.Sprintf("%s/instances/%v", r.provider.client.ApiURL, data.Instance.ValueString())
 
-	settings := make(map[string]interface{})
-	if data.Settings.IsNull() || data.Settings.IsUnknown() {
-		settings = nil // Send "settings": null to API
-	} else if len(data.Settings.Elements()) == 0 {
-		settings = map[string]interface{}{} // Send empty map
-	} else {
-		for key, value := range data.Settings.Elements() {
-			settings[key] = strings.Trim(value.String(), "\"")
-		}
-	}
-
 	viewers := []string{}
 	if !data.Viewers.IsNull() {
 		var viewerUIDs []string
@@ -362,7 +350,6 @@ func createEnvironmentRequestFromData(ctx context.Context, data *environmentReso
 		Instance:            instance,
 		RetentionTime:       int(data.RetentionTime.ValueInt64()),
 		Partitions:          int(data.Partitions.ValueInt64()),
-		Settings:            settings,
 	}
 
 	// Optional fields

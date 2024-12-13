@@ -53,7 +53,7 @@ func TestSchemaVersionAvroResource(t *testing.T) {
 						"axual_schema_version.axual_gitops_test_schema_version1", "full_name",
 						"axual_schema_version.axual_gitops_test_schema_version2", "full_name",
 					),
-					// to verify boh schema versions belongs to the same schema
+					// to verify that the both schema versions belong to the same schema
 					resource.TestCheckResourceAttrPair(
 						"axual_schema_version.axual_gitops_test_schema_version1", "schema_id",
 						"axual_schema_version.axual_gitops_test_schema_version2", "schema_id",
@@ -113,7 +113,6 @@ func TestSchemaVersionAvroWithOwnersResource(t *testing.T) {
 //				),
 //			},
 //			//{
-//			//	Config: GetProvider() + GetFile("axual_schema_version_avro_desc_updated.tf"),
 //			//	Check: resource.ComposeTestCheckFunc(
 //			//		resource.TestCheckResourceAttr("axual_schema_version.axual_gitops_test_schema_version1", "description", "Gitops test schema version1"),
 //			//	),

@@ -25,12 +25,12 @@ Schema version resource. None of the fields can be update. Read more: https://do
 - `schema_id` (String) Schema unique identifier
 
 ## Note
-- Changing any field of the schema_version is not allowed, and you should re-creates a new one with edited values.
-- Please note that Updating the version of an existing schemaVersion is not an accepted behaviour and instead, should create a new schema version with same schema name, and different version and different schema body.
+- Changing any field of the `axual_schema_version` is not allowed, and you should manually delete and create a new `axual_schema_version` with edited values.
+- Please note that Updating the existing `axual_schema_version` is not supported and instead, you should either delete and create an updated `axual_schema_version` or create a new `axual_schema_version` with same schema name, and different version and different schema body.
 
 ## Limitation
 - `terraform import` functionality is not implemented, will be implemented soon
-- To assign an owner to an existing schema or updating the owner, you need to first delete the schema and recreate it.
+- To assign an owner to an existing schema or updating the owner, you need to first delete the `axual_schema_version` and create it again with the updated owner.
 - To update the description, please delete and recreate the schema version.
 - Make sure that you have required roles. Please note that you might have the permission to delete the schema(as Schema Owner if owner is present) but you might not have the SCHEMA_AUTHOR role(in a Tenant where schema-roles-enforced=true) that is required to create the schema.
 

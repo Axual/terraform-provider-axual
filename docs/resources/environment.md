@@ -31,6 +31,9 @@ Environments are used typically to support the application lifecycle, as it is m
 
 - `id` (String) Environment unique identifier
 
+ - Public Environments cannot be deleted
+ - Currently the only Environment specific setting that can be set is `enforceDataMasking` with possible true/false value
+
 ## Example Usage
 
 ```hcl
