@@ -91,7 +91,7 @@ func TestSchemaVersionAvroWithOwnersResource(t *testing.T) {
 			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
-				Config:  GetProvider() + GetFile("axual_schema_version_avro_multiple_versions_for_same_schema.tf"),
+				Config:  GetProvider() + GetFile("axual_schema_version_with_owner.tf"),
 			},
 		},
 	})

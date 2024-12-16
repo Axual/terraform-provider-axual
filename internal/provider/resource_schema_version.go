@@ -43,7 +43,7 @@ func (r *schemaVersionResource) Metadata(ctx context.Context, req resource.Metad
 
 func (r *schemaVersionResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Schema version resource. None of the fields can be update. Read more: https://docs.axual.io/axual/2024.2/self-service/schema-management.html",
+		MarkdownDescription: "Schema version resource. None of the fields can be updated. Read more: https://docs.axual.io/axual/2024.2/self-service/schema-management.html",
 
 		Attributes: map[string]schema.Attribute{
 			"body": schema.StringAttribute{
@@ -55,7 +55,7 @@ func (r *schemaVersionResource) Schema(ctx context.Context, req resource.SchemaR
 				Required:            true,
 			},
 			"description": schema.StringAttribute{
-				MarkdownDescription: "A short text describing the Schema version",
+				MarkdownDescription: "A short text describing the Schema",
 				Optional:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(1, 500),
@@ -84,7 +84,7 @@ func (r *schemaVersionResource) Schema(ctx context.Context, req resource.SchemaR
 				},
 			},
 			"owners": schema.StringAttribute{
-				MarkdownDescription: "The id of the team owning this schemaVersion",
+				MarkdownDescription: "The UID of the team owning this Schema",
 				Optional:            true,
 				Computed:            false,
 				Validators: []validator.String{
