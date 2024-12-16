@@ -32,8 +32,10 @@ Environments are used typically to support the application lifecycle, as it is m
 - `id` (String) Environment unique identifier
 
 ## Note
- - Public Environments cannot be deleted
  - Currently, the only Environment specific setting that can be set is `enforceDataMasking` with possible true/false value
+
+## Limitations
+- If no settings please leave properties empty like this: settings = { }. Removing settings does not currently remove settings.
 
 ## Example Usage
 
