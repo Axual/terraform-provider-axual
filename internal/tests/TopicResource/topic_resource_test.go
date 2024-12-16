@@ -32,9 +32,15 @@ func TestTopicResource(t *testing.T) {
 				),
 			},
 			{
+				Config: GetProvider() + GetFile("axual_topic_properties_removed.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckNoResourceAttr("axual_topic.topic-test", "properties"),
+				),
+			},
+			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
-				Config:  GetProvider() + GetFile("axual_topic_updated.tf"),
+				Config:  GetProvider() + GetFile("axual_topic_properties_removed.tf"),
 			},
 		},
 	})

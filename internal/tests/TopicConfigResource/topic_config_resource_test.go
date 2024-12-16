@@ -37,6 +37,14 @@ func TestTopicConfigResource(t *testing.T) {
 				),
 			},
 			{
+				Config: GetProvider() + GetFile(
+					"axual_topic_config_setup.tf", "axual_topic_config_properties_removed.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckNoResourceAttr("axual_topic_config.tf-topic-config", "properties"),
+				),
+			},
+			{
 				ResourceName:      "axual_topic_config.tf-topic-config",
 				ImportState:       true,
 				ImportStateVerify: true,
@@ -45,7 +53,7 @@ func TestTopicConfigResource(t *testing.T) {
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
 				Config: GetProvider() + GetFile(
-					"axual_topic_config_setup.tf", "axual_topic_config_updated.tf",
+					"axual_topic_config_setup.tf", "axual_topic_config_properties_removed.tf",
 				),
 			},
 		},
