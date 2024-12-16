@@ -48,6 +48,7 @@ type environmentResourceData struct {
 	Id                  types.String `tfsdk:"id"`
 	Partitions          types.Int64  `tfsdk:"partitions"`
 	Properties          types.Map    `tfsdk:"properties"`
+	Settings            types.Map    `tfsdk:"settings"`
 }
 
 func (r *environmentResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -145,6 +146,12 @@ func (r *environmentResource) Schema(ctx context.Context, req resource.SchemaReq
 				Computed:            true,
 				ElementType:         types.StringType,
 			},
+			"settings": schema.MapAttribute{
+				MarkdownDescription: "A list of Environment specific settings in Key,Value format.",
+				Optional:            true,
+				Computed:            true,
+				ElementType:         types.StringType,
+			},
 			"id": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "Environment unique identifier",
@@ -176,6 +183,12 @@ func (r *environmentResource) Create(ctx context.Context, req resource.CreateReq
 		properties[key] = strings.Trim(value.String(), "\"")
 	}
 	environmentRequest.Properties = properties
+
+	settings := make(map[string]interface{})
+	for key, value := range data.Settings.Elements() {
+		settings[key] = strings.Trim(value.String(), "\"")
+	}
+	environmentRequest.Settings = settings
 
 	tflog.Info(ctx, fmt.Sprintf("Create environment request %q", environmentRequest))
 	environment, err := r.provider.client.CreateEnvironment(environmentRequest)
@@ -248,6 +261,20 @@ func (r *environmentResource) Update(ctx context.Context, req resource.UpdateReq
 	}
 
 	environmentRequest.Properties = properties
+
+	var oldSettingsState map[string]string
+	req.State.GetAttribute(ctx, path.Root("settings"), &oldSettingsState)
+	settings := make(map[string]interface{})
+
+	for key, _ := range oldSettingsState {
+		settings[key] = nil
+	}
+
+	for key, value := range data.Settings.Elements() {
+		settings[key] = strings.Trim(value.String(), "\"")
+	}
+
+	environmentRequest.Settings = settings
 
 	tflog.Info(ctx, fmt.Sprintf("Update environment request %q", environmentRequest))
 	environment, err := r.provider.client.UpdateEnvironment(data.Id.ValueString(), environmentRequest)
@@ -350,6 +377,7 @@ func mapEnvironmentResponseToData(ctx context.Context, data *environmentResource
 	data.RetentionTime = types.Int64Value(int64(environment.RetentionTime))
 	data.Partitions = types.Int64Value(int64(environment.Partitions))
 
+	//env properties
 	properties := make(map[string]attr.Value)
 	for key, value := range environment.Properties {
 		if value != nil {
@@ -358,9 +386,22 @@ func mapEnvironmentResponseToData(ctx context.Context, data *environmentResource
 	}
 	mapValue, diags := types.MapValue(types.StringType, properties)
 	if diags.HasError() {
-		tflog.Error(ctx, "Error creating members slice when mapping group response")
+		tflog.Error(ctx, "Error creating properties map when mapping environment response")
 	}
 	data.Properties = mapValue
+
+	// env settings
+	settings := make(map[string]attr.Value)
+	for key, value := range environment.Settings {
+		if value != nil {
+			settings[key] = types.StringValue(value.(string))
+		}
+	}
+	mapEnvValue, diags := types.MapValue(types.StringType, settings)
+	if diags.HasError() {
+		tflog.Error(ctx, "Error creating settings map when mapping environment response")
+	}
+	data.Settings = mapEnvValue
 
 	// optional fields
 	if environment.Description == nil || len(environment.Description.(string)) == 0 {

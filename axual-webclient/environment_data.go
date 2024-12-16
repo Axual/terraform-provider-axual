@@ -66,6 +66,7 @@ type EnvironmentsResponse struct {
 
 type EnvironmentResponse struct {
 	Properties          map[string]interface{} `json:"properties"`
+	Settings            map[string]interface{} `json:"settings"`
 	Name                string                 `json:"name"`
 	ShortName           string                 `json:"shortName"`
 	Description         interface{}            `json:"description"`
@@ -210,4 +211,5 @@ type EnvironmentRequest struct {
 	Owners              string                 `json:"owners,omitempty"`
 	Viewers             []string               `json:"viewers"`
 	Properties          map[string]interface{} `json:"properties,omitempty"`
+	Settings            map[string]interface{} `json:"settings,omitempty"`
 }

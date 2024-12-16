@@ -27,6 +27,7 @@ type schemaVersionDataSourceData struct {
 	Id          types.String `tfsdk:"id"`
 	SchemaId    types.String `tfsdk:"schema_id"`
 	FullName    types.String `tfsdk:"full_name"`
+	Owners      types.String `tfsdk:"owners"`
 }
 
 func (d *schemaVersionDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -61,6 +62,11 @@ func (d *schemaVersionDataSource) Schema(ctx context.Context, req datasource.Sch
 			"full_name": schema.StringAttribute{
 				Required:            true,
 				MarkdownDescription: "Full name of the schema. Full name is schema's <namespace>.<name>. For example: io.axual.qa.general.GitOpsTest",
+			},
+			"owners": schema.StringAttribute{
+				MarkdownDescription: "Schema Owner",
+				Optional:            true,
+				Computed:            false,
 			},
 		},
 	}
@@ -106,6 +112,9 @@ func (d *schemaVersionDataSource) Read(ctx context.Context, req datasource.ReadR
 		data.SchemaId = types.StringValue(sv.Embedded.SchemaVersion[i].Embedded.Schema.Uid)
 		data.FullName = types.StringValue(sv.Embedded.SchemaVersion[i].Embedded.Schema.Name)
 		data.Description = types.StringValue(sv.Embedded.SchemaVersion[i].Embedded.Schema.Description)
+		if sv.Embedded.SchemaVersion[i].Embedded.Schema.Owners != nil {
+			data.Owners = types.StringValue(sv.Embedded.SchemaVersion[i].Embedded.Schema.Owners.UID)
+		}
 		if foundMatchingVersion {
 			break
 		}

@@ -34,6 +34,7 @@ type schemaVersionResourceData struct {
 	Id          types.String `tfsdk:"id"`
 	SchemaId    types.String `tfsdk:"schema_id"`
 	FullName    types.String `tfsdk:"full_name"`
+	Owners      types.String `tfsdk:"owners"`
 }
 
 func (r *schemaVersionResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -42,31 +43,22 @@ func (r *schemaVersionResource) Metadata(ctx context.Context, req resource.Metad
 
 func (r *schemaVersionResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Schema version resource. Only version can be updated - this creates a new 'axual_schema_version'. Read more: https://docs.axual.io/axual/2024.2/self-service/schema-management.html",
+		MarkdownDescription: "Schema version resource. None of the fields can be updated. Read more: https://docs.axual.io/axual/2024.2/self-service/schema-management.html",
 
 		Attributes: map[string]schema.Attribute{
 			"body": schema.StringAttribute{
 				MarkdownDescription: "Avro schema",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
 			},
 			"version": schema.StringAttribute{
 				MarkdownDescription: "The version of the schema",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
 			},
 			"description": schema.StringAttribute{
-				MarkdownDescription: "A short text describing the Schema version",
+				MarkdownDescription: "A short text describing the Schema",
 				Optional:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(1, 500),
-				},
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"id": schema.StringAttribute{
@@ -91,6 +83,14 @@ func (r *schemaVersionResource) Schema(ctx context.Context, req resource.SchemaR
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"owners": schema.StringAttribute{
+				MarkdownDescription: "The UID of the team owning this Schema",
+				Optional:            true,
+				Computed:            false,
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(1, 500),
+				},
+			},
 		},
 	}
 }
@@ -108,16 +108,21 @@ func (r *schemaVersionResource) Create(ctx context.Context, req resource.CreateR
 	vsReq := createValidateSchemaVersionRequestFromData(ctx, &data)
 	valid, valErr := r.provider.client.ValidateSchemaVersion(vsReq)
 
+	const errorMsg = "Error message: %s"
+
 	if valErr != nil {
-		resp.Diagnostics.AddError("Validate Schema request error for schema version resource", fmt.Sprintf("Error message: %s", valErr.Error()))
+		resp.Diagnostics.AddError("Validate Schema request error for schema version resource", fmt.Sprintf(errorMsg, valErr.Error()))
 		return
 	}
 
-	svReq := createSchemaVersionRequestFromData(ctx, valid, &data)
-
+	svReq, err := createSchemaVersionRequestFromData(ctx, valid, &data, r)
+	if err != nil {
+		resp.Diagnostics.AddError("Error creating CREATE request struct for schemaVersion resource", fmt.Sprintf(errorMsg, err.Error()))
+		return
+	}
 	svResp, err := r.provider.client.CreateSchemaVersion(svReq)
 	if err != nil {
-		resp.Diagnostics.AddError("CREATE request error for schema version resource", fmt.Sprintf("Error message: %s", err.Error()))
+		resp.Diagnostics.AddError("CREATE request error for schema version resource", fmt.Sprintf(errorMsg, err.Error()))
 		return
 	}
 
@@ -188,20 +193,38 @@ func createValidateSchemaVersionRequestFromData(ctx context.Context, data *schem
 	return r
 }
 
-func createSchemaVersionRequestFromData(ctx context.Context, parsedSchema *webclient.ValidateSchemaVersionResponse, data *schemaVersionResourceData) webclient.SchemaVersionRequest {
+func createSchemaVersionRequestFromData(ctx context.Context, parsedSchema *webclient.ValidateSchemaVersionResponse, data *schemaVersionResourceData, r *schemaVersionResource) (webclient.SchemaVersionRequest, error) {
 
-	r := webclient.SchemaVersionRequest{
+	schemaVersionRequest := webclient.SchemaVersionRequest{
 		Schema:  parsedSchema.Schema,
 		Version: data.Version.ValueString(),
 	}
 
-	// optional fields
-	if !data.Description.IsNull() {
-		r.Description = data.Description.ValueString()
+	if data.Owners.IsNull() || data.Owners.ValueString() == "" {
+		var ownersPtr *string = nil
+		schemaVersionRequest.Owners = ownersPtr
+	} else {
+
+		rawOwners, err := data.Owners.ToTerraformValue(ctx)
+		if err != nil {
+			return webclient.SchemaVersionRequest{}, err
+		}
+		var owners string
+		err = rawOwners.As(&owners)
+		if err != nil {
+			return webclient.SchemaVersionRequest{}, err
+		}
+		owners = fmt.Sprintf("%s/groups/%v", r.provider.client.ApiURL, owners)
+		schemaVersionRequest.Owners = &owners
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("schema version request %q", r))
-	return r
+	// optional fields
+	if !data.Description.IsNull() {
+		schemaVersionRequest.Description = data.Description.ValueString()
+	}
+
+	tflog.Info(ctx, fmt.Sprintf("schema version request %q", schemaVersionRequest))
+	return schemaVersionRequest, nil
 }
 
 func mapCreateSchemaVersionResponseToData(_ context.Context, data *schemaVersionResourceData, resp *webclient.CreateSchemaVersionResponse) {
@@ -209,10 +232,26 @@ func mapCreateSchemaVersionResponseToData(_ context.Context, data *schemaVersion
 	data.Id = types.StringValue(resp.Id)
 	data.FullName = types.StringValue(resp.FullName)
 	data.Version = types.StringValue(resp.Version)
+	if resp.Owners == nil {
+		data.Owners = types.StringNull()
+	}
+	if resp.Owners != nil && resp.Owners.ID != "" {
+		data.Owners = types.StringValue(resp.Owners.ID)
+	} else {
+		data.Owners = types.StringNull()
+	}
 }
 func mapGetSchemaVersionResponseToData(_ context.Context, data *schemaVersionResourceData, resp *webclient.GetSchemaVersionResponse) {
 	data.SchemaId = types.StringValue(resp.Schema.SchemaId)
 	data.Id = types.StringValue(resp.Id)
 	data.FullName = types.StringValue(resp.Schema.Name)
 	data.Version = types.StringValue(resp.Version)
+	if resp.Schema.Owners == nil {
+		data.Owners = types.StringNull()
+	}
+	if resp.Schema.Owners != nil && resp.Schema.Owners.ID != "" {
+		data.Owners = types.StringValue(resp.Schema.Owners.ID)
+	} else {
+		data.Owners = types.StringNull()
+	}
 }

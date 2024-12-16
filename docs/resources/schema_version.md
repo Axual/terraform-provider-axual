@@ -1,6 +1,6 @@
 # axual_schema_version (Resource)
 
-Schema version resource. Only version can be updated - this creates a new 'axual_schema_version'. Read more: https://docs.axual.io/axual/2024.2/self-service/schema-management.html
+Schema version resource. None of the fields can be updated. Read more: https://docs.axual.io/axual/2024.2/self-service/schema-management.html
 
 ## Required Roles
 - SCHEMA_AUTHOR or SCHEMA_ADMIN
@@ -15,7 +15,8 @@ Schema version resource. Only version can be updated - this creates a new 'axual
 
 ### Optional
 
-- `description` (String) A short text describing the Schema version
+- `description` (String) A short text describing the Schema
+- `owners` (String) The UID of the team owning this Schema
 
 ### Read-Only
 
@@ -24,10 +25,14 @@ Schema version resource. Only version can be updated - this creates a new 'axual
 - `schema_id` (String) Schema unique identifier
 
 ## Note
-- Changing any field deletes schema_version and re-creates a new one with edited values.
+- Changing any field of the `axual_schema_version` is not allowed, and you should manually delete and create a new `axual_schema_version` with edited values.
+- Please note that Updating the existing `axual_schema_version` is not supported and instead, you should either delete and create an updated `axual_schema_version` or create a new `axual_schema_version` with same schema name, and different version and different schema body.
 
 ## Limitation
 - `terraform import` functionality is not implemented, will be implemented soon
+- To assign an owner to an existing schema or updating the owner, you need to first delete the `axual_schema_version` and create it again with the updated owner.
+- To update the description, please delete and recreate the schema version.
+- Please note that you might have the permission to delete the schema(as Schema Owner if owner is present) but you might not have the SCHEMA_AUTHOR role(in a Tenant where schema-roles-enforced=true) that is required to create the schema.
 
 ## Example Usage
 
@@ -35,6 +40,61 @@ Schema version resource. Only version can be updated - this creates a new 'axual
 resource "axual_schema_version" "axual_gitops_test_schema_version1" {
   body = file("avro-schemas/gitops_test_v1.avsc")
   version = "1.0.0"
+  description = "Gitops test schema version"
+}
+```
+An example of having one schema with different schemaVersions:
+
+first schema body
+
+```json
+{
+  "type": "record",
+  "name": "GitOpsTest1",
+  "namespace": "io.axual.qa.general",
+  "doc": "Object type that is supposed to be filled with a gitops test value. This should be used when the Key is irrelevant.",
+  "fields": [
+    {
+      "name": "gitops1",
+      "type": "string",
+      "doc": "The gitops test value. v 1.0.0"
+    }
+  ]
+}
+```
+
+second schema body
+
+```json
+{
+  "type": "record",
+  "name": "GitOpsTest1",
+  "namespace": "io.axual.qa.general",
+  "doc": "Object type that is supposed to be filled with a gitops test value. This should be used when the Key is irrelevant.",
+  "fields": [
+    {
+      "name": "gitops1",
+      "type": "string",
+      "doc": "The gitops1 test value. v 1.0.0"
+    },
+    {
+      "name": "gitops2",
+      "type": "string",
+      "doc": "The gitops2 test value. v 1.0.0"
+    }
+  ]
+}
+```
+```hcl
+resource "axual_schema_version" "axual_gitops_test_schema_version1" {
+  body = file("avro-schemas/gitops_test_v1.avsc") // first schema body
+  version = "1.0.0"
+  description = "Gitops test schema version"
+}
+
+resource "axual_schema_version" "axual_gitops_test_schema_version2" {
+  body = file("avro-schemas/gitops_test_v2.avsc") // second schema body
+  version = "2.0.0"
   description = "Gitops test schema version"
 }
 ```
