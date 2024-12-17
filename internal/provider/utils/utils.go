@@ -42,7 +42,7 @@ func HandlePropertiesMapping(ctx context.Context, propertiesAttr types.Map, apiP
 		return types.MapValueMust(types.StringType, map[string]attr.Value{})
 	}
 
-	// Non-empty properties from API
+	// API response contains properties
 	mapValue, diags := types.MapValue(types.StringType, properties)
 	if diags.HasError() {
 		tflog.Error(ctx, "Error creating properties map")
