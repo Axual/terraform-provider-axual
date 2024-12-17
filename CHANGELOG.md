@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [master](https://github.com/Axual/terraform-provider-axual/blob/master) - TBR
 * Added schema owner to the SchemaVersion resource and datasource
 * Added settings field to environment resource
+* Properties in Topic and Topic Config can now be omitted
 
 ## [2.4.2](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.4.2) - 2024-12-12
 * Added `Instance` data source.

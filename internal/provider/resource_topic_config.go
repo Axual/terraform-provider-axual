@@ -2,13 +2,13 @@ package provider
 
 import (
 	webclient "axual-webclient"
+	"axual.com/terraform-provider-axual/internal/provider/utils"
 	"context"
 	"errors"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/mapvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -93,13 +93,11 @@ func (r *topicConfigResource) Schema(ctx context.Context, req resource.SchemaReq
 				Optional:            true,
 			},
 			"properties": schema.MapAttribute{
-				MarkdownDescription: "You can define Kafka properties for your topic here. segment.ms property needs to always be included. All options are: `segment.ms`, `retention.bytes`, `min.compaction.lag.ms`, `max.compaction.lag.ms`, `message.timestamp.difference.max.ms`, `message.timestamp.type` Read more: https://docs.axual.io/axual/2024.2/self-service/topic-management.html#configuring-a-topic-for-an-environment",
-				Required:            true,
+				MarkdownDescription: "You can define Kafka properties for your topic here. All options are: `segment.ms`, `retention.bytes`, `min.compaction.lag.ms`, `max.compaction.lag.ms`, `message.timestamp.difference.max.ms`, `message.timestamp.type` Read more: https://docs.axual.io/axual/2024.2/self-service/topic-management.html#configuring-a-topic-for-an-environment",
+				Optional:            true,
 				ElementType:         types.StringType,
 				Validators: []validator.Map{
-					mapvalidator.SizeAtLeast(1),
-					mapvalidator.KeysAre(stringvalidator.OneOf("segment.ms", "retention.bytes", "min.compaction.lag.ms", "max.compaction.lag.ms", "message.timestamp.difference.max.ms", "message.timestamp.type")),
-					mapvalidator.ValueStringsAre(stringvalidator.LengthAtLeast(1)),
+					mapvalidator.KeysAre(stringvalidator.OneOf("max.compaction.lag.ms", "message.timestamp.difference.max.ms", "message.timestamp.type", "min.compaction.lag.ms", "retention.bytes", "segment.ms")),
 				},
 			},
 			"id": schema.StringAttribute{
@@ -371,17 +369,7 @@ func mapTopicConfigResponseToData(ctx context.Context, data *topicConfigResource
 	data.RetentionTime = types.Int64Value(int64(topicConfig.RetentionTime))
 	data.Topic = types.StringValue(topicConfig.Embedded.Stream.Uid)
 	data.Environment = types.StringValue(topicConfig.Embedded.Environment.Uid)
-	properties := make(map[string]attr.Value)
-	for key, value := range topicConfig.Properties {
-		if value != nil {
-			properties[key] = types.StringValue(value.(string))
-		}
-	}
-	mapValue, diags := types.MapValue(types.StringType, properties)
-	if diags.HasError() {
-		tflog.Error(ctx, "Error creating members slice when mapping group response")
-	}
-	data.Properties = mapValue
+	data.Properties = utils.HandlePropertiesMapping(ctx, data.Properties, topicConfig.Properties)
 }
 
 func (r *topicConfigResource) validateSchemaVersionsForUpdate(schemaUid string, schemaVersionUid string, resp *resource.UpdateResponse) {

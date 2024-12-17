@@ -332,23 +332,9 @@ func mapTopicResponseToData(ctx context.Context, data *topicResourceData, topic 
 	data.ValueType = types.StringValue(topic.ValueType)
 	data.Owners = types.StringValue(topic.Embedded.Owners.Uid)
 	data.RetentionPolicy = types.StringValue(topic.RetentionPolicy)
+	data.Properties = utils.HandlePropertiesMapping(ctx, data.Properties, topic.Properties)
 
-	properties := make(map[string]attr.Value)
-	for key, value := range topic.Properties {
-		if value != nil {
-			properties[key] = types.StringValue(value.(string))
-		}
-	}
-
-	mapValue, diags := types.MapValue(types.StringType, properties)
-
-	if diags.HasError() {
-		tflog.Error(ctx, "Error creating members slice when mapping group response")
-	}
-
-	data.Properties = mapValue
-
-	// optional fields
+	// Optional fields
 	if topic.Description == nil || len(topic.Description.(string)) == 0 {
 		data.Description = types.StringNull()
 	} else {
@@ -362,14 +348,11 @@ func mapTopicResponseToData(ctx context.Context, data *topicResourceData, topic 
 		for i, viewer := range topic.Embedded.Viewers {
 			viewerSet[i] = types.StringValue(viewer.Uid)
 		}
-		data.Viewers, diags = types.SetValue(types.StringType, viewerSet)
+		viewers, diags := types.SetValue(types.StringType, viewerSet)
 		if diags.HasError() {
-			// Convert diagnostics to a map[string]interface{} expected by tflog.Error
-			errorDetails := map[string]interface{}{
-				"diagnostics": diags.Errors(),
-			}
-			tflog.Error(ctx, "Error creating viewers set", errorDetails)
+			tflog.Error(ctx, "Error creating viewers set")
 		}
+		data.Viewers = viewers
 	}
 
 	if data.KeyType.ValueString() == "AVRO" {
