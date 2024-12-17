@@ -32,17 +32,17 @@ func HandlePropertiesMapping(ctx context.Context, propertiesAttr types.Map, apiP
 		tflog.Error(ctx, "Error reading current properties state", map[string]interface{}{"errors": diags.Errors()})
 	}
 
-	// API response is empty
+	// The properties in API response is an empty map: properties = {}
 	if len(properties) == 0 {
-		// No properties in config
+		// The properties in config are missing or null, which means that properties = null in Terraform state
 		if currentPropertiesState == nil {
 			return types.MapNull(types.StringType)
 		}
-		// Empty properties in config
+		// The properties in config is empty map: properties = {}, which means that properties = {} in Terraform state
 		return types.MapValueMust(types.StringType, map[string]attr.Value{})
 	}
 
-	// API response contains properties
+	// The properties in API response is a map that contains at least one key-value pair.
 	mapValue, diags := types.MapValue(types.StringType, properties)
 	if diags.HasError() {
 		tflog.Error(ctx, "Error creating properties map")
