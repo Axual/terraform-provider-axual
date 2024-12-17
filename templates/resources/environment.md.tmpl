@@ -7,12 +7,6 @@
 
 {{ .SchemaMarkdown | trimspace }}
 
-## Note
- - Currently, the only Environment specific setting that can be set is `enforceDataMasking` with possible true/false value
-
-## Limitations
-- If no settings please leave properties empty like this: settings = { }. Removing settings does not currently remove settings.
-
 ## Example Usage
 
 ```hcl
@@ -31,9 +25,6 @@ resource "axual_environment" "development" {
   authorization_issuer = "Auto"
   instance = data.axual_instance.testInstance.id
   owners = axual_group.tenant_admin_group.id
-   settings = {
-      enforceDataMasking = true
-    }
 }
 ```
 

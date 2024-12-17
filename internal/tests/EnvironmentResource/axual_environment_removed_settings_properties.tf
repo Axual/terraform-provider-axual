@@ -75,11 +75,6 @@ resource "axual_environment" "tf-test-env" {
   owners = axual_group.team-integrations2.id
   retention_time = 80000
   partitions = 1
-  properties = {
-    propertyKey1 = "propertyValue1",
-    propertyKey2 = "propertyValue2"
-  }
-  settings = {}
   viewers = [
     axual_group.team-integrations2.id,
     axual_group.team-integrations3.id
