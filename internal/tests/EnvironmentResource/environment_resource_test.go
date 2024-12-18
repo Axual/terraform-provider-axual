@@ -24,7 +24,6 @@ func TestEnvironmentResource(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "visibility", "Private"),
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "authorization_issuer", "Auto"),
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "settings.enforceDataMasking", "true"),
-					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "settings.testKey", "TestValue"),
 				),
 			},
 			{
@@ -41,13 +40,12 @@ func TestEnvironmentResource(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "partitions", "1"),
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "properties.propertyKey1", "propertyValue1"),
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "properties.propertyKey2", "propertyValue2"),
-					resource.TestCheckNoResourceAttr("axual_environment.tf-test-env", "settings.enforceDataMasking"),
-					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "settings.testKey", "TestValue"),
+					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "settings.enforceDataMasking", "true"),
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "viewers.#", "2"),
 				),
 			},
 			{
-				Config: GetProvider() + GetFile("axual_environment_updated_removed_settings.tf"),
+				Config: GetProvider() + GetFile("axual_environment_removed_settings_properties.tf"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "name", "tf-development1"),
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "short_name", "tfdev"),
@@ -58,17 +56,15 @@ func TestEnvironmentResource(t *testing.T) {
 					resource.TestCheckResourceAttrPair("axual_environment.tf-test-env", "owners", "axual_group.team-integrations2", "id"),
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "retention_time", "80000"),
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "partitions", "1"),
-					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "properties.propertyKey1", "propertyValue1"),
-					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "properties.propertyKey2", "propertyValue2"),
-					resource.TestCheckNoResourceAttr("axual_environment.tf-test-env", "settings.enforceDataMasking"),
-					resource.TestCheckNoResourceAttr("axual_environment.tf-test-env", "settings.testKey"),
+					resource.TestCheckNoResourceAttr("axual_environment.tf-test-env", "properties"),
+					resource.TestCheckNoResourceAttr("axual_environment.tf-test-env", "settings"),
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "viewers.#", "2"),
 				),
 			},
 			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
-				Config:  GetProvider() + GetFile("axual_environment_updated.tf"),
+				Config:  GetProvider() + GetFile("axual_environment_removed_settings_properties.tf"),
 			},
 		},
 	})

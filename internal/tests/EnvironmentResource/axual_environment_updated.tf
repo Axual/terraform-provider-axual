@@ -80,7 +80,7 @@ resource "axual_environment" "tf-test-env" {
     propertyKey2 = "propertyValue2"
   }
   settings = {
-    testKey = "TestValue"
+    enforceDataMasking = "true",
   }
   viewers = [
     axual_group.team-integrations2.id,

@@ -3,10 +3,12 @@ package provider
 import (
 	webclient "axual-webclient"
 	custom_validator "axual.com/terraform-provider-axual/internal/custom-validator"
+	"axual.com/terraform-provider-axual/internal/provider/utils"
 	"context"
 	"errors"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/mapvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -143,14 +145,15 @@ func (r *environmentResource) Schema(ctx context.Context, req resource.SchemaReq
 			"properties": schema.MapAttribute{
 				MarkdownDescription: "Environment-wide properties for all topics and applications.",
 				Optional:            true,
-				Computed:            true,
 				ElementType:         types.StringType,
 			},
 			"settings": schema.MapAttribute{
-				MarkdownDescription: "A list of Environment specific settings in Key,Value format.",
+				MarkdownDescription: "A list of Environment specific settings in Key,Value format. The options are: `enforceDataMasking`(boolean).",
 				Optional:            true,
-				Computed:            true,
 				ElementType:         types.StringType,
+				Validators: []validator.Map{
+					mapvalidator.KeysAre(stringvalidator.OneOf("enforceDataMasking")),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -247,34 +250,8 @@ func (r *environmentResource) Update(ctx context.Context, req resource.UpdateReq
 		resp.Diagnostics.AddError("Error creating UPDATE request struct for environment resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
-	var oldPropertiesState map[string]string
-	req.State.GetAttribute(ctx, path.Root("properties"), &oldPropertiesState)
-
-	properties := make(map[string]interface{})
-
-	for key, _ := range oldPropertiesState {
-		properties[key] = nil
-	}
-
-	for key, value := range data.Properties.Elements() {
-		properties[key] = strings.Trim(value.String(), "\"")
-	}
-
-	environmentRequest.Properties = properties
-
-	var oldSettingsState map[string]string
-	req.State.GetAttribute(ctx, path.Root("settings"), &oldSettingsState)
-	settings := make(map[string]interface{})
-
-	for key, _ := range oldSettingsState {
-		settings[key] = nil
-	}
-
-	for key, value := range data.Settings.Elements() {
-		settings[key] = strings.Trim(value.String(), "\"")
-	}
-
-	environmentRequest.Settings = settings
+	environmentRequest.Properties = r.processProperties(ctx, req, data)
+	environmentRequest.Settings = r.processSettings(ctx, req, data)
 
 	tflog.Info(ctx, fmt.Sprintf("Update environment request %q", environmentRequest))
 	environment, err := r.provider.client.UpdateEnvironment(data.Id.ValueString(), environmentRequest)
@@ -284,7 +261,7 @@ func (r *environmentResource) Update(ctx context.Context, req resource.UpdateReq
 	}
 
 	mapEnvironmentResponseToData(ctx, &data, environment)
-	tflog.Trace(ctx, "Updated a environment resource")
+	tflog.Trace(ctx, "Updated an environment resource")
 	tflog.Info(ctx, "Saving the resource to state")
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
@@ -365,6 +342,50 @@ func createEnvironmentRequestFromData(ctx context.Context, data *environmentReso
 	return environmentRequest, nil
 }
 
+func (r *environmentResource) processProperties(ctx context.Context, req resource.UpdateRequest, data environmentResourceData) map[string]interface{} {
+	var oldPropertiesState map[string]string
+	req.State.GetAttribute(ctx, path.Root("properties"), &oldPropertiesState)
+
+	properties := make(map[string]interface{})
+	// Send `properties = nil` to API if in configuration `properties = nil`, `properties = {}` or NO properties
+	if data.Properties.IsNull() || data.Properties.IsUnknown() || len(data.Properties.Elements()) == 0 {
+		return nil
+	}
+
+	// Mark old properties as nil
+	for key := range oldPropertiesState {
+		properties[key] = nil
+	}
+	// Add new properties
+	for key, value := range data.Properties.Elements() {
+		properties[key] = strings.Trim(value.String(), "\"")
+	}
+
+	return properties
+}
+
+func (r *environmentResource) processSettings(ctx context.Context, req resource.UpdateRequest, data environmentResourceData) map[string]interface{} {
+	var oldSettingsState map[string]string
+	req.State.GetAttribute(ctx, path.Root("settings"), &oldSettingsState)
+
+	settings := make(map[string]interface{})
+	// Send `settings = {}` to API if user defines `settings = nil`, `settings = {}` or NO settings
+	if data.Settings.IsNull() || data.Settings.IsUnknown() || len(data.Settings.Elements()) == 0 {
+		return make(map[string]interface{})
+	}
+
+	// Mark old settings as nil
+	for key := range oldSettingsState {
+		settings[key] = nil
+	}
+	// Add new settings
+	for key, value := range data.Settings.Elements() {
+		settings[key] = strings.Trim(value.String(), "\"")
+	}
+
+	return settings
+}
+
 func mapEnvironmentResponseToData(ctx context.Context, data *environmentResourceData, environment *webclient.EnvironmentResponse) {
 	data.Id = types.StringValue(environment.Uid)
 	data.Name = types.StringValue(environment.Name)
@@ -376,32 +397,8 @@ func mapEnvironmentResponseToData(ctx context.Context, data *environmentResource
 	data.Owners = types.StringValue(environment.Embedded.Owners.Uid)
 	data.RetentionTime = types.Int64Value(int64(environment.RetentionTime))
 	data.Partitions = types.Int64Value(int64(environment.Partitions))
-
-	//env properties
-	properties := make(map[string]attr.Value)
-	for key, value := range environment.Properties {
-		if value != nil {
-			properties[key] = types.StringValue(value.(string))
-		}
-	}
-	mapValue, diags := types.MapValue(types.StringType, properties)
-	if diags.HasError() {
-		tflog.Error(ctx, "Error creating properties map when mapping environment response")
-	}
-	data.Properties = mapValue
-
-	// env settings
-	settings := make(map[string]attr.Value)
-	for key, value := range environment.Settings {
-		if value != nil {
-			settings[key] = types.StringValue(value.(string))
-		}
-	}
-	mapEnvValue, diags := types.MapValue(types.StringType, settings)
-	if diags.HasError() {
-		tflog.Error(ctx, "Error creating settings map when mapping environment response")
-	}
-	data.Settings = mapEnvValue
+	data.Properties = utils.HandlePropertiesMapping(ctx, data.Properties, environment.Properties)
+	data.Settings = utils.HandlePropertiesMapping(ctx, data.Settings, environment.Settings)
 
 	// optional fields
 	if environment.Description == nil || len(environment.Description.(string)) == 0 {
@@ -417,7 +414,7 @@ func mapEnvironmentResponseToData(ctx context.Context, data *environmentResource
 		for i, viewer := range environment.Embedded.Viewers {
 			viewerSet[i] = types.StringValue(viewer.Uid)
 		}
-		data.Viewers, diags = types.SetValue(types.StringType, viewerSet)
+		viewers, diags := types.SetValue(types.StringType, viewerSet)
 		if diags.HasError() {
 			// Convert diagnostics to a map[string]interface{} expected by tflog.Error
 			errorDetails := map[string]interface{}{
@@ -425,5 +422,6 @@ func mapEnvironmentResponseToData(ctx context.Context, data *environmentResource
 			}
 			tflog.Error(ctx, "Error creating viewers set", errorDetails)
 		}
+		data.Viewers = viewers
 	}
 }
