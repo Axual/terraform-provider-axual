@@ -2,10 +2,14 @@ package provider
 
 import (
 	webclient "axual-webclient"
+	"axual.com/terraform-provider-axual/internal/provider/utils"
 	"context"
 	"errors"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -16,6 +20,7 @@ import (
 )
 
 var _ resource.Resource = &schemaVersionResource{}
+var _ resource.ResourceWithImportState = &topicResource{}
 
 func NewSchemaVersionResource(provider AxualProvider) resource.Resource {
 	return &schemaVersionResource{
@@ -28,13 +33,13 @@ type schemaVersionResource struct {
 }
 
 type schemaVersionResourceData struct {
-	Body        types.String `tfsdk:"body"`
-	Version     types.String `tfsdk:"version"`
-	Description types.String `tfsdk:"description"`
-	Id          types.String `tfsdk:"id"`
-	SchemaId    types.String `tfsdk:"schema_id"`
-	FullName    types.String `tfsdk:"full_name"`
-	Owners      types.String `tfsdk:"owners"`
+	Body        jsontypes.Normalized `tfsdk:"body"`
+	Version     types.String         `tfsdk:"version"`
+	Description types.String         `tfsdk:"description"`
+	Id          types.String         `tfsdk:"id"`
+	SchemaId    types.String         `tfsdk:"schema_id"`
+	FullName    types.String         `tfsdk:"full_name"`
+	Owners      types.String         `tfsdk:"owners"`
 }
 
 func (r *schemaVersionResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -47,8 +52,12 @@ func (r *schemaVersionResource) Schema(ctx context.Context, req resource.SchemaR
 
 		Attributes: map[string]schema.Attribute{
 			"body": schema.StringAttribute{
-				MarkdownDescription: "Avro schema",
+				MarkdownDescription: "Avro schema as valid JSON",
 				Required:            true,
+				CustomType:          jsontypes.NormalizedType{},
+				PlanModifiers: []planmodifier.String{
+					utils.NormalizePlanModifier{},
+				},
 			},
 			"version": schema.StringAttribute{
 				MarkdownDescription: "The version of the schema",
@@ -146,19 +155,23 @@ func (r *schemaVersionResource) Read(ctx context.Context, req resource.ReadReque
 	svResp, err := r.provider.client.GetSchemaVersion(data.Id.ValueString())
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
-			tflog.Warn(ctx, fmt.Sprintf("Schema version not found. Id: %s", data.Id.ValueString()))
+			tflog.Warn(ctx, fmt.Sprintf("Schema version not found. Version ID: %s", data.Id.ValueString()))
 			resp.State.RemoveResource(ctx)
 		} else {
-			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read schema, got error: %s", err))
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read schema version, got error: %s", err))
 		}
 		return
 	}
+	tflog.Info(ctx, "Mapping the API response to the resource data")
+	newData := schemaVersionResourceData{}
+	mapGetSchemaVersionResponseToData(ctx, &data, &newData, svResp, &resp.Diagnostics)
 
-	tflog.Info(ctx, "mapping the resource")
-	mapGetSchemaVersionResponseToData(ctx, &data, svResp)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	tflog.Info(ctx, "Saving the resource to state")
 
-	tflog.Info(ctx, "saving the resource to state")
-	diags = resp.State.Set(ctx, &data)
+	diags = resp.State.Set(ctx, &newData)
 	resp.Diagnostics.Append(diags...)
 }
 
@@ -181,6 +194,10 @@ func (r *schemaVersionResource) Delete(ctx context.Context, req resource.DeleteR
 		resp.Diagnostics.AddError("DELETE request error for schema version resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
+}
+
+func (r *schemaVersionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
 func createValidateSchemaVersionRequestFromData(ctx context.Context, data *schemaVersionResourceData) webclient.ValidateSchemaVersionRequest {
@@ -241,17 +258,71 @@ func mapCreateSchemaVersionResponseToData(_ context.Context, data *schemaVersion
 		data.Owners = types.StringNull()
 	}
 }
-func mapGetSchemaVersionResponseToData(_ context.Context, data *schemaVersionResourceData, resp *webclient.GetSchemaVersionResponse) {
-	data.SchemaId = types.StringValue(resp.Schema.SchemaId)
-	data.Id = types.StringValue(resp.Id)
-	data.FullName = types.StringValue(resp.Schema.Name)
-	data.Version = types.StringValue(resp.Version)
-	if resp.Schema.Owners == nil {
-		data.Owners = types.StringNull()
-	}
-	if resp.Schema.Owners != nil && resp.Schema.Owners.ID != "" {
-		data.Owners = types.StringValue(resp.Schema.Owners.ID)
+
+func mapGetSchemaVersionResponseToData(
+	ctx context.Context,
+	existingState *schemaVersionResourceData,
+	newData *schemaVersionResourceData,
+	resp *webclient.GetSchemaVersionResponse,
+	diagnostics *diag.Diagnostics,
+) {
+	tflog.Info(ctx, "Mapping mandatory fields from API response to resource data.")
+	newData.SchemaId = types.StringValue(resp.Schema.SchemaId)
+	newData.Id = types.StringValue(resp.Id)
+	newData.FullName = types.StringValue(resp.Schema.Name)
+	newData.Version = types.StringValue(resp.Version)
+	newData.Description = types.StringValue(resp.Schema.Description)
+
+	tflog.Info(ctx, "Mapping optional fields.")
+	if resp.Schema.Owners == nil || resp.Schema.Owners.ID == "" {
+		tflog.Info(ctx, "Schema owners not found, setting to null.")
+		newData.Owners = types.StringNull()
 	} else {
-		data.Owners = types.StringNull()
+		newData.Owners = types.StringValue(resp.Schema.Owners.ID)
 	}
+
+	tflog.Info(ctx, "Processing the schema body.")
+	mapSchemaBody(ctx, existingState, newData, resp.SchemaBody, diagnostics)
+
+	if resp.Schema.Description == "" {
+		tflog.Info(ctx, "Schema description is empty, setting to null.")
+		newData.Description = types.StringNull()
+	} else {
+		newData.Description = types.StringValue(resp.Schema.Description)
+	}
+}
+
+func mapSchemaBody(
+	ctx context.Context,
+	existingState *schemaVersionResourceData,
+	newData *schemaVersionResourceData,
+	schemaBody string,
+	diagnostics *diag.Diagnostics,
+) {
+	if schemaBody == "" {
+		tflog.Info(ctx, "Schema body is empty, setting to null.")
+		newData.Body = jsontypes.NewNormalizedNull()
+		return
+	}
+
+	newBody := jsontypes.NewNormalizedValue(schemaBody)
+
+	if !existingState.Body.IsNull() {
+		tflog.Info(ctx, "Comparing schema body from API response with existing state.")
+		equal, diags := existingState.Body.StringSemanticEquals(ctx, newBody)
+		diagnostics.Append(diags...)
+		if diags.HasError() {
+			tflog.Warn(ctx, fmt.Sprintf("Diagnostics error while checking semantic equality of schema body: %v", diags.Errors()))
+			return
+		}
+
+		if equal {
+			tflog.Info(ctx, "Schema body from state and API are semantically equal. Preserving the existing state.")
+			newData.Body = existingState.Body
+			return
+		}
+	}
+
+	tflog.Info(ctx, "Setting new schema body as state and API are not semantically equal or no existing state is present.")
+	newData.Body = newBody
 }

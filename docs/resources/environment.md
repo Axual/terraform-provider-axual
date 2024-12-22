@@ -21,10 +21,10 @@ Environments are used typically to support the application lifecycle, as it is m
 ### Optional
 
 - `description` (String) A text describing the purpose of the environment. Description must be between 1 and 200 characters.
-- `partitions` (Number) Defines the number of partitions configured for every topic of this tenant. If not specified, default value is 12. Value must be between 1 and 120000
+- `partitions` (Number) Defines the number of partitions configured for every topic of this tenant. If not specified, default value is 2. Value must be between 1 and 120000
 - `properties` (Map of String) Environment-wide properties for all topics and applications.
 - `retention_time` (Number) The time in milliseconds after which the messages can be deleted from all topics. If not specified, default value is 7 days (604800000). Value must be between 1000 and 160704000000 (ms).
-- `settings` (Map of String) A list of Environment specific settings in Key,Value format. The options are: `enforceDataMasking`(boolean).
+- `settings` (Map of String) A list of Environment specific settings in Key,Value format. The options are: `enforceDataMasking`(boolean). Please note that setting `enforceDataMasking` to `true` only works if Data Masking is enabled in Tenant settings.
 - `viewers` (Set of String) Environment Viewer Groups define which Groups are authorized to view all Topic Configurations and Application Authentications within the Environment, regardless of ownership and visibility. Read more: https://docs.axual.io/axual/2024.2/self-service/user-group-management.html#viewer-groups
 
 ### Read-Only

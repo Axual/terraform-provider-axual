@@ -61,6 +61,11 @@ func TestSchemaVersionAvroResource(t *testing.T) {
 				),
 			},
 			{
+				ResourceName:      "axual_schema_version.axual_gitops_test_schema_version1",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
 				Config:  GetProvider() + GetFile("axual_schema_version_avro_multiple_versions_for_same_schema.tf"),
@@ -87,6 +92,11 @@ func TestSchemaVersionAvroWithOwnersResource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("axual_schema_version.axual_gitops_test_schema_version_with_owner", "owners"),
 					CheckBodyMatchesFile("axual_schema_version.axual_gitops_test_schema_version_with_owner", "body", "avro-schemas/gitops_test_v2.avsc"),
 				),
+			},
+			{
+				ResourceName:      "axual_schema_version.axual_gitops_test_schema_version_with_owner",
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 			{
 				// To ensure cleanup if one of the test cases had an error

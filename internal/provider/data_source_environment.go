@@ -175,9 +175,9 @@ func mapEnvironmentDataSourceResponseToData(ctx context.Context, data *environme
 	data.Properties = mapValue
 
 	// optional fields
-	if environment.Description == nil || len(environment.Description.(string)) == 0 {
+	if environment.Description == "" {
 		data.Description = types.StringNull()
 	} else {
-		data.Description = types.StringValue(environment.Description.(string))
+		data.Description = types.StringValue(environment.Description)
 	}
 }

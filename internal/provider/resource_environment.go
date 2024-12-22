@@ -134,7 +134,7 @@ func (r *environmentResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"partitions": schema.Int64Attribute{
-				MarkdownDescription: "Defines the number of partitions configured for every topic of this tenant. If not specified, default value is 12. Value must be between 1 and 120000",
+				MarkdownDescription: "Defines the number of partitions configured for every topic of this tenant. If not specified, default value is 2. Value must be between 1 and 120000",
 				Optional:            true,
 				Computed:            true,
 				Validators: []validator.Int64{
@@ -148,7 +148,7 @@ func (r *environmentResource) Schema(ctx context.Context, req resource.SchemaReq
 				ElementType:         types.StringType,
 			},
 			"settings": schema.MapAttribute{
-				MarkdownDescription: "A list of Environment specific settings in Key,Value format. The options are: `enforceDataMasking`(boolean).",
+				MarkdownDescription: "A list of Environment specific settings in Key,Value format. The options are: `enforceDataMasking`(boolean). Please note that setting `enforceDataMasking` to `true` only works if Data Masking is enabled in Tenant settings.",
 				Optional:            true,
 				ElementType:         types.StringType,
 				Validators: []validator.Map{
@@ -329,16 +329,6 @@ func createEnvironmentRequestFromData(ctx context.Context, data *environmentReso
 		Partitions:          int(data.Partitions.ValueInt64()),
 	}
 
-	// Optional fields
-	if !data.Description.IsNull() {
-		environmentRequest.Description = data.Description.ValueString()
-	}
-	if !data.RetentionTime.IsNull() {
-		environmentRequest.RetentionTime = int(data.RetentionTime.ValueInt64())
-	}
-	if !data.Partitions.IsNull() {
-		environmentRequest.Partitions = int(data.Partitions.ValueInt64())
-	}
 	return environmentRequest, nil
 }
 
@@ -390,7 +380,7 @@ func mapEnvironmentResponseToData(ctx context.Context, data *environmentResource
 	data.Id = types.StringValue(environment.Uid)
 	data.Name = types.StringValue(environment.Name)
 	data.ShortName = types.StringValue(environment.ShortName)
-	data.Description = types.StringValue(environment.Embedded.Instance.Description)
+	data.Description = types.StringValue(environment.Description)
 	data.Color = types.StringValue(environment.Color)
 	data.Visibility = types.StringValue(environment.Visibility)
 	data.AuthorizationIssuer = types.StringValue(environment.AuthorizationIssuer)
@@ -399,12 +389,13 @@ func mapEnvironmentResponseToData(ctx context.Context, data *environmentResource
 	data.Partitions = types.Int64Value(int64(environment.Partitions))
 	data.Properties = utils.HandlePropertiesMapping(ctx, data.Properties, environment.Properties)
 	data.Settings = utils.HandlePropertiesMapping(ctx, data.Settings, environment.Settings)
+	data.Instance = types.StringValue(environment.Embedded.Instance.Uid)
 
 	// optional fields
-	if environment.Description == nil || len(environment.Description.(string)) == 0 {
+	if environment.Description == "" {
 		data.Description = types.StringNull()
 	} else {
-		data.Description = types.StringValue(environment.Description.(string))
+		data.Description = types.StringValue(environment.Description)
 	}
 
 	if environment.Embedded.Viewers == nil || len(environment.Embedded.Viewers) == 0 {

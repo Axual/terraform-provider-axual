@@ -48,6 +48,7 @@ func NewClient(apiUrl string, realm string, auth AuthStruct) (*Client, error) {
 }
 
 func (c *Client) doRequest(req *http.Request) ([]byte, error) {
+	log.Println("Executing HTTP request...")
 	req.Header.Set("Realm", c.Realm)
 	if req.Header.Get("Accept") == "" {
 		req.Header.Set("Accept", "application/hal+json")
@@ -62,21 +63,25 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 		return nil, NotFoundError
 	}
 	if err != nil {
-		log.Println("Error:", err)
+		log.Printf("Network error during HTTP request: %v", err)
 		return nil, err
+	}
+	if res == nil {
+		log.Println("Response is nil, returning error.")
+		return nil, fmt.Errorf("received nil response from HTTP client")
 	}
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		log.Println("Error:", err)
+		log.Printf("Error reading response body: %v", err)
 		return nil, err
 	}
 
 	if res.StatusCode != http.StatusOK &&
 		res.StatusCode != http.StatusNoContent &&
 		res.StatusCode != http.StatusCreated {
-		log.Printf("status: %d, body: %s", res.StatusCode, body)
+		log.Printf("Unexpected response status: %d, body: %s", res.StatusCode, body)
 		return nil, fmt.Errorf("status: %d, body: %s", res.StatusCode, body)
 	}
 
@@ -85,6 +90,11 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 
 func (c *Client) RequestAndMap(method string, url string, reqBody io.Reader, header map[string]string, m interface{}) error {
 	req, err := http.NewRequest(method, url, reqBody)
+
+	if err != nil {
+		log.Printf("Error creating HTTP request: %v", err)
+		return err
+	}
 
 	if header != nil {
 		for key, value := range header {
@@ -99,7 +109,7 @@ func (c *Client) RequestAndMap(method string, url string, reqBody io.Reader, hea
 
 	body, err := c.doRequest(req)
 	if err != nil {
-		log.Println("Error:", err)
+		log.Printf("Error performing HTTP request: %v", err)
 		return err
 	}
 
@@ -110,7 +120,7 @@ func (c *Client) RequestAndMap(method string, url string, reqBody io.Reader, hea
 
 		err = json.Unmarshal(body, &m)
 		if err != nil {
-			log.Println("Error:", err)
+			log.Printf("Error unmarshaling response body: %v", err)
 			return err
 		}
 	}
