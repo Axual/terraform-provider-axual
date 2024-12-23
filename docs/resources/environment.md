@@ -55,10 +55,14 @@ resource "axual_environment" "development" {
 For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 
 ## Import
-
 Import is supported using the following syntax:
 
 ```shell
 terraform import axual_environment.<LOCAL NAME> <ENVIRONMENT UID>
 terraform import axual_environment.test_env ab1cf1d63a55436391463cee3f56e393
 ```
+
+### Import limitation
+If a resource lacks properties or settings, set properties = null or settings = null in the .tf file, or omit the block entirely. Avoid using properties = {} or settings = {} during imports, as this creates a mismatch between Terraform’s local state (null) and configuration (empty map {}). Fixing this mismatch requires an extra update.
+
+This is a temporary workaround; a permanent fix is in progress. The issue only occurs when properties or settings are set to an empty map. Imports work fine for properties/settings that are either defined or null.
