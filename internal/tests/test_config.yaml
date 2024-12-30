@@ -3,4 +3,4 @@ provider:
   # Version is a specific version like "2.4.1" for a public official registry version
   version: "local"
 instanceName: "Dev Test Acceptance"
-userGroup: "Team Awesome"
+userGroup: "Admins"

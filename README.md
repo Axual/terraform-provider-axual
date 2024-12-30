@@ -148,6 +148,13 @@ go generate
   - TF_LOG=INFO
     - Optional but highly recommended
   - Here is a full env variables example: `AXUAL_PASSWORD=<INSERT API PASSWORD>;AXUAL_USERNAME=<INSERT API USERNAME>;TF_ACC=1;TF_ACC_TERRAFORM_PATH=/opt/homebrew/bin/terraform;TF_LOG=INFO`
+- Make sure the logged in user has these Roles set:
+  - "Tenant Admin". Needed for CRUD operations on Users and Groups.
+  - "Topic Admin". Needed for CRUD operations on Topics.
+  - "Application Admin". Needed for CRUD operations on Applications.
+  - "Environment Admin". Needed for CRUD operations on Environments.
+  - "Schema Admin". Needed for CRUD operations on Schemas.
+- Make sure the Vault pod `governance-platform-manager-vault-0` is unsealed
 - Make sure to turn off parallelization for running go tests, because of conflicts when creating shared resources many times
   - Use this go tool argument: `-p 1`
     - For IntelliJ IDEA click edit configuration -> Go tool arguments
