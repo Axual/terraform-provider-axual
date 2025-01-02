@@ -80,6 +80,19 @@ func TestTopicConfigAvroResource(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_topic_config.example-with-schema-version", "properties.retention.bytes", "2"),
 				),
 			},
+			// Test changing Avro Topic and Topic Config to String Topic and Topic Config
+			{
+				Config: GetProvider() + GetFile(
+					"axual_topic_config_setup.tf", "axual_topic_config_initial.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_topic_config.tf-topic-config", "partitions", "1"),
+					resource.TestCheckResourceAttr("axual_topic_config.tf-topic-config", "retention_time", "864000"),
+					resource.TestCheckResourceAttr("axual_topic_config.tf-topic-config", "properties.segment.ms", "600012"),
+					resource.TestCheckResourceAttr("axual_topic_config.tf-topic-config", "properties.retention.bytes", "-1"),
+					resource.TestCheckResourceAttrPair("axual_topic_config.tf-topic-config", "topic", "axual_topic.topic-test", "id"),
+					resource.TestCheckResourceAttrPair("axual_topic_config.tf-topic-config", "environment", "axual_environment.tf-test-env", "id"),
+				),
+			},
 			//TODO: Regular topic import works, but if topic is AVRO topic then import does not work
 			//{
 			//	ResourceName:      "axual_topic_config.example-with-schema-version",
@@ -90,7 +103,7 @@ func TestTopicConfigAvroResource(t *testing.T) {
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
 				Config: GetProvider() + GetFile(
-					"axual_topic_config_avro_updated.tf",
+					"axual_topic_config_setup.tf", "axual_topic_config_initial.tf",
 				),
 			},
 		},
