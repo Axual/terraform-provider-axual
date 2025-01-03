@@ -87,10 +87,16 @@ func (r *topicConfigResource) Schema(ctx context.Context, req resource.SchemaReq
 			"key_schema_version": schema.StringAttribute{
 				MarkdownDescription: "The schema version this topic config supports for the key.",
 				Optional:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"value_schema_version": schema.StringAttribute{
 				MarkdownDescription: "The schema version this topic config supports for the value.",
 				Optional:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"properties": schema.MapAttribute{
 				MarkdownDescription: "You can define Kafka properties for your topic here. All options are: `segment.ms`, `retention.bytes`, `min.compaction.lag.ms`, `max.compaction.lag.ms`, `message.timestamp.difference.max.ms`, `message.timestamp.type` Read more: https://docs.axual.io/axual/2024.2/self-service/topic-management.html#configuring-a-topic-for-an-environment",

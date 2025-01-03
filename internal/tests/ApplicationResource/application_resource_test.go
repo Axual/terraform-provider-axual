@@ -16,7 +16,7 @@ func TestApplicationResource(t *testing.T) {
 			{
 				Config: GetProvider() + GetFile("axual_application_initial.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("axual_application.tf-test-app", "name", "tf-test-app"),
+					resource.TestCheckResourceAttr("axual_application.tf-test-app", "name", "tf-test app"),
 					resource.TestCheckResourceAttr("axual_application.tf-test-app", "application_type", "Custom"),
 					resource.TestCheckResourceAttr("axual_application.tf-test-app", "short_name", "tf_test_app"),
 					resource.TestCheckResourceAttr("axual_application.tf-test-app", "application_id", "tf.test.app"),

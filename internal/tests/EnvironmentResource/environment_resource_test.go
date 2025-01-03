@@ -62,6 +62,11 @@ func TestEnvironmentResource(t *testing.T) {
 				),
 			},
 			{
+				ResourceName:      "axual_environment.tf-test-env",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
 				Config:  GetProvider() + GetFile("axual_environment_removed_settings_properties.tf"),

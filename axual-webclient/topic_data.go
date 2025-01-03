@@ -137,9 +137,9 @@ type TopicRequest struct {
 	Name            string                 `json:"name,omitempty"`
 	Description     string                 `json:"description"`
 	KeyType         string                 `json:"keyType,omitempty"`
-	KeySchema       string                 `json:"keySchema,omitempty"`
+	KeySchema       string                 `json:"keySchema"`
 	ValueType       string                 `json:"valueType,omitempty"`
-	ValueSchema     string                 `json:"valueSchema,omitempty"`
+	ValueSchema     string                 `json:"valueSchema"`
 	Owners          string                 `json:"owners,omitempty"`
 	Viewers         []string               `json:"viewers"`
 	RetentionPolicy string                 `json:"retentionPolicy,omitempty"`

@@ -67,11 +67,11 @@ func (r *applicationResource) Schema(ctx context.Context, req resource.SchemaReq
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "The name of the Application. Must be unique. Only the special characters _, -, and . are valid as part of an application name.",
+				MarkdownDescription: "The name of the Application. Must be unique. Only the special characters `_`, `-`, `.` and ` ` are valid as part of an application name.",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(3, 100),
-					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`), "can only contain letters, numbers, dots, dashes and underscores and cannot begin with an underscore, dot or dash"),
+					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._\- ]*$`), "can only contain letters, numbers, dots, dashes and underscores and cannot begin with an underscore, dot or dash"),
 				},
 			},
 			"short_name": schema.StringAttribute{

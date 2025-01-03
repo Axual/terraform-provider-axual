@@ -10,7 +10,7 @@ Schema version resource. None of the fields can be updated. Read more: https://d
 
 ### Required
 
-- `body` (String) Avro schema
+- `body` (String) Avro schema as valid JSON
 - `version` (String) The version of the schema
 
 ### Optional
@@ -27,9 +27,7 @@ Schema version resource. None of the fields can be updated. Read more: https://d
 ## Note
 - Please note that Updating the existing `axual_schema_version` is not supported and instead, you should either delete and create an updated `axual_schema_version` or create a new `axual_schema_version` with same schema name, and different version and different schema body.
 - Please note that you might have the permission to delete the schema(as Schema Owner if owner is present) but you might not have the SCHEMA_AUTHOR role(in a Tenant where schema-roles-enforced=true) that is required to create the schema.
-
-## Limitation
-- `terraform import` functionality is not implemented, will be implemented soon
+- The JSON formatting of schema body— such as whitespace, field ordering, and indentation— does not need to exactly match the schema body format stored in the Axual Platform Manager database, because the Axual Terraform Provider includes built-in functionality to determine whether schema bodies are semantically equivalent.
 
 ## Example Usage
 
@@ -97,3 +95,19 @@ resource "axual_schema_version" "axual_gitops_test_schema_version2" {
 ```
 
 Please refer to the full example of the latest Axual TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
+
+## Import
+
+To import you need a Schema Version UID, please note that Schema Version UID is different from Schema UID. Axual Schema contains one or more Axual Schema Versions.
+Schema version UID is not directly visible from Axual Self Service UI. To view it:
+1. Choose a Schema in UI
+2. Click `View all versions`
+3. Choose a schema version you would like to import
+4. Open developer tools -> Network -> Look for this network call `api/schema_versions/<SCHEMA_VERSION_UID>`
+
+Import is supported using the following syntax:
+
+```shell
+terraform import axual_schema_version.<RESOURCE_NAME> <SCHEMA_VERSION_UID>
+terraform import axual_schema_version.test_schema_version b21cf1d63a55436391463cee3f56e393
+```

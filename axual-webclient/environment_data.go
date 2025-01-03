@@ -69,7 +69,7 @@ type EnvironmentResponse struct {
 	Settings            map[string]interface{} `json:"settings"`
 	Name                string                 `json:"name"`
 	ShortName           string                 `json:"shortName"`
-	Description         interface{}            `json:"description"`
+	Description         string                 `json:"description"`
 	Color               string                 `json:"color"`
 	AuthorizationIssuer string                 `json:"authorizationIssuer"`
 	Visibility          string                 `json:"visibility"`
