@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 * Added settings field to environment resource
 * Properties in Topic and Topic Config can now be omitted
 * Properties and settings in Environments can now be omitted
+* Terraform import support for: `axual_environment`, `axual_topic` and `axual_schema_version`
 
 ## [2.4.2](https://github.com/Axual/terraform-provider-axual/releases/tag/2.4.2) - 2024-12-12
 * Added `Instance` data source.
