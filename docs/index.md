@@ -1,10 +1,10 @@
 # Axual Provider
 
-Axual's Terraform Provider integrates Axual's Self-Service for Apache Kafka into Terraform, enabling users to manage Kafka configurations through infrastructure as code. Self-Service offers fine-grained access control, visibility into topic metadata, and management of topic properties, allowing users to monitor and control their Kafka streaming environment efficiently. Read more: https://docs.axual.io/axual/2024.2/self-service/index.html
+The Axual Terraform Provider integrates Axual's Self-Service for Apache Kafka with Terraform, simplifying the management of Kafka configurations as code. It provides detailed access control, clear visibility into topic information, and easy management of topic settings, enabling users to effectively monitor and control their Kafka streaming setup. The provider supports distinct team roles: the Admin Team manages environments, user groups, and authentication; the Topic Team handles topic creation, configuration, and access approvals; and the Application Team manages applications, deployments, and access requests. These capabilities enable a GitOps workflow where teams manage their Terraform states independently and collaborate through resource references and approvals.. Learn more about Axual Self-Service: https://docs.axual.io/axual/2024.4/self-service/index.html
 
 ## Example Usage
 
-First, make sure to configure the connection to the Trial Account:
+First, make sure to configure the connection. Please note that we currently only support Keycloak authentication provider. Auth0 authentication provider will be supported soon:
 
 ```terraform
 terraform {
@@ -150,10 +150,22 @@ To create all the resources in this example, the logged-in user (defined in prov
 - **APPLICATION_ADMIN** - for creating resources: `axual_application`, `axual_application_principal`, `axual_application_access_grant`
 - **ENVIRONMENT_ADMIN** - for creating resource: `axual_environment`
 
+## Distributed Gitops multi-repo flow with 3 separate teams: [Multi-Repo Guide](guides/multi-repo.md)
+- Please follow the guide for a setup where 3 teams have separated responsibilities.
+
+1. **Application Team**: Requests permissions to produce to or consume from a topic owned by the Topic Team.
+![Alt text](distributed_gitops_flow.png)
+2. **Topic Team**: Approves or rejects application access requests to their topics.
+3. **Admin Team**: Manages user groups and environments in Self-Service.
+
+**Key Practices**:
+- Each team manages its own Terraform state independently.
+- Teams utilize dedicated Terraform users configured with the minimum required privileges.
+- Teams reference resources from other teams by utilizing Terraform data sources.
 
 # Getting started
 ## Required User Roles
-- The Terraform User who is logged in (With a Trial account, the default username kubernetes@axual.com), needs to have at least both of the following user roles:
+- The Terraform User who is logged in, needs to have at least both of the following user roles:
   - **APPLICATION_ADMIN** - for creating `axual_application`, `axual_application_principal`, `axual_application`
   - **STREAM_ADMIN** - for revoking access request
 - Alternatively, they can be the owner of both the application and the topic, which entails being a user in the same group as the owner group of the application and topic.

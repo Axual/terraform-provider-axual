@@ -1,6 +1,6 @@
 # axual_user (Resource)
 
-User resource. Read more: https://docs.axual.io/axual/2024.2/self-service/user-group-management.html#users
+User resource. Read more: https://docs.axual.io/axual/2024.4/self-service/user-group-management.html#users
 
 ## Required Roles
 - TENANT_ADMIN
