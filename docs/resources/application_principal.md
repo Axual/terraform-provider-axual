@@ -1,13 +1,13 @@
 # axual_application_principal (Resource)
 
-An Application Principal is a security principal (certificate or comparable) that uniquely authenticates an Application in an Environment. Read more: https://docs.axual.io/axual/2024.2/self-service/application-management.html#configuring-application-securityauthentication
+An Application Principal is a security principal (certificate or comparable) that uniquely authenticates an Application in an Environment. Read more: https://docs.axual.io/axual/2024.4/self-service/application-management.html#configuring-application-securityauthentication
 
 ## Limitations
 - Axual Terraform Provider only support these authentication methods:
 	- SSL (MUTUAL TLS) as a Certificate(PEM). To use it please provide a string with PEM certificate as `principal` property.
-		- Read more: https://docs.axual.io/axual/2024.3/self-service/application-management.html#ssl-application-principals
+		- Read more: https://docs.axual.io/axual/2024.4/self-service/application-management.html#ssl-application-principals
 	- SASL (OAUTHBEARER) as a Custom Principal that specifies the ID referenced in URI and tokens. To use it please provide a string with PEM certificate as principal property. For example, `my-client`.
-		- Read more: https://docs.axual.io/axual/2024.3/self-service/application-management.html#application-custom-principal
+		- Read more: https://docs.axual.io/axual/2024.4/self-service/application-management.html#application-custom-principal
 - We currently do not support these authentication methods SASL(scram-sha-256) nor SASL(scram-sha-512) authentication methods, both are planned to be supported soon.
 
 ## Security

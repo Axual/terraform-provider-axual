@@ -153,3 +153,4 @@ resource "axual_environment" "test" {
   instance = data.axual_instance.test_instance.id
   owners = axual_group.tenant_admin_group1.id
 }
+```
