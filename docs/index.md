@@ -156,7 +156,7 @@ To create all the resources in this example, the logged-in user (defined in prov
 1. **Application Team**: Requests permissions to produce to or consume from a topic owned by the Topic Team.
 ![Alt text](distributed_gitops_flow.png)
 2. **Topic Team**: Approves or rejects application access requests to their topics.
-3. **Admin Team**: Manages user groups and environments in Self-Service.
+3. **Admin Team**: Manages users, groups and environments in Self-Service.
 
 **Key Practices**:
 - Each team manages its own Terraform state independently.

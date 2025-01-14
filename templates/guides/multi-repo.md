@@ -7,7 +7,7 @@ This guide demonstrates how to use Axual Self Service with the Axual Terraform p
 
 1. **Application Team**: Requests permissions to produce to or consume from a topic owned by the Topic Team.
 2. **Topic Team**: Approves or rejects application access requests to their topics.
-3. **Admin Team**: Manages user groups and environments in Self-Service.
+3. **Admin Team**: Manages users, groups and environments in Self-Service.
 
 **Key Practices**:
 - Each team manages its own Terraform state independently.
@@ -44,7 +44,7 @@ The Application Team submits a request to produce to a topic. The Topic Team, ow
 - [Topic Team's Terraform Resources](../../examples/3-team-guide/topic-team/main.tf)
 
 ### 3. Application team
-- Application Team creates Application, Application Deployment, Application Principal and `Application Access Grant`(to request to produce to or consume from a topic) in the same environment as Topic Configuration.
+- Application Team creates `Application`, `Application Deployment`, `Application Principal` and `Application Access Grant`(to request to produce to or consume from a topic) in the same environment as `Topic Configuration`.
   These resources are managed in a separate Terraform state using a user account with Application-specific roles.
 - [Application Team's Terraform Resources](../../examples/3-team-guide/application-team/main.tf)
 

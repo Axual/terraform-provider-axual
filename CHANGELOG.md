@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [master](https://github.com/Axual/terraform-provider-axual/blob/master) - TBR
 * Added multi-repo gitops guide for 3 teams: admin, topic and application teams
+* Fix dependency issues in Terraform provider
 
 ## [2.5.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.5.0) - 2025-01-05
 * Added schema owner to the SchemaVersion resource and datasource
