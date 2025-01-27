@@ -1,5 +1,5 @@
 ---
-page_title: "GitOps: A Guide to Declarative Multi-Repo Setups for Topic, App, and Kafka Admin Teams"
+page_title: "Declarative Multi-Repo Gitops Setup"
 ---
 ### Overview
 
@@ -35,18 +35,18 @@ The Application Team submits a request to produce to a topic. The Topic Team, ow
 
 ### 1. Admin Team
 - The Admin team creates `Environments`, `Users` and `Groups` within its Terraform state using an Admin-level user account.
--  [Admin Team's Terraform Resources](../../examples/3-team-guide/admin-team/main.tf)
-  - Please note that Users can be already registered using Keycloak or another authentication service. In that case, Admin team will define the configuration for these users that already exist and use `terraform import` to import them into `axual_user` resources. Please see more details here [User resource](../../docs/resources/user.md) 
+  - [Admin Team's Terraform Resources](https://github.com/Axual/terraform-provider-axual/blob/master/examples/3-team-guide/admin-team/main.tf)
+- Please note that Users can be already registered using Keycloak or another authentication service. In that case, Admin team will define the configuration for these users that already exist and use `terraform import` to import them into `axual_user` resources. Please see more details here [User resource](../../docs/resources/user.md) 
 
 ### 2. Topic team
 - Topic Team creates `Topic` and `Topic Configuration` in a specific environment.
   This configuration is maintained in a separate Terraform state and managed using a user account with Topic-specific roles.
-- [Topic Team's Terraform Resources](../../examples/3-team-guide/topic-team/main.tf)
+  - [Topic Team's Terraform Resources](https://github.com/Axual/terraform-provider-axual/blob/master/examples/3-team-guide/topic-team/main.tf)
 
 ### 3. Application team
 - Application Team creates `Application`, `Application Deployment`, `Application Principal` and `Application Access Grant`(to request to produce to or consume from a topic) in the same environment as `Topic Configuration`.
-  These resources are managed in a separate Terraform state using a user account with Application-specific roles.
-- [Application Team's Terraform Resources](../../examples/3-team-guide/application-team/main.tf)
+These resources are managed in a separate Terraform state using a user account with Application-specific roles.
+  - [Application Team's Terraform Resources](https://github.com/Axual/terraform-provider-axual/blob/master/examples/3-team-guide/application-team/main.tf)
 
 ### 4. The Grant
 - The Application team submits a request (an `Application Access Grant`) to either produce to or consume from a Topic
@@ -58,7 +58,7 @@ The Grant request will remain in a PENDING state until approved or rejected by t
 - If the Topic team later decides to revoke the Application team's access to a Topic, they simply remove the Application Access Grant Approval resource from their Terraform configuration. This action revokes the previously granted access.
 
 ### Alternative flow
-- Instead of the Application Team creating the grant, it is possible for the Topic Team to create the Grant as well. In that case, the Topic Team would create both the Grant and Grant Approval resources in their repository. Please see the configuration under the comment `ALTERNATIVE FLOW SETUP` in [Topic Team's Terraform Resources].
+- Instead of the Application Team creating the grant, it is possible for the Topic Team to create the Grant as well. In that case, the Topic Team would create both the Grant and Grant Approval resources in their repository. Please see the configuration under the comment `ALTERNATIVE FLOW SETUP` in  [Topic Team's Terraform Resources](https://github.com/Axual/terraform-provider-axual/blob/master/examples/3-team-guide/topic-team/main.tf)
 
 ### Limitations
 - Currently, it is not possible for the Application Team to revoke the Grant Approval. The workaround is that the Application Team would need to ask the Topic Team to revoke the grant by deleting the Grant Approval.
