@@ -39,17 +39,17 @@ resource "axual_topic_config" "logs_in_dev" {
   value_schema_version = axual_schema_version.axual_gitops_test_schema_version2.id
 }
 
+# MAIN FLOW SETUP
+
 data "axual_application" "log_scraper" {
   name = "LogScraper"
 }
-
-# MAIN FLOW SETUP
 
 data "axual_application_access_grant" "logs_producer_produce_to_logs_in_dev" {
   application = data.axual_application.log_scraper.id
   topic = axual_topic.logs.id
   environment = data.axual_environment.environment-author-team.id
-  access_type = "PRODUCER"
+  access_type = "CONSUMER"
 }
 
 resource "axual_application_access_grant_approval" "connector_axual_application_access_grant_approval"{
