@@ -31,12 +31,12 @@ The teams will have the following responsibilities and roles:
 The Application Team submits a request to produce to a topic. The Topic Team, owning the topic, will approve or reject this request.
 
 ### Setup
-- In each folder please do `terraform init` and replace username and password with that team's Terraform user credentials.
+- Please do `terraform init` in each folder and replace username and password with that team's Terraform user credentials.
 
 ### 1. Admin Team
 - The Admin team creates `Environments`, `Users` and `Groups` within its Terraform state using an Admin-level user account.
 -  [Admin Team's Terraform Resources](../../examples/3-team-guide/admin-team/main.tf)
-   - Please note that Users can be already registered in Keycloak or other authentication service. In that case, Admin team will define the configuration for these users that already exist and use `terraform import` to import them into `axual_user` resources. Please see more details here [User resource](../../docs/resources/user.md) 
+  - Please note that Users can be already registered using Keycloak or another authentication service. In that case, Admin team will define the configuration for these users that already exist and use `terraform import` to import them into `axual_user` resources. Please see more details here [User resource](../../docs/resources/user.md) 
 
 ### 2. Topic team
 - Topic Team creates `Topic` and `Topic Configuration` in a specific environment.
@@ -58,7 +58,7 @@ The Grant request will remain in a PENDING state until approved or rejected by t
 - If the Topic team later decides to revoke the Application team's access to a Topic, they simply remove the Application Access Grant Approval resource from their Terraform configuration. This action revokes the previously granted access.
 
 ### Alternative flow
-- Instead of Application Team creating the grant, it is possible for the Topic Team to create the Grant as well. In that case, the Topic Team would create both the Grant and Grant Approval resources in their repository. Please see the configuration under the comment `ALTERNATIVE FLOW SETUP` in [Topic Team's Terraform Resources].
+- Instead of the Application Team creating the grant, it is possible for the Topic Team to create the Grant as well. In that case, the Topic Team would create both the Grant and Grant Approval resources in their repository. Please see the configuration under the comment `ALTERNATIVE FLOW SETUP` in [Topic Team's Terraform Resources].
 
 ### Limitations
 - Currently, it is not possible for the Application Team to revoke the Grant Approval. The workaround is that the Application Team would need to ask the Topic Team to revoke the grant by deleting the Grant Approval.
