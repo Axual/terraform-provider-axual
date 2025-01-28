@@ -1,6 +1,6 @@
 # Axual Provider
 
-The Axual Terraform Provider integrates Axual's Self-Service for Apache Kafka with Terraform, making it easy to manage Axual's Kafka configurations as code. It offers detailed access control, clear topic visibility, and simple topic settings management, enabling users to effectively monitor and control their Kafka streaming setup.
+The Axual Terraform Provider integrates Axual's Self-Service for Apache Kafka with Terraform, making it easy to manage Axual's Kafka configurations as code. It offers detailed access control, clear topic visibility, and simple topic settings management, enabling users to monitor and control their Kafka streaming setup effectively.
 
 The provider supports distinct team roles. The Admin Team manages environments, users and groups. The Topic Team handles topic creation, configuration, and access approvals. The Application Team manages applications, deployments, and creating access requests. These capabilities enable a GitOps workflow where teams manage their Terraform states independently and collaborate through resource references using Terraform data sources and approvals.
 
