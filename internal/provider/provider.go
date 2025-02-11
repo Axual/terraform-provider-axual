@@ -135,6 +135,7 @@ func (p *AxualProvider) Resources(ctx context.Context) []func() resource.Resourc
 		func() resource.Resource { return NewApplicationAccessGrantApprovalResource(*p) },
 		func() resource.Resource { return NewApplicationDeploymentResource(*p) },
 		func() resource.Resource { return NewTopicBrowsePermissionsResource(*p) },
+		func() resource.Resource { return NewApplicationCredentialResource(*p) },
 	}
 }
 

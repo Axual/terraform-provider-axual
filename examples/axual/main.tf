@@ -98,3 +98,20 @@ resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
 resource "axual_application_access_grant_approval" "connector_axual_application_access_grant_approval"{
   application_access_grant = axual_application_access_grant.dash_consume_from_logs_in_dev.id
 }
+
+resource "axual_application_credential" "tf-test-app-credential" {
+  application_id = axual_application.log_scraper.id
+  environment_id = axual_environment.development.id
+  target = "KAFKA"
+}
+
+output "application_credential_username" {
+  value = axual_application_credential.tf-test-app-credential.username
+  description = "The username of the imported application credential"
+}
+
+output "application_credential_password" {
+  value = axual_application_credential.tf-test-app-credential.password
+  description = "The password of the imported application credential"
+  sensitive = true
+}
