@@ -109,10 +109,10 @@ func (r *topicResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				},
 			},
 			"retention_policy": schema.StringAttribute{
-				MarkdownDescription: "Designate the retention policy to use on old log segments. Read more: https://docs.axual.io/axual/2024.4/self-service/topic-management.html#retention-policy",
+				MarkdownDescription: "Designate the retention policy to use on old log segments. Only these values are allowed: `compact`, `delete`, `compact,delete`  Read more: https://docs.axual.io/axual/2024.4/self-service/topic-management.html#retention-policy",
 				Required:            true,
 				Validators: []validator.String{
-					stringvalidator.OneOf("compact", "delete", "compact,delete", "delete,compact"),
+					stringvalidator.OneOf("compact", "delete", "compact,delete"),
 				},
 			},
 			"properties": schema.MapAttribute{
