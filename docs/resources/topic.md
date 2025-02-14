@@ -16,7 +16,7 @@ A topic represents a flow of information (messages), which is continuously updat
 - `key_type` (String) The key type and reference to the schema. Read more: https://docs.axual.io/axual/2024.4/self-service/topic-management.html#key-type
 - `name` (String) The name of the topic. Can only contain letters, numbers, dots, dashes and underscores and cannot begin with an underscore, dot or dash, but can't start with underscore, dot or dash. The topic name is usually discussed and finalized as part of the Intake session or a follow up.
 - `owners` (String) The team owning this topic. Read more: https://docs.axual.io/axual/2024.4/self-service/topic-management.html#topic-owner
-- `retention_policy` (String) Determines what to do with messages after a certain period. Read more: https://docs.axual.io/axual/2024.4/self-service/topic-management.html#retention-policy
+- `retention_policy` (String) Designate the retention policy to use on old log segments. Only these values are allowed: `compact`, `delete`, `compact,delete`  Read more: https://docs.axual.io/axual/2024.4/self-service/topic-management.html#retention-policy
 - `value_type` (String) The value type and reference to the schema. Read more: https://docs.axual.io/axual/2024.4/self-service/topic-management.html#value-type
 
 ### Optional

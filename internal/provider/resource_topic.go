@@ -2,11 +2,15 @@ package provider
 
 import (
 	webclient "axual-webclient"
-	custom_validator "axual.com/terraform-provider-axual/internal/custom-validator"
-	"axual.com/terraform-provider-axual/internal/provider/utils"
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
+	"strings"
+	"time"
+
+	custom_validator "axual.com/terraform-provider-axual/internal/custom-validator"
+	"axual.com/terraform-provider-axual/internal/provider/utils"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -17,9 +21,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"regexp"
-	"strings"
-	"time"
 )
 
 var _ resource.Resource = &topicResource{}
@@ -108,10 +109,10 @@ func (r *topicResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				},
 			},
 			"retention_policy": schema.StringAttribute{
-				MarkdownDescription: "Determines what to do with messages after a certain period. Read more: https://docs.axual.io/axual/2024.4/self-service/topic-management.html#retention-policy",
+				MarkdownDescription: "Designate the retention policy to use on old log segments. Only these values are allowed: `compact`, `delete`, `compact,delete`  Read more: https://docs.axual.io/axual/2024.4/self-service/topic-management.html#retention-policy",
 				Required:            true,
 				Validators: []validator.String{
-					stringvalidator.OneOf("compact", "delete"),
+					stringvalidator.OneOf("compact", "delete", "compact,delete"),
 				},
 			},
 			"properties": schema.MapAttribute{

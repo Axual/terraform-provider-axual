@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [master](https://github.com/Axual/terraform-provider-axual/blob/master) - TBR
+* Added support for "compact,delete" topic retention policy
 * Support for Application Credential.
 
 ## [2.5.2](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.5.2) - 2025-01-27
