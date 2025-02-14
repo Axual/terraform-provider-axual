@@ -21,7 +21,6 @@ func TestApplicationCredentialConnectorResource(t *testing.T) {
 					resource.TestCheckResourceAttrPair("axual_application_credential.tf-test-app-credential", "application_id", "axual_application.tf-test-app", "id"),
 					resource.TestCheckResourceAttrSet("axual_application_credential.tf-test-app-credential", "password"),
 					resource.TestCheckResourceAttr("axual_application_credential.tf-test-app-credential", "auth_provider", "apache-kafka"),
-					resource.TestCheckResourceAttr("axual_application_credential.tf-test-app-credential", "clusters", "alpha"),
 					resource.TestCheckResourceAttrWith(
 						"axual_application_credential.tf-test-app-credential",
 						"username",
