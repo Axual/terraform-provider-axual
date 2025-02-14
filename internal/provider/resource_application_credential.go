@@ -42,8 +42,8 @@ type authData struct {
 
 type applicationCredentialResourceData struct {
 	Id            types.String   `tfsdk:"id"`
-	ApplicationId types.String   `tfsdk:"application_id"`
-	EnvironmentId types.String   `tfsdk:"environment_id"`
+	ApplicationId types.String   `tfsdk:"application"`
+	EnvironmentId types.String   `tfsdk:"environment"`
 	Target        types.String   `tfsdk:"target"`
 	UserName      types.String   `tfsdk:"username"`
 	Password      types.String   `tfsdk:"password"`
@@ -70,14 +70,14 @@ func (r *applicationCredentialResource) Schema(ctx context.Context, req resource
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"application_id": schema.StringAttribute{
+			"application": schema.StringAttribute{
 				MarkdownDescription: "A valid Id of an existing application",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
-			"environment_id": schema.StringAttribute{
+			"environment": schema.StringAttribute{
 				MarkdownDescription: "A valid Id of an existing environment",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
@@ -100,7 +100,7 @@ func (r *applicationCredentialResource) Schema(ctx context.Context, req resource
 					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{
-					stringvalidator.OneOf("KAFKA", "SCHEMA_REGISTRY"),
+					stringvalidator.OneOf("KAFKA"),
 				},
 			},
 			"description": schema.StringAttribute{
@@ -282,6 +282,7 @@ func mapApplicationCredentialResponseToData(_ context.Context, data *application
 	data.Description = types.StringValue(applicationCredential.Description)
 	data.UserName = types.StringValue(applicationCredential.Username)
 	data.Types = convertAuthTypeListToTypesStringList(applicationCredential.Types)
+	data.Clusters = types.StringValue(applicationCredential.Metadata.Clusters)
 }
 
 func convertAuthTypeListToTypesStringList(input []webclient.AuthType) []types.String {

@@ -15,8 +15,8 @@ An Application Credential is a security credential (SASL) that uniquely authenti
 
 ### Required
 
-- `application_id` (String) A valid Id of an existing application
-- `environment_id` (String) A valid Id of an existing environment
+- `application` (String) A valid Id of an existing application
+- `environment` (String) A valid Id of an existing environment
 - `target` (String) The authentication credential provider (e.g., Apache Kafka, Schema Registry).
 
 ### Read-Only
@@ -33,8 +33,8 @@ An Application Credential is a security credential (SASL) that uniquely authenti
 
 ```hcl
 resource "axual_application_credential" "credentials" {
-  application_id = "aa5600d4a7514a758bcd7b6041e5529d"
-  environment_id = "7ae69a37da8b4477aa2f7cfbd45e8058"
+  application = "aa5600d4a7514a758bcd7b6041e5529d"
+  environment = "7ae69a37da8b4477aa2f7cfbd45e8058"
   target = "KAFKA"
 }
 ```

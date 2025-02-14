@@ -43,7 +43,7 @@ resource "axual_application" "tf-test-app" {
 }
 
 resource "axual_application_credential" "tf-test-app-credential" {
-  environment_id = axual_environment.tf-test-env.id
-  application_id = axual_application.tf-test-app.id
+  environment = axual_environment.tf-test-env.id
+  application = axual_application.tf-test-app.id
   target = "KAFKA"
 }

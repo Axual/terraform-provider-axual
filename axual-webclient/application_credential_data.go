@@ -36,6 +36,11 @@ type ApplicationCredentialFindByApplicationAndEnvironmentResponse struct {
 	Username    string          `json:"username"`
 	Types       []AuthType      `json:"types"`
 	Description string          `json:"description"`
+	Metadata    Metadata        `json:"metadata"`
+}
+
+type Metadata struct {
+	Clusters string `json:"clusters"`
 }
 
 type ApplicationInfo struct {
