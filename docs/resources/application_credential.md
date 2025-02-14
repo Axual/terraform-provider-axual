@@ -3,10 +3,9 @@
 An Application Credential is a security credential (SASL) that uniquely authenticates an Application in an Environment. Read more: https://docs.axual.io/axual/2024.4/self-service/application-management.html#configuring-application-securityauthentication
 
 ## Security
-- Application credential passwords are stored in a secure way.
-- Terraform will not print the password in terraform plan or terraform apply output.
-- Terraform will save the password and username in local state file and make sure that this file is secured and encrypted.
-- Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/
+- Since password is a `sensitive` field, Terraform Provider will not print the password in `terraform plan` or `terraform apply` output.
+- Terraform will save the password and username in local state file(terraform.tfstate). Please make sure that this file is appropriately secured.
+- Here are best practices for securing secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/
 
 ## Required Roles
 - APPLICATION_ADMIN or be part of the Team that owns the Application
