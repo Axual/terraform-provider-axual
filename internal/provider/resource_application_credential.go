@@ -5,11 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -39,15 +41,16 @@ type authData struct {
 }
 
 type applicationCredentialResourceData struct {
-	Id            types.String            `tfsdk:"id"`
-	ApplicationId types.String            `tfsdk:"application_id"`
-	EnvironmentId types.String            `tfsdk:"environment_id"`
-	Target        types.String            `tfsdk:"target"`
-	UserName      types.String            `tfsdk:"username"`
-	Password      types.String            `tfsdk:"password"`
-	Clusters      types.String            `tfsdk:"clusters"`
-	Description   types.String            `tfsdk:"description"`
-	Configs       map[string]types.String `tfsdk:"configs"`
+	Id            types.String   `tfsdk:"id"`
+	ApplicationId types.String   `tfsdk:"application_id"`
+	EnvironmentId types.String   `tfsdk:"environment_id"`
+	Target        types.String   `tfsdk:"target"`
+	UserName      types.String   `tfsdk:"username"`
+	Password      types.String   `tfsdk:"password"`
+	Clusters      types.String   `tfsdk:"clusters"`
+	Description   types.String   `tfsdk:"description"`
+	AuthProvider  types.String   `tfsdk:"auth_provider"`
+	Types         []types.String `tfsdk:"types"`
 }
 
 func (r *applicationCredentialResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -93,18 +96,31 @@ func (r *applicationCredentialResource) Schema(ctx context.Context, req resource
 			"target": schema.StringAttribute{
 				Required:            true,
 				MarkdownDescription: "The authentication credential provider (e.g., Apache Kafka, Schema Registry).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					stringvalidator.OneOf("KAFKA", "SCHEMA_REGISTRY"),
+				},
 			},
 			"description": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "Description information for the credentials.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"clusters": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "Cluster information for the credentials.",
 			},
-			"configs": schema.MapAttribute{
-				Optional:            true,
-				MarkdownDescription: "Additional configuration for the credentials.",
+			"auth_provider": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "The authentication provider (e.g., Apache Kafka, Schema Registry).",
+			},
+			"types": schema.ListAttribute{
+				MarkdownDescription: "List of authentication types.",
+				Computed:            true,
 				ElementType:         types.StringType,
 			},
 		},
@@ -135,6 +151,7 @@ func (r *applicationCredentialResource) Create(ctx context.Context, req resource
 	data.UserName = types.StringValue(applicationCredential.AuthData.Username)
 	data.Password = types.StringValue(applicationCredential.AuthData.Password) // Will be stored but not printed
 	data.Clusters = types.StringValue(applicationCredential.AuthData.Clusters)
+	data.AuthProvider = types.StringValue(applicationCredential.AuthData.Provider)
 
 	tflog.Trace(ctx, "Created an application credential resource")
 	tflog.Info(ctx, "Saving the resource to state")
@@ -206,13 +223,19 @@ func (r *applicationCredentialResource) Delete(ctx context.Context, req resource
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	applicationCredentialDeleteRequest, err := deleteApplicationCredentialRequestFromData(ctx, &data)
-	if err != nil {
-		resp.Diagnostics.AddError("Error creating CREATE request struct for application credential resource", fmt.Sprintf("Error message: %s", err.Error()))
-		return
+
+	var usernameConfig = webclient.NameConfig{
+		Username: data.UserName.ValueString(),
 	}
 
-	err = r.provider.client.DeleteApplicationCredential(applicationCredentialDeleteRequest)
+	applicationCredentialDeleteRequest := webclient.ApplicationCredentialDeleteRequest{
+		ApplicationId: data.ApplicationId.ValueString(),
+		EnvironmentId: data.EnvironmentId.ValueString(),
+		Target:        data.Target.ValueString(),
+		Configs:       usernameConfig,
+	}
+
+	err := r.provider.client.DeleteApplicationCredential(applicationCredentialDeleteRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete application principal, got error: %s", err))
 		return
@@ -222,61 +245,6 @@ func (r *applicationCredentialResource) Delete(ctx context.Context, req resource
 
 func (r *applicationCredentialResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
-}
-
-func deleteApplicationCredentialRequestFromData(ctx context.Context, data *applicationCredentialResourceData) (webclient.ApplicationCredentialDeleteRequest, error) {
-	rawEnvironmentId, err := data.EnvironmentId.ToTerraformValue(ctx)
-	if err != nil {
-		return webclient.ApplicationCredentialDeleteRequest{}, err
-	}
-	var environmentId string
-	err = rawEnvironmentId.As(&environmentId)
-	if err != nil {
-		return webclient.ApplicationCredentialDeleteRequest{}, err
-	}
-
-	rawApplicationId, err := data.ApplicationId.ToTerraformValue(ctx)
-	if err != nil {
-		return webclient.ApplicationCredentialDeleteRequest{}, err
-	}
-	var applicationId string
-	err = rawApplicationId.As(&applicationId)
-	if err != nil {
-		return webclient.ApplicationCredentialDeleteRequest{}, err
-	}
-
-	rawTarget, err := data.Target.ToTerraformValue(ctx)
-	if err != nil {
-		return webclient.ApplicationCredentialDeleteRequest{}, err
-	}
-	var target string
-	err = rawTarget.As(&target)
-	if err != nil {
-		return webclient.ApplicationCredentialDeleteRequest{}, err
-	}
-
-	rawUsername, err := data.UserName.ToTerraformValue(ctx)
-	if err != nil {
-		return webclient.ApplicationCredentialDeleteRequest{}, err
-	}
-	var username string
-	err = rawUsername.As(&username)
-	if err != nil {
-		return webclient.ApplicationCredentialDeleteRequest{}, err
-	}
-
-	var usernameConfig = webclient.NameConfig{
-		Username: username,
-	}
-
-	deleteApplicationCredentialRequest := webclient.ApplicationCredentialDeleteRequest{
-		ApplicationId: applicationId,
-		EnvironmentId: environmentId,
-		Target:        data.Target.ValueString(),
-		Configs:       usernameConfig,
-	}
-
-	return deleteApplicationCredentialRequest, err
 }
 
 func createApplicationCredentialRequestFromData(ctx context.Context, data *applicationCredentialResourceData) (webclient.ApplicationCredentialCreateRequest, error) {
@@ -312,4 +280,14 @@ func createApplicationCredentialRequestFromData(ctx context.Context, data *appli
 func mapApplicationCredentialResponseToData(_ context.Context, data *applicationCredentialResourceData, applicationCredential *webclient.ApplicationCredentialFindByApplicationAndEnvironmentResponse) {
 	data.Id = types.StringValue(applicationCredential.ID)
 	data.Description = types.StringValue(applicationCredential.Description)
+	data.UserName = types.StringValue(applicationCredential.Username)
+	data.Types = convertAuthTypeListToTypesStringList(applicationCredential.Types)
+}
+
+func convertAuthTypeListToTypesStringList(input []webclient.AuthType) []types.String {
+	var result []types.String
+	for _, v := range input {
+		result = append(result, types.StringValue(v.Type))
+	}
+	return result
 }
