@@ -59,6 +59,13 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 	}
 
 	res, err := c.HTTPClient.Do(req)
+	if err != nil {
+		log.Printf("Network error during HTTP request: %v", err)
+		return nil, err
+	}
+	if res == nil {
+		return nil, fmt.Errorf("received nil response from HTTP client")
+	}
 	if res.StatusCode == http.StatusNotFound {
 		return nil, NotFoundError
 	}
