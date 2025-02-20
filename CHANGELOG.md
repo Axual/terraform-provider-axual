@@ -3,8 +3,10 @@
 All notable changes to this project will be documented in this file.
 
 ## [master](https://github.com/Axual/terraform-provider-axual/blob/master) - TBR
+## [2.5.3](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.5.3) - 2025-02-21
 * Added support for "compact,delete" topic retention policy
 * Support for Application Credential.
+* Fix for Terraform Provider crash when creating Topic Configuration took too long.
 
 ## [2.5.2](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.5.2) - 2025-01-27
 * Fixes for documentation
