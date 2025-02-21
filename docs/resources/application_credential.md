@@ -30,6 +30,7 @@ An Application Credential is a security credential (SASL) that uniquely authenti
 - `username` (String) Username associated with the credentials
 
 ## Example Usage
+- The following example can be used to generate credentials for an application in an environment for target `KAFKA`
 
 ```hcl
 resource "axual_application_credential" "credentials" {
@@ -39,7 +40,8 @@ resource "axual_application_credential" "credentials" {
 }
 ```
 
-For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
+- For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
+  - Please note that in this full example, `axual_application_principal` can be interchanged with `axual_application_credential` as an alternative way to authenticate.
 
 ## Import
 
