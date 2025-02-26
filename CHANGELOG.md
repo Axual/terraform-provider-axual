@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 * Added support for "compact,delete" topic retention policy
 * Support for Application Credential.
 * Fix for Terraform Provider crash when creating Topic Configuration took too long.
+* Removed unused method for `/groups/{uid}/members/{uid}`
 
 ## [2.5.2](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.5.2) - 2025-01-27
 * Fixes for documentation

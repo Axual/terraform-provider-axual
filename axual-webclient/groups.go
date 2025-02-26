@@ -61,27 +61,6 @@ func (c *Client) DeleteGroup(id string) error {
 	return nil
 }
 
-func (c *Client) AddMemberToGroup(group string, memberId string) error {
-	memberUrl := fmt.Sprintf("%s/users/%v", c.ApiURL, memberId)
-	headers := make(map[string]string)
-	headers["Content-Type"] = "text/uri-list"
-	err := c.RequestAndMap("POST", fmt.Sprintf("%s/groups/%v/members/", c.ApiURL, group), strings.NewReader(memberUrl), headers, nil)
-
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *Client) RemoveMemberFromGroup(group string, memberId string) error {
-	err := c.RequestAndMap("DELETE", fmt.Sprintf("%s/groups/%v/members/%v", c.ApiURL, group, memberId), nil, nil, nil)
-
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (c *Client) GetGroupByName(name string) (*GetGroupByNameResponse, error) {
 	o := GetGroupByNameResponse{}
 	err := c.RequestAndMap("GET", fmt.Sprintf("%s/groups/search/findByName?name=%v", c.ApiURL, url.QueryEscape(name)), nil, nil, &o)
