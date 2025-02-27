@@ -43,6 +43,30 @@ resource "axual_application_credential" "credentials" {
 - For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
   - Please note that in this full example, `axual_application_principal` can be interchanged with `axual_application_credential` as an alternative way to authenticate.
 
+## Viewing Credentials
+
+- When credentials are created, they are sensitive and will not appear in the `terraform apply` or `terraform plan` output. However, there are ways to retrieve them.
+- ⚠️ Warning: Please avoid printing the credentials in plaintext in the console in automated pipelines or logging systems.
+
+### 1. Terraform Output
+
+```hcl
+output "consumer_creds" {
+  sensitive = true
+  value     = axual_application_credential.credentials
+}
+```
+
+- Run the following command to retrieve the credentials: `terraform output consumer_creds`
+
+### 2. Terraform State Show
+- `terraform state show axual_application_credential.credentials`
+  - This requires access to the state file but will display the credentials in the console.
+
+### 3. Terraform Console
+- For interactive debugging, use: `terraform console`
+  - Then enter `axual_application_credential.credentials`
+
 ## Import
 
 Import is not currently supported.
