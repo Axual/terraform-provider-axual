@@ -23,7 +23,7 @@ type ProviderConfig struct {
 }
 
 // Function to load the configuration from a YAML file
-func loadProviderConfig() (ProviderConfig, error) {
+func LoadProviderConfig() (ProviderConfig, error) {
 	file, err := os.ReadFile("../test_config.yaml")
 	if err != nil {
 		return ProviderConfig{}, err
@@ -40,7 +40,7 @@ func loadProviderConfig() (ProviderConfig, error) {
 // This function helps select the appropriate provider configuration for tests.
 func testProviderConfig() (resource.TestCase, error) {
 	// Load the provider configuration from the YAML file
-	config, err := loadProviderConfig()
+	config, err := LoadProviderConfig()
 	if err != nil {
 		return resource.TestCase{}, err
 	}
@@ -81,13 +81,14 @@ func testAccProviderFactories() map[string]func() (tfprotov6.ProviderServer, err
 // Reusable provider configuration for resource creation
 func GetProvider() string {
 	// Load the provider configuration from the YAML file
-	config, err := loadProviderConfig()
+	config, err := LoadProviderConfig()
 	if err != nil {
 		panic("Error loading provider config: " + err.Error())
 	}
 	// Local Platform.local setup
 	providerBlock := `
 	provider "axual" {
+	 authmode = "keycloak"
 	 apiurl   = "https://platform.local/api"
 	 realm    = "local"
 	 username = "` + os.Getenv("AXUAL_USERNAME") + `"
@@ -98,8 +99,10 @@ func GetProvider() string {
 	}
 	`
 
+	// QA
 	//	providerBlock := `
 	//provider "axual" {
+	//  authmode = "keycloak"
 	//  apiurl   = "https://self-service.qa.np.westeurope.azure.axual.cloud/api"
 	//  realm    = "axual"
 	//  username = "` + os.Getenv("AXUAL_USERNAME") + `"

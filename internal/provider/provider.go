@@ -43,6 +43,8 @@ type providerData struct {
 	ClientID types.String `tfsdk:"clientid"`
 	AuthUrl  types.String `tfsdk:"authurl"`
 	Scopes   types.List   `tfsdk:"scopes"`
+	Audience types.String `tfsdk:"audience"`
+	AuthMode types.String `tfsdk:"authmode"`
 }
 
 func (p *AxualProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
@@ -98,6 +100,12 @@ func (p *AxualProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		Password: password,
 		Url:      data.AuthUrl.ValueString(),
 		ClientId: data.ClientID.ValueString(),
+		Audience: data.Audience.ValueString(),
+		AuthMode: data.AuthMode.ValueString(),
+	}
+	// Default to keycloak if authmode is not set.
+	if auth.AuthMode == "" {
+		auth.AuthMode = "keycloak"
 	}
 
 	if !data.Scopes.IsNull() {
@@ -168,8 +176,8 @@ func (p *AxualProvider) Schema(ctx context.Context, req provider.SchemaRequest, 
 				Required:            true,
 			},
 			"realm": schema.StringAttribute{
-				MarkdownDescription: "Axual realm used for the requests",
-				Required:            true,
+				MarkdownDescription: "Axual realm used for the requests (only used with keycloak auth mode)",
+				Optional:            true,
 			},
 			"username": schema.StringAttribute{
 				MarkdownDescription: "Username for all requests. Will be used to acquire a token",
@@ -185,13 +193,21 @@ func (p *AxualProvider) Schema(ctx context.Context, req provider.SchemaRequest, 
 				Required:            true,
 			},
 			"authurl": schema.StringAttribute{
-				MarkdownDescription: "Token url",
+				MarkdownDescription: "Token URL",
 				Required:            true,
 			},
 			"scopes": schema.ListAttribute{
 				MarkdownDescription: "OAuth authorization server scopes",
 				Optional:            true,
 				ElementType:         types.StringType,
+			},
+			"audience": schema.StringAttribute{
+				MarkdownDescription: "Audience for OAUTH (required for auth0 auth mode)",
+				Optional:            true,
+			},
+			"authmode": schema.StringAttribute{
+				MarkdownDescription: "Authentication mode to use: keycloak or auth0 (defaults to keycloak)",
+				Optional:            true,
 			},
 		},
 	}
