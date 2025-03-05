@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [master](https://github.com/Axual/terraform-provider-axual/blob/master) - TBR
 * Removed unused method for `/groups/{uid}/members/{uid}`
+* Auth0 authentication support
 
 ## [2.5.4](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.5.4) - 2025-02-21
 * Added clarity for `axual_application_credential` documentation.

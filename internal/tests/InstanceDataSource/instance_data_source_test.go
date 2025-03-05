@@ -10,6 +10,7 @@ import (
 )
 
 func TestInstanceDataSource(t *testing.T) {
+	config, _ := LoadProviderConfig()
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
 		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
@@ -17,7 +18,7 @@ func TestInstanceDataSource(t *testing.T) {
 			{
 				Config: GetProvider(),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("data.axual_instance.testInstance", "name", "Dev Test Acceptance"),
+					resource.TestCheckResourceAttr("data.axual_instance.testInstance", "name", config.InstanceName),
 				),
 			},
 			{

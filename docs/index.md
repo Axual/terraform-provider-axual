@@ -2,40 +2,57 @@
 
 The Axual Terraform Provider integrates Axual's Self-Service for Apache Kafka with Terraform, making it easy to manage Axual's Kafka configurations as code. It offers detailed access control, clear topic visibility, and simple topic settings management, enabling users to monitor and control their Kafka streaming setup effectively.
 
-The provider supports distinct team roles. The Admin Team manages environments, users and groups. The Topic Team handles topic creation, configuration, and access approvals. The Application Team manages applications, deployments, and creating access requests. These capabilities enable a GitOps workflow where teams manage their Terraform states independently and collaborate through resource references using Terraform data sources and approvals.
-
 Learn more about Axual Self-Service: https://docs.axual.io/axual/2024.4/self-service/index.html
 
 ## Example Usage
+- There are two authentication modes supported by the provider:  **Auth0** and **Keycloak**.
 
-First, make sure to configure the connection. Please note that we currently only support Keycloak authentication provider. Auth0 authentication provider will be supported soon:
+### Auth0 Authentication
 
-```terraform
-terraform {
-  required_providers {
-    axual = {
-      source  = "Axual/axual"
-      version = "2.5.4"
-    }
-  }
-}
+- Please use this provider configuration if the authentication is against Auth0. Auth0 is used by Axual SaaS installation, including `axual.cloud` and the Trial environment:
 
-# Provider Configuration for local Axual platform installation
-
+```hcl
 provider "axual" {
+  # Default `authMode` is "keycloak", if omitted.
+  authmode = "auth0"
   # (String) URL that will be used by the client for all resource requests
-  apiurl   = "https://platform.local/api"
-  # (String) Axual realm used for the requests
-  realm    = "axual"
+  apiurl   = "https://app.axual.cloud/api"
   # (String) Username for all requests. Will be used to acquire a token. It can be omitted if the environment variable AXUAL_AUTH_USERNAME is used.
-  username = "kubernetes@axual.com"
+  username = "PLEASE_CHANGE_USERNAME"
   # (String, Sensitive) Password belonging to the user. It can be omitted if the environment variable AXUAL_AUTH_PASSWORD is used.
   password = "PLEASE_CHANGE_PASSWORD"
   # (String) Client ID to be used for OAUTH
-  clientid = "self-service"
+  clientid = "eY6aEMAO8XAkoKE9e9pZFcOs7Wxs6VBQ"
   # (String) Token url
-  authurl  = "https://platform.local/auth/realms/axual/protocol/openid-connect/token"
+  authurl  = "https://axual.eu.auth0.com/oauth/token"
   # (List of String) OAuth authorization server scopes
+  scopes   = ["openid", "profile", "email"]
+  # The audience for OAuth. Usually the same as `apiurl`.
+  audience = "https://app.axual.cloud/api/"
+}
+```
+
+### Keycloak Authentication
+
+- Please use this provider configuration if the authentication is against **Keycloak**. Keycloak is used when deploying Axual Streaming and Axual Governance on Kubernetes:
+
+```hcl
+provider "axual" {
+  # Default `authMode` is "keycloak", if omitted.
+  authmode = "keycloak"
+  # URL that will be used by the client for all resource requests
+  apiurl   = "https://platform.local/api"
+  # Axual realm used for the requests
+  realm    = "axual"
+  # Username for all requests. Will be used to acquire a token. It can be omitted if the environment variable AXUAL_AUTH_USERNAME is used.
+  username = "PLEASE_CHANGE_USERNAME"
+  # (Sensitive) Password belonging to the user. It can be omitted if the environment variable AXUAL_AUTH_PASSWORD is used.
+  password = "PLEASE_CHANGE_PASSWORD"
+  # Client ID to be used for OAUTH
+  clientid = "self-service"
+  # Token url
+  authurl  = "https://platform.local/auth/realms/axual/protocol/openid-connect/token"
+  # OAuth authorization server scopes
   scopes   = ["openid", "profile", "email"]
 }
 ```
@@ -154,12 +171,13 @@ To create all the resources in this example, the logged-in user (defined in prov
 - **ENVIRONMENT_AUTHOR** - for creating resource: `axual_environment`
 
 ## Distributed Gitops multi-repo example
+- The Axual Terraform provider supports distinct team roles:
+  - The Admin Team manages environments, users and groups.
+  - The Topic Team handles topic creation, configuration, and access approvals.
+  - The Application Team manages applications, deployments, and requests permission to produce to or consume from a topic owned by the Topic Team.
+- These capabilities enable a GitOps workflow where teams manage their Terraform states independently and collaborate through resource references using Terraform data sources and approvals.
 - The Guide: [Multi-Repo Guide](guides/multi-repo.md)
-- Please follow the guide for a setup where 3 teams have separated responsibilities.
-
-1. **Application Team**: Requests permissions to produce to or consume from a topic owned by the Topic Team.
-2. **Topic Team**: Approves or rejects application access requests to their topics.
-3. **Admin Team**: Manages users, groups and environments in Self-Service.
+  - Please follow the guide for a setup where 3 teams have separated responsibilities.
 
 **Key Practices**
 - Each team manages their own Terraform state independently.
