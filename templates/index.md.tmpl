@@ -9,7 +9,7 @@ Learn more about Axual Self-Service: https://docs.axual.io/axual/2024.4/self-ser
 
 ### Auth0 Authentication
 
-- Please use this provider configuration if the authentication is against Auth0. Auth0 is used by Axual SaaS installation, including `axual.cloud` and the Trial environment:
+- Please use this provider configuration if the authentication is against Auth0. Auth0 is used by the Axual Trial environment:
 
 ```hcl
 provider "axual" {
@@ -34,16 +34,16 @@ provider "axual" {
 
 ### Keycloak Authentication
 
-- Please use this provider configuration if the authentication is against **Keycloak**. Keycloak is used when deploying Axual Streaming and Axual Governance on Kubernetes:
+- Please use this provider configuration if the authentication is against **Keycloak**. Keycloak is used in `axual cloud` and when deploying Axual Streaming and Axual Governance on Kubernetes:
 
 ```hcl
 provider "axual" {
   # Default `authMode` is "keycloak", if omitted.
   authmode = "keycloak"
   # URL that will be used by the client for all resource requests
-  apiurl   = "https://platform.local/api"
+  apiurl   = "https://axual.cloud/api"
   # Axual realm used for the requests
-  realm    = "axual"
+  realm    = "PLEASE_CHANGE_TENANT_NAME"
   # Username for all requests. Will be used to acquire a token. It can be omitted if the environment variable AXUAL_AUTH_USERNAME is used.
   username = "PLEASE_CHANGE_USERNAME"
   # (Sensitive) Password belonging to the user. It can be omitted if the environment variable AXUAL_AUTH_PASSWORD is used.
@@ -51,7 +51,7 @@ provider "axual" {
   # Client ID to be used for OAUTH
   clientid = "self-service"
   # Token url
-  authurl  = "https://platform.local/auth/realms/axual/protocol/openid-connect/token"
+  authurl  = "https://axual.cloud/auth/realms/PLEASE_CHANGE_TENANT_NAME/protocol/openid-connect/token"
   # OAuth authorization server scopes
   scopes   = ["openid", "profile", "email"]
 }

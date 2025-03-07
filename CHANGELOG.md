@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [master](https://github.com/Axual/terraform-provider-axual/blob/master) - TBR
+
+## [2.6.4](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.6.4) - 2025-03-07
 * Removed unused method for `/groups/{uid}/members/{uid}`
 * Auth0 authentication support
 
