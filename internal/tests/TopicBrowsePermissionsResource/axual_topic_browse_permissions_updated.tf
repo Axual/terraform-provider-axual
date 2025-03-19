@@ -79,6 +79,10 @@ resource "axual_group" "team-group3" {
   members       = [ axual_user.susan.id ]
 }
 
+data "axual_group" "root_user_group" {
+  name = "Admins"
+}
+
 resource "axual_environment" "tf-test-env" {
   name = "tf-development"
   short_name = "tfdev"
@@ -94,7 +98,7 @@ resource "axual_topic" "topic-test" {
   name = "test-topic"
   key_type = "String"
   value_type = "String"
-  owners = data.axual_group.user_group.id
+  owners = data.axual_group.root_user_group.id
   retention_policy = "delete"
   properties = {}
   description = "Demo of deploying a topic config via Terraform"

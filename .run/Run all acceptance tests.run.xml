@@ -3,8 +3,9 @@
     <module name="terraform-provider-axual" />
     <working_directory value="$PROJECT_DIR$/internal/tests" />
     <envs>
-      <env name="AXUAL_PASSWORD" value="<INSERT YOUR PASSWORD>" />
-      <env name="AXUAL_USERNAME" value="<INSERT YOUR USERNAME>" />
+      <env name="AXUAL_PASSWORD" value="homerj" />
+      <env name="AXUAL_USERNAME" value="dario-tf" />
+      <env name="TF_ACC_TERRAFORM_PATH" value="/opt/homebrew/bin/terraform" />
       <env name="TF_ACC" value="1" />
       <env name="TF_LOG" value="INFO" />
     </envs>

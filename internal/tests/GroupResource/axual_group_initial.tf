@@ -14,10 +14,10 @@ resource "axual_group" "team-integrations" {
   name          = "testgroup9999"
   phone_number  = "+6112356789"
   email_address = "test.user@axual.com"
-  members       = [
+  members = [
     axual_user.bob.id,
   ]
-  managers       = [
+  managers = [
     axual_user.bob.id,
   ]
 }
