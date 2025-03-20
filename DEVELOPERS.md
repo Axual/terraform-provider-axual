@@ -6,28 +6,31 @@ you would need to perform some actions.
 - Update your Tenant `SupportedAuthenticationMethods` to have these options enabled
     - SSL
     - SCRAM_SHA_512
+    - OAUTHBEARER
 - In the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `instanceName` to an available Instance which has the following properties
     - `EnabledAuthenticationMethod`
         - SSL (use the [Axual Dummy Root CA as the Signing Authority](TODO lik))
         - SCRAM_SHA_512
+        - OAUTHBEARER
     - `GranularBrowsePermission` enabled
     - `ConnectSupport` enabled
 - Then in the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `groupName` to a Group you are a member of.
 - Edit this run configuration included in this repo: [`.run/Run all the tests.run.xml`](.run/Run%20all%20the%20tests.run.xml)
     - Open the edit configuration
     - Look at the env variables section and update the following variables
-        - AXUAL_USERNAME=<your username to authenticate with the Platform Manager>
-        - AXUAL_PASSWORD=<your password to authenticate with the Platform Manager>
-        - TF_ACC=1
-            - Built in safety env var for accidentally running the tests on a live environment
-        - TF_ACC_TERRAFORM_PATH
-            - path to Terraform binary in your local system
-        - TF_LOG=INFO
-            - Optional but highly recommended
-  > Here is a full env variables example: `AXUAL_PASSWORD=<INSERT API PASSWORD>;AXUAL_USERNAME=<INSERT API USERNAME>;TF_ACC=1;TF_ACC_TERRAFORM_PATH=/opt/homebrew/bin/terraform;TF_LOG=INFO`
-  - Make sure the test user match the following:
-    - the test user has the "Tenant Admin" role, this is needed for creating Groups and Users.
-    - the test user is marked as "Resource Manager" on the test group, this is needed for updating any owned resource.
+      - AXUAL_USERNAME=[your username to authenticate with the Platform Manager]
+      - AXUAL_PASSWORD=[your password to authenticate with the Platform Manager]
+      - TF_ACC=1
+          - Built in safety env var for accidentally running the tests on a live environment
+      - TF_ACC_TERRAFORM_PATH
+        - path to Terraform binary in your local system
+      - TF_LOG=INFO
+        - Optional but highly recommended
+      > Here is a full env variables example: `AXUAL_PASSWORD=<INSERT API PASSWORD>;AXUAL_USERNAME=<INSERT API USERNAME>;TF_ACC=1;TF_ACC_TERRAFORM_PATH=/opt/homebrew/bin/terraform;TF_LOG=INFO`
+- Make sure the test user matches the following:
+  - the test user has the "Tenant Admin" role, this is needed for creating Groups and Users.
+  - the test user is a "Resource Manager" for your Group, on the test group this is needed for updating any owned resource.
+    > Only in case your Tenant has `Update and Deploy Owned Resources` set to `Only Resource Managers`
 - Make sure to turn off parallelization for running go tests because of conflicts when creating shared resources many times
     - Use this go tool argument: `-p 1`
 - Make sure to turn off test caching, because then we can run the same tests multiple times to test stability without having to change the test.
