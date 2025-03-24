@@ -106,16 +106,16 @@ resource "axual_group" "team-integrations" {
 ```
 
 ### Logging
-- Intellij IDEA
+- IntelliJ IDEA
     - Edit Configuration for Go Test
     - Add ENV Variable: TF_LOG=INFO
     - Add statements like these into code: tflog.Info(ctx, fmt.Sprintf("delete group successful for group: %q", data.Id.ValueString()))
         - Consider keeping these statements there
-- - Does not work if testing with a provider from registry(not locally compiled)
+- - Does not work if testing with a provider from registry (not locally compiled)
 
 ### Debugging
 - IntelliJ IDEA
-    - Put a breakpoint in resource file, for example resource_group.go.
-    - Either put username and password env variables into run configuration(look at Run all `Run acceptance tests.run.xml` in .`run`) or hardcode username and password temporarily.
+    - Put a breakpoint in the resource file, for example `resource_group.go`.
+    - Either put username and password env variables into the `run configuration` (look at Run all `Run acceptance tests.run.xml` in .`run`) or hardcode username and password temporarily.
     - Click on `debug`
-- Does not work if testing with a provider from registry(not locally compiled)
+- Does not work if testing with a provider from registry (not locally compiled)
