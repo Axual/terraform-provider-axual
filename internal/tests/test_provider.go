@@ -87,18 +87,18 @@ func GetProvider() string {
 	}
 
 	// Local Platform.local setup
-	//providerBlock := `
-	//provider "axual" {
-	// authmode = "keycloak"
-	// apiurl   = "https://platform.local/api"
-	// realm    = "local"
-	// username = "` + os.Getenv("AXUAL_USERNAME") + `"
-	// password = "` + os.Getenv("AXUAL_PASSWORD") + `"
-	// clientid = "self-service"
-	// authurl  = "https://platform.local/auth/realms/local/protocol/openid-connect/token"
-	// scopes   = ["openid", "profile", "email"]
-	//}
-	//`
+	providerBlock := `
+	provider "axual" {
+	authmode = "keycloak"
+	apiurl   = "https://platform.local/api"
+	realm    = "local"
+	username = "` + os.Getenv("AXUAL_USERNAME") + `"
+	password = "` + os.Getenv("AXUAL_PASSWORD") + `"
+	clientid = "self-service"
+	authurl  = "https://platform.local/auth/realms/local/protocol/openid-connect/token"
+	scopes   = ["openid", "profile", "email"]
+	}
+	`
 
 	// QA
 	//	providerBlock := `
@@ -113,20 +113,6 @@ func GetProvider() string {
 	//  scopes   = ["openid", "profile", "email"]
 	//}
 	//`
-
-	// Staging Cloud
-	providerBlock := `
-	provider "axual" {
-	 authmode = "keycloak"
-	 apiurl   = "https://self-service-staging.qa.np.westeurope.azure.axual.cloud/api"
-	 realm    = "axual"
-	 username = "dario-tf"
-	 password = "homerj"
-	 clientid = "self-service"
-	 authurl  = "https://self-service-staging.qa.np.westeurope.azure.axual.cloud/auth/realms/axual/protocol/openid-connect/token"
-	 scopes   = ["openid", "profile", "email"]
-	}
-	`
 
 	dataBlock := `
 	data "axual_instance" "test_instance" {
