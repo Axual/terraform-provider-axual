@@ -7,9 +7,8 @@ terraform {
   }
 }
 
-# Provider Configuration for local Axual platform installation
-
 provider "axual" {
+  # Configuration options
   # (String) URL that will be used by the client for all resource requests
   apiurl   = "https://platform.local/api"
   # (String) Axual realm used for the requests

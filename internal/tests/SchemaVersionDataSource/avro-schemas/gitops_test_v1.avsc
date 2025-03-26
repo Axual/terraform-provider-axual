@@ -1,13 +1,11 @@
 {
-  "type": "record",
-  "name": "GitOpsTest1",
-  "namespace": "io.axual.qa.general",
-  "doc": "Object type that is supposed to be filled with a gitops test value. This should be used when the Key is irrelevant.",
-  "fields": [
-    {
-      "name": "gitops1",
-      "type": "string",
-      "doc": "The gitops test value. v 1.0.0"
-    }
-  ]
+  "type" : "record",
+  "name" : "GitOpsTest1",
+  "namespace" : "io.axual.qa.general",
+  "doc" : "Object type that is supposed to be filled with a gitops test value. This should be used when the Key is irrelevant.",
+  "fields" : [ {
+    "name" : "gitops1",
+    "type" : "string",
+    "doc" : "The gitops test value. v 1.0.0"
+  } ]
 }

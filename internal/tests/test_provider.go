@@ -19,7 +19,7 @@ type ProviderConfig struct {
 		Version string `yaml:"version"` // Can be "local" or a version from the registry (e.g., "2.4.1")
 	} `yaml:"provider"`
 	InstanceName string `yaml:"instanceName"`
-	UserGroup    string `yaml:"userGroup"`
+	GroupName    string `yaml:"groupName"`
 }
 
 // Function to load the configuration from a YAML file
@@ -85,17 +85,18 @@ func GetProvider() string {
 	if err != nil {
 		panic("Error loading provider config: " + err.Error())
 	}
+
 	// Local Platform.local setup
 	providerBlock := `
 	provider "axual" {
-	 authmode = "keycloak"
-	 apiurl   = "https://platform.local/api"
-	 realm    = "local"
-	 username = "` + os.Getenv("AXUAL_USERNAME") + `"
-	 password = "` + os.Getenv("AXUAL_PASSWORD") + `"
-	 clientid = "self-service"
-	 authurl  = "https://platform.local/auth/realms/local/protocol/openid-connect/token"
-	 scopes   = ["openid", "profile", "email"]
+	authmode = "keycloak"
+	apiurl   = "https://platform.local/api"
+	realm    = "local"
+	username = "` + os.Getenv("AXUAL_USERNAME") + `"
+	password = "` + os.Getenv("AXUAL_PASSWORD") + `"
+	clientid = "self-service"
+	authurl  = "https://platform.local/auth/realms/local/protocol/openid-connect/token"
+	scopes   = ["openid", "profile", "email"]
 	}
 	`
 
@@ -114,11 +115,11 @@ func GetProvider() string {
 	//`
 
 	dataBlock := `
-	data "axual_instance" "testInstance" {
+	data "axual_instance" "test_instance" {
 	  name = "` + config.InstanceName + `"
 	}
-	data "axual_group" "user_group" {
-	  name = "` + config.UserGroup + `"
+	data "axual_group" "test_group" {
+	  name = "` + config.GroupName + `"
 	}
 	`
 

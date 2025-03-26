@@ -1,3 +1,3 @@
- data "axual_instance" "unknownTopic" {
- name = "non_existent_resource"
+data "axual_instance" "unknownTopic" {
+  name = "non_existent_resource"
 }
