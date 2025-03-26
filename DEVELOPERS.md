@@ -9,7 +9,7 @@ you would need to perform some actions.
     - OAUTHBEARER
 - In the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `instanceName` to an available Instance which has the following properties
     - `EnabledAuthenticationMethod`
-        - SSL (use the [Axual Dummy Root CA as the Signing Authority](TODO lik))
+        - SSL (use the [Axual Dummy Root CA as the Signing Authority](https://gitlab.com/axual/qa/local-development/-/blob/main/governance/files/axual-dummy-intermediate))
         - SCRAM_SHA_512
         - OAUTHBEARER
     - `GranularBrowsePermission` enabled
@@ -28,9 +28,13 @@ you would need to perform some actions.
         - Optional but highly recommended
       > Here is a full env variables example: `AXUAL_PASSWORD=<INSERT API PASSWORD>;AXUAL_USERNAME=<INSERT API USERNAME>;TF_ACC=1;TF_ACC_TERRAFORM_PATH=/opt/homebrew/bin/terraform;TF_LOG=INFO`
 - Make sure the test user matches the following:
-  - the test user has the "Tenant Admin" role, this is needed for creating Groups and Users.
-  - the test user is a "Resource Manager" for your Group, on the test group this is needed for updating any owned resource.
-    > Only in case your Tenant has `Update and Deploy Owned Resources` set to `Only Resource Managers`
+  - The test user has these roles:
+    - Tenant Admin - needed for creating Groups and Users.
+    - Application Author
+    - Environment Author
+    - Schema Author
+    - Topic Author 
+- In Tenant Settings, "Update and Deploy Owned Resources" setting is set to "All Group Members"
 - Make sure to turn off parallelization for running go tests because of conflicts when creating shared resources many times
     - Use this go tool argument: `-p 1`
 - Make sure to turn off test caching, because then we can run the same tests multiple times to test stability without having to change the test.
