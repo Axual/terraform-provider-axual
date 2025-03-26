@@ -14,21 +14,30 @@ func TestApplicationPrincipalResource(t *testing.T) {
 
 		Steps: []resource.TestStep{
 			{
-				Config: GetProvider() + GetFile("axual_application_principal_custom_initial.tf"),
+				Config: GetProvider() + GetFile(
+					"axual_application_principal_setup.tf",
+					"axual_application_principal_custom_initial.tf",
+				),
 				Check: resource.ComposeTestCheckFunc(
-					CheckBodyMatchesFile("axual_application_principal.tf-test-app-principal", "principal", "certs/certificate.pem"),
+					CheckBodyMatchesFile("axual_application_principal.tf-test-app-principal", "principal", "certs/generic_application_3.cer"),
 				),
 			},
 			{
-				Config: GetProvider() + GetFile("axual_application_principal_custom_replaced.tf"),
+				Config: GetProvider() + GetFile(
+					"axual_application_principal_setup.tf",
+					"axual_application_principal_custom_replaced.tf",
+				),
 				Check: resource.ComposeTestCheckFunc(
-					CheckBodyMatchesFile("axual_application_principal.tf-test-app-principal", "principal", "certs/certificate2.crt"),
+					CheckBodyMatchesFile("axual_application_principal.tf-test-app-principal", "principal", "certs/example_stream_processor.cer"),
 				),
 			},
 			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
-				Config:  GetProvider() + GetFile("axual_application_principal_custom_replaced.tf"),
+				Config: GetProvider() + GetFile(
+					"axual_application_principal_setup.tf",
+					"axual_application_principal_custom_replaced.tf",
+				),
 			},
 		},
 	})

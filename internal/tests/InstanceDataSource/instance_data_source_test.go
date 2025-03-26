@@ -18,7 +18,7 @@ func TestInstanceDataSource(t *testing.T) {
 			{
 				Config: GetProvider(),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("data.axual_instance.testInstance", "name", config.InstanceName),
+					resource.TestCheckResourceAttr("data.axual_instance.test_instance", "name", config.InstanceName),
 				),
 			},
 			{

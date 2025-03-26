@@ -15,12 +15,12 @@ func TestSchemaVersionDataSource(t *testing.T) {
 			{
 				Config: GetProvider() + GetFile("axual_schema_version.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("data.axual_schema_version.axual_gitops_test_schema_version1", "description", "Gitops test schema version"),
-					resource.TestCheckResourceAttr("data.axual_schema_version.axual_gitops_test_schema_version1", "version", "1.0.0"),
-					resource.TestCheckResourceAttr("data.axual_schema_version.axual_gitops_test_schema_version1", "full_name", "io.axual.qa.general.GitOpsTest1"),
-					resource.TestCheckResourceAttrSet("data.axual_schema_version.axual_gitops_test_schema_version1", "schema_id"),
-					resource.TestCheckResourceAttrSet("data.axual_schema_version.axual_gitops_test_schema_version1", "id"),
-					CheckBodyMatchesFile("axual_schema_version.axual_gitops_test_schema_version1", "body", "avro-schemas/gitops_test_v1.avsc"),
+					resource.TestCheckResourceAttr("data.axual_schema_version.test_v1_imported", "description", "Gitops test schema version"),
+					resource.TestCheckResourceAttr("data.axual_schema_version.test_v1_imported", "version", "1.0.0"),
+					resource.TestCheckResourceAttr("data.axual_schema_version.test_v1_imported", "full_name", "io.axual.qa.general.GitOpsTest1"),
+					resource.TestCheckResourceAttrSet("data.axual_schema_version.test_v1_imported", "schema_id"),
+					resource.TestCheckResourceAttrSet("data.axual_schema_version.test_v1_imported", "id"),
+					CheckBodyMatchesFile("data.axual_schema_version.test_v1_imported", "body", "avro-schemas/gitops_test_v1.avsc"),
 				),
 			},
 		},

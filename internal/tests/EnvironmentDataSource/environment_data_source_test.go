@@ -16,13 +16,13 @@ func TestEnvironmentDataSource(t *testing.T) {
 			{
 				Config: GetProvider() + GetFile("axual_environment.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env", "name", "tf-development"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env", "short_name", "tfdev"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env", "description", "This is the terraform testing environment"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env", "color", "#19b9be"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env", "visibility", "Private"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env", "authorization_issuer", "Auto"),
-					resource.TestCheckResourceAttrPair("data.axual_environment.tf-test-env", "owners", "axual_group.team-integrations", "id"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported", "name", "tf-development"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported", "short_name", "tfdev"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported", "description", "This is the terraform testing environment"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported", "color", "#19b9be"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported", "visibility", "Private"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported", "authorization_issuer", "Auto"),
+					resource.TestCheckResourceAttrPair("data.axual_environment.tf-test-env-imported", "owners", "data.axual_group.test_group", "id"),
 				),
 			},
 			{

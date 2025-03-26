@@ -17,11 +17,11 @@ func TestGroupDataSource(t *testing.T) {
 			{
 				Config: GetProvider() + GetFile("axual_group.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("data.axual_group.frontend_developers", "name", "testgroup9999"),
-					resource.TestCheckResourceAttr("data.axual_group.frontend_developers", "email_address", "test.user@axual.com"),
-					resource.TestCheckResourceAttr("data.axual_group.frontend_developers", "phone_number", "+6112356789"),
-					resource.TestCheckResourceAttr("data.axual_group.frontend_developers", "members.#", "1"),
-					resource.TestCheckResourceAttrPair("data.axual_group.frontend_developers", "members.0", "axual_user.bob", "id"),
+					resource.TestCheckResourceAttr("data.axual_group.team-integrations-imported", "name", "testgroup9999"),
+					resource.TestCheckResourceAttr("data.axual_group.team-integrations-imported", "email_address", "test.user@axual.com"),
+					resource.TestCheckResourceAttr("data.axual_group.team-integrations-imported", "phone_number", "+6112356789"),
+					resource.TestCheckResourceAttr("data.axual_group.team-integrations-imported", "members.#", "1"),
+					resource.TestCheckResourceAttrPair("data.axual_group.team-integrations-imported", "members.0", "axual_user.bob", "id"),
 				),
 			},
 			{
