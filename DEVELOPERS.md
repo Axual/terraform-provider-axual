@@ -15,7 +15,7 @@ you would need to perform some actions.
     - `GranularBrowsePermission` enabled
     - `ConnectSupport` enabled
 - Then in the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `groupName` to a Group you are a member of.
-- Then in the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `userEmail` to an email of your logged-in user.
+- Then in the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `userEmail` to your email identifying your user.
 - Edit this run configuration included in this repo: [`.run/Run all the tests.run.xml`](.run/Run%20all%20the%20tests.run.xml)
     - Open the edit configuration
     - Look at the env variables section and update the following variables

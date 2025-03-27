@@ -1,4 +1,4 @@
-package InstanceDataSource
+package UserDataSource
 
 import (
 	"regexp"
