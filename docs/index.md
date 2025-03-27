@@ -187,7 +187,7 @@ To create all the resources in this example, the logged-in user (defined in prov
 ## Limitations
 - Creating a user with Terraform adds the user to the Self-Service database, but does not register the user in the authentication system (such as Keycloak or Auth0). As a result, users created with Terraform cannot log in to Self-Service.
 - For referencing existing users:
-    - Use the user data source:: https://registry.terraform.io/providers/Axual/axual/latest/docs/data-sources/user
+    - Use the user data source: https://registry.terraform.io/providers/Axual/axual/latest/docs/data-sources/user
     - Or import existing users using `terraform import`: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/user#import
 
 ## Compatibility
