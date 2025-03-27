@@ -31,12 +31,12 @@ resource "axual_group" "team-awesome" {
   phone_number="+37253412559"
   email_address="team.awesome@example.com"
   members       = [
-    	axual_user.jane.id,
-    	axual_user.john.id
+    	data.axual_user.tom.id,
+    	data.axual_user.john.id
     	]
   managers       = [
-      	axual_user.tom.id,
-      	axual_user.kate.id
+      	data.axual_user.tom.id,
+      	data.axual_user.kate.id
       	]
 }
 ```

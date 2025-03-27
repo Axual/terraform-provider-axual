@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ## [2.5.5](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.6.4) - 2025-03-07
 * Removed unused method for `/groups/{uid}/members/{uid}`
 * Auth0 authentication support for Axual Trial Environment
+* Add User data source
 
 ## [2.5.4](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.5.4) - 2025-02-21
 * Added clarity for `axual_application_credential` documentation.

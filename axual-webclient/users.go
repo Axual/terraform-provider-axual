@@ -3,6 +3,7 @@ package webclient
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -92,6 +93,15 @@ func (c *Client) UpdateUserRoles(id string, data []UserRole) error {
 		return err
 	}
 	return nil
+}
+
+func (c *Client) FindUserByEmail(email string) (*UsersResponse, error) {
+	o := UsersResponse{}
+	err := c.RequestAndMap("GET", fmt.Sprintf("%s/users/search/findByEmailAddress?email=%s", c.ApiURL, url.QueryEscape(email)), nil, nil, &o)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
 }
 
 type ErrUserRole struct {
