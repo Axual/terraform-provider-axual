@@ -3,6 +3,7 @@ page_title: "Using Data Sources"
 ---
 
 Currently we support data sources for the following resources:
+- axual_user
 - axual_group
 - axual_environment
 - axual_topic
@@ -152,5 +153,25 @@ resource "axual_environment" "test" {
   authorization_issuer = "Auto"
   instance = data.axual_instance.test_instance.id
   owners = axual_group.tenant_admin_group1.id
+}
+```
+
+- To define a `axual_user` data source, provide the user's email:
+
+```hcl
+data "axual_user" "tom" {
+ email = "tom@email.com"
+}
+```
+Now we can use this data source when creating a resource:
+
+```hcl
+resource "axual_group" "team-integrations" {
+  name          = "Integrations group"
+  phone_number  = "+123456"
+  email_address = "integrationsgroup@axual.com"
+  members       = [
+    data.axual_user.tom.id
+  ]
 }
 ```
