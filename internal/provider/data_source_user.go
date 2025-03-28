@@ -104,24 +104,18 @@ func mapUserDataSourceResponseToData(ctx context.Context, data *userDataSourceDa
 	data.LastName = types.StringValue(user.Lastname)
 
 	// Map the middle name, defaulting to an empty string if nil.
+	data.MiddleName = types.StringValue("")
 	if user.Middlename != nil {
 		if middle, ok := user.Middlename.(string); ok {
 			data.MiddleName = types.StringValue(middle)
-		} else {
-			data.MiddleName = types.StringValue("")
 		}
-	} else {
-		data.MiddleName = types.StringValue("")
 	}
 
 	// Map the phone number, defaulting to an empty string if nil.
+	data.PhoneNumber = types.StringValue("")
 	if user.Phonenumber != nil {
 		if phone, ok := user.Phonenumber.(string); ok {
 			data.PhoneNumber = types.StringValue(phone)
-		} else {
-			data.PhoneNumber = types.StringValue("")
 		}
-	} else {
-		data.PhoneNumber = types.StringValue("")
 	}
 }
