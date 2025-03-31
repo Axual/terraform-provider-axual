@@ -50,7 +50,7 @@ func (r *userResource) Metadata(ctx context.Context, req resource.MetadataReques
 func (r *userResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "User resource. Read more: https://docs.axual.io/axual/2024.4/self-service/user-group-management.html#users",
+		MarkdownDescription: "User resource. Please note that creating a new user with Terraform does not automatically allow the user to log in. This is because the user is only created in the Self-Service Database, not in an authentication provider such as Keycloak or Auth0. For new users please either use user data source or import using with terraform import command. Read more about user in Axual Self-Service: https://docs.axual.io/axual/2024.4/self-service/user-group-management.html#users",
 		Attributes: map[string]schema.Attribute{
 			"first_name": schema.StringAttribute{
 				MarkdownDescription: "User's first name",

@@ -67,10 +67,11 @@ The following example demonstrates the basic functionality of Axual Self-Service
 #
 # - When trying out this example:
 # - replace `instance` name from `Dev Test Acceptance` to the name of your instance.
-# - Please use `terraform import axual_user.tenant_admin <USER UID FROM UI>` so the user matches the user you are logged in as
+# - Please use user data source or `terraform import axual_user.tenant_admin <USER UID FROM UI>` so the user matches the user you are logged in as.
+#   - Doing this is necessary because creating a new user with Terraform does not automatically allow the user to log in. This is because the user is only created in the Self-Service Database, not in an authentication provider such as Keycloak or Auth0.
 
 
-resource "axual_user" "tenant_admin" { # Please use `terraform import axual_user.tenant_admin <USER UID FROM UI>`
+resource "axual_user" "tenant_admin" { # This is a test user. Please use user data source or `terraform import axual_user.tenant_admin <USER UID FROM UI>` to get a reference to a real user.
   first_name    = "Tenant"
   last_name     = "Admin"
   email_address = "kubernetes@axual.com"
@@ -198,3 +199,6 @@ To create all the resources in this example, the logged-in user (defined in prov
 | 2.3.x                      | 8.5.x                                |
 | 2.4.x                      | 8.6.x – 9.0.x                        |
 | 2.5.x                      | 9.1.x                                |
+
+## Custom JSON Schema
+- Please follow this guide to import Terraform provider's custom JSON schema to improve IDE syntax highlighting, validation and code completion: [Custom JSON Schema Guide](guides/json-schema)
