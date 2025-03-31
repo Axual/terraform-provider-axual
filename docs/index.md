@@ -184,11 +184,17 @@ To create all the resources in this example, the logged-in user (defined in prov
 - Teams utilize dedicated Terraform users configured with the minimum required privileges.
 - Teams reference resources from other teams by utilizing Terraform data sources.
 
+## Limitations
+- Creating a user with Terraform adds the user to the Self-Service database, but does not register the user in the authentication system (such as Keycloak or Auth0). As a result, users created with Terraform cannot log in to Self-Service.
+- For referencing existing users:
+    - Use the user data source: https://registry.terraform.io/providers/Axual/axual/latest/docs/data-sources/user
+    - Or import existing users using `terraform import`: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/user#import
+
 ## Compatibility
 | Terraform Provider Version | Supported Platform Manager Version(s) |
 |----------------------------|---------------------------------------|
 | 2.1.x                      | 7.0.7 - 8.4.x                        |
 | 2.2.x                      | 8.5.x                                |
 | 2.3.x                      | 8.5.x                                |
-| 2.4.x                      | 8.6.x                                |
+| 2.4.x                      | 8.6.x – 9.0.x                        |
 | 2.5.x                      | 9.1.x                                |
