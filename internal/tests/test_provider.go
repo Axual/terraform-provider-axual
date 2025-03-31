@@ -20,6 +20,7 @@ type ProviderConfig struct {
 	} `yaml:"provider"`
 	InstanceName string `yaml:"instanceName"`
 	GroupName    string `yaml:"groupName"`
+	UserEmail    string `yaml:"userEmail"`
 }
 
 // Function to load the configuration from a YAML file
@@ -89,14 +90,14 @@ func GetProvider() string {
 	// Local Platform.local setup
 	providerBlock := `
 	provider "axual" {
-	authmode = "keycloak"
-	apiurl   = "https://platform.local/api"
-	realm    = "local"
-	username = "` + os.Getenv("AXUAL_USERNAME") + `"
-	password = "` + os.Getenv("AXUAL_PASSWORD") + `"
-	clientid = "self-service"
-	authurl  = "https://platform.local/auth/realms/local/protocol/openid-connect/token"
-	scopes   = ["openid", "profile", "email"]
+	 authmode = "keycloak"
+	 apiurl   = "https://platform.local/api"
+	 realm    = "local"
+	 username = "` + os.Getenv("AXUAL_USERNAME") + `"
+	 password = "` + os.Getenv("AXUAL_PASSWORD") + `"
+	 clientid = "self-service"
+	 authurl  = "https://platform.local/auth/realms/local/protocol/openid-connect/token"
+	 scopes   = ["openid", "profile", "email"]
 	}
 	`
 
@@ -120,6 +121,9 @@ func GetProvider() string {
 	}
 	data "axual_group" "test_group" {
 	  name = "` + config.GroupName + `"
+	}
+	data "axual_user" "test_user" {
+	  email = "` + config.UserEmail + `"
 	}
 	`
 
