@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [master](https://github.com/Axual/terraform-provider-axual/blob/master) - TBR
 * Add User data source
+* Guide for JSON schema
 
 ## [2.5.5](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.5.5) - 2025-03-07
 * Removed unused method for `/groups/{uid}/members/{uid}`
