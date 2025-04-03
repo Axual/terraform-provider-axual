@@ -24,6 +24,7 @@ terraform init
 
 - Generate the provider schema nad redirect the JSON schema to the appropriate directory. For example in MacOS:
 ```shell
+mkdir -p /Users/km/.terraform.d/metadata-repo/terraform/model/providers
 terraform providers schema -json | jq -r '.' > ~/.terraform.d/metadata-repo/terraform/model/providers/axual.json
 ```
 
