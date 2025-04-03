@@ -8,12 +8,6 @@ page_title: "Custom JSON Schema"
   - The IDE **validates** your resources and data blocks as you write them.
   - Improves navigation and auto-completion by **recognizing custom provider references**.
 
-- This guide explains how to generate and use a custom JSON schema from your Terraform provider to improve IDE integration.
-- Using a custom JSON schema enhances your Terraform development experience by enabling:
-  - Syntax highlighting
-  - Real-time validation of resources and data blocks 
-  - Improved auto-completion and navigation, including support for custom provider references
-
 ### Generating the JSON Schema
 
 - In Terraform configuration directory run:
@@ -22,9 +16,9 @@ page_title: "Custom JSON Schema"
 terraform init
 ```
 
-- Generate the provider schema nad redirect the JSON schema to the appropriate directory. For example in MacOS:
+- Generate the provider schema and redirect the JSON schema to the appropriate directory. For example in MacOS:
 ```shell
-mkdir -p /Users/km/.terraform.d/metadata-repo/terraform/model/providers
+mkdir -p ~/.terraform.d/metadata-repo/terraform/model/providers
 terraform providers schema -json | jq -r '.' > ~/.terraform.d/metadata-repo/terraform/model/providers/axual.json
 ```
 
