@@ -231,7 +231,7 @@ func createApplicationPrincipalRequestFromData(ctx context.Context, data *applic
 	var applicationPrincipalRequestArray [1]webclient.ApplicationPrincipalRequest
 	applicationPrincipalRequestArray[0] =
 		webclient.ApplicationPrincipalRequest{
-			Principal:   data.Principal.ValueString(),
+			Principal:   strings.TrimSpace(data.Principal.ValueString()),
 			Application: application,
 			Environment: environment,
 		}
@@ -240,7 +240,7 @@ func createApplicationPrincipalRequestFromData(ctx context.Context, data *applic
 		applicationPrincipalRequestArray[0].Custom = data.Custom.ValueBool()
 	}
 	if !data.PrivateKey.IsNull() {
-		applicationPrincipalRequestArray[0].PrivateKey = data.PrivateKey.ValueString()
+		applicationPrincipalRequestArray[0].PrivateKey = strings.TrimSpace(data.PrivateKey.ValueString())
 	}
 	return applicationPrincipalRequestArray, err
 }
