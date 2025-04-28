@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"net/url"
 	"regexp"
 
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -76,15 +77,28 @@ func (d *instanceDataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 
-	instanceByName, err := d.provider.client.GetInstanceByName(data.Name.ValueString())
+	attributes := url.Values{}
+
+	if data.ShortName.ValueString() == "" {
+		attributes.Set("name", data.Name.ValueString())
+	} else {
+		attributes.Set("shortName", data.ShortName.ValueString())
+	}
+
+	instanceResponse, err := d.provider.client.GetInstancesByAttributes(attributes)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read instance by name, got error: %s", err))
 		return
 	}
 
-	instance, err2 := d.provider.client.GetInstance(instanceByName.Uid)
+	if len(instanceResponse.Embedded.Instances) == 0 {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Instance not found"))
+		return
+	}
+
+	instance, err2 := d.provider.client.GetInstance(instanceResponse.Embedded.Instances[0].Uid)
 	if err2 != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read instance with ID '%s', got error: %s", instanceByName.Uid, err2))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read instance with ID '%s', got error: %s", instanceResponse.Embedded.Instances[0].Uid, err2))
 		return
 	}
 

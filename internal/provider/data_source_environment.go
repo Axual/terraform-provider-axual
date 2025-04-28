@@ -121,14 +121,25 @@ func (d *environmentDataSource) Read(ctx context.Context, req datasource.ReadReq
 		return
 	}
 
-	environmentByName, err := d.provider.client.GetEnvironmentByName(data.Name.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment by short_name, got error: %s", err))
-		return
+	var environmentResponse *webclient.EnvironmentsResponse
+	var err error
+
+	if data.ShortName.ValueString() == "" {
+		environmentResponse, err = d.provider.client.GetEnvironmentByName(data.Name.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment by name, got error: %s", err))
+			return
+		}
+	} else {
+		environmentResponse, err = d.provider.client.GetEnvironmentByShortName(data.ShortName.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment by short_name, got error: %s", err))
+			return
+		}
 	}
 
 	// Check if Embedded or environment is nil or empty
-	if len(environmentByName.Embedded.Environments) == 0 {
+	if len(environmentResponse.Embedded.Environments) == 0 {
 		resp.Diagnostics.AddError(
 			"Resource Not Found",
 			fmt.Sprintf("No Environment resources found with name '%s'.", data.Name.ValueString()),
@@ -136,7 +147,7 @@ func (d *environmentDataSource) Read(ctx context.Context, req datasource.ReadReq
 		return
 	}
 
-	environment, err := d.provider.client.GetEnvironment(environmentByName.Embedded.Environments[0].Uid)
+	environment, err := d.provider.client.GetEnvironment(environmentResponse.Embedded.Environments[0].Uid)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment, got error: %s", err))
 		return

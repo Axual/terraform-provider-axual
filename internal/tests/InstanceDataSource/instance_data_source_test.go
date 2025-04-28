@@ -4,8 +4,6 @@ import (
 	"regexp"
 	"testing"
 
-	. "axual.com/terraform-provider-axual/internal/tests"
-
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
@@ -23,7 +21,7 @@ func TestInstanceDataSource(t *testing.T) {
 			},
 			{
 				Config:      GetProvider() + GetFile("axual_instance_not_found.tf"),
-				ExpectError: regexp.MustCompile("Unable to read instance by name, got error: resource not found"),
+				ExpectError: regexp.MustCompile("Instance not found"),
 			},
 			{
 				// Invalid name attribute

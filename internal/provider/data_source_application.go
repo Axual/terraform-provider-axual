@@ -107,17 +107,23 @@ func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 		return
 	}
 	attributes := url.Values{}
-	attributes.Set("name", data.Name.ValueString())
-	appByName, err := d.provider.client.GetApplicationsByAttributes(attributes)
+
+	if data.ShortName.ValueString() == "" {
+		attributes.Set("name", data.Name.ValueString())
+	} else {
+		attributes.Set("shortName", data.ShortName.ValueString())
+	}
+
+	appResponse, err := d.provider.client.GetApplicationsByAttributes(attributes)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application by name, got error: %s", err))
 		return
 	}
-	if len(appByName.Embedded.Applications) == 0 {
+	if len(appResponse.Embedded.Applications) == 0 {
 		resp.Diagnostics.AddError("Client Error", "Application not found")
 		return
 	}
-	app, err := d.provider.client.GetApplication(appByName.Embedded.Applications[0].Uid)
+	app, err := d.provider.client.GetApplication(appResponse.Embedded.Applications[0].Uid)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application, got error: %s", err))
 		return
