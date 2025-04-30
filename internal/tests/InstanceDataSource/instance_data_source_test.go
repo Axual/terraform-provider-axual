@@ -22,6 +22,13 @@ func TestInstanceDataSource(t *testing.T) {
 				),
 			},
 			{
+				Config: GetProvider(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("data.axual_instance.test_instance_short_name", "name", config.InstanceName),
+					resource.TestCheckResourceAttr("data.axual_instance.test_instance_short_name", "short_name", config.InstanceShortName),
+				),
+			},
+			{
 				Config:      GetProvider() + GetFile("axual_instance_not_found.tf"),
 				ExpectError: regexp.MustCompile("Instance not found"),
 			},

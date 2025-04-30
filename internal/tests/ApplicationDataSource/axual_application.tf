@@ -12,3 +12,8 @@ resource "axual_application" "tf-test-app" {
 data "axual_application" "tf-test-app-imported" {
   name = axual_application.tf-test-app.name
 }
+
+data "axual_application" "tf-test-app-imported-by-short-name" {
+  name = "test"
+  short_name = axual_application.tf-test-app.short_name
+}

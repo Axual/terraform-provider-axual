@@ -63,6 +63,7 @@ func (d *environmentDataSource) Schema(ctx context.Context, req datasource.Schem
 			},
 			"short_name": schema.StringAttribute{
 				MarkdownDescription: "A short name that will uniquely identify this environment.",
+				Optional:            true,
 				Computed:            true,
 			},
 			"description": schema.StringAttribute{

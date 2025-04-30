@@ -12,3 +12,8 @@ resource "axual_environment" "tf-test-env" {
 data "axual_environment" "tf-test-env-imported" {
   name = axual_environment.tf-test-env.name
 }
+
+data "axual_environment" "tf-test-env-imported-short-name" {
+  name = "dev"
+  short_name = axual_environment.tf-test-env.short_name
+}

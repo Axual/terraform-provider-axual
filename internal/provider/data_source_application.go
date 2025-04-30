@@ -71,6 +71,7 @@ func (d *applicationDataSource) Schema(ctx context.Context, req datasource.Schem
 			},
 			"short_name": schema.StringAttribute{
 				MarkdownDescription: "Application short name. Unique human-readable name for the application. Only Alphanumeric and underscore allowed. Must be unique",
+				Optional:            true,
 				Computed:            true,
 			},
 			"owners": schema.StringAttribute{
@@ -111,7 +112,7 @@ func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 	if data.ShortName.ValueString() == "" {
 		attributes.Set("name", data.Name.ValueString())
 	} else {
-		attributes.Set("shortName", data.ShortName.ValueString())
+		attributes.Set("short_name", data.ShortName.ValueString())
 	}
 
 	appResponse, err := d.provider.client.GetApplicationsByAttributes(attributes)
