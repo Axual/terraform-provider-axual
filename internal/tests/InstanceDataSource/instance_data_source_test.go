@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"testing"
 
+	. "axual.com/terraform-provider-axual/internal/tests"
+
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
