@@ -1,6 +1,6 @@
 # axual_user (Resource)
 
-User resource. Please note that creating a new user with Terraform does not automatically allow the user to log in. This is because the user is only created in the Self-Service Database, not in an authentication provider such as Keycloak or Auth0. For new users please either use user data source or import using with terraform import command. Read more about user in Axual Self-Service: https://docs.axual.io/axual/2024.4/self-service/user-group-management.html#users
+User resource. Please note that creating a new user with Terraform does not automatically allow the user to log in. This is because the user is only created in the Self-Service Database, not in an authentication provider such as Keycloak or Auth0. For new users please either use user data source or import using with terraform import command. Read more about user in Axual Self-Service: https://docs.axual.io/axual/2025.1/self-service/user-group-management.html#users
 
 ## Limitations
 - Creating a user with Terraform adds the user to the Self-Service database, but does not register the user in the authentication system (such as Keycloak or Auth0). As a result, users created with Terraform cannot log in to Self-Service.

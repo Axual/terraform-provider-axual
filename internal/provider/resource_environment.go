@@ -60,7 +60,7 @@ func (r *environmentResource) Metadata(ctx context.Context, req resource.Metadat
 func (r *environmentResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Environments are used typically to support the application lifecycle, as it is moving from Development to Production.  In Self Service, they also allow you to test a feature in isolation, by making the environment Private. Read more: https://docs.axual.io/axual/2024.4/self-service/environment-management.html#managing-environments",
+		MarkdownDescription: "Environments are used typically to support the application lifecycle, as it is moving from Development to Production.  In Self Service, they also allow you to test a feature in isolation, by making the environment Private. Read more: https://docs.axual.io/axual/2025.1/self-service/environment-management.html#managing-environments",
 
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
@@ -113,7 +113,7 @@ func (r *environmentResource) Schema(ctx context.Context, req resource.SchemaReq
 				Required:            true,
 			},
 			"viewers": schema.SetAttribute{
-				MarkdownDescription: "Environment Viewer Groups define which Groups are authorized to view all Topic Configurations and Application Authentications within the Environment, regardless of ownership and visibility. Read more: https://docs.axual.io/axual/2024.4/self-service/user-group-management.html#viewer-groups",
+				MarkdownDescription: "Environment Viewer Groups define which Groups are authorized to view all Topic Configurations and Application Authentications within the Environment, regardless of ownership and visibility. Read more: https://docs.axual.io/axual/2025.1/self-service/user-group-management.html#viewer-groups",
 				Optional:            true,
 				ElementType:         types.StringType,
 				Validators: []validator.Set{

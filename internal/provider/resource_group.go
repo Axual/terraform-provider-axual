@@ -51,7 +51,7 @@ func (r *groupResource) Metadata(ctx context.Context, req resource.MetadataReque
 func (r *groupResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Group resource. Read more: https://docs.axual.io/axual/2024.4/self-service/user-group-management.html#groups",
+		MarkdownDescription: "Group resource. Read more: https://docs.axual.io/axual/2025.1/self-service/user-group-management.html#groups",
 
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
@@ -79,7 +79,7 @@ func (r *groupResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				ElementType:         types.StringType,
 			},
 			"managers": schema.SetAttribute{
-				MarkdownDescription: "A Group Manager can edit this group, including adding or removing users and other group managers. Read more: https://docs.axual.io/axual/2024.4/self-service/user-group-management.html#making-a-group-member-manager-of-the-group",
+				MarkdownDescription: "A Group Manager can edit this group, including adding or removing users and other group managers. Read more: https://docs.axual.io/axual/2025.1/self-service/user-group-management.html#making-a-group-member-manager-of-the-group",
 				Optional:            true,
 				ElementType:         types.StringType,
 				Validators: []validator.Set{

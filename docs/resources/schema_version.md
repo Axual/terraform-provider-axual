@@ -1,6 +1,6 @@
 # axual_schema_version (Resource)
 
-Schema version resource. None of the fields can be updated. Read more: https://docs.axual.io/axual/2024.4/self-service/schema-management.html
+Schema version resource. None of the fields can be updated. Read more: https://docs.axual.io/axual/2025.1/self-service/schema-management.html
 
 ## Required Roles
 - SCHEMA_AUTHOR or SCHEMA_ADMIN

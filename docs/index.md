@@ -2,34 +2,14 @@
 
 The Axual Terraform Provider integrates Axual's Self-Service for Apache Kafka with Terraform, making it easy to manage Axual's Kafka configurations as code. It offers detailed access control, clear topic visibility, and simple topic settings management, enabling users to monitor and control their Kafka streaming setup effectively.
 
-Learn more about Axual Self-Service: https://docs.axual.io/axual/2024.4/self-service/index.html
+Learn more about Axual Self-Service: https://docs.axual.io/axual/2025.1/self-service/index.html
 
 ## Example Usage
 - There are two authentication modes supported by the provider:  **Auth0** and **Keycloak**.
 
 ### Auth0 Authentication
 
-- Please use this provider configuration if the authentication is against Auth0. Auth0 is used by the Axual Trial environment:
-
-```hcl
-provider "axual" {
-  # Default `authMode` is "keycloak", if omitted.
-  authmode = "auth0"
-  # (String) URL that will be used by the client for all resource requests
-  apiurl   = "https://app.axual.cloud/api"
-  # (String) Username for all requests. Will be used to acquire a token. It can be omitted if the environment variable AXUAL_AUTH_USERNAME is used.
-  username = "PLEASE_CHANGE_USERNAME"
-  # (String, Sensitive) Password belonging to the user. It can be omitted if the environment variable AXUAL_AUTH_PASSWORD is used.
-  password = "PLEASE_CHANGE_PASSWORD"
-  # (String) Client ID to be used for OAUTH
-  clientid = "eY6aEMAO8XAkoKE9e9pZFcOs7Wxs6VBQ"
-  # (String) Token url
-  authurl  = "https://axual.eu.auth0.com/oauth/token"
-  # (List of String) OAuth authorization server scopes
-  scopes   = ["openid", "profile", "email"]
-  # The audience for OAuth. Usually the same as `apiurl`.
-  audience = "https://app.axual.cloud/api/"
-}
+- Please follow this guide to connect Terraform Provider to Axual Trial Environment using Auth0: [Trial environment(Auth0)](guides/trial-guide.md)
 ```
 
 ### Keycloak Authentication
@@ -60,34 +40,23 @@ provider "axual" {
 The following example demonstrates the basic functionality of Axual Self-Service. For more advanced features, refer to the 'Resources' and 'Guides' sections.
 
 ```terraform
-#
-# Axual TERRAFORM PROVIDER EXAMPLE
-#
 # This TerraForm file shows the basic capabilities of the TerraForm provider for Axual
 #
-# - When trying out this example:
-# - replace `instance` name from `Dev Test Acceptance` to the name of your instance.
-# - Please use user data source or `terraform import axual_user.tenant_admin <USER UID FROM UI>` so the user matches the user you are logged in as.
-#   - Doing this is necessary because creating a new user with Terraform does not automatically allow the user to log in. This is because the user is only created in the Self-Service Database, not in an authentication provider such as Keycloak or Auth0.
 
+#️ Look up yourself by e-mail – change the address
+data "axual_user" "my-user" {
+  email = "kaspar.metsa@axual.com"
+}
 
-resource "axual_user" "tenant_admin" { # This is a test user. Please use user data source or `terraform import axual_user.tenant_admin <USER UID FROM UI>` to get a reference to a real user.
-  first_name    = "Tenant"
-  last_name     = "Admin"
-  email_address = "kubernetes@axual.com"
-  roles         = [
-    { name = "TENANT_ADMIN" },
-    { name = "APPLICATION_AUTHOR" },
-    { name = "ENVIRONMENT_AUTHOR" },
-    { name = "STREAM_AUTHOR" },
-    { name = "SCHEMA_AUTHOR" },
-  ]
+# Replace with the name of your instance
+data "axual_instance" "testInstance"{
+  name = "Dev Test Acceptance"
 }
 
 resource "axual_group" "tenant_admin_group" {
  name          = "Tenant Admin Group"
  members       = [
-   axual_user.tenant_admin.id,
+   data.axual_user.my-user.id,
  ]
 }
 
