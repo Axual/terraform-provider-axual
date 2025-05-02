@@ -36,7 +36,7 @@ func (d *schemaVersionDataSource) Metadata(ctx context.Context, req datasource.M
 
 func (d *schemaVersionDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Schema version resource. Read more: https://docs.axual.io/axual/2024.4/self-service/schema-management.html",
+		MarkdownDescription: "Schema version resource. Read more: https://docs.axual.io/axual/2025.1/self-service/schema-management.html",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{

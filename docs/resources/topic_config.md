@@ -1,6 +1,6 @@
 # axual_topic_config (Resource)
 
-Topic Config resource. Once the Topic has been created, the next step to actually configure the topic for any environment is to configure the topic. Read more: https://docs.axual.io/axual/2024.4/self-service/topic-management.html#configuring-a-topic-for-an-environment
+Topic Config resource. Once the Topic has been created, the next step to actually configure the topic for any environment is to configure the topic. Read more: https://docs.axual.io/axual/2025.1/self-service/topic-management.html#configuring-a-topic-for-an-environment
 
 ## Required Roles
 - STREAM_ADMIN or be part of the group owning the Topic
@@ -11,14 +11,14 @@ Topic Config resource. Once the Topic has been created, the next step to actuall
 ### Required
 
 - `environment` (String) The environment this topic configuration is associated with
-- `partitions` (Number) The number of partitions define how many consumer instances can be started in parallel on this topic. Read more: https://docs.axual.io/axual/2024.4/self-service/topic-management.html#partitions-number
-- `retention_time` (Number) Determine how long the messages should be available on a topic. There should be an agreed value most likely discussed in Intake session with the team supporting Axual Platform. In most cases, it is 7 days. Minimum value is 1000 (ms). Read more: https://docs.axual.io/axual/2024.4/self-service/topic-management.html#retention-time
+- `partitions` (Number) The number of partitions define how many consumer instances can be started in parallel on this topic. Read more: https://docs.axual.io/axual/2025.1/self-service/topic-management.html#partitions-number
+- `retention_time` (Number) Determine how long the messages should be available on a topic. There should be an agreed value most likely discussed in Intake session with the team supporting Axual Platform. In most cases, it is 7 days. Minimum value is 1000 (ms). Read more: https://docs.axual.io/axual/2025.1/self-service/topic-management.html#retention-time
 - `topic` (String) The Topic this topic configuration is associated with
 
 ### Optional
 
 - `key_schema_version` (String) The schema version this topic config supports for the key.
-- `properties` (Map of String) You can define Kafka properties for your topic here. All options are: `segment.ms`, `retention.bytes`, `min.compaction.lag.ms`, `max.compaction.lag.ms`, `message.timestamp.difference.max.ms`, `message.timestamp.type` Read more: https://docs.axual.io/axual/2024.4/self-service/topic-management.html#configuring-a-topic-for-an-environment
+- `properties` (Map of String) You can define Kafka properties for your topic here. All options are: `segment.ms`, `retention.bytes`, `min.compaction.lag.ms`, `max.compaction.lag.ms`, `message.timestamp.difference.max.ms`, `message.timestamp.type` Read more: https://docs.axual.io/axual/2025.1/self-service/topic-management.html#configuring-a-topic-for-an-environment
 - `value_schema_version` (String) The schema version this topic config supports for the value.
 
 ### Read-Only
