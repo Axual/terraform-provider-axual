@@ -178,6 +178,10 @@ Run **terraform apply** and confirm the plan – Terraform will:
 - Provision a topic with ACL-s in that environment.
 - Grant & approve produce rights for the application on the topic.
 
+### Limitations
+- No support to deploy Connect applications in the Trial Environment. Please contact Axual to try out Axual Connect.
+- No support for schemas in the Trial environment. Please contact Axual to try out AVRO/JSON/Protobuf schemas
+
 ## What’s next?
 
 - Open **/overview** in the Axual Self-Service UI → you should visually see the application producing to logs.
