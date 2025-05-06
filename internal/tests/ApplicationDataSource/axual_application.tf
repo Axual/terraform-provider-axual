@@ -14,6 +14,15 @@ data "axual_application" "tf-test-app-imported" {
 }
 
 data "axual_application" "tf-test-app-imported-by-short-name" {
-  name = "test"
+  short_name = axual_application.tf-test-app.short_name
+}
+
+data "axual_application" "tf-test-app-imported-by-short-name-empty" {
+  name = axual_application.tf-test-app.name
+  short_name = ""
+}
+
+data "axual_application" "tf-test-app-imported-by-short-name-and-invalid-name" {
+  name = "invalidName"
   short_name = axual_application.tf-test-app.short_name
 }

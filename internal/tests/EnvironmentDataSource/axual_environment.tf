@@ -14,6 +14,15 @@ data "axual_environment" "tf-test-env-imported" {
 }
 
 data "axual_environment" "tf-test-env-imported-short-name" {
-  name = "dev"
+  short_name = axual_environment.tf-test-env.short_name
+}
+
+data "axual_environment" "tf-test-env-imported-short-name-empty" {
+  name = axual_environment.tf-test-env.name
+  short_name = ""
+}
+
+data "axual_environment" "tf-test-env-imported-short-name-and-invalid-name" {
+  name = "invalidName"
   short_name = axual_environment.tf-test-env.short_name
 }

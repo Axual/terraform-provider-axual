@@ -49,7 +49,8 @@ func (d *instanceDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Instance's name. Must be 3-50 characters long and can contain letters, numbers, dots, dashes, and underscores, but cannot start with special characters.",
-				Required:            true,
+				Optional:            true,
+				Computed:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(3, 50),
 					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 ._-]*$`), "can only contain letters, numbers, dots, spaces, dashes and underscores, but cannot begin with an underscore, dot, space or dash"),
