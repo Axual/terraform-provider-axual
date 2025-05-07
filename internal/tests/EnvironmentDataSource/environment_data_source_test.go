@@ -95,3 +95,54 @@ func TestEnvironmentDataSourceGetByShortNameAndInvalidName(t *testing.T) {
 		},
 	})
 }
+
+func TestEnvironmentDataSourceWithoutNameAndShortName(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+		Steps: []resource.TestStep{
+			{
+				Config:      GetProvider() + GetFile("axual_environment_without_name_shortName.tf"),
+				ExpectError: regexp.MustCompile("Either `name` or `short_name` must be specified"),
+			},
+		},
+	})
+}
+
+func TestEnvironmentDataSourceNameValidation(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+		Steps: []resource.TestStep{
+			{
+				Config:      GetProvider() + GetFile("axual_environment_name_empty_without_shortname.tf"),
+				ExpectError: regexp.MustCompile("Either `name` or `short_name` must be specified"),
+			},
+			{
+				Config:      GetProvider() + GetFile("axual_environment_name_invalid_length.tf"),
+				ExpectError: regexp.MustCompile("Name must be between 3 and 50 characters"),
+			},
+			{
+				Config:      GetProvider() + GetFile("axual_environment_name_invalid_pattern.tf"),
+				ExpectError: regexp.MustCompile("Invalid Name Format"), //Matching the summary instead of details because the message is too long
+			},
+		},
+	})
+}
+
+func TestEnvironmentDataSourceShortNameValidation(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+		Steps: []resource.TestStep{
+			{
+				Config:      GetProvider() + GetFile("axual_environment_shortname_empty_without_name.tf"),
+				ExpectError: regexp.MustCompile("Either `name` or `short_name` must be specified"),
+			},
+			{
+				Config:      GetProvider() + GetFile("axual_environment_shortname_invalid_pattern.tf"),
+				ExpectError: regexp.MustCompile("Invalid ShortName Format"), //Matching the summary instead of details because the message is too long
+			},
+		},
+	})
+}

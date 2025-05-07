@@ -2,6 +2,7 @@ package ApplicationDataSource
 
 import (
 	. "axual.com/terraform-provider-axual/internal/tests"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -113,6 +114,61 @@ func TestApplicationDataSourceByShortNameAndInvalidName(t *testing.T) {
 					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name-and-invalid-name", "visibility", "Public"),
 					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name-and-invalid-name", "description", "Axual's TF Test Application"),
 				),
+			},
+		},
+	})
+}
+
+func TestApplicationDataSourceWithoutNameAndShortName(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+		Steps: []resource.TestStep{
+			{
+				Config:      GetProvider() + GetFile("axual_application_without_name_shortName.tf"),
+				ExpectError: regexp.MustCompile("Either `name` or `short_name` must be specified"),
+			},
+		},
+	})
+}
+
+func TestApplicationDataSourceNameValidation(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+		Steps: []resource.TestStep{
+			{
+				Config:      GetProvider() + GetFile("axual_application_name_empty_without_shortname.tf"),
+				ExpectError: regexp.MustCompile("Either `name` or `short_name` must be specified"),
+			},
+			{
+				Config:      GetProvider() + GetFile("axual_application_name_invalid_length.tf"),
+				ExpectError: regexp.MustCompile("Name must be between 3 and 100 characters"),
+			},
+			{
+				Config:      GetProvider() + GetFile("axual_application_name_invalid_pattern.tf"),
+				ExpectError: regexp.MustCompile("Invalid Name Format"), //Matching the summary instead of details because the message is too long
+			},
+		},
+	})
+}
+
+func TestApplicationDataSourceShortNameValidation(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+		Steps: []resource.TestStep{
+			{
+				Config:      GetProvider() + GetFile("axual_application_shortname_empty_without_name.tf"),
+				ExpectError: regexp.MustCompile("Either `name` or `short_name` must be specified"),
+			},
+			{
+				Config:      GetProvider() + GetFile("axual_application_shortname_invalid_length.tf"),
+				ExpectError: regexp.MustCompile("ShortName must be between 3 and 60 characters"),
+			},
+			{
+				Config:      GetProvider() + GetFile("axual_application_shortname_invalid_pattern.tf"),
+				ExpectError: regexp.MustCompile("Invalid ShortName Format"), //Matching the summary instead of details because the message is too long
 			},
 		},
 	})

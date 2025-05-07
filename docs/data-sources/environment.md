@@ -1,10 +1,17 @@
 ---
 page_title: "Data Source: axual_environment"
 ---
-Use this data source to get an axual environment in Self-Service, you can reference it by name.
+Use this data source to get an axual environment in Self-Service, you can reference it by short_name or name. Though, `name` can be provided, it is recommended to use `short_name` for more uniqueness.
+Either name or short_name must be provided. When both name and shot_name are provided the attributes are exported based on short_name.
+
 
 ## Example Usage
 
+```hcl
+data "axual_environment" "frontend_developers" {
+ short_name = "FE dev"
+}
+```
 
 ```hcl
 data "axual_environment" "frontend_developers" {
@@ -14,7 +21,8 @@ data "axual_environment" "frontend_developers" {
 
 ## Argument Reference
 
-- name - (Required) The environment name.
+- name - (Optional) The environment name.
+- short_name - (Optional) The environment shortName.
 
 ## Attribute Reference
 

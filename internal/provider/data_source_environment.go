@@ -4,15 +4,12 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"regexp"
-
-	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces
@@ -57,10 +54,6 @@ func (d *environmentDataSource) Schema(ctx context.Context, req datasource.Schem
 				MarkdownDescription: "A suitable name identifying this environment. Alphabetical characters, digits and the following characters are allowed: `- `,` _` ,` .`, but not as the first character.)",
 				Optional:            true,
 				Computed:            true,
-				Validators: []validator.String{
-					stringvalidator.LengthBetween(3, 50),
-					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`), "can only contain letters, numbers, dots, dashes and underscores and cannot begin with an underscore, dot or dash"),
-				},
 			},
 			"short_name": schema.StringAttribute{
 				MarkdownDescription: "A short name that will uniquely identify this environment.",
@@ -123,6 +116,20 @@ func (d *environmentDataSource) Read(ctx context.Context, req datasource.ReadReq
 		return
 	}
 
+	validateIfNameOrShortNamePresent(data.Name.ValueString(), data.ShortName.ValueString(), resp)
+
+	if data.ShortName.ValueString() != "" {
+		validateEnvironmentShortName(data.ShortName.ValueString(), resp)
+	}
+
+	if data.Name.ValueString() != "" {
+		validateEnvironmentName(data.Name.ValueString(), resp)
+	}
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	var environmentResponse *webclient.EnvironmentsResponse
 	var err error
 
@@ -159,6 +166,33 @@ func (d *environmentDataSource) Read(ctx context.Context, req datasource.ReadReq
 
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
+}
+
+func validateEnvironmentShortName(shortName string, resp *datasource.ReadResponse) {
+	if len(shortName) < 1 || len(shortName) > 20 {
+		resp.Diagnostics.AddError("Invalid ShortName Length", "ShortName must be between 1 and 20 characters")
+		return
+	}
+
+	match := regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_]*$`).MatchString(shortName)
+	if !match {
+		resp.Diagnostics.AddError("Invalid ShortName Format", "ShortName must start with a letter or number and only contain letters, digits and underscores")
+		return
+	}
+}
+
+func validateEnvironmentName(name string, resp *datasource.ReadResponse) {
+	if len(name) < 3 || len(name) > 50 {
+		resp.Diagnostics.AddError("Invalid Name Length", "Name must be between 3 and 50 characters")
+		return
+	}
+
+	match := regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`).MatchString(name)
+	if !match {
+		resp.Diagnostics.AddError("Invalid Name Format", "Name can only contain letters, numbers, dots, dashes and underscores and cannot begin with an underscore, dot or dash")
+		return
+	}
+
 }
 
 func mapEnvironmentDataSourceResponseToData(ctx context.Context, data *environmentDataSourceData, environment *webclient.EnvironmentResponse) {
