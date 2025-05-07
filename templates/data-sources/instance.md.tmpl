@@ -1,10 +1,16 @@
 ---
 page_title: "Data Source: axual_instance"
 ---
-Use this data source to get an axual instance in Self-Service, you can reference it by name.
+Use this data source to get an axual instance in Self-Service, you can reference it by short_name or name. Though, `name` can be provided, it is recommended to use `short_name` for more uniqueness.
+Either name or short_name must be provided. When both name and shot_name are provided the attributes are exported based on short_name.
 
 ## Example Usage
 
+```hcl
+data "axual_instance" "testInstance" {
+ short_name = "test"
+}
+```
 
 ```hcl
 data "axual_instance" "testInstance" {
@@ -14,7 +20,8 @@ data "axual_instance" "testInstance" {
 
 ## Argument Reference
 
-- name - (Required) The instance name.
+- name - (Optional) The instance name.
+- short_name - (Optional) The instance shortName.
 
 ## Attribute Reference
 

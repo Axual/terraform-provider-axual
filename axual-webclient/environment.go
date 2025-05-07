@@ -68,3 +68,12 @@ func (c *Client) GetEnvironmentByName(name string) (*EnvironmentsResponse, error
 	}
 	return &o, nil
 }
+
+func (c *Client) GetEnvironmentByShortName(name string) (*EnvironmentsResponse, error) {
+	o := EnvironmentsResponse{}
+	err := c.RequestAndMap("GET", fmt.Sprintf("%s/environments/search/findByShortName?shortName=%s", c.ApiURL, url.QueryEscape(name)), nil, nil, &o)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
+}

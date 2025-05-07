@@ -4,13 +4,11 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
-	"regexp"
-
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"net/url"
+	"regexp"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces
@@ -48,14 +46,12 @@ func (d *instanceDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Instance's name. Must be 3-50 characters long and can contain letters, numbers, dots, dashes, and underscores, but cannot start with special characters.",
-				Required:            true,
-				Validators: []validator.String{
-					stringvalidator.LengthBetween(3, 50),
-					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 ._-]*$`), "can only contain letters, numbers, dots, spaces, dashes and underscores, but cannot begin with an underscore, dot, space or dash"),
-				},
+				Optional:            true,
+				Computed:            true,
 			},
 			"short_name": schema.StringAttribute{
 				MarkdownDescription: "Instance's short name",
+				Optional:            true,
 				Computed:            true,
 			},
 			"description": schema.StringAttribute{
@@ -76,15 +72,42 @@ func (d *instanceDataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 
-	instanceByName, err := d.provider.client.GetInstanceByName(data.Name.ValueString())
+	attributes := url.Values{}
+
+	validateIfNameOrShortNamePresent(data.Name.ValueString(), data.ShortName.ValueString(), resp)
+
+	if data.ShortName.ValueString() != "" {
+		validateInstanceShortName(data.ShortName.ValueString(), resp)
+	}
+
+	if data.Name.ValueString() != "" {
+		validateInstanceName(data.Name.ValueString(), resp)
+	}
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if data.ShortName.ValueString() == "" {
+		attributes.Set("name", data.Name.ValueString())
+	} else {
+		attributes.Set("short_name", data.ShortName.ValueString())
+	}
+
+	instanceResponse, err := d.provider.client.GetInstancesByAttributes(attributes)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read instance by name, got error: %s", err))
 		return
 	}
 
-	instance, err2 := d.provider.client.GetInstance(instanceByName.Uid)
+	if len(instanceResponse.Embedded.Instances) == 0 {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Instance not found"))
+		return
+	}
+
+	instance, err2 := d.provider.client.GetInstance(instanceResponse.Embedded.Instances[0].Uid)
 	if err2 != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read instance with ID '%s', got error: %s", instanceByName.Uid, err2))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read instance with ID '%s', got error: %s", instanceResponse.Embedded.Instances[0].Uid, err2))
 		return
 	}
 
@@ -92,6 +115,33 @@ func (d *instanceDataSource) Read(ctx context.Context, req datasource.ReadReques
 
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
+}
+
+func validateInstanceShortName(shortName string, resp *datasource.ReadResponse) {
+	if len(shortName) < 1 || len(shortName) > 12 {
+		resp.Diagnostics.AddError("Invalid ShortName Length", "ShortName must be between 1 and 12 characters")
+		return
+	}
+
+	match := regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]*$`).MatchString(shortName)
+	if !match {
+		resp.Diagnostics.AddError("Invalid ShortName Format", "ShortName must contain letter or number but cannot begin with a number")
+		return
+	}
+}
+
+func validateInstanceName(name string, resp *datasource.ReadResponse) {
+	if len(name) < 3 || len(name) > 50 {
+		resp.Diagnostics.AddError("Invalid Name Length", "Name must be between 3 and 50 characters")
+		return
+	}
+
+	match := regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 ._-]*$`).MatchString(name)
+	if !match {
+		resp.Diagnostics.AddError("Invalid Name Format", "Name must contain letters, numbers, dots, spaces, dashes and underscores, but cannot begin with an underscore, dot, space or dash")
+		return
+	}
+
 }
 
 func mapInstanceDataSourceResponseToData(ctx context.Context, data *instanceDataSourceData, instance *webclient.InstanceResponse) {

@@ -2,6 +2,7 @@ package ApplicationDataSource
 
 import (
 	. "axual.com/terraform-provider-axual/internal/tests"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -29,6 +30,28 @@ func TestApplicationDataSource(t *testing.T) {
 	})
 }
 
+func TestApplicationDataSourceByShortName(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: GetProvider() + GetFile("axual_application.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name", "name", "tf-test-app"),
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name", "application_type", "Custom"),
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name", "short_name", "tf_test_app_short"),
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name", "application_id", "tf.test.app"),
+					resource.TestCheckResourceAttrPair("data.axual_application.tf-test-app-imported-by-short-name", "owners", "data.axual_group.test_group", "id"),
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name", "type", "Java"),
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name", "visibility", "Public"),
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name", "description", "Axual's TF Test Application"),
+				),
+			},
+		},
+	})
+}
+
 func TestConnectorApplicationDataSource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
@@ -47,6 +70,105 @@ func TestConnectorApplicationDataSource(t *testing.T) {
 					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported", "visibility", "Public"),
 					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported", "description", "Axual's TF Test Application"),
 				),
+			},
+		},
+	})
+}
+
+func TestApplicationDataSourceByShortNameEmpty(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: GetProvider() + GetFile("axual_application.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name-empty", "name", "tf-test-app"),
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name-empty", "application_type", "Custom"),
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name-empty", "short_name", "tf_test_app_short"),
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name-empty", "application_id", "tf.test.app"),
+					resource.TestCheckResourceAttrPair("data.axual_application.tf-test-app-imported-by-short-name-empty", "owners", "data.axual_group.test_group", "id"),
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name-empty", "type", "Java"),
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name-empty", "visibility", "Public"),
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name-empty", "description", "Axual's TF Test Application"),
+				),
+			},
+		},
+	})
+}
+
+func TestApplicationDataSourceByShortNameAndInvalidName(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: GetProvider() + GetFile("axual_application.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name-and-invalid-name", "name", "tf-test-app"),
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name-and-invalid-name", "application_type", "Custom"),
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name-and-invalid-name", "short_name", "tf_test_app_short"),
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name-and-invalid-name", "application_id", "tf.test.app"),
+					resource.TestCheckResourceAttrPair("data.axual_application.tf-test-app-imported-by-short-name-and-invalid-name", "owners", "data.axual_group.test_group", "id"),
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name-and-invalid-name", "type", "Java"),
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name-and-invalid-name", "visibility", "Public"),
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name-and-invalid-name", "description", "Axual's TF Test Application"),
+				),
+			},
+		},
+	})
+}
+
+func TestApplicationDataSourceWithoutNameAndShortName(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+		Steps: []resource.TestStep{
+			{
+				Config:      GetProvider() + GetFile("axual_application_without_name_shortName.tf"),
+				ExpectError: regexp.MustCompile("Either `name` or `short_name` must be specified"),
+			},
+		},
+	})
+}
+
+func TestApplicationDataSourceNameValidation(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+		Steps: []resource.TestStep{
+			{
+				Config:      GetProvider() + GetFile("axual_application_name_empty_without_shortname.tf"),
+				ExpectError: regexp.MustCompile("Either `name` or `short_name` must be specified"),
+			},
+			{
+				Config:      GetProvider() + GetFile("axual_application_name_invalid_length.tf"),
+				ExpectError: regexp.MustCompile("Name must be between 3 and 100 characters"),
+			},
+			{
+				Config:      GetProvider() + GetFile("axual_application_name_invalid_pattern.tf"),
+				ExpectError: regexp.MustCompile("Invalid Name Format"), //Matching the summary instead of details because the message is too long
+			},
+		},
+	})
+}
+
+func TestApplicationDataSourceShortNameValidation(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+		Steps: []resource.TestStep{
+			{
+				Config:      GetProvider() + GetFile("axual_application_shortname_empty_without_name.tf"),
+				ExpectError: regexp.MustCompile("Either `name` or `short_name` must be specified"),
+			},
+			{
+				Config:      GetProvider() + GetFile("axual_application_shortname_invalid_length.tf"),
+				ExpectError: regexp.MustCompile("ShortName must be between 3 and 60 characters"),
+			},
+			{
+				Config:      GetProvider() + GetFile("axual_application_shortname_invalid_pattern.tf"),
+				ExpectError: regexp.MustCompile("Invalid ShortName Format"), //Matching the summary instead of details because the message is too long
 			},
 		},
 	})
