@@ -40,6 +40,11 @@ func TestInstanceDataSource(t *testing.T) {
 				ExpectError: regexp.MustCompile("Instance not found"),
 			},
 			{
+				// Invalid name attribute
+				Config:      GetProvider() + GetFile("axual_instance_invalid_name.tf"),
+				ExpectError: regexp.MustCompile("Attribute name string length must be between 3 and 50, got: 2"),
+			},
+			{
 				// Instance without name or shortNAme
 				Config:      GetProvider() + GetFile("axual_instance_without_name_shortName.tf"),
 				ExpectError: regexp.MustCompile("Missing Attribute Configuration"),
