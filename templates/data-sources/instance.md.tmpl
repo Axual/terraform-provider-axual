@@ -1,8 +1,10 @@
 ---
 page_title: "Data Source: axual_instance"
 ---
-Use this data source to get an axual instance in Self-Service, you can reference it by short_name or name. Though, `name` can be provided, it is recommended to use `short_name` for more uniqueness.
-Either name or short_name must be provided. When both name and shot_name are provided the attributes are exported based on short_name.
+This data source allows you to retrieve an existing instance from Self-Service by referencing either its `name` or `short_name`.
+While both options are available, it is recommended to use `short_name` for better uniqueness and consistency.
+You must provide at least one of `name` or `short_name`. If both are specified, the instance data will be resolved and exported based on the `short_name`.
+
 
 ## Example Usage
 

@@ -35,7 +35,7 @@ Environments are used typically to support the application lifecycle, as it is m
 
 ```hcl
 data "axual_instance" "testInstance"{
-  name = "testInstance"
+  short_name = "testInstance"
 }
 ```
 

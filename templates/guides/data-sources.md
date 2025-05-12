@@ -138,7 +138,7 @@ resource "axual_application_access_grant_approval" "logs_producer_produce_to_log
 
 ```hcl
 data "axual_instance" "test_instance" {
- name = "Test Instance"
+ short_name = "Test"
 }
 ```
 Now we can use this data source when creating a resource:

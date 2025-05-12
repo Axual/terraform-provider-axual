@@ -4,8 +4,12 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework-validators/datasourcevalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"net/url"
 	"regexp"
@@ -62,11 +66,19 @@ func (d *applicationDataSource) Schema(ctx context.Context, req datasource.Schem
 				MarkdownDescription: "The name of the Application. Must be unique. Only the special characters _ , - and . are valid as part of an application name",
 				Optional:            true,
 				Computed:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(3, 100),
+					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`), "can only contain letters, numbers, dots, dashes and underscores and cannot begin with an underscore, dot or dash"),
+				},
 			},
 			"short_name": schema.StringAttribute{
 				MarkdownDescription: "Application short name. Unique human-readable name for the application. Only Alphanumeric and underscore allowed. Must be unique",
 				Optional:            true,
 				Computed:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(3, 60),
+					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_]*$`), "can only contain letters, numbers and underscores and cannot begin with an underscore"),
+				},
 			},
 			"owners": schema.StringAttribute{
 				MarkdownDescription: "Application Owner",
@@ -92,6 +104,22 @@ func (d *applicationDataSource) Schema(ctx context.Context, req datasource.Schem
 	}
 }
 
+var (
+	_ datasource.DataSource                     = &applicationDataSource{}
+	_ datasource.DataSourceWithConfigValidators = &applicationDataSource{}
+)
+
+func (d *applicationDataSource) ConfigValidators(
+	ctx context.Context,
+) []datasource.ConfigValidator {
+	return []datasource.ConfigValidator{
+		datasourcevalidator.AtLeastOneOf( // fail if both are null/unknown
+			path.MatchRoot("name"),
+			path.MatchRoot("short_name"),
+		),
+	}
+}
+
 func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var data applicationDataSourceData
 
@@ -102,20 +130,6 @@ func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 		return
 	}
 	attributes := url.Values{}
-
-	validateIfNameOrShortNamePresent(data.Name.ValueString(), data.ShortName.ValueString(), resp)
-
-	if data.ShortName.ValueString() != "" {
-		validateApplicationShortName(data.ShortName.ValueString(), resp)
-	}
-
-	if data.Name.ValueString() != "" {
-		validateApplicationName(data.Name.ValueString(), resp)
-	}
-
-	if resp.Diagnostics.HasError() {
-		return
-	}
 
 	if data.ShortName.ValueString() == "" {
 		attributes.Set("name", data.Name.ValueString())
@@ -142,32 +156,6 @@ func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
-}
-
-func validateApplicationName(name string, resp *datasource.ReadResponse) {
-	if len(name) < 3 || len(name) > 100 {
-		resp.Diagnostics.AddError("Invalid Name Length", "Name must be between 3 and 100 characters")
-		return
-	}
-
-	match := regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`).MatchString(name)
-	if !match {
-		resp.Diagnostics.AddError("Invalid Name Format", "Name must start with a letter or number and only contain letters, digits, dots, dashes, and underscores")
-		return
-	}
-}
-
-func validateApplicationShortName(shortName string, resp *datasource.ReadResponse) {
-	if len(shortName) < 3 || len(shortName) > 60 {
-		resp.Diagnostics.AddError("Invalid ShortName Length", "ShortName must be between 3 and 60 characters")
-		return
-	}
-
-	match := regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_]*$`).MatchString(shortName)
-	if !match {
-		resp.Diagnostics.AddError("Invalid ShortName Format", "ShortName must start with a letter or number and only contain letters, digits and underscores")
-		return
-	}
 }
 
 func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, app *webclient.ApplicationResponse) {

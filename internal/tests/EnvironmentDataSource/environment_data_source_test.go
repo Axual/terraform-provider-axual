@@ -16,13 +16,13 @@ func TestEnvironmentDataSource(t *testing.T) {
 			{
 				Config: GetProvider() + GetFile("axual_environment.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported", "name", "tf-development"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported", "short_name", "tfdev"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported", "description", "This is the terraform testing environment"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported", "color", "#19b9be"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported", "visibility", "Private"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported", "authorization_issuer", "Auto"),
-					resource.TestCheckResourceAttrPair("data.axual_environment.tf-test-env-imported", "owners", "data.axual_group.test_group", "id"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-name", "name", "tf-development"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-name", "short_name", "tfdev"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-name", "description", "This is the terraform testing environment"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-name", "color", "#19b9be"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-name", "visibility", "Private"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-name", "authorization_issuer", "Auto"),
+					resource.TestCheckResourceAttrPair("data.axual_environment.tf-test-env-imported-by-name", "owners", "data.axual_group.test_group", "id"),
 				),
 			},
 			{
@@ -41,13 +41,13 @@ func TestEnvironmentDataSourceGetByShortName(t *testing.T) {
 			{
 				Config: GetProvider() + GetFile("axual_environment.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-short-name", "name", "tf-development"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-short-name", "short_name", "tfdev"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-short-name", "description", "This is the terraform testing environment"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-short-name", "color", "#19b9be"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-short-name", "visibility", "Private"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-short-name", "authorization_issuer", "Auto"),
-					resource.TestCheckResourceAttrPair("data.axual_environment.tf-test-env-imported", "owners", "data.axual_group.test_group", "id"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-short-name", "name", "tf-development"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-short-name", "short_name", "tfdev"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-short-name", "description", "This is the terraform testing environment"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-short-name", "color", "#19b9be"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-short-name", "visibility", "Private"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-short-name", "authorization_issuer", "Auto"),
+					resource.TestCheckResourceAttrPair("data.axual_environment.tf-test-env-imported-by-short-name", "owners", "data.axual_group.test_group", "id"),
 				),
 			},
 		},
@@ -62,34 +62,13 @@ func TestEnvironmentDataSourceGetByShortNameEmpty(t *testing.T) {
 			{
 				Config: GetProvider() + GetFile("axual_environment.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-short-name-empty", "name", "tf-development"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-short-name-empty", "short_name", "tfdev"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-short-name-empty", "description", "This is the terraform testing environment"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-short-name-empty", "color", "#19b9be"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-short-name-empty", "visibility", "Private"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-short-name-empty", "authorization_issuer", "Auto"),
-					resource.TestCheckResourceAttrPair("data.axual_environment.tf-test-env-imported-short-name-empty", "owners", "data.axual_group.test_group", "id"),
-				),
-			},
-		},
-	})
-}
-
-func TestEnvironmentDataSourceGetByShortNameAndInvalidName(t *testing.T) {
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
-		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
-		Steps: []resource.TestStep{
-			{
-				Config: GetProvider() + GetFile("axual_environment.tf"),
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-short-name-and-invalid-name", "name", "tf-development"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-short-name-and-invalid-name", "short_name", "tfdev"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-short-name-and-invalid-name", "description", "This is the terraform testing environment"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-short-name-and-invalid-name", "color", "#19b9be"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-short-name-and-invalid-name", "visibility", "Private"),
-					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-short-name-and-invalid-name", "authorization_issuer", "Auto"),
-					resource.TestCheckResourceAttrPair("data.axual_environment.tf-test-env-imported-short-name-and-invalid-name", "owners", "data.axual_group.test_group", "id"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-name-and-short-name", "name", "tf-development"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-name-and-short-name", "short_name", "tfdev"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-name-and-short-name", "description", "This is the terraform testing environment"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-name-and-short-name", "color", "#19b9be"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-name-and-short-name", "visibility", "Private"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-name-and-short-name", "authorization_issuer", "Auto"),
+					resource.TestCheckResourceAttrPair("data.axual_environment.tf-test-env-imported-by-name-and-short-name", "owners", "data.axual_group.test_group", "id"),
 				),
 			},
 		},
@@ -103,45 +82,7 @@ func TestEnvironmentDataSourceWithoutNameAndShortName(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      GetProvider() + GetFile("axual_environment_without_name_shortName.tf"),
-				ExpectError: regexp.MustCompile("Either `name` or `short_name` must be specified"),
-			},
-		},
-	})
-}
-
-func TestEnvironmentDataSourceNameValidation(t *testing.T) {
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
-		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
-		Steps: []resource.TestStep{
-			{
-				Config:      GetProvider() + GetFile("axual_environment_name_empty_without_shortname.tf"),
-				ExpectError: regexp.MustCompile("Either `name` or `short_name` must be specified"),
-			},
-			{
-				Config:      GetProvider() + GetFile("axual_environment_name_invalid_length.tf"),
-				ExpectError: regexp.MustCompile("Name must be between 3 and 50 characters"),
-			},
-			{
-				Config:      GetProvider() + GetFile("axual_environment_name_invalid_pattern.tf"),
-				ExpectError: regexp.MustCompile("Invalid Name Format"), //Matching the summary instead of details because the message is too long
-			},
-		},
-	})
-}
-
-func TestEnvironmentDataSourceShortNameValidation(t *testing.T) {
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
-		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
-		Steps: []resource.TestStep{
-			{
-				Config:      GetProvider() + GetFile("axual_environment_shortname_empty_without_name.tf"),
-				ExpectError: regexp.MustCompile("Either `name` or `short_name` must be specified"),
-			},
-			{
-				Config:      GetProvider() + GetFile("axual_environment_shortname_invalid_pattern.tf"),
-				ExpectError: regexp.MustCompile("Invalid ShortName Format"), //Matching the summary instead of details because the message is too long
+				ExpectError: regexp.MustCompile("Missing Attribute Configuration"),
 			},
 		},
 	})

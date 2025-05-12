@@ -120,12 +120,12 @@ func GetProvider() string {
 	data "axual_instance" "test_instance" {
 	  name = "` + config.InstanceName + `"
 	}
-	data "axual_instance" "test_instance_short_name" {
+	data "axual_instance" "test_instance_by_short_name" {
 	  short_name = "` + config.InstanceShortName + `"
 	}
-	data "axual_instance" "test_instance_short_name_null_or_empty" {
+	data "axual_instance" "test_instance_by_name_and_short_name" {
 	  name = "` + config.InstanceName + `"
-	  short_name = ""
+	  short_name = "` + config.InstanceShortName + `"
 	}
 	data "axual_group" "test_group" {
 	  name = "` + config.GroupName + `"

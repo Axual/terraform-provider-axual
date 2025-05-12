@@ -50,7 +50,7 @@ resource "axual_group" "application-author-team" {
 }
 
 data "axual_instance" "testInstance"{
-  name = "Dev Test Acceptance"
+  short_name = "dta"
 }
 
 resource "axual_environment" "development" {
