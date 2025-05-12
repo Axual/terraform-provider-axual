@@ -63,7 +63,7 @@ func (d *instanceDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 				Computed:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(1, 12),
-					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_]*$`), "can only contain letters, numbers and underscores, but cannot begin with an underscore"),
+					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]*$`), "can only contain letters and numbers, but cannot begin with a number"),
 				},
 			},
 			"description": schema.StringAttribute{
@@ -102,10 +102,6 @@ func (d *instanceDataSource) Read(ctx context.Context, req datasource.ReadReques
 
 	attributes := url.Values{}
 
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	if data.ShortName.ValueString() == "" {
 		attributes.Set("name", data.Name.ValueString())
 	} else {
@@ -123,19 +119,16 @@ func (d *instanceDataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 
-	instance, err2 := d.provider.client.GetInstance(instanceResponse.Embedded.Instances[0].Uid)
-	if err2 != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read instance with ID '%s', got error: %s", instanceResponse.Embedded.Instances[0].Uid, err2))
-		return
-	}
-
-	mapInstanceDataSourceResponseToData(ctx, &data, instance)
+	mapInstanceDataSourceResponseToData(ctx, &data, instanceResponse)
 
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 }
 
-func mapInstanceDataSourceResponseToData(ctx context.Context, data *instanceDataSourceData, instance *webclient.InstanceResponse) {
+func mapInstanceDataSourceResponseToData(ctx context.Context, data *instanceDataSourceData, instanceResponseAttributes *webclient.InstancesResponseByAttributes) {
+
+	instance := instanceResponseAttributes.Embedded.Instances[0]
+
 	data.Id = types.StringValue(instance.Uid)
 	data.Name = types.StringValue(instance.Name)
 	data.ShortName = types.StringValue(instance.ShortName)

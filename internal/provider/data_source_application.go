@@ -146,19 +146,17 @@ func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 		resp.Diagnostics.AddError("Client Error", "Application not found")
 		return
 	}
-	app, err := d.provider.client.GetApplication(appResponse.Embedded.Applications[0].Uid)
-	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application, got error: %s", err))
-		return
-	}
 
-	mapApplicationDataSourceResponseToData(&data, app)
+	mapApplicationDataSourceResponseToData(&data, appResponse)
 
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 }
 
-func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, app *webclient.ApplicationResponse) {
+func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, appResponseByAttributes *webclient.ApplicationsByAttributesResponse) {
+
+	app := appResponseByAttributes.Embedded.Applications[0]
+
 	data.Id = types.StringValue(app.Uid)
 	data.ApplicationType = types.StringValue(app.ApplicationType)
 	data.ApplicationId = types.StringValue(app.ApplicationId)
