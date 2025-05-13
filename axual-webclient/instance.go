@@ -22,3 +22,15 @@ func (c *Client) GetInstanceByName(name string) (*InstanceResponse, error) {
 	}
 	return &o, nil
 }
+
+func (c *Client) GetInstancesByAttributes(attributes url.Values) (*InstancesResponseByAttributes, error) {
+	o := InstancesResponseByAttributes{}
+
+	url := fmt.Sprintf("%s/instances/search/findByAttributes?%s", c.ApiURL, attributes.Encode())
+	fmt.Println("URL", url)
+	err := c.RequestAndMap("GET", url, nil, nil, &o)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
+}

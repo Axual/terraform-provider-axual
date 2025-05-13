@@ -1,10 +1,16 @@
 ---
 page_title: "Data Source: axual_application"
 ---
-Use this data source to get an axual application in Self-Service, you can reference it by name.
+This data source allows you to retrieve an existing application from Self-Service by referencing either its `name` or `short_name`.
+While both options are available, it is recommended to use `short_name` for better uniqueness and consistency.
+You must provide at least one of `name` or `short_name`. If both are specified, the application data will be resolved and exported based on the `short_name`.
 
 ## Example Usage
-
+```hcl
+data "axual_application" "logs_producer" {
+  short_name = "logs"
+}
+```
 
 ```hcl
 data "axual_application" "logs_producer" {
@@ -14,7 +20,8 @@ data "axual_application" "logs_producer" {
 
 ## Argument Reference
 
-- name - (Required) The application name.
+- name - (Optional) The application name.
+- short_name - (Optional) The application shortName.
 
 ## Attribute Reference
 

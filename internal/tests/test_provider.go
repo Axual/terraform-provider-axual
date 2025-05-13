@@ -18,9 +18,10 @@ type ProviderConfig struct {
 	Provider struct {
 		Version string `yaml:"version"` // Can be "local" or a version from the registry (e.g., "2.4.1")
 	} `yaml:"provider"`
-	InstanceName string `yaml:"instanceName"`
-	GroupName    string `yaml:"groupName"`
-	UserEmail    string `yaml:"userEmail"`
+	InstanceName      string `yaml:"instanceName"`
+	InstanceShortName string `yaml:"instanceShortName"`
+	GroupName         string `yaml:"groupName"`
+	UserEmail         string `yaml:"userEmail"`
 }
 
 // Function to load the configuration from a YAML file
@@ -118,6 +119,13 @@ func GetProvider() string {
 	dataBlock := `
 	data "axual_instance" "test_instance" {
 	  name = "` + config.InstanceName + `"
+	}
+	data "axual_instance" "test_instance_by_short_name" {
+	  short_name = "` + config.InstanceShortName + `"
+	}
+	data "axual_instance" "test_instance_by_name_and_short_name" {
+	  name = "` + config.InstanceName + `"
+	  short_name = "` + config.InstanceShortName + `"
 	}
 	data "axual_group" "test_group" {
 	  name = "` + config.GroupName + `"

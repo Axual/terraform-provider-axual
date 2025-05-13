@@ -92,7 +92,7 @@ resource "axual_group" "tenant_admin_group" {
 }
 
 data "axual_instance" "testInstance"{
-  name = "Dev Test Acceptance" # Replace with the name of your instance
+  short_name = "dta" # Replace with the name of your instance
 }
 
 resource "axual_environment" "development" {

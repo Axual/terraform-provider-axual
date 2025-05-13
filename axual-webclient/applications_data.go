@@ -152,6 +152,8 @@ type ApplicationsByAttributesResponse struct {
 			ModifiedAt       string `json:"modified_at"`
 			ModifiedBy       string `json:"modified_by"`
 			Uid              string `json:"uid"`
+			ApplicationId    string `json:"applicationId"`
+			ApplicationType  string `json:"applicationType"`
 			Owners           struct {
 				Name         string `json:"name"`
 				EmailAddress struct {

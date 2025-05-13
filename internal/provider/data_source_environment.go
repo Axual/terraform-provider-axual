@@ -4,15 +4,16 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework-validators/datasourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"regexp"
-
-	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces
@@ -55,15 +56,21 @@ func (d *environmentDataSource) Schema(ctx context.Context, req datasource.Schem
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
 				MarkdownDescription: "A suitable name identifying this environment. Alphabetical characters, digits and the following characters are allowed: `- `,` _` ,` .`, but not as the first character.)",
-				Required:            true,
+				Optional:            true,
+				Computed:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(3, 50),
-					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`), "can only contain letters, numbers, dots, dashes and underscores and cannot begin with an underscore, dot or dash"),
+					stringvalidator.RegexMatches(regexp.MustCompile(`(?i)^[a-z0-9._\- ]+$`), "can only contain letters, numbers, dots, dashes, underscores and spaces"),
 				},
 			},
 			"short_name": schema.StringAttribute{
 				MarkdownDescription: "A short name that will uniquely identify this environment.",
+				Optional:            true,
 				Computed:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(1, 20),
+					stringvalidator.RegexMatches(regexp.MustCompile(`(?i)^[a-z][a-z0-9]*$`), "can only contain letters, numbers and cannot begin with a number"),
+				},
 			},
 			"description": schema.StringAttribute{
 				MarkdownDescription: "A text describing the purpose of the environment.",
@@ -111,6 +118,22 @@ func (d *environmentDataSource) Schema(ctx context.Context, req datasource.Schem
 	}
 }
 
+var (
+	_ datasource.DataSource                     = &environmentDataSource{}
+	_ datasource.DataSourceWithConfigValidators = &environmentDataSource{}
+)
+
+func (d *environmentDataSource) ConfigValidators(
+	ctx context.Context,
+) []datasource.ConfigValidator {
+	return []datasource.ConfigValidator{
+		datasourcevalidator.AtLeastOneOf( // fail if both are null/unknown
+			path.MatchRoot("name"),
+			path.MatchRoot("short_name"),
+		),
+	}
+}
+
 func (d *environmentDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var data environmentDataSourceData
 
@@ -121,14 +144,25 @@ func (d *environmentDataSource) Read(ctx context.Context, req datasource.ReadReq
 		return
 	}
 
-	environmentByName, err := d.provider.client.GetEnvironmentByName(data.Name.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment by short_name, got error: %s", err))
-		return
+	var environmentResponse *webclient.EnvironmentsResponse
+	var err error
+
+	if data.ShortName.ValueString() == "" {
+		environmentResponse, err = d.provider.client.GetEnvironmentByName(data.Name.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment by name, got error: %s", err))
+			return
+		}
+	} else {
+		environmentResponse, err = d.provider.client.GetEnvironmentByShortName(data.ShortName.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment by short_name, got error: %s", err))
+			return
+		}
 	}
 
 	// Check if Embedded or environment is nil or empty
-	if len(environmentByName.Embedded.Environments) == 0 {
+	if len(environmentResponse.Embedded.Environments) == 0 {
 		resp.Diagnostics.AddError(
 			"Resource Not Found",
 			fmt.Sprintf("No Environment resources found with name '%s'.", data.Name.ValueString()),
@@ -136,7 +170,7 @@ func (d *environmentDataSource) Read(ctx context.Context, req datasource.ReadReq
 		return
 	}
 
-	environment, err := d.provider.client.GetEnvironment(environmentByName.Embedded.Environments[0].Uid)
+	environment, err := d.provider.client.GetEnvironment(environmentResponse.Embedded.Environments[0].Uid)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment, got error: %s", err))
 		return

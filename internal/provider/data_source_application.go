@@ -4,14 +4,15 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework-validators/datasourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"net/url"
 	"regexp"
-
-	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 var _ datasource.DataSource = &applicationDataSource{}
@@ -63,15 +64,21 @@ func (d *applicationDataSource) Schema(ctx context.Context, req datasource.Schem
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "The name of the Application. Must be unique. Only the special characters _ , - and . are valid as part of an application name",
-				Required:            true,
+				Optional:            true,
+				Computed:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(3, 100),
-					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`), "can only contain letters, numbers, dots, dashes and underscores and cannot begin with an underscore, dot or dash"),
+					stringvalidator.RegexMatches(regexp.MustCompile(`(?i)^[a-z0-9._\- ]+$`), "can contain letters, numbers, dots, spaces, dashes and underscores"),
 				},
 			},
 			"short_name": schema.StringAttribute{
 				MarkdownDescription: "Application short name. Unique human-readable name for the application. Only Alphanumeric and underscore allowed. Must be unique",
+				Optional:            true,
 				Computed:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(3, 60),
+					stringvalidator.RegexMatches(regexp.MustCompile(`(?i)^[a-z0-9_]+$`), "can only contain letters, numbers and underscores and cannot begin with an underscore"),
+				},
 			},
 			"owners": schema.StringAttribute{
 				MarkdownDescription: "Application Owner",
@@ -97,6 +104,22 @@ func (d *applicationDataSource) Schema(ctx context.Context, req datasource.Schem
 	}
 }
 
+var (
+	_ datasource.DataSource                     = &applicationDataSource{}
+	_ datasource.DataSourceWithConfigValidators = &applicationDataSource{}
+)
+
+func (d *applicationDataSource) ConfigValidators(
+	ctx context.Context,
+) []datasource.ConfigValidator {
+	return []datasource.ConfigValidator{
+		datasourcevalidator.AtLeastOneOf( // fail if both are null/unknown
+			path.MatchRoot("name"),
+			path.MatchRoot("short_name"),
+		),
+	}
+}
+
 func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var data applicationDataSourceData
 
@@ -107,29 +130,33 @@ func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 		return
 	}
 	attributes := url.Values{}
-	attributes.Set("name", data.Name.ValueString())
-	appByName, err := d.provider.client.GetApplicationsByAttributes(attributes)
+
+	if data.ShortName.ValueString() == "" {
+		attributes.Set("name", data.Name.ValueString())
+	} else {
+		attributes.Set("shortName", data.ShortName.ValueString())
+	}
+
+	appResponse, err := d.provider.client.GetApplicationsByAttributes(attributes)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application by name, got error: %s", err))
 		return
 	}
-	if len(appByName.Embedded.Applications) == 0 {
+	if len(appResponse.Embedded.Applications) == 0 {
 		resp.Diagnostics.AddError("Client Error", "Application not found")
 		return
 	}
-	app, err := d.provider.client.GetApplication(appByName.Embedded.Applications[0].Uid)
-	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application, got error: %s", err))
-		return
-	}
 
-	mapApplicationDataSourceResponseToData(&data, app)
+	mapApplicationDataSourceResponseToData(&data, appResponse)
 
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 }
 
-func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, app *webclient.ApplicationResponse) {
+func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, appResponseByAttributes *webclient.ApplicationsByAttributesResponse) {
+
+	app := appResponseByAttributes.Embedded.Applications[0]
+
 	data.Id = types.StringValue(app.Uid)
 	data.ApplicationType = types.StringValue(app.ApplicationType)
 	data.ApplicationId = types.StringValue(app.ApplicationId)

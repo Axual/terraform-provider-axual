@@ -9,6 +9,15 @@ resource "axual_environment" "tf-test-env" {
   owners               = data.axual_group.test_group.id
 }
 
-data "axual_environment" "tf-test-env-imported" {
+data "axual_environment" "tf-test-env-imported-by-name" {
   name = axual_environment.tf-test-env.name
+}
+
+data "axual_environment" "tf-test-env-imported-by-short-name" {
+  short_name = axual_environment.tf-test-env.short_name
+}
+
+data "axual_environment" "tf-test-env-imported-by-name-and-short-name" {
+  name = axual_environment.tf-test-env.name
+  short_name = axual_environment.tf-test-env.short_name
 }
