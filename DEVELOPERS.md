@@ -7,14 +7,13 @@ you would need to perform some actions.
     - SSL
     - SCRAM_SHA_512
     - OAUTHBEARER
-- In the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `instanceName` to an available Instance which has the following properties
+- In the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `instanceName` and the `instanceShortName` to an available Instance which has the following properties
     - `EnabledAuthenticationMethod`
         - SSL (use the [Axual Dummy Root CA as the Signing Authority](https://gitlab.com/axual/qa/local-development/-/blob/main/governance/files/axual-dummy-intermediate))
         - SCRAM_SHA_512
         - OAUTHBEARER
     - `GranularBrowsePermission` enabled
     - `ConnectSupport` enabled
-- Then in the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `instanceShortName` to a available Instance ShortName.
 - Then in the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `groupName` to a Group you are a member of.
 - Then in the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `userEmail` to your email identifying your user.
 - Edit this run configuration included in this repo: [`.run/Run all the tests.run.xml`](.run/Run%20all%20the%20tests.run.xml)
@@ -23,7 +22,7 @@ you would need to perform some actions.
       - AXUAL_USERNAME=[your username to authenticate with the Platform Manager]
       - AXUAL_PASSWORD=[your password to authenticate with the Platform Manager]
       - TF_ACC=1
-          - Built in safety env var for accidentally running the tests on a live environment
+          - Built-in safety env var for accidentally running the tests on a live environment
       - TF_ACC_TERRAFORM_PATH
         - path to Terraform binary in your local system
       - TF_LOG=INFO
@@ -45,7 +44,7 @@ you would need to perform some actions.
 
 Now you are ready to run the Acceptance Tests.
 
-- First try to run one acceptance test, before trying to run all the tests. It might happen that if a test fails, you have to manually delete resources using the UI.
+- First, try to run one acceptance test, before trying to run all the tests. It might happen that if a test fails, you have to manually delete resources using the UI.
     - We recommend trying to run in this order:
         - user_resource_test.go
         - topic_data_source_test.go
@@ -63,13 +62,13 @@ Now you are ready to run the Acceptance Tests.
 
 - Ensure you have Go installed and set the GOPATH in your system environment variables.
 - Add the Go extension to your VS Code
-- Create a local.env file in your project root to store your environment variables:
+- Create a `local.env` file in your project root to store your environment variables:
     - AXUAL_PASSWORD=<INSERT API PASSWORD>;AXUAL_USERNAME=<INSERT API USERNAME>;TF_ACC=1;TF_ACC_TERRAFORM_PATH=/opt/homebrew/bin/terraform;TF_LOG=INFO
 - Run `go test -p 1 -count 1 ./internal/tests/…`  to run the tests
 - You can also run `AXUAL_PASSWORD='your_password' AXUAL_USERNAME='your_username' TF_ACC=1 TF_ACC_TERRAFORM_PATH='/opt/homebrew/bin/terraform' TF_LOG='INFO' go test -p 1 -count 1 ./internal/tests/..` if you don't want to create a local.env file.
 
 ### How to connect to a different API
-- Change provider block in `test_provider.go`. For example for Axual Cloud:
+- Change provider block in [`test_provider.go`](./internal/tests/test_provider.go). For example, for Axual Cloud:
 ```terraform
 provider "axual" {
   apiurl   = "https://axual.cloud/api"
@@ -94,7 +93,7 @@ provider "axual" {
 - Deletion is automatic by the acceptance test
 
 ### Prevent test automatically deleting resources
-- To prevent the test from destroying a resource(for testing):
+- To prevent the test from destroying a resource (for testing):
     - The test will fail but useful for checking in the API what the test actually created
 
 ```terraform
@@ -117,7 +116,7 @@ resource "axual_group" "team-integrations" {
     - Add ENV Variable: TF_LOG=INFO
     - Add statements like these into code: tflog.Info(ctx, fmt.Sprintf("delete group successful for group: %q", data.Id.ValueString()))
         - Consider keeping these statements there
-- - Does not work if testing with a provider from registry (not locally compiled)
+- Does not work if testing with a provider from registry (not locally compiled)
 
 ### Debugging
 - IntelliJ IDEA
