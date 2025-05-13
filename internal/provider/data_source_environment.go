@@ -60,7 +60,7 @@ func (d *environmentDataSource) Schema(ctx context.Context, req datasource.Schem
 				Computed:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(3, 50),
-					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`), "can only contain letters, numbers, dots, dashes and underscores and cannot begin with an underscore, dot or dash"),
+					stringvalidator.RegexMatches(regexp.MustCompile(`^[a-z0-9._\- ]+$`), "can only contain letters, numbers, dots, dashes and underscores and cannot begin with an underscore, dot or dash"),
 				},
 			},
 			"short_name": schema.StringAttribute{
@@ -69,7 +69,7 @@ func (d *environmentDataSource) Schema(ctx context.Context, req datasource.Schem
 				Computed:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(1, 20),
-					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]*$`), "can only contain letters, numbers and cannot begin with a number"),
+					stringvalidator.RegexMatches(regexp.MustCompile(`(?i)^[a-z][a-z0-9]*$`), "can only contain letters, numbers and cannot begin with a number"),
 				},
 			},
 			"description": schema.StringAttribute{
