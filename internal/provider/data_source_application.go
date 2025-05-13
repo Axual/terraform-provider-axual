@@ -134,7 +134,7 @@ func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 	if data.ShortName.ValueString() == "" {
 		attributes.Set("name", data.Name.ValueString())
 	} else {
-		attributes.Set("short_name", data.ShortName.ValueString())
+		attributes.Set("shortName", data.ShortName.ValueString())
 	}
 
 	appResponse, err := d.provider.client.GetApplicationsByAttributes(attributes)

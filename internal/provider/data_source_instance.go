@@ -105,7 +105,7 @@ func (d *instanceDataSource) Read(ctx context.Context, req datasource.ReadReques
 	if data.ShortName.ValueString() == "" {
 		attributes.Set("name", data.Name.ValueString())
 	} else {
-		attributes.Set("short_name", data.ShortName.ValueString())
+		attributes.Set("shortName", data.ShortName.ValueString())
 	}
 
 	instanceResponse, err := d.provider.client.GetInstancesByAttributes(attributes)
