@@ -1,31 +1,20 @@
-#
-# Axual TERRAFORM PROVIDER EXAMPLE
-#
 # This TerraForm file shows the basic capabilities of the TerraForm provider for Axual
 #
-# - When trying out this example:
-# - replace `instance` name from `Dev Test Acceptance` to the name of your instance.
-# - Please use user data source or `terraform import axual_user.tenant_admin <USER UID FROM UI>` so the user matches the user you are logged in as.
-#   - Doing this is necessary because creating a new user with Terraform does not automatically allow the user to log in. This is because the user is only created in the Self-Service Database, not in an authentication provider such as Keycloak or Auth0.
 
+#️ Look up yourself by e-mail – change the address
+data "axual_user" "my-user" {
+  email = "kaspar.metsa@axual.com"
+}
 
-resource "axual_user" "tenant_admin" { # This is a test user. Please use user data source or `terraform import axual_user.tenant_admin <USER UID FROM UI>` to get a reference to a real user.
-  first_name    = "Tenant"
-  last_name     = "Admin"
-  email_address = "kubernetes@axual.com"
-  roles         = [
-    { name = "TENANT_ADMIN" },
-    { name = "APPLICATION_AUTHOR" },
-    { name = "ENVIRONMENT_AUTHOR" },
-    { name = "STREAM_AUTHOR" },
-    { name = "SCHEMA_AUTHOR" },
-  ]
+# Replace with the name of your instance
+data "axual_instance" "testInstance"{
+  name = "Dev Test Acceptance"
 }
 
 resource "axual_group" "tenant_admin_group" {
  name          = "Tenant Admin Group"
  members       = [
-   axual_user.tenant_admin.id,
+   data.axual_user.my-user.id,
  ]
 }
 

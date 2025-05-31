@@ -2,34 +2,14 @@
 
 The Axual Terraform Provider integrates Axual's Self-Service for Apache Kafka with Terraform, making it easy to manage Axual's Kafka configurations as code. It offers detailed access control, clear topic visibility, and simple topic settings management, enabling users to monitor and control their Kafka streaming setup effectively.
 
-Learn more about Axual Self-Service: https://docs.axual.io/axual/2024.4/self-service/index.html
+Learn more about Axual Self-Service: https://docs.axual.io/axual/2025.1/self-service/index.html
 
 ## Example Usage
 - There are two authentication modes supported by the provider:  **Auth0** and **Keycloak**.
 
 ### Auth0 Authentication
 
-- Please use this provider configuration if the authentication is against Auth0. Auth0 is used by the Axual Trial environment:
-
-```hcl
-provider "axual" {
-  # Default `authMode` is "keycloak", if omitted.
-  authmode = "auth0"
-  # (String) URL that will be used by the client for all resource requests
-  apiurl   = "https://app.axual.cloud/api"
-  # (String) Username for all requests. Will be used to acquire a token. It can be omitted if the environment variable AXUAL_AUTH_USERNAME is used.
-  username = "PLEASE_CHANGE_USERNAME"
-  # (String, Sensitive) Password belonging to the user. It can be omitted if the environment variable AXUAL_AUTH_PASSWORD is used.
-  password = "PLEASE_CHANGE_PASSWORD"
-  # (String) Client ID to be used for OAUTH
-  clientid = "eY6aEMAO8XAkoKE9e9pZFcOs7Wxs6VBQ"
-  # (String) Token url
-  authurl  = "https://axual.eu.auth0.com/oauth/token"
-  # (List of String) OAuth authorization server scopes
-  scopes   = ["openid", "profile", "email"]
-  # The audience for OAuth. Usually the same as `apiurl`.
-  audience = "https://app.axual.cloud/api/"
-}
+- Please follow this guide to connect Terraform Provider to Axual Trial Environment using Auth0: [Trial environment(Auth0)](guides/trial-guide.md)
 ```
 
 ### Keycloak Authentication
