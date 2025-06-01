@@ -1,16 +1,19 @@
 # This TerraForm file shows the basic capabilities of the TerraForm provider for Axual
-#
 
-#️ Look up yourself by e-mail – change the address
+# Terraform Provider can't be used to create an user, make sure you already have an user. To verify, try to log into UI.
+# Look up yourself by e-mail – change the address
 data "axual_user" "my-user" {
-  email = "kaspar.metsa@axual.com"
+  email = "<your_email>"
 }
 
-# Replace with the name of your instance
+# Replace with the short name of your instance
 data "axual_instance" "testInstance"{
-  name = "Dev Test Acceptance"
+  short_name = "dta"
 }
 
+############################
+# 1️⃣  Group
+############################
 resource "axual_group" "tenant_admin_group" {
  name          = "Tenant Admin Group"
  members       = [
@@ -18,10 +21,9 @@ resource "axual_group" "tenant_admin_group" {
  ]
 }
 
-data "axual_instance" "testInstance"{
-  short_name = "dta" # Replace with the name of your instance
-}
-
+############################
+# 2️⃣  Environment
+############################
 resource "axual_environment" "development" {
   name = "tf-development"
   short_name = "tfdev"
@@ -33,6 +35,9 @@ resource "axual_environment" "development" {
   owners = axual_group.tenant_admin_group.id
 }
 
+############################
+# 3️⃣  Application
+############################
 resource "axual_application" "log_scraper" {
   name    = "tf-application"
   application_type     = "Custom"
@@ -44,12 +49,24 @@ resource "axual_application" "log_scraper" {
   description = "TF Test Application"
 }
 
+# Principal for the log_scraper app in the ‘development’ environment
+# Please make sure the certificate matches the CA of the instance
 resource "axual_application_principal" "log_scraper_in_dev_principal" {
   environment = axual_environment.development.id
   application = axual_application.log_scraper.id
   principal = file("certs/certificate.pem")
 }
 
+# Alternatively for SASL
+# Credentials for the log_scraper app in the ‘development’ environment
+# resource "axual_application_credential" "creds" {
+#   application = axual_application.log_scraper.id
+#   environment = axual_environment.development.id
+#   target      = "KAFKA"
+# }
+############################
+# 4️⃣  Schema & Topic
+############################
 resource "axual_schema_version" "axual_gitops_test_schema_version1" {
   body = file("avro-schemas/gitops_test_v1.avsc")
   version = "1.0.0"
@@ -68,12 +85,15 @@ resource "axual_topic" "logs" {
 
 resource "axual_topic_config" "logs_in_dev" {
   partitions = 1
-  retention_time = 864000
+  retention_time = 864000  # 10 days
   topic = axual_topic.logs.id
   environment = axual_environment.development.id
   properties = {"segment.ms"="600012", "retention.bytes"="-1"}
 }
 
+############################
+# 5️⃣  Access & Approval
+############################
 resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
   application = axual_application.log_scraper.id
   topic = axual_topic.logs.id
