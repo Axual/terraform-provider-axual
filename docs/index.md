@@ -60,7 +60,7 @@ Before using the provider:
 ```terraform
 # This TerraForm file shows the basic capabilities of the TerraForm provider for Axual
 
-# Terraform Provider can't be used to create an user, make sure you already have an user. To verify, try to log into UI.
+# The Terraform provider cannot be used to create a user. Please ensure that a user already exists before proceeding. To verify, please try logging into the UI.
 # Look up yourself by e-mail – change the address
 data "axual_user" "my-user" {
   email = "<your_email>"
@@ -200,7 +200,7 @@ To run the above configuration, your user must have the following roles:
 ### Step 3 - Verify & Continue
 - Go to `/overview` in Axual Self-Service UI to confirm the application is producing to the topic.
 - Connect any Kafka client (e.g. Java) using the created certificate or credentials.
-- Terraform will store sensitive values (such as credentials) in the terraform.tfstate file—ensure that it is properly secured.
+- Terraform will store sensitive values (such as credentials) in the terraform.tfstate file— please ensure that it is properly secured.
 
 ## GitOps: Multi-Repo Architecture
 
