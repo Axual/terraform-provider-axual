@@ -1,6 +1,6 @@
 # axual_topic_browse_permissions (Resource)
 
-With this resource you can configure who can browse topic's messages in a specified environment. Only works if the Environment's Instance has Granular Stream Browse Permissions turned on. Granular Stream browse permissions are disabled in private environments and in public environments with the authorization issuer set to "auto". Either users or groups need to be specified- both can't be empty. Read more: https://docs.axual.io/axual/2024.4/self-service/stream-browse.html#controlling-permissions-to-browse-a-stream
+With this resource you can configure who can browse topic's messages in a specified environment. Only works if the Environment's Instance has Granular Stream Browse Permissions turned on. Granular Stream browse permissions are disabled in private environments and in public environments with the authorization issuer set to "auto". Either users or groups need to be specified- both can't be empty. Read more: https://docs.axual.io/axual/2025.1/self-service/stream-browse.html#controlling-permissions-to-browse-a-stream
 
 ## Required Roles
 - Be part of the group owning the Stream
