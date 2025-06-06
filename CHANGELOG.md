@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [master](https://github.com/Axual/terraform-provider-axual/blob/master) - TBR
+## [2.5.6](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.5.6) - 2025-06-06
 * Add User data source
 * Guide for JSON schema
 * Removed trial guide
