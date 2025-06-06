@@ -8,7 +8,7 @@ data "axual_user" "my-user" {
 
 # Replace with the short name of your instance
 data "axual_instance" "testInstance"{
-  short_name = "dta"
+  name = "dta"
 }
 
 ############################

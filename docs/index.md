@@ -55,7 +55,6 @@ Before using the provider:
 
 #### Full Example
 - The following example demonstrates the basic functionality of Axual Self-Service. For more advanced features, refer to the 'Resources' and 'Guides' sections.
-```hcl
 
 ```terraform
 # This TerraForm file shows the basic capabilities of the TerraForm provider for Axual
@@ -68,7 +67,7 @@ data "axual_user" "my-user" {
 
 # Replace with the short name of your instance
 data "axual_instance" "testInstance"{
-  short_name = "dta"
+  name = "dta"
 }
 
 ############################
