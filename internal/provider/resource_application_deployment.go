@@ -12,9 +12,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"strings"
 )
 
-var _ resource.Resource = &applicationDeploymentResource{}
+var _ resource.ResourceWithImport = &applicationDeploymentResource{}
 
 func NewApplicationDeploymentResource(provider AxualProvider) resource.Resource {
 	return &applicationDeploymentResource{
@@ -270,6 +271,35 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 	}
 }
 
+func (r *applicationDeploymentResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	idParts := strings.Split(req.ID, "/")
+
+	if len(idParts) != 2 || idParts[0] == "" || idParts[1] == "" {
+		resp.Diagnostics.AddError(
+			"Unexpected Import Identifier",
+						fmt.Sprintf("Expected import identifier with format: application_id/environment_id. Got: %s", req.ID),
+		)
+		return
+	}
+
+	applicationId := idParts[0]
+	environmentId := idParts[1]
+
+	applicationWithUrl := fmt.Sprintf("%s/applications/%v", r.provider.client.ApiURL, applicationId)
+	environmentWithUrl := fmt.Sprintf("%s/environments/%v", r.provider.client.ApiURL, environmentId)
+	ApplicationDeploymentFindByApplicationAndEnvironmentResponse, err := r.provider.client.FindApplicationDeploymentByApplicationAndEnvironment(applicationWithUrl, environmentWithUrl)
+	if err != nil {
+		resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to find Application Deployment, got error: %s", err))
+		return
+	}
+
+	var data ApplicationDeploymentResourceData
+	mapApplicationDeploymentResponseToData(ctx, &data, ApplicationDeploymentFindByApplicationAndEnvironmentResponse)
+
+	diags := resp.State.Set(ctx, &data)
+	resp.Diagnostics.Append(diags...)
+}
+
 func mapApplicationDeploymentResponseToData(ctx context.Context, data *ApplicationDeploymentResourceData, applicationDeploymentResponse *webclient.ApplicationDeploymentFindByApplicationAndEnvironmentResponse) {
 	data.Id = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Uid)
 	data.Environment = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Environment.Uid)
@@ -282,7 +312,8 @@ func mapApplicationDeploymentResponseToData(ctx context.Context, data *Applicati
 	// We check if there is at least one ApplicationDeploymentResponse
 	if len(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses) > 0 {
 		firstDeploymentResponse := applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0]
-		fmt.Printf("firstDeploymentResponse: %+v\n", firstDeploymentResponse)
+		fmt.Printf("firstDeploymentResponse: %+v
+", firstDeploymentResponse)
 		// We iterate through the Configs and add them to the map
 		for _, config := range firstDeploymentResponse.Configs {
 			configs[config.ConfigKey] = types.StringValue(config.ConfigValue)
@@ -295,7 +326,8 @@ func mapApplicationDeploymentResponseToData(ctx context.Context, data *Applicati
 	// Set the Configs in the ApplicationDeploymentResourceData
 	data.Configs = mapValue
 
-	fmt.Printf("data.Configs: %+v\n", data.Configs)
+	fmt.Printf("data.Configs: %+v
+", data.Configs)
 }
 
 func createApplicationDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData, r *applicationDeploymentResource) (webclient.ApplicationDeploymentCreateRequest, error) {
