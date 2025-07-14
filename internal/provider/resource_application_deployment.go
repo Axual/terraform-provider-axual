@@ -266,9 +266,9 @@ func (r *applicationDeploymentResource) ImportState(ctx context.Context, req res
 		return
 	}
 
-	var deploymentResponse = ApplicationDeploymentFindByApplicationAndEnvironmentResponse.Embedded.ApplicationDeploymentResponses
+	deploymentResponse := ApplicationDeploymentFindByApplicationAndEnvironmentResponse.Embedded.ApplicationDeploymentResponses
 
-	// Verify we found exactly one deployment
+	// Verify we found exactly one deployment per application and environment
 	if len(deploymentResponse) == 0 {
 		resp.Diagnostics.AddError(
 			"Application Deployment Not Found",
@@ -311,8 +311,6 @@ func (r *applicationDeploymentResource) ImportState(ctx context.Context, req res
 
 	tflog.Info(ctx, "Application Deployment import completed successfully")
 }
-
-// Helper methods
 
 func (r *applicationDeploymentResource) validatePrerequisites(ctx context.Context, data *ApplicationDeploymentResourceData, resp *resource.CreateResponse) error {
 	applicationURL := fmt.Sprintf("%s/applications/%v", r.provider.client.ApiURL, data.Application.ValueString())
