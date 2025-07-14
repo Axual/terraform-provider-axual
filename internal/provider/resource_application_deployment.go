@@ -19,7 +19,6 @@ import (
 // Ensure the implementation satisfies the expected interfaces
 var (
 	_ resource.Resource                = &applicationDeploymentResource{}
-	_ resource.ResourceWithImport     = &applicationDeploymentResource{}
 )
 
 // NewApplicationDeploymentResource creates a new application deployment resource
@@ -267,8 +266,10 @@ func (r *applicationDeploymentResource) ImportState(ctx context.Context, req res
 		return
 	}
 
+	var deploymentResponse = ApplicationDeploymentFindByApplicationAndEnvironmentResponse.Embedded.ApplicationDeploymentResponses
+
 	// Verify we found exactly one deployment
-	if len(ApplicationDeploymentFindByApplicationAndEnvironmentResponse.Embedded.ApplicationDeploymentResponses) == 0 {
+	if len(deploymentResponse) == 0 {
 		resp.Diagnostics.AddError(
 			"Application Deployment Not Found",
 			fmt.Sprintf("No Application Deployment found for Application ID: %s and Environment ID: %s", applicationId, environmentId),
@@ -276,7 +277,7 @@ func (r *applicationDeploymentResource) ImportState(ctx context.Context, req res
 		return
 	}
 
-	if len(ApplicationDeploymentFindByApplicationAndEnvironmentResponse.Embedded.ApplicationDeploymentResponses) > 1 {
+	if len(deploymentResponse) > 1 {
 		resp.Diagnostics.AddWarning(
 			"Multiple Application Deployments Found",
 			fmt.Sprintf("Found %d Application Deployments for Application ID: %s and Environment ID: %s. Using the first one.", 

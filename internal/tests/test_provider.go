@@ -89,32 +89,32 @@ func GetProvider() string {
 	}
 
 	// Local Platform.local setup
-	providerBlock := `
-	provider "axual" {
-	 authmode = "keycloak"
-	 apiurl   = "https://platform.local/api"
-	 realm    = "local"
-	 username = "` + os.Getenv("AXUAL_USERNAME") + `"
-	 password = "` + os.Getenv("AXUAL_PASSWORD") + `"
-	 clientid = "self-service"
-	 authurl  = "https://platform.local/auth/realms/local/protocol/openid-connect/token"
-	 scopes   = ["openid", "profile", "email"]
-	}
-	`
-
-	// QA
-	//	providerBlock := `
-	//provider "axual" {
+	// providerBlock := `
+	// provider "axual" {
 	//  authmode = "keycloak"
-	//  apiurl   = "https://self-service.qa.np.westeurope.azure.axual.cloud/api"
-	//  realm    = "axual"
+	//  apiurl   = "https://platform.local/api"
+	//  realm    = "local"
 	//  username = "` + os.Getenv("AXUAL_USERNAME") + `"
 	//  password = "` + os.Getenv("AXUAL_PASSWORD") + `"
 	//  clientid = "self-service"
-	//  authurl  = "https://self-service.qa.np.westeurope.azure.axual.cloud/auth/realms/axual/protocol/openid-connect/token"
+	//  authurl  = "https://platform.local/auth/realms/local/protocol/openid-connect/token"
 	//  scopes   = ["openid", "profile", "email"]
-	//}
-	//`
+	// }
+	// `
+
+	// QA
+		providerBlock := `
+	provider "axual" {
+	 authmode = "keycloak"
+	 apiurl   = "https://self-service.qa.np.westeurope.azure.axual.cloud/api"
+	 realm    = "axual"
+	 username = "` + os.Getenv("AXUAL_USERNAME") + `"
+	 password = "` + os.Getenv("AXUAL_PASSWORD") + `"
+	 clientid = "self-service"
+	 authurl  = "https://self-service.qa.np.westeurope.azure.axual.cloud/auth/realms/axual/protocol/openid-connect/token"
+	 scopes   = ["openid", "profile", "email"]
+	}
+	`
 
 	dataBlock := `
 	data "axual_instance" "test_instance" {
