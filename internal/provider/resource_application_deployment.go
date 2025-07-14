@@ -19,6 +19,7 @@ import (
 // Ensure the implementation satisfies the expected interfaces
 var (
 	_ resource.Resource                = &applicationDeploymentResource{}
+	_ resource.ResourceWithImportState = &applicationDeploymentResource{}
 )
 
 // NewApplicationDeploymentResource creates a new application deployment resource
