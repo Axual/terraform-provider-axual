@@ -34,16 +34,17 @@ func getResourceIDs(s *terraform.State) (applicationID, envID string, err error)
 	return applicationID, envID, nil
 }
 
-// checkResourcesExist validates that required resources exist in the Terraform state
+// validates that required resources exist in the Terraform state
 func checkResourcesExist(s *terraform.State) error {
 	applicationID, envID, err := getResourceIDs(s)
 	if err != nil {
 		return err
 	}
+	fmt.Printf("ApplicationID: %s, EnvID: %s\n", applicationID, envID)
 	return nil
 }
 
-// checkApplicationDeploymentExists validates that the application deployment resource exists
+// validates that the application deployment resource exists
 func checkApplicationDeploymentExists(s *terraform.State) error {
 	_, ok := s.RootModule().Resources["axual_application_deployment.connector_axual_application_deployment"]
 	if !ok {
@@ -72,7 +73,7 @@ func TestAccApplicationDeploymentResourceImport(t *testing.T) {
 					// Check that all required resources exist in state
 					checkResourcesExist,
 					checkApplicationDeploymentExists,
-					// Standard resource attribute checks
+
 					resource.TestCheckResourceAttrSet("axual_application_deployment.connector_axual_application_deployment", "id"),
 					resource.TestCheckResourceAttrSet("axual_application.tf-test-app", "id"),
 					resource.TestCheckResourceAttrSet("axual_environment.tf-test-env", "id"),
