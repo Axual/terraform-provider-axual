@@ -63,11 +63,3 @@ resource "axual_environment" "development" {
   instance = data.axual_instance.testInstance.id
   owners = axual_group.admin-team.id
 }
-
-data "axual_environment" "test_environment_import_id" {
-  environment = axual_environment.development.id
-}
-
-data "axual_topic" "test_topic_import_id" {
-  topic = axual_topic.development.id
-}
