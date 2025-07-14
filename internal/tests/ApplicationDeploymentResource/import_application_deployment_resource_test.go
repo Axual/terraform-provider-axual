@@ -40,9 +40,6 @@ func checkResourcesExist(s *terraform.State) error {
 	if err != nil {
 		return err
 	}
-
-	// Log the IDs for debugging purposes
-	fmt.Printf("ApplicationID: %s, EnvID: %s\n", applicationID, envID)
 	return nil
 }
 
@@ -55,16 +52,13 @@ func checkApplicationDeploymentExists(s *terraform.State) error {
 	return nil
 }
 
-// importStateIdFunc generates the import ID from the current state
+// generates the import ID from the current state
 func importStateIdFunc(s *terraform.State) (string, error) {
 	applicationID, envID, err := getResourceIDs(s)
 	if err != nil {
 		return "", err
 	}
-
-	importId := fmt.Sprintf("%s/%s", applicationID, envID)
-	fmt.Printf("Import ID: %s\n", importId)
-	return importId, nil
+	return fmt.Sprintf("%s/%s", applicationID, envID), nil
 }
 
 func TestAccApplicationDeploymentResourceImport(t *testing.T) {
