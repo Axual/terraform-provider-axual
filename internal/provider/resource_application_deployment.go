@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -14,8 +16,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-var _ resource.Resource = &applicationDeploymentResource{}
+// Ensure the implementation satisfies the expected interfaces
+var (
+	_ resource.Resource                = &applicationDeploymentResource{}
+	_ resource.ResourceWithImportState = &applicationDeploymentResource{}
+)
 
+// NewApplicationDeploymentResource creates a new application deployment resource
 func NewApplicationDeploymentResource(provider AxualProvider) resource.Resource {
 	return &applicationDeploymentResource{
 		provider: provider,
@@ -336,4 +343,86 @@ func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data 
 
 	tflog.Info(ctx, fmt.Sprintf("Application update request completed: %q", ApplicationDeploymentUpdateRequest))
 	return ApplicationDeploymentUpdateRequest, nil
+}
+
+func (r *applicationDeploymentResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	tflog.Info(ctx, fmt.Sprintf("Starting import of Application Deployment with ID: %s", req.ID))
+	
+	idParts := strings.Split(req.ID, "/")
+
+	if len(idParts) != 2 || idParts[0] == "" || idParts[1] == "" {
+		resp.Diagnostics.AddError(
+			"Invalid Import Identifier",
+			fmt.Sprintf("Expected import identifier with format: application_id/environment_id. Got: %s\n\nExample: terraform import axual_application_deployment.example abc123/def456", req.ID),
+		)
+		return
+	}
+
+	applicationId := idParts[0]
+	environmentId := idParts[1]
+
+	tflog.Info(ctx, fmt.Sprintf("Importing Application Deployment for Application ID: %s, Environment ID: %s", applicationId, environmentId))
+
+	// Validate that the application exists
+	applicationWithUrl := fmt.Sprintf("%s/applications/%v", r.provider.client.ApiURL, applicationId)
+	environmentWithUrl := fmt.Sprintf("%s/environments/%v", r.provider.client.ApiURL, environmentId)
+	
+	// Find the Application Deployment
+	ApplicationDeploymentFindByApplicationAndEnvironmentResponse, err := r.provider.client.FindApplicationDeploymentByApplicationAndEnvironment(applicationWithUrl, environmentWithUrl)
+	if err != nil {
+		if errors.Is(err, webclient.NotFoundError) {
+			resp.Diagnostics.AddError(
+				"Application Deployment Not Found",
+				fmt.Sprintf("Unable to find Application Deployment for Application ID: %s and Environment ID: %s.\n\nPlease verify that:\n1. The Application ID exists\n2. The Environment ID exists\n3. An Application Deployment exists for this Application-Environment combination\n\nError: %s", applicationId, environmentId, err),
+			)
+		} else {
+			resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to find Application Deployment, got error: %s", err))
+		}
+		return
+	}
+
+	deploymentResponse := ApplicationDeploymentFindByApplicationAndEnvironmentResponse.Embedded.ApplicationDeploymentResponses
+
+	// Verify we found exactly one deployment per application and environment
+	if len(deploymentResponse) == 0 {
+		resp.Diagnostics.AddError(
+			"Application Deployment Not Found",
+			fmt.Sprintf("No Application Deployment found for Application ID: %s and Environment ID: %s", applicationId, environmentId),
+		)
+		return
+	}
+
+	if len(deploymentResponse) > 1 {
+		resp.Diagnostics.AddWarning(
+			"Multiple Application Deployments Found",
+			fmt.Sprintf("Found %d Application Deployments for Application ID: %s and Environment ID: %s. Using the first one.", 
+				len(ApplicationDeploymentFindByApplicationAndEnvironmentResponse.Embedded.ApplicationDeploymentResponses), applicationId, environmentId),
+		)
+	}
+
+	// Map the response to Terraform state
+	var data ApplicationDeploymentResourceData
+	mapApplicationDeploymentResponseToData(ctx, &data, ApplicationDeploymentFindByApplicationAndEnvironmentResponse)
+
+	// Validate that the mapped data is complete
+	if data.Id.IsNull() || data.Id.ValueString() == "" {
+		resp.Diagnostics.AddError(
+			"Invalid Application Deployment Data",
+			"The imported Application Deployment does not have a valid ID",
+		)
+		return
+	}
+
+	tflog.Info(ctx, fmt.Sprintf("Successfully imported Application Deployment with ID: %s", data.Id.ValueString()))
+	
+	// Set the state with the imported data
+	diags := resp.State.Set(ctx, &data)
+	resp.Diagnostics.Append(diags...)
+	
+	if resp.Diagnostics.HasError() {
+		tflog.Error(ctx, "Failed to set state during import")
+		return
+	}
+
+	tflog.Info(ctx, "Application Deployment import completed successfully")
 }
