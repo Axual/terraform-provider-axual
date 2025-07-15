@@ -161,7 +161,7 @@ func (r *applicationDeploymentResource) Read(ctx context.Context, req resource.R
 	}
 
 	mapApplicationDeploymentResponseToData(ctx, &data, ApplicationDeploymentFindByApplicationAndEnvironmentResponse)
-	tflog.Debug(ctx, "Successfully read Application Deployment")
+	tflog.Info(ctx, "Successfully read Application Deployment")
 
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
@@ -247,7 +247,7 @@ func (r *applicationDeploymentResource) ImportState(ctx context.Context, req res
 	applicationId := idParts[0]
 	environmentId := idParts[1]
 
-	tflog.Debug(ctx, fmt.Sprintf("Importing Application Deployment for Application ID: %s, Environment ID: %s", applicationId, environmentId))
+	tflog.Info(ctx, fmt.Sprintf("Importing Application Deployment for Application ID: %s, Environment ID: %s", applicationId, environmentId))
 
 	// Validate that the application exists
 	applicationWithUrl := fmt.Sprintf("%s/applications/%v", r.provider.client.ApiURL, applicationId)
@@ -413,7 +413,7 @@ func mapApplicationDeploymentResponseToData(ctx context.Context, data *Applicati
 	// Map the configs of the first ApplicationDeploymentResponse
 	if len(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses) > 0 {
 		firstDeploymentResponse := applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0]
-		tflog.Debug(ctx, fmt.Sprintf("firstDeploymentResponse: %+v", firstDeploymentResponse))
+		tflog.Info(ctx, fmt.Sprintf("firstDeploymentResponse: %+v", firstDeploymentResponse))
 		
 		// Iterate through the Configs and add them to the map
 		for _, config := range firstDeploymentResponse.Configs {
@@ -428,7 +428,7 @@ func mapApplicationDeploymentResponseToData(ctx context.Context, data *Applicati
 	
 	// Set the Configs in the ApplicationDeploymentResourceData
 	data.Configs = mapValue
-	tflog.Debug(ctx, fmt.Sprintf("data.Configs: %+v", data.Configs))
+	tflog.Info(ctx, fmt.Sprintf("data.Configs: %+v", data.Configs))
 }
 
 func createApplicationDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData, r *applicationDeploymentResource) (webclient.ApplicationDeploymentCreateRequest, error) {
@@ -448,7 +448,7 @@ func createApplicationDeploymentRequestFromData(ctx context.Context, data *Appli
 		Configs:     configs,
 	}
 
-	tflog.Debug(ctx, fmt.Sprintf("Application request completed: %+v", ApplicationDeploymentRequest))
+	tflog.Info(ctx, fmt.Sprintf("Application request completed: %+v", ApplicationDeploymentRequest))
 	return ApplicationDeploymentRequest, nil
 }
 
@@ -467,6 +467,6 @@ func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data 
 		Configs: configs,
 	}
 
-	tflog.Debug(ctx, fmt.Sprintf("Application update request completed: %+v", ApplicationDeploymentUpdateRequest))
+	tflog.Info(ctx, fmt.Sprintf("Application update request completed: %+v", ApplicationDeploymentUpdateRequest))
 	return ApplicationDeploymentUpdateRequest, nil
 }
