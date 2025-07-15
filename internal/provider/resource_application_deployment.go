@@ -46,6 +46,7 @@ func (r *applicationDeploymentResource) Metadata(ctx context.Context, req resour
 
 func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		// This description is used by the documentation generator and the language server.
 		MarkdownDescription: "An Application Deployment stores the configs for connector application type that is saved for an Application on an Environment.",
 		Attributes: map[string]schema.Attribute{
 			"application": schema.StringAttribute{
