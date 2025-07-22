@@ -318,7 +318,7 @@ func mapApplicationDeploymentByIdResponseToData(ctx context.Context, data *Appli
 	}
 	mapValue, diags := types.MapValue(types.StringType, configs)
 	if diags.HasError() {
-		tflog.Error(ctx, "Error creating members slice when mapping group response")
+		tflog.Error(ctx, "Error creating members slice when mapping application deployment response")
 	}
 	// Set the Configs in the ApplicationDeploymentResourceData
 	data.Configs = mapValue
