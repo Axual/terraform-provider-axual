@@ -288,7 +288,6 @@ func mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx conte
 	// We check if there is at least one ApplicationDeploymentResponse
 	if len(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses) > 0 {
 		firstDeploymentResponse := applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0]
-		fmt.Printf("firstDeploymentResponse: %+v\n", firstDeploymentResponse)
 		// We iterate through the Configs and add them to the map
 		for _, config := range firstDeploymentResponse.Configs {
 			configs[config.ConfigKey] = types.StringValue(config.ConfigValue)
@@ -320,8 +319,6 @@ func mapApplicationDeploymentByIdResponseToData(ctx context.Context, data *Appli
 	}
 	// Set the Configs in the ApplicationDeploymentResourceData
 	data.Configs = mapValue
-
-	fmt.Printf("data.Configs: %+v\n", data.Configs)
 } 
 
 func createApplicationDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData, r *applicationDeploymentResource) (webclient.ApplicationDeploymentCreateRequest, error) {
