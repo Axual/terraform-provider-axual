@@ -316,7 +316,7 @@ func mapApplicationDeploymentByIdResponseToData(ctx context.Context, data *Appli
 	}
 	mapValue, diags := types.MapValue(types.StringType, configs)
 	if diags.HasError() {
-		tflog.Error(ctx, "Error creating members slice when mapping group response")
+		tflog.Error(ctx, "Error creating members slice when mapping application deployment response")
 	}
 	// Set the Configs in the ApplicationDeploymentResourceData
 	data.Configs = mapValue
@@ -366,7 +366,7 @@ func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data 
 
 func (r *applicationDeploymentResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 
-	applicationDeployment, err := r.provider.client.GetApplicationDeployment(req.ID);
+	applicationDeployment, err := r.provider.client.GetApplicationDeployment(req.ID)
 
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
@@ -380,7 +380,7 @@ func (r *applicationDeploymentResource) ImportState(ctx context.Context, req res
 		return
 	}
 
-	if applicationDeployment.State != "Running" && applicationDeployment.State != "Started"{
+	if applicationDeployment.State != "Running" && applicationDeployment.State != "Started" {
 		resp.Diagnostics.AddError("Import Error", fmt.Sprintf("Unable to import an Application Deployment with status: %s. In order to import an Application deployment, it should be in RUNNING state", applicationDeployment.State))
 		return
 
