@@ -368,7 +368,7 @@ func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data 
 
 func (r *applicationDeploymentResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 
-	applicationDeployment, err := r.provider.client.GetApplicationDeployment(req.ID);
+	applicationDeployment, err := r.provider.client.GetApplicationDeployment(req.ID)
 
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
