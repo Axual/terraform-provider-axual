@@ -300,8 +300,6 @@ func mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx conte
 	}
 	// Set the Configs in the ApplicationDeploymentResourceData
 	data.Configs = mapValue
-
-	fmt.Printf("data.Configs: %+v\n", data.Configs)
 }
 
 func mapApplicationDeploymentByIdResponseToData(ctx context.Context, data *ApplicationDeploymentResourceData, applicationDeploymentResponse *webclient.ApplicationDeploymentResponse) {
