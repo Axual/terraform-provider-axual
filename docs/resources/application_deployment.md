@@ -65,4 +65,9 @@ For a full example which shows the capabilities of the latest TerraForm provider
 
 ## Import
 
-Import is not currently supported.
+Import is supported using the following syntax:
+
+```shell
+terraform import axual_application_deployment.<LOCAL NAME> <APPLICATION DEPLOYMENT UID>
+terraform import axual_application_deployment.connector_axual_application_deployment 362f33655195493c9574fc18f5d9a701
+```
