@@ -382,7 +382,7 @@ func (r *applicationDeploymentResource) ImportState(ctx context.Context, req res
 		return
 	}
 
-	if applicationDeployment.State != "Running" && applicationDeployment.State != "Started"{
+	if applicationDeployment.State != "Running" && applicationDeployment.State != "Started" {
 		resp.Diagnostics.AddError("Import Error", fmt.Sprintf("Unable to import an Application Deployment with status: %s. In order to import an Application deployment, it should be in RUNNING state", applicationDeployment.State))
 		return
 
