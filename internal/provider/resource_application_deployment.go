@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -14,8 +15,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-var _ resource.Resource = &applicationDeploymentResource{}
+// Ensure the implementation satisfies the expected interfaces
+var (
+	_ resource.Resource                = &applicationDeploymentResource{}
+	_ resource.ResourceWithImportState = &applicationDeploymentResource{}
+)
 
+// NewApplicationDeploymentResource creates a new application deployment resource
 func NewApplicationDeploymentResource(provider AxualProvider) resource.Resource {
 	return &applicationDeploymentResource{
 		provider: provider,
@@ -142,7 +148,7 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to start Application, got error: %s", err))
 		return
 	}
-	mapApplicationDeploymentResponseToData(ctx, &data, ApplicationDeploymentFindByApplicationAndEnvironmentResponse)
+	mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx, &data, ApplicationDeploymentFindByApplicationAndEnvironmentResponse)
 	tflog.Info(ctx, "Successfully created Application Deployment")
 
 	diags = resp.State.Set(ctx, &data)
@@ -170,7 +176,7 @@ func (r *applicationDeploymentResource) Read(ctx context.Context, req resource.R
 		}
 		return
 	}
-	mapApplicationDeploymentResponseToData(ctx, &data, ApplicationDeploymentFindByApplicationAndEnvironmentResponse)
+	mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx, &data, ApplicationDeploymentFindByApplicationAndEnvironmentResponse)
 	tflog.Info(ctx, "saving the resource to state")
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
@@ -270,7 +276,7 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 	}
 }
 
-func mapApplicationDeploymentResponseToData(ctx context.Context, data *ApplicationDeploymentResourceData, applicationDeploymentResponse *webclient.ApplicationDeploymentFindByApplicationAndEnvironmentResponse) {
+func mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx context.Context, data *ApplicationDeploymentResourceData, applicationDeploymentResponse *webclient.ApplicationDeploymentFindByApplicationAndEnvironmentResponse) {
 	data.Id = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Uid)
 	data.Environment = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Environment.Uid)
 	data.Application = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Application.Uid)
@@ -282,7 +288,6 @@ func mapApplicationDeploymentResponseToData(ctx context.Context, data *Applicati
 	// We check if there is at least one ApplicationDeploymentResponse
 	if len(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses) > 0 {
 		firstDeploymentResponse := applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0]
-		fmt.Printf("firstDeploymentResponse: %+v\n", firstDeploymentResponse)
 		// We iterate through the Configs and add them to the map
 		for _, config := range firstDeploymentResponse.Configs {
 			configs[config.ConfigKey] = types.StringValue(config.ConfigValue)
@@ -294,9 +299,27 @@ func mapApplicationDeploymentResponseToData(ctx context.Context, data *Applicati
 	}
 	// Set the Configs in the ApplicationDeploymentResourceData
 	data.Configs = mapValue
-
-	fmt.Printf("data.Configs: %+v\n", data.Configs)
 }
+
+func mapApplicationDeploymentByIdResponseToData(ctx context.Context, data *ApplicationDeploymentResourceData, applicationDeploymentResponse *webclient.ApplicationDeploymentResponse) {
+	data.Id = types.StringValue(applicationDeploymentResponse.Uid)
+	data.Environment = types.StringValue(applicationDeploymentResponse.Embedded.Environment.Uid)
+	data.Application = types.StringValue(applicationDeploymentResponse.Embedded.Application.Uid)
+
+	// Initialize the map for configs
+	configs := make(map[string]attr.Value)
+
+	// We want to map the configs of the ApplicationDeploymentResponse
+	for _, config := range applicationDeploymentResponse.Configs {
+		configs[config.ConfigKey] = types.StringValue(config.ConfigValue)
+	}
+	mapValue, diags := types.MapValue(types.StringType, configs)
+	if diags.HasError() {
+		tflog.Error(ctx, "Error creating members slice when mapping application deployment response")
+	}
+	// Set the Configs in the ApplicationDeploymentResourceData
+	data.Configs = mapValue
+} 
 
 func createApplicationDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData, r *applicationDeploymentResource) (webclient.ApplicationDeploymentCreateRequest, error) {
 	configs := make(map[string]string)
@@ -336,4 +359,53 @@ func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data 
 
 	tflog.Info(ctx, fmt.Sprintf("Application update request completed: %q", ApplicationDeploymentUpdateRequest))
 	return ApplicationDeploymentUpdateRequest, nil
+}
+
+func (r *applicationDeploymentResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+
+	applicationDeployment, err := r.provider.client.GetApplicationDeployment(req.ID)
+
+	if err != nil {
+		if errors.Is(err, webclient.NotFoundError) {
+			resp.Diagnostics.AddError(
+				"Application Deployment Not Found",
+				fmt.Sprintf("Application Deployment with ID: %s not found.", req.ID),
+			)
+		} else {
+			resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to find Application Deployment, got error: %s", err))
+		}
+		return
+	}
+
+	if applicationDeployment.State != "Running" && applicationDeployment.State != "Started" {
+		resp.Diagnostics.AddError("Import Error", fmt.Sprintf("Unable to import an Application Deployment with status: %s. In order to import an Application deployment, it should be in RUNNING state", applicationDeployment.State))
+		return
+
+	}
+
+	// Map the response to Terraform state
+	var data ApplicationDeploymentResourceData
+mapApplicationDeploymentByIdResponseToData(ctx, &data, applicationDeployment)
+
+	// Validate that the mapped data is complete
+	if data.Id.IsNull() || data.Id.ValueString() == "" {
+		resp.Diagnostics.AddError(
+			"Invalid Application Deployment Data",
+			"The imported Application Deployment does not have a valid ID",
+		)
+		return
+	}
+
+	tflog.Info(ctx, fmt.Sprintf("Successfully imported Application Deployment with ID: %s", data.Id.ValueString()))
+	
+	// Set the state with the imported data
+	diags := resp.State.Set(ctx, &data)
+	resp.Diagnostics.Append(diags...)
+	
+	if resp.Diagnostics.HasError() {
+		tflog.Error(ctx, "Failed to set state during import")
+		return
+	}
+
+	tflog.Info(ctx, "Application Deployment import completed successfully")
 }

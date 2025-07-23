@@ -1,8 +1,9 @@
 package ApplicationDeploymentResource
 
 import (
-	. "axual.com/terraform-provider-axual/internal/tests"
 	"testing"
+
+	. "axual.com/terraform-provider-axual/internal/tests"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
@@ -30,6 +31,12 @@ func TestApplicationDeploymentResource(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_application_deployment.connector_axual_application_deployment", "configs.topic", "test-topic"),
 					resource.TestCheckResourceAttr("axual_application_deployment.connector_axual_application_deployment", "configs.tasks.max", "2"),
 				),
+			},
+			{
+				ResourceName:         "axual_application_deployment.connector_axual_application_deployment",
+				ImportState:          true,
+				ImportStateVerify:    true,
+				Config:               GetProvider() + GetFile("axual_application_deployment_updated.tf"),
 			},
 			{
 				// To ensure cleanup if one of the test cases had an error
