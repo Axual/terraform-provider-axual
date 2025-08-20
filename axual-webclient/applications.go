@@ -52,20 +52,7 @@ func (c *Client) CreateApplication(data ApplicationRequest) (*ApplicationRespons
 	return &o, nil
 }
 
-
-func (c *Client) GetApplicationsByAttributes(attributes url.Values) (*ApplicationsByAttributesResponse, error) {
-    o := ApplicationsByAttributesResponse{}
-
-    url := fmt.Sprintf("%s/applications/search/findByAttributes?%s", c.ApiURL, attributes.Encode())
-	fmt.Println("URL", url)
-    err := c.RequestAndMap("GET", url, nil, nil, &o)
-    if err != nil {
-        return nil, err
-    }
-    return &o, nil
-}
-
-func (c *Client) GetApplicationByName(attributes url.Values) (*ApplicationsByAttributesResponse, error) {
+func (c *Client) GetApplicationByNameOrShortname(attributes url.Values) (*ApplicationsByAttributesResponse, error) {
     o := ApplicationsByAttributesResponse{}
 	endpoint := "findByName"
 	if attributes.Get("shortName") != "" {

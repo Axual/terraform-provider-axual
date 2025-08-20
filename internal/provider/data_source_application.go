@@ -137,7 +137,7 @@ func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 		attributes.Set("shortName", data.ShortName.ValueString())
 	}
 
-	appResponse, err := d.provider.client.GetApplicationsByAttributes(attributes)
+	appResponse, err := d.provider.client.GetApplicationByNameOrShortname(attributes)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application by name, got error: %s", err))
 		return
