@@ -52,8 +52,8 @@ func (c *Client) CreateApplication(data ApplicationRequest) (*ApplicationRespons
 	return &o, nil
 }
 
-func (c *Client) GetApplicationByNameOrShortname(attributes url.Values) (*ApplicationsByAttributesResponse, error) {
-    o := ApplicationsByAttributesResponse{}
+func (c *Client) GetApplicationByNameOrShortname(attributes url.Values) (*ApplicationsByNameOrShortNameResponse, error) {
+    o := ApplicationsByNameOrShortNameResponse{}
 	endpoint := "findByName"
 	if attributes.Get("shortName") != "" {
     	endpoint = "findByShortName"

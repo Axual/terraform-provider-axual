@@ -153,7 +153,7 @@ func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 	resp.Diagnostics.Append(diags...)
 }
 
-func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, appResponseByAttributes *webclient.ApplicationsByAttributesResponse) {
+func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, appResponseByAttributes *webclient.ApplicationsByNameOrShortNameResponse) {
 
 	app := appResponseByAttributes.Embedded.Applications[0]
 
