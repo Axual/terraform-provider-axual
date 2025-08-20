@@ -64,3 +64,15 @@ func (c *Client) GetApplicationsByAttributes(attributes url.Values) (*Applicatio
     }
     return &o, nil
 }
+
+func (c *Client) GetApplicationByName(attributes url.Values) (*ApplicationsByAttributesResponse, error) {
+    o := ApplicationsByAttributesResponse{}
+
+    url := fmt.Sprintf("%s/applications/search/findByName?%s", c.ApiURL, attributes.Encode())
+	fmt.Println("URL", url)
+    err := c.RequestAndMap("GET", url, nil, nil, &o)
+    if err != nil {
+        return nil, err
+    }
+    return &o, nil
+}
