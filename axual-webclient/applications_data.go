@@ -138,7 +138,94 @@ type ApplicationRequest struct {
 	Description      string   `json:"description"`
 }
 
+type Link struct {
+    Href      string `json:"href"`
+    Title     string `json:"title,omitempty"`
+    Templated bool   `json:"templated,omitempty"`
+}
+
+type User struct {
+    Links struct {
+        Tenant Link `json:"tenant"`
+        Self   Link `json:"self"`
+    } `json:"_links"`
+    Settings struct {
+        NotificationEnabled string `json:"notificationEnabled,omitempty"`
+    } `json:"settings"`
+    EmailAddress struct {
+        Email string `json:"email"`
+    } `json:"emailAddress"`
+    Uid         string  `json:"uid"`
+    FirstName   string  `json:"firstName"`
+    LastName    string  `json:"lastName"`
+    MiddleName  *string `json:"middleName"` // nullable
+    PhoneNumber *string `json:"phoneNumber"` // nullable
+}
+
 type ApplicationsByNameOrShortNameResponse struct {
+    Name             string `json:"name"`
+    ShortName        string `json:"shortName"`
+    Description      string `json:"description"`
+    ApplicationType  string `json:"applicationType"`
+    Type             *string `json:"type"` // nullable
+    ApplicationClass string `json:"applicationClass"`
+    Visibility       string `json:"visibility"`
+    Owners           struct {
+        Name         string `json:"name"`
+        EmailAddress struct {
+            Email string `json:"email"`
+        } `json:"emailAddress"`
+        PhoneNumber string `json:"phoneNumber"`
+        Properties  map[string]string `json:"properties"`
+        Uid         string `json:"uid"`
+        CreatedAt   string `json:"created_at"`
+        ModifiedAt  string `json:"modified_at"`
+        CreatedBy   string `json:"created_by"`
+        ModifiedBy  string `json:"modified_by"`
+        Embedded    struct {
+            Managers         []User `json:"managers"`
+            Members          []User `json:"members"`
+            ResourceManagers []User `json:"resourceManagers"`
+        } `json:"_embedded"`
+        Links struct {
+            Edit    Link   `json:"edit"`
+            Delete  Link   `json:"delete"`
+            Self    Link   `json:"self"`
+            Managers []Link `json:"managers"`
+            Members  []Link `json:"members"`
+            ResourceManagers []Link `json:"resourceManagers"`
+        } `json:"_links"`
+    } `json:"owners"`
+    Properties                            map[string]interface{} `json:"properties"`
+    Connector                            bool     `json:"connector"`
+    AxualManagedKsml                     bool     `json:"axualManagedKsml"`
+    KafkaStreamsBased                    bool     `json:"kafkaStreamsBased"`
+    AbleToGenerateSchemaRegistryPassword bool     `json:"ableToGenerateSchemaRegistryPassword"`
+    AllApplicationIds                    []string `json:"allApplicationIds"`
+    AbleToResetOffsets                   bool     `json:"ableToResetOffsets"`
+    KafkaStreams                         bool     `json:"kafkaStreams"`
+    CustomKsml                           bool     `json:"customKsml"`
+    Uid                                  string   `json:"uid"`
+    CreatedAt                            string   `json:"created_at"`
+    ModifiedAt                           string   `json:"modified_at"`
+    CreatedBy                            string   `json:"created_by"`
+    ModifiedBy                           string   `json:"modified_by"`
+    ApplicationId                        string   `json:"applicationId"`
+    Links                                struct {
+        Self                        Link `json:"self"`
+        Application                 Link `json:"application"`
+        Edit                        Link `json:"edit"`
+        CreateApplicationPrincipal  Link `json:"createApplicationPrincipal"`
+        CreateApplicationAccess     Link `json:"createApplicationAccess"`
+        CreateApplicationDeployment Link `json:"createApplicationDeployment"`
+        Reset                       Link `json:"reset"`
+        Delete                      Link `json:"delete"`
+        Viewers                     Link `json:"viewers"`
+    } `json:"_links"`
+}
+
+
+type ApplicationsByNameOrShortNameResponseX struct {
 	Embedded struct {
 		Applications []struct {
 			Name             string `json:"name"`
