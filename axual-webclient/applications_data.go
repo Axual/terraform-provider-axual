@@ -167,7 +167,7 @@ type ApplicationsByNameOrShortNameResponse struct {
     ShortName        string `json:"shortName"`
     Description      string `json:"description"`
     ApplicationType  string `json:"applicationType"`
-    Type             *string `json:"type"` // nullable
+    Type             *string `json:"type"`
     ApplicationClass string `json:"applicationClass"`
     Visibility       string `json:"visibility"`
     Owners           struct {
@@ -222,50 +222,4 @@ type ApplicationsByNameOrShortNameResponse struct {
         Delete                      Link `json:"delete"`
         Viewers                     Link `json:"viewers"`
     } `json:"_links"`
-}
-
-
-type ApplicationsByNameOrShortNameResponseX struct {
-	Embedded struct {
-		Applications []struct {
-			Name             string `json:"name"`
-			Visibility       string `json:"visibility"`
-			Description      string `json:"description"`
-			ShortName        string `json:"shortName"`
-			Type             string `json:"type"`
-			ApplicationClass string `json:"applicationClass"`
-			CreatedAt        string `json:"created_at"`
-			CreatedBy        string `json:"created_by"`
-			ModifiedAt       string `json:"modified_at"`
-			ModifiedBy       string `json:"modified_by"`
-			Uid              string `json:"uid"`
-			ApplicationId    string `json:"applicationId"`
-			ApplicationType  string `json:"applicationType"`
-			Owners           struct {
-				Name         string `json:"name"`
-				EmailAddress struct {
-					Email string `json:"email"`
-				} `json:"emailAddress"`
-				PhoneNumber string `json:"phoneNumber"`
-				Uid         string `json:"uid"`
-			} `json:"owners"`
-			Links struct {
-				Self struct {
-					Href  string `json:"href"`
-					Title string `json:"title"`
-				} `json:"self"`
-				Application struct {
-					Href      string `json:"href"`
-					Templated bool   `json:"templated"`
-					Title     string `json:"title"`
-				} `json:"application"`
-			} `json:"_links"`
-		} `json:"applications"`
-	} `json:"_embedded"`
-	Links struct {
-		Self struct {
-			Href  string `json:"href"`
-			Title string `json:"title"`
-		} `json:"self"`
-	} `json:"_links"`
 }
