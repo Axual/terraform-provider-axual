@@ -4,6 +4,9 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"fmt"
+	"net/url"
+	"regexp"
+
 	"github.com/hashicorp/terraform-plugin-framework-validators/datasourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -11,8 +14,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"net/url"
-	"regexp"
 )
 
 var _ datasource.DataSource = &applicationDataSource{}
@@ -144,10 +145,6 @@ func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application by %s, got error: %s", searchProp, err))
 		return
 	}
-	if len(appResponse.Embedded.Applications) == 0 {
-		resp.Diagnostics.AddError("Client Error", "Application not found")
-		return
-	}
 
 	mapApplicationDataSourceResponseToData(&data, appResponse)
 
@@ -155,9 +152,7 @@ func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 	resp.Diagnostics.Append(diags...)
 }
 
-func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, appResponseByNameOrShortname *webclient.ApplicationsByNameOrShortNameResponse) {
-
-	app := appResponseByNameOrShortname.Embedded.Applications[0]
+func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, app *webclient.ApplicationsByNameOrShortNameResponse) {
 
 	data.Id = types.StringValue(app.Uid)
 	data.ApplicationType = types.StringValue(app.ApplicationType)
@@ -166,7 +161,6 @@ func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, app
 	data.ShortName = types.StringValue(app.ShortName)
 	owners := types.StringValue(app.Owners.Uid)
 	data.Owners = types.StringValue(owners.ValueString())
-	data.Type = types.StringValue(app.Type)
 	data.Visibility = types.StringValue(app.Visibility)
 
 	// optional fields
@@ -180,5 +174,10 @@ func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, app
 		data.ApplicationClass = types.StringNull()
 	} else {
 		data.ApplicationClass = types.StringValue(app.ApplicationClass)
+	}
+	if app.Type != nil {
+		data.Type = types.StringValue(*app.Type)
+	}else{
+		data.Type = types.StringNull()
 	}
 }
