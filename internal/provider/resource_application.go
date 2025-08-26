@@ -79,7 +79,7 @@ func (r *applicationResource) Schema(ctx context.Context, req resource.SchemaReq
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(3, 60),
-					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_]*$`), "can only contain letters, numbers, and underscores and cannot begin with an underscore"),
+					stringvalidator.RegexMatches(regexp.MustCompile(`^[a-z0-9][a-z0-9_]*$`), "can only contain lowercase letters, numbers, and underscores and cannot begin with an underscore"),
 				},
 			},
 			"owners": schema.StringAttribute{
