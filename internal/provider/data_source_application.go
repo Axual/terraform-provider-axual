@@ -131,17 +131,20 @@ func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 	}
 	attributes := url.Values{}
 	searchProp := "name"
+	var searchValue string
 
 	if data.ShortName.ValueString() == "" {
-		attributes.Set("name", data.Name.ValueString())
+		searchValue = data.Name.ValueString()
+		attributes.Set("name", searchValue)
 	} else {
-		attributes.Set("shortName", data.ShortName.ValueString())
+		searchValue = data.ShortName.ValueString()
+		attributes.Set("shortName", searchValue)
 		searchProp = "shortName"
 	}
 
 	appResponse, err := d.provider.client.GetApplicationByNameOrShortName(attributes)
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application by %s, got error: %s", searchProp, err))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application by %s: '%s', got error: %s", searchProp, searchValue, err))
 		return
 	}
 
