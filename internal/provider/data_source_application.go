@@ -159,8 +159,7 @@ func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, app
 	data.ApplicationId = types.StringValue(app.ApplicationId)
 	data.Name = types.StringValue(app.Name)
 	data.ShortName = types.StringValue(app.ShortName)
-	owners := types.StringValue(app.Owners.Uid)
-	data.Owners = types.StringValue(owners.ValueString())
+	data.Owners = types.StringValue(app.Owners.Uid)
 	data.Type = types.StringValue(app.Type)
 	data.Visibility = types.StringValue(app.Visibility)
 
