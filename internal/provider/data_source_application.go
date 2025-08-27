@@ -152,8 +152,9 @@ func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 	resp.Diagnostics.Append(diags...)
 }
 
-func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, app *webclient.ApplicationsByNameOrShortNameResponse) {
+func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, appByNameOrShortNameResponse *webclient.ApplicationsByNameOrShortNameResponse) {
 
+	app := appByNameOrShortNameResponse.Embedded.Applications[0]
 	data.Id = types.StringValue(app.Uid)
 	data.ApplicationType = types.StringValue(app.ApplicationType)
 	data.ApplicationId = types.StringValue(app.ApplicationId)
@@ -161,6 +162,7 @@ func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, app
 	data.ShortName = types.StringValue(app.ShortName)
 	owners := types.StringValue(app.Owners.Uid)
 	data.Owners = types.StringValue(owners.ValueString())
+	data.Type = types.StringValue(app.Type)
 	data.Visibility = types.StringValue(app.Visibility)
 
 	// optional fields
@@ -174,10 +176,5 @@ func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, app
 		data.ApplicationClass = types.StringNull()
 	} else {
 		data.ApplicationClass = types.StringValue(app.ApplicationClass)
-	}
-	if app.Type != nil {
-		data.Type = types.StringValue(*app.Type)
-	}else{
-		data.Type = types.StringNull()
 	}
 }
