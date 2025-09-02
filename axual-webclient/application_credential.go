@@ -17,20 +17,20 @@ func (c *Client) ReadApplicationCredential(id string) (*ApplicationCredentialRes
 	return &o, nil
 }
 
-func (c *Client) CreateApplicationCredential(applicationCredentialRequest ApplicationCredentialCreateRequest) (ApplicationCredentialResponse, error) {
+func (c *Client) CreateApplicationCredential(applicationCredentialRequest ApplicationCredentialCreateRequest) (*ApplicationCredentialResponse, error) {
 	var responseList ApplicationCredentialResponseList
 	marshal, err := json.Marshal(applicationCredentialRequest)
 	if err != nil {
-		return ApplicationCredentialResponse{}, fmt.Errorf("error creating payload for application credentials: %w", err)
+		return nil, err
 	}
 	headers := map[string]string{"Content-Type": "application/json"}
 	err = c.RequestAndMap("POST", fmt.Sprintf("%s/application_authentications", c.ApiURL), strings.NewReader(string(marshal)), headers, &responseList)
 	if err != nil {
-		return ApplicationCredentialResponse{}, fmt.Errorf("error sending POST request for application credentials: %w", err)
+		return nil, err
 	}
 
 	time.Sleep(2 * time.Second)
-	return responseList[0], nil
+	return &responseList[0], nil
 }
 
 func (c *Client) DeleteApplicationCredential(applicationCredentialDeleteRequest ApplicationCredentialDeleteRequest) error {
