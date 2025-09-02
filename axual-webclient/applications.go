@@ -52,11 +52,11 @@ func (c *Client) CreateApplication(data ApplicationRequest) (*ApplicationRespons
 	return &o, nil
 }
 
-func (c *Client) GetApplicationByNameOrShortName(attributes url.Values) (*ApplicationResponse, error) {
+func (c *Client) GetApplicationByNameOrShortName(params url.Values) (*ApplicationResponse, error) {
     o := ApplicationResponse{}
-	endpoint := fmt.Sprintf("findByName?name=%s", attributes.Get("name")) 
-	if attributes.Get("shortName") != "" {
-    	endpoint = fmt.Sprintf("findByShortName?shortName=%s", attributes.Get("shortName"))
+	endpoint := fmt.Sprintf("findByName?name=%s", params.Get("name")) 
+	if params.Get("shortName") != "" {
+    	endpoint = fmt.Sprintf("findByShortName?shortName=%s", params.Get("shortName"))
 	}
     url := fmt.Sprintf("%s/applications/search/%s", c.ApiURL, endpoint)
 	fmt.Println("URL", url)
