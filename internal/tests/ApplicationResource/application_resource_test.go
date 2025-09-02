@@ -2,6 +2,7 @@ package ApplicationResource
 
 import (
 	. "axual.com/terraform-provider-axual/internal/tests"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -38,6 +39,10 @@ func TestApplicationResource(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_application.tf-test-app", "visibility", "Private"),
 					resource.TestCheckResourceAttr("axual_application.tf-test-app", "description", "Axual's TF Test Application1"),
 				),
+			},
+			{
+				Config: GetProvider() + GetFile("axual_application_invalid_uppercase.tf"),
+				ExpectError: regexp.MustCompile(`can only contain lowercase letters, numbers, and\s+underscores and cannot begin with an underscore`),
 			},
 			{
 				ResourceName:      "axual_application.tf-test-app",
