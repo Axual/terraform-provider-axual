@@ -129,21 +129,22 @@ func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	attributes := url.Values{}
+	params := url.Values{}
+	searchParam := "name"
+	var searchValue string
 
 	if data.ShortName.ValueString() == "" {
-		attributes.Set("name", data.Name.ValueString())
+		searchValue = data.Name.ValueString()
+		params.Set("name", searchValue)
 	} else {
-		attributes.Set("shortName", data.ShortName.ValueString())
+		searchValue = data.ShortName.ValueString()
+		params.Set("shortName", searchValue)
+		searchParam = "shortName"
 	}
 
-	appResponse, err := d.provider.client.GetApplicationsByAttributes(attributes)
+	appResponse, err := d.provider.client.GetApplicationByNameOrShortName(params)
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application by name, got error: %s", err))
-		return
-	}
-	if len(appResponse.Embedded.Applications) == 0 {
-		resp.Diagnostics.AddError("Client Error", "Application not found")
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application by %s: '%s', got error: %s", searchParam, searchValue, err))
 		return
 	}
 
@@ -153,17 +154,14 @@ func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 	resp.Diagnostics.Append(diags...)
 }
 
-func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, appResponseByAttributes *webclient.ApplicationsByAttributesResponse) {
-
-	app := appResponseByAttributes.Embedded.Applications[0]
+func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, app *webclient.ApplicationResponse) {
 
 	data.Id = types.StringValue(app.Uid)
 	data.ApplicationType = types.StringValue(app.ApplicationType)
 	data.ApplicationId = types.StringValue(app.ApplicationId)
 	data.Name = types.StringValue(app.Name)
 	data.ShortName = types.StringValue(app.ShortName)
-	owners := types.StringValue(app.Owners.Uid)
-	data.Owners = types.StringValue(owners.ValueString())
+	data.Owners = types.StringValue(app.Owners.Uid)
 	data.Type = types.StringValue(app.Type)
 	data.Visibility = types.StringValue(app.Visibility)
 
