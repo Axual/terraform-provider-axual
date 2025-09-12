@@ -7,6 +7,8 @@ you would need to perform some actions.
     - SSL
     - SCRAM_SHA_512
     - OAUTHBEARER
+- In Tenant Settings, `Update and Deploy Owned Resources` setting is set to **All Group Members**
+- In Tenant Settings, `Enable Schema Roles for your users` setting is set to **Disabled**
 - In the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `instanceName` and the `instanceShortName` to an available Instance which has the following properties
     - `EnabledAuthenticationMethod`
         - SSL (use the [Axual Dummy Root CA as the Signing Authority](https://gitlab.com/axual/qa/local-development/-/blob/main/governance/files/axual-dummy-intermediate))
@@ -14,8 +16,17 @@ you would need to perform some actions.
         - OAUTHBEARER
     - `GranularBrowsePermission` enabled
     - `ConnectSupport` enabled
+- Make sure the test user matches the following:
+    - The test user has these roles:
+        - Tenant Admin - needed for creating Groups and Users.
+        - Application Author
+        - Environment Author
+        - Schema Author
+        - Schema Admin - needed for deleting Schemas not assigned to your Group.
+        - Topic Author
 - Then in the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `groupName` to a Group you are a member of.
 - Then in the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `userEmail` to your email identifying your user.
+- Edit this [`test_provider.go`](./internal/tests/test_provider.go) to connect to the target environment you want to run the tests.
 - Edit this run configuration included in this repo: [`.run/Run all the tests.run.xml`](.run/Run%20all%20the%20tests.run.xml)
     - Open the edit configuration
     - Look at the env variables section and update the following variables
@@ -28,14 +39,6 @@ you would need to perform some actions.
       - TF_LOG=INFO
         - Optional but highly recommended
       > Here is a full env variables example: `AXUAL_PASSWORD=<INSERT API PASSWORD>;AXUAL_USERNAME=<INSERT API USERNAME>;TF_ACC=1;TF_ACC_TERRAFORM_PATH=/opt/homebrew/bin/terraform;TF_LOG=INFO`
-- Make sure the test user matches the following:
-  - The test user has these roles:
-    - Tenant Admin - needed for creating Groups and Users.
-    - Application Author
-    - Environment Author
-    - Schema Author
-    - Topic Author 
-- In Tenant Settings, "Update and Deploy Owned Resources" setting is set to "All Group Members"
 - Make sure to turn off parallelization for running go tests because of conflicts when creating shared resources many times
     - Use this go tool argument: `-p 1`
 - Make sure to turn off test caching, because then we can run the same tests multiple times to test stability without having to change the test.
