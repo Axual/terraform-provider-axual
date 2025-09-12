@@ -7,8 +7,6 @@
       <env name="TF_ACC" value="1" />
       <env name="TF_ACC_TERRAFORM_PATH" value="/opt/homebrew/bin/terraform" />
       <env name="TF_LOG" value="INFO" />
-      <env name="AXUAL_USERNAME" value="update_with_your_username" />
-      <env name="AXUAL_PASSWORD" value="update_with_your_password" />
     </envs>
     <kind value="DIRECTORY" />
     <package value="axual.com/terraform-provider-axual/internal/tests/..." />

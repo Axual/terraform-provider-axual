@@ -26,26 +26,15 @@ you would need to perform some actions.
         - Topic Author
 - Then in the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `groupName` to a Group you are a member of.
 - Then in the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `userEmail` to your email identifying your user.
+- Then in the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `username` to your username identifying your user.
+- Then in the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `password` to your password for your user.
 - Edit this [`test_provider.go`](./internal/tests/test_provider.go) to connect to the target environment you want to run the tests.
-- Edit this run configuration included in this repo: [`.run/Run all the tests.run.xml`](.run/Run%20all%20the%20tests.run.xml)
-    - Open the edit configuration
-    - Look at the env variables section and update the following variables
-      - AXUAL_USERNAME=[your username to authenticate with the Platform Manager]
-      - AXUAL_PASSWORD=[your password to authenticate with the Platform Manager]
-      - TF_ACC=1
-          - Built-in safety env var for accidentally running the tests on a live environment
-      - TF_ACC_TERRAFORM_PATH
-        - path to Terraform binary in your local system
-      - TF_LOG=INFO
-        - Optional but highly recommended
-      > Here is a full env variables example: `AXUAL_PASSWORD=<INSERT API PASSWORD>;AXUAL_USERNAME=<INSERT API USERNAME>;TF_ACC=1;TF_ACC_TERRAFORM_PATH=/opt/homebrew/bin/terraform;TF_LOG=INFO`
+
+Now you are ready to run the Acceptance Tests by executing thi [`.run/Run all the tests.run.xml`](.run/Run%20all%20the%20tests.run.xml) file.
 - Make sure to turn off parallelization for running go tests because of conflicts when creating shared resources many times
     - Use this go tool argument: `-p 1`
 - Make sure to turn off test caching, because then we can run the same tests multiple times to test stability without having to change the test.
     - Use this go tool argument: `-count 1`
-
-
-Now you are ready to run the Acceptance Tests.
 
 - First, try to run one acceptance test, before trying to run all the tests. It might happen that if a test fails, you have to manually delete resources using the UI.
     - We recommend trying to run in this order:
@@ -58,7 +47,7 @@ Now you are ready to run the Acceptance Tests.
     - Click on test icon in IntelliJ IDEA for a test file like `user_resource_test.go`(left of func, in gutter)
     - Choose `Modify Run Configurations`
     - Paste the full env variables:
-        - For example: `AXUAL_PASSWORD=<INSERT API PASSWORD>;AXUAL_USERNAME=<INSERT API USERNAME>;TF_ACC=1;TF_ACC_TERRAFORM_PATH=/opt/homebrew/bin/terraform;TF_LOG=INFO`
+        - For example: `TF_ACC=1;TF_ACC_TERRAFORM_PATH=/opt/homebrew/bin/terraform;TF_LOG=INFO`
     - Apply -> Run test
 
 ### How to run tests in VS Code or command line

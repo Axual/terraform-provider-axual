@@ -1,16 +1,17 @@
 package tests
 
 import (
-	"axual.com/terraform-provider-axual/internal/provider"
 	"fmt"
+	"log"
+	"os"
+	"testing"
+
+	"axual.com/terraform-provider-axual/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"gopkg.in/yaml.v3"
-	"log"
-	"os"
-	"testing"
 )
 
 // Struct to hold provider configuration from YAML file
@@ -22,6 +23,8 @@ type ProviderConfig struct {
 	InstanceShortName string `yaml:"instanceShortName"`
 	GroupName         string `yaml:"groupName"`
 	UserEmail         string `yaml:"userEmail"`
+	Username          string `yaml:"username"`
+	Password          string `yaml:"password"`
 }
 
 // Function to load the configuration from a YAML file
@@ -91,30 +94,16 @@ func GetProvider() string {
 	// Local Platform.local setup
 	providerBlock := `
 	provider "axual" {
-	 authmode = "keycloak"
-	 apiurl   = "https://platform.local/api"
-	 realm    = "local"
-	 username = "` + os.Getenv("AXUAL_USERNAME") + `"
-	 password = "` + os.Getenv("AXUAL_PASSWORD") + `"
-	 clientid = "self-service"
-	 authurl  = "https://platform.local/auth/realms/local/protocol/openid-connect/token"
-	 scopes   = ["openid", "profile", "email"]
+		authmode = "keycloak"
+		apiurl   = "https://platform.local/api"
+		realm    = "local"
+		username = "` + config.Username + `"
+		password = "` + config.Password + `"
+		clientid = "self-service"
+		authurl  = "https://platform.local/auth/realms/local/protocol/openid-connect/token"
+		scopes   = ["openid", "profile", "email"]
 	}
 	`
-
-	// QA
-	//	providerBlock := `
-	//provider "axual" {
-	//  authmode = "keycloak"
-	//  apiurl   = "https://self-service.qa.np.westeurope.azure.axual.cloud/api"
-	//  realm    = "axual"
-	//  username = "` + os.Getenv("AXUAL_USERNAME") + `"
-	//  password = "` + os.Getenv("AXUAL_PASSWORD") + `"
-	//  clientid = "self-service"
-	//  authurl  = "https://self-service.qa.np.westeurope.azure.axual.cloud/auth/realms/axual/protocol/openid-connect/token"
-	//  scopes   = ["openid", "profile", "email"]
-	//}
-	//`
 
 	dataBlock := `
 	data "axual_instance" "test_instance" {
