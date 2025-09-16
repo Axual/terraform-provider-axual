@@ -30,11 +30,18 @@ you would need to perform some actions.
 - Then in the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `password` to your password for your user.
 - Edit this [`test_provider.go`](./internal/tests/test_provider.go) to connect to the target environment you want to run the tests.
 
-Now you are ready to run the Acceptance Tests by executing thi [`.run/Run all the tests.run.xml`](.run/Run%20all%20the%20tests.run.xml) file.
-- Make sure to turn off parallelization for running go tests because of conflicts when creating shared resources many times
-    - Use this go tool argument: `-p 1`
-- Make sure to turn off test caching, because then we can run the same tests multiple times to test stability without having to change the test.
-    - Use this go tool argument: `-count 1`
+- Now you are ready to run the Acceptance Tests by executing thi [`.run/Run all the tests.run.xml`](.run/Run%20all%20the%20tests.run.xml) file.
+    - Look at the env variables section, you can update the following variables as per your setup:
+        - TF_ACC=1
+            - Built-in safety env var for accidentally running the tests on a live environment
+        - TF_ACC_TERRAFORM_PATH
+            - Path to Terraform binary in your local system
+        - TF_LOG=INFO
+            - Optional but highly recommended
+    - Make sure to turn off parallelization for running go tests because of conflicts when creating shared resources many times
+        - Use this go tool argument: `-p 1`
+    - Make sure to turn off test caching, because then we can run the same tests multiple times to test stability without having to change the test.
+        - Use this go tool argument: `-count 1`
 
 - First, try to run one acceptance test, before trying to run all the tests. It might happen that if a test fails, you have to manually delete resources using the UI.
     - We recommend trying to run in this order:
