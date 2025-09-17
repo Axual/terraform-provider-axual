@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 * Added Support for importing Application Deployment
 * Retrieve an application using `findByName` or `findByShortName` endpoints instead of `findByAttributes`
 * Fixed `axual_topic_config` to allow in-place updates of `key_schema_version` and `value_schema_version` fields instead of forcing resource replacement
+* Added automatic retry with `force: true` for `axual_topic_config` updates when receiving HTTP 422 (UNPROCESSABLE_ENTITY) errors due to incompatible schema version changes
 
 ## [2.5.5](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.5.5) - 2025-03-07
 * Removed unused method for `/groups/{uid}/members/{uid}`
