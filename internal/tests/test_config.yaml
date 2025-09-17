@@ -2,7 +2,9 @@ provider:
   # Version is "local" for local provider, the binary path is in .terraformrc under "dev_overrides"
   # Version is a specific version like "2.4.1" for a public official registry version
   version: "local"
-instanceName: "Dev Test Acceptance"
-instanceShortName: "dta"
-groupName: "Admins"
-userEmail: "user@email.com"
+instanceName: "YOUR_INSTANCE_NAME"
+instanceShortName: "YOUR_INSTANCE_SHORT_NAME"
+groupName: "YOUR_GROUP_NAME"
+userEmail: "YOUR_USER_EMAIL"
+username: "YOUR_USERNAME"
+password: "YOUR_PASSWORD"
