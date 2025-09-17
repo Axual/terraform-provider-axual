@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 * Removed trial guide
 * Added Support for importing Application Deployment
 * Retrieve an application using `findByName` or `findByShortName` endpoints instead of `findByAttributes`
+* Fixed `axual_topic_config` to allow in-place updates of `key_schema_version` and `value_schema_version` fields instead of forcing resource replacement
 
 ## [2.5.5](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.5.5) - 2025-03-07
 * Removed unused method for `/groups/{uid}/members/{uid}`
