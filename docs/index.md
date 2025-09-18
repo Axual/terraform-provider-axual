@@ -7,7 +7,7 @@ The **Axual Terraform Provider** integrates Axual's Self-Service for Apache Kafk
 
 This empowers teams to monitor, manage, and automate their Kafka streaming environments efficiently.
 
-Learn more: [Axual Self-Service Documentation](https://docs.axual.io/axual/2025.1/self-service/index.html)
+Learn more: [Axual Self-Service Documentation](https://docs.axual.io/axual/2025.2/self-service/index.html)
 
 ## Example Usage
 
@@ -226,8 +226,8 @@ The Axual Terraform provider enables a distributed GitOps setup across teams:
   - Or import them: [`terraform import`](https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/user#import)
 
 ## Compatibility
-| Terraform Provider Version | Supported Platform Manager Versions |
-|----------------------------|---------------------------------------|
+| Terraform Provider Version | Supported Platform Manager Versions  |
+|----------------------------|--------------------------------------|
 | 2.1.x                      | 7.0.7 - 8.4.x                        |
 | 2.2.x                      | 8.5.x                                |
 | 2.3.x                      | 8.5.x                                |

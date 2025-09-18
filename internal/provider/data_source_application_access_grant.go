@@ -39,7 +39,7 @@ func (d *applicationAccessGrantDataSource) Metadata(ctx context.Context, req dat
 
 func (d *applicationAccessGrantDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Application Access Grant resource. Purpose of a grant is to request access to a topic in an environment. Read more: https://docs.axual.io/axual/2025.1/self-service/application-management.html#requesting-topic-access",
+		MarkdownDescription: "Application Access Grant resource. Purpose of a grant is to request access to a topic in an environment. Read more: https://docs.axual.io/axual/2025.2/self-service/application-management.html#requesting-topic-access",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Application Access Grant Unique Identifier",

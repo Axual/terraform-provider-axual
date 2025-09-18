@@ -2,10 +2,13 @@ package provider
 
 import (
 	webclient "axual-webclient"
-	"axual.com/terraform-provider-axual/internal/provider/utils"
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
+
+	"axual.com/terraform-provider-axual/internal/provider/utils"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/mapvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -18,8 +21,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"strings"
-	"time"
 )
 
 var _ resource.Resource = &topicConfigResource{}
@@ -53,18 +54,18 @@ func (r *topicConfigResource) Metadata(ctx context.Context, req resource.Metadat
 func (r *topicConfigResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Topic Config resource. Once the Topic has been created, the next step to actually configure the topic for any environment is to configure the topic. Read more: https://docs.axual.io/axual/2025.1/self-service/topic-management.html#configuring-a-topic-for-an-environment",
+		MarkdownDescription: "Topic Config resource. Once the Topic has been created, the next step to actually configure the topic for any environment is to configure the topic. In case of an incompatible change related to the `key_schema_version` or `value_schema_version` the Axual Terraform Provider will force the update. Read more: https://docs.axual.io/axual/2025.2/self-service/topic-management.html#configuring-a-topic-for-an-environment",
 
 		Attributes: map[string]schema.Attribute{
 			"partitions": schema.Int64Attribute{
-				MarkdownDescription: "The number of partitions define how many consumer instances can be started in parallel on this topic. Read more: https://docs.axual.io/axual/2025.1/self-service/topic-management.html#partitions-number",
+				MarkdownDescription: "The number of partitions define how many consumer instances can be started in parallel on this topic. Read more: https://docs.axual.io/axual/2025.2/self-service/topic-management.html#partitions-number",
 				Required:            true,
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.RequiresReplace(),
 				},
 			},
 			"retention_time": schema.Int64Attribute{
-				MarkdownDescription: "Determine how long the messages should be available on a topic. There should be an agreed value most likely discussed in Intake session with the team supporting Axual Platform. In most cases, it is 7 days. Minimum value is 1000 (ms). Read more: https://docs.axual.io/axual/2025.1/self-service/topic-management.html#retention-time",
+				MarkdownDescription: "Determine how long the messages should be available on a topic. There should be an agreed value most likely discussed in Intake session with the team supporting Axual Platform. In most cases, it is 7 days. Minimum value is 1000 (ms). Read more: https://docs.axual.io/axual/2025.2/self-service/topic-management.html#retention-time",
 				Required:            true,
 				Validators: []validator.Int64{
 					int64validator.AtLeast(1000),
@@ -93,7 +94,7 @@ func (r *topicConfigResource) Schema(ctx context.Context, req resource.SchemaReq
 				Optional:            true,
 			},
 			"properties": schema.MapAttribute{
-				MarkdownDescription: "You can define Kafka properties for your topic here. All options are: `segment.ms`, `retention.bytes`, `min.compaction.lag.ms`, `max.compaction.lag.ms`, `message.timestamp.difference.max.ms`, `message.timestamp.type` Read more: https://docs.axual.io/axual/2025.1/self-service/topic-management.html#configuring-a-topic-for-an-environment",
+				MarkdownDescription: "You can define Kafka properties for your topic here. All options are: `segment.ms`, `retention.bytes`, `min.compaction.lag.ms`, `max.compaction.lag.ms`, `message.timestamp.difference.max.ms`, `message.timestamp.type` Read more: https://docs.axual.io/axual/2025.2/self-service/topic-management.html#supported-kafka-properties",
 				Optional:            true,
 				ElementType:         types.StringType,
 				Validators: []validator.Map{
