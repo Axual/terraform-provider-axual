@@ -70,6 +70,11 @@ func TestTopicConfigAvroResource(t *testing.T) {
 				Config: GetProvider() + GetFile("axual_topic_config_avro_initial.tf"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("axual_topic_config.example-with-schema-version", "partitions", "1"),
+					resource.TestCheckResourceAttr("axual_topic_config.example-with-schema-version", "retention_time", "864000"),
+					resource.TestCheckResourceAttr("axual_topic_config.example-with-schema-version", "properties.segment.ms", "600012"),
+					resource.TestCheckResourceAttr("axual_topic_config.example-with-schema-version", "properties.retention.bytes", "-1"),
+					resource.TestCheckResourceAttrPair("axual_topic_config.example-with-schema-version", "key_schema_version", "axual_schema_version.test_key_v1", "id"),
+					resource.TestCheckResourceAttrPair("axual_topic_config.example-with-schema-version", "value_schema_version", "axual_schema_version.test_value_v1", "id"),
 				),
 			},
 			{
@@ -78,6 +83,8 @@ func TestTopicConfigAvroResource(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_topic_config.example-with-schema-version", "retention_time", "864001"),
 					resource.TestCheckResourceAttr("axual_topic_config.example-with-schema-version", "properties.segment.ms", "600013"),
 					resource.TestCheckResourceAttr("axual_topic_config.example-with-schema-version", "properties.retention.bytes", "2"),
+					resource.TestCheckResourceAttrPair("axual_topic_config.example-with-schema-version", "key_schema_version", "axual_schema_version.test_key_v2", "id"),
+					resource.TestCheckResourceAttrPair("axual_topic_config.example-with-schema-version", "value_schema_version", "axual_schema_version.test_value_v2", "id"),
 				),
 			},
 			{
