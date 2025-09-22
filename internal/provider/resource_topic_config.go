@@ -55,7 +55,7 @@ func (r *topicConfigResource) Metadata(ctx context.Context, req resource.Metadat
 func (r *topicConfigResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Topic Config resource. Once the Topic has been created, the next step to actually configure the topic for any environment is to configure the topic. In case of an incompatible change related to the `key_schema_version` or `value_schema_version` the Axual Terraform Provider will force the update. Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#configuring-a-topic-for-an-environment",
+		MarkdownDescription: "Topic Config resource. Once the Topic has been created, the next step to actually configure the topic for any environment is to configure the topic. Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#configuring-a-topic-for-an-environment",
 
 		Attributes: map[string]schema.Attribute{
 			"partitions": schema.Int64Attribute{

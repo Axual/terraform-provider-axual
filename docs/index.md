@@ -232,7 +232,8 @@ The Axual Terraform provider enables a distributed GitOps setup across teams:
 | 2.2.x                      | 8.5.x                                |
 | 2.3.x                      | 8.5.x                                |
 | 2.4.x                      | 8.6.x – 9.0.x                        |
-| 2.5.x                      | 9.1.x                                |
+| 2.5.x                      | 9.1.x - 10.0.x                       |
+| 2.6.x                      | 11.0.x - onward                      |
 
 ## Custom JSON Schema Support
 

@@ -1,6 +1,6 @@
 # axual_topic_config (Resource)
 
-Topic Config resource. Once the Topic has been created, the next step to actually configure the topic for any environment is to configure the topic. In case of an incompatible change related to the `key_schema_version` or `value_schema_version` the Axual Terraform Provider will force the update. Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#configuring-a-topic-for-an-environment
+Topic Config resource. Once the Topic has been created, the next step to actually configure the topic for any environment is to configure the topic. Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#configuring-a-topic-for-an-environment
 
 ## Required Roles
 - STREAM_ADMIN or be part of the group owning the Topic
