@@ -56,28 +56,14 @@ func (c *Client) UpdateTopicConfig(id string, topicRequest TopicConfigRequest) (
 	// First attempt without force
 	err = c.RequestAndMap("PATCH", fmt.Sprintf("%s/stream_configs/%v", c.ApiURL, id), strings.NewReader(string(marshal)), nil, &o)
 	if err != nil {
-		// If we get an UnprocessableEntity error, retry with force=true in the request body
+		// If we get an UnprocessableEntity error, print a specific error message
 		if errors.Is(err, UnprocessableEntityError) {
-			fmt.Printf("Received UNPROCESSABLE_ENTITY error for topic config update. Retrying with force=true in request body...\n")
-
-			// Set force flag and re-marshal
-			topicRequest.Force = true
-			marshalWithForce, err := json.Marshal(topicRequest)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal request with force=true: %w", err)
-			}
-
-			err = c.RequestAndMap("PATCH", fmt.Sprintf("%s/stream_configs/%v", c.ApiURL, id), strings.NewReader(string(marshalWithForce)), nil, &o)
-			if err != nil {
-				return nil, fmt.Errorf("failed to update topic config even with force=true: %w", err)
-			}
-			fmt.Println("Successfully updated topic config with force=true")
+			return nil, fmt.Errorf("Incompatible schema_version change identified. Retry with force=true in the axual_topic_config resource")
 		} else {
 			return nil, err
 		}
 	}
 
-	fmt.Println("UPDATE TOPIC CONFIG RESPONSE", &o)
 	time.Sleep(3 * time.Second) // ACL application can take significant time to apply in Kafka cluster for all the brokers, we have no control over how long it takes, especially with multiple topic configs
 	return &o, nil
 }

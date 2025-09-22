@@ -45,6 +45,7 @@ type topicConfigResourceData struct {
 	ValueSchemaVersion types.String `tfsdk:"value_schema_version"`
 	Id                 types.String `tfsdk:"id"`
 	Properties         types.Map    `tfsdk:"properties"`
+	Force              types.Bool   `tfsdk:"force"`
 }
 
 func (r *topicConfigResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -107,6 +108,10 @@ func (r *topicConfigResource) Schema(ctx context.Context, req resource.SchemaReq
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
+			},
+			"force": schema.BoolAttribute{
+				Optional:            true,
+				MarkdownDescription: "Force the update of topic configuration even in case of incompatible schema changes. This field is not persisted in the API entity. Defaults to false.",
 			},
 		},
 	}
@@ -359,6 +364,9 @@ func createTopicConfigRequestFromData(ctx context.Context, data *topicConfigReso
 	}
 	if !data.ValueSchemaVersion.IsNull() {
 		topicConfigRequest.ValueSchemaVersion = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.ValueSchemaVersion.ValueString())
+	}
+	if !data.Force.IsNull() {
+		topicConfigRequest.Force = data.Force.ValueBool()
 	}
 
 	return topicConfigRequest, nil
