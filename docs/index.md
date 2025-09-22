@@ -7,7 +7,7 @@ The **Axual Terraform Provider** integrates Axual's Self-Service for Apache Kafk
 
 This empowers teams to monitor, manage, and automate their Kafka streaming environments efficiently.
 
-Learn more: [Axual Self-Service Documentation](https://docs.axual.io/axual/2025.2/self-service/index.html)
+Learn more: [Axual Self-Service Documentation](https://docs.axual.io/axual/2025.3/self-service/index.html)
 
 ## Example Usage
 

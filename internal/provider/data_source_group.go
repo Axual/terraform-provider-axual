@@ -40,7 +40,7 @@ func (d *groupDataSource) Metadata(ctx context.Context, req datasource.MetadataR
 
 func (d *groupDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Group resource. Read more: https://docs.axual.io/axual/2025.2/self-service/user-group-management.html#groups",
+		MarkdownDescription: "Group resource. Read more: https://docs.axual.io/axual/2025.3/self-service/user-group-management.html#groups",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{

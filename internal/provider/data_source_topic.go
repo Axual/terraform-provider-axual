@@ -49,7 +49,7 @@ func (d *topicDataSource) Metadata(ctx context.Context, req datasource.MetadataR
 func (d *topicDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "A topic represents a flow of information (messages), which is continuously updated. Read more: https://docs.axual.io/axual/2025.2/self-service/topic-management.html",
+		MarkdownDescription: "A topic represents a flow of information (messages), which is continuously updated. Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html",
 
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
@@ -65,11 +65,11 @@ func (d *topicDataSource) Schema(ctx context.Context, req datasource.SchemaReque
 				Computed:            true,
 			},
 			"key_type": schema.StringAttribute{
-				MarkdownDescription: "The key type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2025.2/self-service/topic-management.html#key-type",
+				MarkdownDescription: "The key type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#key-type",
 				Computed:            true,
 			},
 			"value_type": schema.StringAttribute{
-				MarkdownDescription: "The value type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2025.2/self-service/topic-management.html#value-type",
+				MarkdownDescription: "The value type and reference to the schema (if applicable). Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#value-type",
 				Computed:            true,
 			},
 			"key_schema": schema.StringAttribute{
@@ -81,15 +81,15 @@ func (d *topicDataSource) Schema(ctx context.Context, req datasource.SchemaReque
 				Computed:            true,
 			},
 			"owners": schema.StringAttribute{
-				MarkdownDescription: "The team owning this topic. Read more: https://docs.axual.io/axual/2025.2/self-service/topic-management.html#topic-owner",
+				MarkdownDescription: "The team owning this topic. Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#topic-owner",
 				Computed:            true,
 			},
 			"retention_policy": schema.StringAttribute{
-				MarkdownDescription: "Determines what to do with messages after a certain period. Read more: https://docs.axual.io/axual/2025.2/self-service/topic-management.html#retention-policy",
+				MarkdownDescription: "Determines what to do with messages after a certain period. Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#retention-policy",
 				Computed:            true,
 			},
 			"properties": schema.MapAttribute{
-				MarkdownDescription: "Advanced (Kafka) properties for a topic in a given environment. Read more: https://docs.axual.io/axual/2025.2/self-service/advanced-features.html#configuring-topic-properties",
+				MarkdownDescription: "Advanced (Kafka) properties for a topic in a given environment. Read more: https://docs.axual.io/axual/2025.3/self-service/advanced-features.html#configuring-topic-properties",
 				Computed:            true,
 				ElementType:         types.StringType,
 			},
