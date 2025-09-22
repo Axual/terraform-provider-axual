@@ -88,6 +88,16 @@ func TestTopicConfigAvroResource(t *testing.T) {
 				),
 			},
 			{
+				Config: GetProvider() + GetFile("axual_topic_config_incompatible_avro_updated.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_topic_config.example-with-schema-version", "retention_time", "864001"),
+					resource.TestCheckResourceAttr("axual_topic_config.example-with-schema-version", "properties.segment.ms", "600013"),
+					resource.TestCheckResourceAttr("axual_topic_config.example-with-schema-version", "properties.retention.bytes", "2"),
+					resource.TestCheckResourceAttrPair("axual_topic_config.example-with-schema-version", "key_schema_version", "axual_schema_version.test_key_v3", "id"),
+					resource.TestCheckResourceAttrPair("axual_topic_config.example-with-schema-version", "value_schema_version", "axual_schema_version.test_value_v2", "id"),
+				),
+			},
+			{
 				Config: GetProvider() + GetFile("axual_topic_config_avro_properties_removed.tf"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckNoResourceAttr("axual_topic_config.example-with-schema-version", "properties"),
