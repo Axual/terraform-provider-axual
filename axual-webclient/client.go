@@ -77,13 +77,6 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 		return nil, NotFoundError
 	}
 	if res.StatusCode == http.StatusUnprocessableEntity {
-		defer func() {
-			if closeErr := res.Body.Close(); closeErr != nil {
-				fmt.Printf("warning: failed to close response body: %v\n", closeErr)
-			}
-		}()
-		body, _ := io.ReadAll(res.Body)
-		log.Printf("Unprocessable entity error: status: %d, body: %s", res.StatusCode, body)
 		return nil, UnprocessableEntityError
 	}
 	defer func() {
