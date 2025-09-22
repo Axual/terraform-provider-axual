@@ -53,7 +53,6 @@ func (c *Client) UpdateTopicConfig(id string, topicRequest TopicConfigRequest) (
 		return nil, err
 	}
 
-	// First attempt without force
 	err = c.RequestAndMap("PATCH", fmt.Sprintf("%s/stream_configs/%v", c.ApiURL, id), strings.NewReader(string(marshal)), nil, &o)
 	if err != nil {
 		// If we get an UnprocessableEntity error, print a specific error message
