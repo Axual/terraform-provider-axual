@@ -111,7 +111,7 @@ func (r *topicConfigResource) Schema(ctx context.Context, req resource.SchemaReq
 			},
 			"force": schema.BoolAttribute{
 				Optional:            true,
-				MarkdownDescription: "Force the update of topic configuration even in case of incompatible schema changes.",
+				MarkdownDescription: "Force the update of topic configuration even in case of incompatible schema changes. Defaults to false.",
 			},
 		},
 	}

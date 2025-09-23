@@ -17,7 +17,7 @@ Topic Config resource. Once the Topic has been created, the next step to actuall
 
 ### Optional
 
-- `force` (Boolean) Force the update of topic configuration even in case of incompatible schema changes.
+- `force` (Boolean) Force the update of topic configuration even in case of incompatible schema changes. Defaults to false.
 - `key_schema_version` (String) The schema version this topic config supports for the key.
 - `properties` (Map of String) You can define Kafka properties for your topic here. All options are: `segment.ms`, `retention.bytes`, `min.compaction.lag.ms`, `max.compaction.lag.ms`, `message.timestamp.difference.max.ms`, `message.timestamp.type` Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#supported-kafka-properties
 - `value_schema_version` (String) The schema version this topic config supports for the value.
