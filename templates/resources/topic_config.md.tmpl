@@ -25,6 +25,7 @@ resource "axual_topic_config" "example-with-schema-version" {
   environment = axual_environment.development.id
   key_schema_version = axual_schema_version.axual_gitops_test_schema_version2.id
   value_schema_version = axual_schema_version.axual_gitops_test_schema_version1.id
+  force = true
   properties = {"segment.ms"="600012", "retention.bytes"="-1"}
 }
 ```

@@ -48,7 +48,7 @@ func (r *schemaVersionResource) Metadata(ctx context.Context, req resource.Metad
 
 func (r *schemaVersionResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Schema version resource. None of the fields can be updated. Read more: https://docs.axual.io/axual/2025.1/self-service/schema-management.html",
+		MarkdownDescription: "Schema version resource. None of the fields can be updated. Read more: https://docs.axual.io/axual/2025.3/self-service/schema-management.html",
 
 		Attributes: map[string]schema.Attribute{
 			"body": schema.StringAttribute{

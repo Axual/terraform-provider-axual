@@ -43,7 +43,7 @@ you would need to perform some actions.
     - Make sure to turn off test caching, because then we can run the same tests multiple times to test stability without having to change the test.
         - Use this go tool argument: `-count 1`
 
-- First, try to run one acceptance test, before trying to run all the tests. It might happen that if a test fails, you have to manually delete resources using the UI.
+- First, try to run one acceptance test before trying to run all the tests. It might happen that if a test fails, you have to manually delete resources using the UI.
     - We recommend trying to run in this order:
         - user_resource_test.go
         - topic_data_source_test.go

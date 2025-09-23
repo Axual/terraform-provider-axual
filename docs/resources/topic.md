@@ -1,6 +1,6 @@
 # axual_topic (Resource)
 
-A topic represents a flow of information (messages), which is continuously updated. Read more: https://docs.axual.io/axual/2025.1/self-service/topic-management.html
+A topic represents a flow of information (messages), which is continuously updated. Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html
 
 ## Required Roles
 - ENVIRONMENT_AUTHOR or ENVIRONMENT_ADMIN
@@ -13,19 +13,19 @@ A topic represents a flow of information (messages), which is continuously updat
 
 ### Required
 
-- `key_type` (String) The key type and reference to the schema. Read more: https://docs.axual.io/axual/2025.1/self-service/topic-management.html#key-type
+- `key_type` (String) The key type and reference to the schema. Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#key-type
 - `name` (String) The name of the topic. Can only contain letters, numbers, dots, dashes and underscores and cannot begin with an underscore, dot or dash, but can't start with underscore, dot or dash. The topic name is usually discussed and finalized as part of the Intake session or a follow up.
-- `owners` (String) The team owning this topic. Read more: https://docs.axual.io/axual/2025.1/self-service/topic-management.html#topic-owner
-- `retention_policy` (String) Designate the retention policy to use on old log segments. Only these values are allowed: `compact`, `delete`, `compact,delete`  Read more: https://docs.axual.io/axual/2025.1/self-service/topic-management.html#retention-policy
-- `value_type` (String) The value type and reference to the schema. Read more: https://docs.axual.io/axual/2025.1/self-service/topic-management.html#value-type
+- `owners` (String) The team owning this topic. Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#topic-owner
+- `retention_policy` (String) Designate the retention policy to use on old log segments. Only these values are allowed: `compact`, `delete`, `compact,delete`  Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#retention-policy
+- `value_type` (String) The value type and reference to the schema. Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#value-type
 
 ### Optional
 
 - `description` (String) A text describing the purpose of the topic.
 - `key_schema` (String) (if `key_type` is `AVRO`) The key type and reference to the schema (if applicable).
-- `properties` (Map of String) Advanced (Kafka) properties for a topic in a given environment. If no properties please leave properties empty like this: properties = { }.  Read more: https://docs.axual.io/axual/2025.1/self-service/advanced-features.html#configuring-topic-properties
+- `properties` (Map of String) Advanced (Kafka) properties for a topic in a given environment. If no properties please leave properties empty like this: properties = { }.  Read more: https://docs.axual.io/axual/2025.3/self-service/advanced-features.html#configuring-topic-properties
 - `value_schema` (String) (if `value_type` is `AVRO`) The value type and reference to the schema (if applicable).
-- `viewers` (Set of String) The Viewer Groups of this topic. Topic Viewer Groups define which Groups are authorized to View Topic Configurations, regardless of ownership and visibility. Read more: https://docs.axual.io/axual/2025.1/self-service/user-group-management.html#viewer-groups
+- `viewers` (Set of String) The Viewer Groups of this topic. Topic Viewer Groups define which Groups are authorized to View Topic Configurations, regardless of ownership and visibility. Read more: https://docs.axual.io/axual/2025.3/self-service/user-group-management.html#viewer-groups
 
 ### Read-Only
 

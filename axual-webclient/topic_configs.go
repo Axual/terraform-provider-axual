@@ -52,11 +52,17 @@ func (c *Client) UpdateTopicConfig(id string, topicRequest TopicConfigRequest) (
 	if err != nil {
 		return nil, err
 	}
+
 	err = c.RequestAndMap("PATCH", fmt.Sprintf("%s/stream_configs/%v", c.ApiURL, id), strings.NewReader(string(marshal)), nil, &o)
 	if err != nil {
-		return nil, err
+		// If we get an UnprocessableEntity error, print a specific error message
+		if errors.Is(err, UnprocessableEntityError) {
+			return nil, fmt.Errorf("Incompatible schema_version change identified. Retry with force=true in the axual_topic_config resource")
+		} else {
+			return nil, err
+		}
 	}
-	fmt.Println("UPDATE TOPIC CONFIG RESPONSE", &o)
+
 	time.Sleep(3 * time.Second) // ACL application can take significant time to apply in Kafka cluster for all the brokers, we have no control over how long it takes, especially with multiple topic configs
 	return &o, nil
 }

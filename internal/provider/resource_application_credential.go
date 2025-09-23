@@ -60,7 +60,7 @@ func (r *applicationCredentialResource) Metadata(ctx context.Context, req resour
 func (r *applicationCredentialResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "An Application Credential is a security credential (SASL) that uniquely authenticates an Application in an Environment. Read more: https://docs.axual.io/axual/2025.1/self-service/application-management.html#configuring-application-securityauthentication",
+		MarkdownDescription: "An Application Credential is a security credential (SASL) that uniquely authenticates an Application in an Environment. Read more: https://docs.axual.io/axual/2025.3/self-service/application-management.html#configuring-application-securityauthentication",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{

@@ -1,6 +1,6 @@
 # axual_group (Resource)
 
-Group resource. Read more: https://docs.axual.io/axual/2025.1/self-service/user-group-management.html#groups
+Group resource. Read more: https://docs.axual.io/axual/2025.3/self-service/user-group-management.html#groups
 
 ## Required Roles
 - TENANT_ADMIN
@@ -15,7 +15,7 @@ Group resource. Read more: https://docs.axual.io/axual/2025.1/self-service/user-
 ### Optional
 
 - `email_address` (String) Group's email address
-- `managers` (Set of String) A Group Manager can edit this group, including adding or removing users and other group managers. Read more: https://docs.axual.io/axual/2025.1/self-service/user-group-management.html#making-a-group-member-manager-of-the-group
+- `managers` (Set of String) A Group Manager can edit this group, including adding or removing users and other group managers. Read more: https://docs.axual.io/axual/2025.3/self-service/user-group-management.html#making-a-group-member-manager-of-the-group
 - `members` (Set of String) Group's members
 - `phone_number` (String) Group's phone number
 

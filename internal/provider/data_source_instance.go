@@ -41,7 +41,7 @@ func (d *instanceDataSource) Metadata(ctx context.Context, req datasource.Metada
 
 func (d *instanceDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Instance resource. Read more: https://docs.axual.io/axual/2025.1/self-service/instance-management.html",
+		MarkdownDescription: "Instance resource. Read more: https://docs.axual.io/axual/2025.3/self-service/instance-management.html",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{

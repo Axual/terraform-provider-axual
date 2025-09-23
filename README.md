@@ -88,13 +88,14 @@ export PATH=“$PATH:${GOPATH}/bin:${GOROOT}/bin”
 
 ## Terraform Documentation
 
+
 ### Generate
 
-- To generate documentation, run this command in terraform-provider-axual directory
+- To generate documentation, run this command in the terraform-provider-axual directory
 ```shell
 go generate
 ```
-- This command generates documentation based on the templates in the templates' directory.
+- This command generates documentation based on the templates in the templates' directory and the MarkdownDescription available in the resources schema..
 
 ## Terraform Manifest file(terraform-registry-manifest.json)
 
