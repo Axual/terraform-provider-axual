@@ -20,7 +20,7 @@ terraform {
   required_providers {
     axual = {
       source  = "axual/axual"
-      version = "<Replace with latest version>"
+      version = "2.6.0"
     }
   }
 }
@@ -55,9 +55,8 @@ Before using the provider:
 
 #### Full Example
 - The following example demonstrates the basic functionality of Axual Self-Service. For more advanced features, refer to the 'Resources' and 'Guides' sections.
-```hcl
 
-```terraform
+```hcl
 # This TerraForm file shows the basic capabilities of the TerraForm provider for Axual
 
 # The Terraform provider cannot be used to create a user. Please ensure that a user already exists before proceeding. To verify, please try logging into the UI.
@@ -189,18 +188,18 @@ This will:
 
 To run the above configuration, your user must have the following roles:
 
-| Role               | Required For                                   |
-|--------------------|------------------------------------------------|
-| `TENANT_ADMIN`     | `axual_user`, `axual_group`                    |
-| `SCHEMA_AUTHOR`    | `axual_schema_version`                         |
-| `STREAM_AUTHOR`    | `axual_topic`, `axual_topic_config`, `axual_application_access_grant_approval` |
+| Role                 | Required For                                                                         |
+|----------------------|--------------------------------------------------------------------------------------|
+| `TENANT_ADMIN`       | `axual_user`, `axual_group`                                                          |
+| `SCHEMA_AUTHOR`      | `axual_schema_version`                                                               |
+| `STREAM_AUTHOR`      | `axual_topic`, `axual_topic_config`, `axual_application_access_grant_approval`       |
 | `APPLICATION_AUTHOR` | `axual_application`, `axual_application_principal`, `axual_application_access_grant` |
-| `ENVIRONMENT_AUTHOR` | `axual_environment`                          |
+| `ENVIRONMENT_AUTHOR` | `axual_environment`                                                                  |
 
-### Step 3 - Verify & Continue
+### Step 3 – Verify & Continue
 - Go to `/overview` in Axual Self-Service UI to confirm the application is producing to the topic.
 - Connect any Kafka client (e.g. Java) using the created certificate or credentials.
-- Terraform will store sensitive values (such as credentials) in the terraform.tfstate file— please ensure that it is properly secured.
+  - Terraform will store sensitive values (such as credentials) in the `terraform.tfstate` file — please ensure that it is properly secured.
 
 ## GitOps: Multi-Repo Architecture
 
