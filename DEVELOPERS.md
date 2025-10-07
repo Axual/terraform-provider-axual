@@ -1,99 +1,313 @@
-## Acceptance tests
-### How to run tests with IntelliJ IDEA
-To run the acceptance tests against a running Axual Platform,
-you would need to perform some actions.
+# Developer Guide
 
-- Update your Tenant `SupportedAuthenticationMethods` to have these options enabled
-    - SSL
-    - SCRAM_SHA_512
-    - OAUTHBEARER
-- In Tenant Settings, `Update and Deploy Owned Resources` setting is set to **All Group Members**
-- In Tenant Settings, `Enable Schema Roles for your users` setting is set to **Disabled**
-- In the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `instanceName` and the `instanceShortName` to an available Instance which has the following properties
-    - `EnabledAuthenticationMethod`
-        - SSL (use the [Axual Dummy Root CA as the Signing Authority](https://gitlab.com/axual/qa/local-development/-/blob/main/governance/files/axual-dummy-intermediate))
-        - SCRAM_SHA_512
-        - OAUTHBEARER
-    - `GranularBrowsePermission` enabled
-    - `ConnectSupport` enabled
-- Make sure the test user matches the following:
-    - The test user has these roles:
-        - Tenant Admin - needed for creating Groups and Users.
-        - Application Author
-        - Environment Author
-        - Schema Author
-        - Schema Admin - needed for deleting Schemas not assigned to your Group.
-        - Topic Author
-- Then in the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `groupName` to a Group you are a member of.
-- Then in the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `userEmail` to your email identifying your user.
-- Then in the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `username` to your username identifying your user.
-- Then in the [`test_config.yaml`](./internal/tests/test_config.yaml), replace the `password` to your password for your user.
-- Edit this [`test_provider.go`](./internal/tests/test_provider.go) to connect to the target environment you want to run the tests.
+This guide is for developers who want to contribute to the Terraform Provider for Axual Platform or build it locally for development purposes.
 
-- Now you are ready to run the Acceptance Tests by executing thi [`.run/Run all the tests.run.xml`](.run/Run%20all%20the%20tests.run.xml) file.
-    - Look at the env variables section, you can update the following variables as per your setup:
-        - TF_ACC=1
-            - Built-in safety env var for accidentally running the tests on a live environment
-        - TF_ACC_TERRAFORM_PATH
-            - Path to Terraform binary in your local system
-        - TF_LOG=INFO
-            - Optional but highly recommended
-    - Make sure to turn off parallelization for running go tests because of conflicts when creating shared resources many times
-        - Use this go tool argument: `-p 1`
-    - Make sure to turn off test caching, because then we can run the same tests multiple times to test stability without having to change the test.
-        - Use this go tool argument: `-count 1`
+## Prerequisites
 
-- First, try to run one acceptance test before trying to run all the tests. It might happen that if a test fails, you have to manually delete resources using the UI.
-    - We recommend trying to run in this order:
-        - user_resource_test.go
-        - topic_data_source_test.go
-        - application_deployment_resource_test.go
-        - All the tests together
+- [Terraform](https://www.terraform.io/downloads.html) >= 1.0
+  - Recommended: `brew install terraform`
+- [Go](https://golang.org/dl/) >= 1.21
+  - Recommended: `brew install go`
+- Access to an Axual Platform instance for testing (local deployment or Axual Cloud)
 
-- To run only one test in IntelliJ IDEA:
-    - Click on test icon in IntelliJ IDEA for a test file like `user_resource_test.go`(left of func, in gutter)
-    - Choose `Modify Run Configurations`
-    - Paste the full env variables:
-        - For example: `TF_ACC=1;TF_ACC_TERRAFORM_PATH=/opt/homebrew/bin/terraform;TF_LOG=INFO`
-    - Apply -> Run test
+## Development Setup
 
-### How to run tests in VS Code or command line
+### 1. Configure Local Provider Override
 
-- Ensure you have Go installed and set the GOPATH in your system environment variables.
-- Add the Go extension to your VS Code
-- Create a `local.env` file in your project root to store your environment variables:
-    - AXUAL_PASSWORD=<INSERT API PASSWORD>;AXUAL_USERNAME=<INSERT API USERNAME>;TF_ACC=1;TF_ACC_TERRAFORM_PATH=/opt/homebrew/bin/terraform;TF_LOG=INFO
-- Run `go test -p 1 -count 1 ./internal/tests/…`  to run the tests
-- You can also run `AXUAL_PASSWORD='your_password' AXUAL_USERNAME='your_username' TF_ACC=1 TF_ACC_TERRAFORM_PATH='/opt/homebrew/bin/terraform' TF_LOG='INFO' go test -p 1 -count 1 ./internal/tests/..` if you don't want to create a local.env file.
+Create or edit the file `~/.terraformrc` to use your locally built provider instead of the one from the registry:
 
-### How to connect to a different API
-- Change provider block in [`test_provider.go`](./internal/tests/test_provider.go). For example, for Axual Cloud:
-```terraform
-provider "axual" {
-  apiurl   = "https://axual.cloud/api"
-  realm    = "<replace with realm name>"
-  username = "<replace with username>"
-  password = "<replace with password>"
-  clientid = "self-service"
-  authurl = "https://axual.cloud/auth/realms/dizzl/protocol/openid-connect/token"
-  scopes = ["openid", "profile", "email"]
+```hcl
+provider_installation {
+  dev_overrides {
+    "axual.com/hackz/axual" = "/Users/<your-username>/go/bin"
+  }
+
+  # For all other providers, install them directly from their origin provider
+  # registries as normal. If you omit this, Terraform will _only_ use
+  # the dev_overrides block, and so no other providers will be available.
+  direct {}
 }
 ```
 
-### How to write tests
-- Make sure to test:
-    - Creating the resource
-    - Updating every field:
-        - Optional fields should be able to be removed
-        - Sets and Maps
-            - test if they can be empty
-            - should test if they can contain more than one element
-    - Importing
-- Deletion is automatic by the acceptance test
+Replace `<your-username>` with your actual username.
 
-### Prevent test automatically deleting resources
-- To prevent the test from destroying a resource (for testing):
-    - The test will fail but useful for checking in the API what the test actually created
+### 2. Install Dependencies
+
+Navigate to the `terraform-provider-axual` directory and download dependencies:
+
+```bash
+go mod tidy
+```
+
+### 3. Build and Install the Provider
+
+Build and install the provider to your local `$GOPATH/bin`:
+
+```bash
+go install
+```
+
+Alternatively:
+
+```bash
+go build -o $GOPATH/bin/
+```
+
+### 4. Test Your Local Provider
+
+Navigate to `terraform-provider-axual/examples/axual` and configure the `provider.tf` file with your credentials. With the dev override configured in `~/.terraformrc`, you can now run:
+
+```bash
+terraform plan
+terraform apply
+```
+
+**Note:** You don't need to run `terraform init` when using dev overrides.
+
+### Troubleshooting Development Setup
+
+If you encounter issues with Go not being found or the provider not being recognized, ensure your environment variables are set correctly in `~/.zshrc` (or `~/.bashrc`):
+
+```bash
+export GOPATH=$HOME/go
+export GOROOT="$(brew --prefix golang)/libexec"
+export PATH="$PATH:${GOPATH}/bin:${GOROOT}/bin"
+```
+
+## Debugging
+
+### Debugging in IntelliJ IDEA using Delve
+
+There are four IntelliJ IDEA run configurations available in the `.run` folder.
+
+#### Steps:
+
+1. Install Delve:
+   ```bash
+   brew install delve
+   ```
+
+2. Run **"Axual build to _bin"** to generate the executable in `/go/bin` named `terraform-provider-axual`
+
+3. Run **"Axual Delve binary"** (Run icon) to start Delve's debugging session on this binary
+
+4. Run **"Axual Go Remote"** (Debug icon) to connect IntelliJ to the Delve debugging session. You'll see output like:
+   ```
+   TF_REATTACH_PROVIDERS='{"axual...
+   ```
+
+5. Copy the entire `TF_REATTACH_PROVIDERS` string and export it as an environment variable:
+   ```bash
+   export TF_REATTACH_PROVIDERS='{"axual...'
+   ```
+   **Note:** On macOS, this only works in a separate terminal session. Run terraform commands from the same iTerm terminal session.
+
+6. Set a breakpoint in your code and run a terraform command (e.g., `terraform plan` or `terraform apply`). Execution will stop at your breakpoint.
+
+7. When done debugging:
+   ```bash
+   unset TF_REATTACH_PROVIDERS
+   ```
+
+**Alternative:** To debug without generating the binary first, run **"Axual Delve project"** (Run icon).
+
+### Debugging the Webclient Module
+
+The `axual-webclient-exec` module is available for testing and debugging the `axual-webclient` module independently of Terraform functionality.
+
+## Logging
+
+### Logging in axual-webclient
+
+Use Go's standard `log` package:
+
+```go
+log.Println("strings.NewReader(string(marshal))", strings.NewReader(string(marshal)))
+```
+
+### Logging in the internal folder
+
+Use Terraform's logging framework:
+
+```go
+tflog.Error(ctx, "MARSHAL", map[string]interface{}{
+  "MARSHAL": string(marshal),
+})
+```
+
+Then run Terraform with the appropriate log level:
+
+```bash
+TF_LOG=ERROR terraform apply -auto-approve
+```
+
+Available log levels: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`
+
+**Note:** Logging only works when using a locally compiled provider, not when using a provider from the registry.
+
+## Documentation
+
+### Generating Documentation
+
+To generate Terraform provider documentation from schema definitions and templates:
+
+```bash
+go generate
+```
+
+This command generates documentation based on:
+- Templates in the `templates/` directory
+- `MarkdownDescription` fields in resource schemas
+
+## Terraform Manifest File
+
+The `terraform-registry-manifest.json` file contains:
+- **version**: Numeric version of the manifest format (not the provider version)
+- **protocol_versions**: Set to `6.0` because this provider uses the Terraform Plugin Framework
+
+## Acceptance Tests
+
+### Prerequisites
+
+Before running acceptance tests:
+
+1. **Configure Tenant:**
+   - Update your Tenant's `SupportedAuthenticationMethods` to enable:
+     - SSL
+     - SCRAM_SHA_512
+     - OAUTHBEARER
+   - Set the `Update and Deploy Owned Resources` settings to **All Group Members**
+   - Set the `Enable Schema Roles for your users` settings to **Disabled**
+
+2. **Configure Test Config:**
+
+   In [`internal/tests/test_config.yaml`](./internal/tests/test_config.yaml), update:
+   - `instanceName` and `instanceShortName` to point to an instance with:
+     - `EnabledAuthenticationMethod`: SSL, SCRAM_SHA_512, OAUTHBEARER
+       - SSL using [Axual Dummy Root CA as the Signing Authority](https://gitlab.com/axual/qa/local-development/-/blob/main/governance/files/axual-dummy-intermediate)
+     - `GranularBrowsePermission` : enabled
+     - `ConnectSupport`: enabled
+   - `groupName`: A group you are a member of
+   - `userEmail`: Your email
+   - `username`: Your username
+   - `password`: Your password
+
+3. **Verify Test User Permissions:**
+
+   Ensure your test user has these roles:
+   - Tenant Admin (needed for creating Groups and Users)
+   - Application Author
+   - Environment Author
+   - Schema Author
+   - Schema Admin (needed for deleting Schemas not assigned to your Group)
+   - Topic Author
+
+4. **Configure Provider Connection:**
+
+   Edit [`internal/tests/test_provider.go`](./internal/tests/test_provider.go) to connect to your target environment.
+
+### Running Tests with IntelliJ IDEA
+
+#### Run All Tests
+
+Execute the [`.run/Run all the tests.run.xml`](.run/Run%20all%20the%20tests.run.xml) configuration.
+
+**Environment Variables:**
+- `TF_ACC=1` - Built-in safety variable to prevent accidentally running tests on a live environment
+- `TF_ACC_TERRAFORM_PATH` - Path to Terraform binary (e.g., `/opt/homebrew/bin/terraform`)
+- `TF_LOG=INFO` - Optional but highly recommended for debugging
+
+**Go Tool Arguments:**
+- `-p 1` - Disable parallelization to prevent conflicts when creating shared resources
+- `-count 1` - Disable test caching to allow running the same tests multiple times
+
+#### Run a Single Test
+
+1. Click the test icon in the IntelliJ IDEA gutter (left of the test function)
+2. Choose `Modify Run Configurations`
+3. Add environment variables:
+   ```
+   TF_ACC=1;TF_ACC_TERRAFORM_PATH=/opt/homebrew/bin/terraform;TF_LOG=INFO
+   ```
+4. Apply → Run test
+
+#### Recommended Testing Order
+
+When running tests for the first time, try them in this order to verify your setup:
+1. `user_resource_test.go`
+2. `topic_data_source_test.go`
+3. `application_deployment_resource_test.go`
+4. All tests together
+
+**Note:** If a test fails, you may need to manually delete resources using the Axual Platform UI.
+
+### Running Tests with VS Code or Command Line
+
+#### Option 1: Using Environment File
+
+1. Create a `local.env` file in your project root:
+   ```bash
+   AXUAL_PASSWORD=<INSERT_PASSWORD>
+   AXUAL_USERNAME=<INSERT_USERNAME>
+   TF_ACC=1
+   TF_ACC_TERRAFORM_PATH=/opt/homebrew/bin/terraform
+   TF_LOG=INFO
+   ```
+
+2. Run tests:
+   ```bash
+   go test -p 1 -count 1 ./internal/tests/...
+   ```
+
+#### Option 2: Inline Environment Variables
+
+Run tests with environment variables set inline:
+
+```bash
+AXUAL_PASSWORD='your_password' \
+AXUAL_USERNAME='your_username' \
+TF_ACC=1 \
+TF_ACC_TERRAFORM_PATH='/opt/homebrew/bin/terraform' \
+TF_LOG='INFO' \
+go test -p 1 -count 1 ./internal/tests/...
+```
+
+### Connecting to Different Environments
+
+To run tests against different Axual Platform instances (e.g., Axual Cloud), modify the provider block in [`test_provider.go`](./internal/tests/test_provider.go):
+
+**Example for Axual Cloud:**
+
+```terraform
+provider "axual" {
+  apiurl   = "https://axual.cloud/api"
+  realm    = "<your-realm-name>"
+  username = "<your-username>"
+  password = "<your-password>"
+  clientid = "self-service"
+  authurl  = "https://axual.cloud/auth/realms/<your-realm-name>/protocol/openid-connect/token"
+  scopes   = ["openid", "profile", "email"]
+}
+```
+
+## Writing Tests
+
+### Test Coverage Requirements
+
+When writing acceptance tests, ensure you test:
+
+1. **Creating the resource**
+2. **Updating every field:**
+   - Optional fields should be able to be removed
+   - Sets and Maps:
+     - Can be empty
+     - Can contain more than one element
+3. **Importing** the resource
+4. **Deletion** (automatic by the acceptance test framework)
+
+### Preventing Automatic Resource Deletion
+
+To prevent a test from destroying a resource (useful for debugging):
 
 ```terraform
 resource "axual_group" "team-integrations" {
@@ -109,17 +323,35 @@ resource "axual_group" "team-integrations" {
 }
 ```
 
-### Logging
-- IntelliJ IDEA
-    - Edit Configuration for Go Test
-    - Add ENV Variable: TF_LOG=INFO
-    - Add statements like these into code: tflog.Info(ctx, fmt.Sprintf("delete group successful for group: %q", data.Id.ValueString()))
-        - Consider keeping these statements there
-- Does not work if testing with a provider from registry (not locally compiled)
+**Note:** The test will fail, but this is useful for inspecting what the test actually created in the Axual Platform API.
 
-### Debugging
-- IntelliJ IDEA
-    - Put a breakpoint in the resource file, for example `resource_group.go`.
-    - Either put username and password env variables into the `run configuration` (look at Run all `Run acceptance tests.run.xml` in .`run`) or hardcode username and password temporarily.
-    - Click on `debug`
-- Does not work if testing with a provider from registry (not locally compiled)
+### Test Logging
+
+Enable logging during test execution:
+
+1. Edit the Go Test run configuration
+2. Add environment variable: `TF_LOG=INFO`
+3. Add logging statements in your code:
+   ```go
+   tflog.Info(ctx, fmt.Sprintf("delete group successful for group: %q", data.Id.ValueString()))
+   ```
+
+**Note:** Logging only works with a locally compiled provider, not when using a provider from the registry.
+
+### Test Debugging
+
+To debug acceptance tests in IntelliJ IDEA:
+
+1. Set a breakpoint in the resource file (e.g., `resource_group.go`)
+2. Add username and password environment variables to the run configuration or temporarily hardcode them
+3. Click the Debug button
+
+**Note:** Debugging only works with a locally compiled provider, not when using a provider from the registry.
+
+## Contributing
+
+We welcome contributions! Please ensure:
+- All tests pass before submitting a pull request
+- New features include appropriate tests
+- Documentation is generated with `go generate` if schema changes are made
+- Code follows Go best practices and existing project patterns

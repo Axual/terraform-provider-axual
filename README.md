@@ -1,139 +1,97 @@
-## Terraform Provider development
+# Terraform Provider for Axual Platform
 
-Prerequisites
-- Install terraform
-  - Recommended approach: `brew install terraform`
-- Install golang
-  - Recommended approach: `brew install go`
+The Terraform Provider for Axual Platform allows you to manage Axual resources through Terraform, including applications, topics, schemas, environments, users, and groups.
 
+## Requirements
 
-Create the file `~/.terraformrc` and add the following to make the provider local installation work:
-This points to the locally compiled Terraform Provider on your computer.
+- [Terraform](https://www.terraform.io/downloads.html) >= 1.0
+- Access to an Axual Platform instance (local deployment or Axual Cloud)
 
-Replace `<user>` with the correct username.
+## Using the Provider
 
-```shell
-provider_installation {
+### Installation
 
-  dev_overrides {
-      "axual.com/hackz/axual" = "/Users/<user>/go/bin"
-  }
-
-  # For all other providers, install them directly from their origin provider
-  # registries as normal. If you omit this, Terraform will _only_ use
-  # the dev_overrides block, and so no other providers will be available.
-  direct {}
-}
-```
-
-Go to `terraform-provider-axual` directory and run `go mod tidy`. 
-This will download the libraries.
-
-Then run `go install` in terraform-provider-axual directory
-(or `go build -o $GOPATH/bin/`) to install the provider locally. 
-The provider gets installed in `$GOPATH/bin` directory.
-
-Now you can go to `terraform-provider-axual/examples/axual`.
-
-Open the `provider.tf` file and refer to this local binary and provide your configuration.
+The provider is available on the [Terraform Registry](https://registry.terraform.io/). Add it to your Terraform configuration:
 
 ```terraform
 terraform {
   required_providers {
     axual = {
-      source  = "axual.com/hackz/axual"
+      source  = "axual/axual"
+      version = "~> 2.6"
     }
   }
 }
+```
 
-# PROVIDER CONFIGURATION
-#
-# Below example configuration is for when you have deployed Axual Platform locally.
+### Provider Configuration
 
+#### Local Axual Platform
+
+Configure the provider to connect to a locally deployed Axual Platform instance:
+
+```terraform
 provider "axual" {
   apiurl   = "https://platform.local/api"
   realm    = "axual"
-  username = "kubernetes@axual.com"   #- or set using env property export AXUAL_AUTH_USERNAME=
-  password = "PLEASE_CHANGE_PASSWORD" #- or set using env property export AXUAL_AUTH_PASSWORD=
+  username = "kubernetes@axual.com"   # or set using env: AXUAL_AUTH_USERNAME
+  password = "PLEASE_CHANGE_PASSWORD" # or set using env: AXUAL_AUTH_PASSWORD
   clientid = "self-service"
   authurl  = "https://platform.local/auth/realms/axual/protocol/openid-connect/token"
   scopes   = ["openid", "profile", "email"]
 }
+```
 
-# Below example configuration is for when you have deployed Axual Platform in Axual Cloud.
+#### Axual Cloud
 
-# provider "axual" {
+Configure the provider to connect to Axual Cloud:
+
+```terraform
+provider "axual" {
   apiurl   = "https://axual.cloud/api"
-  realm    = "PLEASE_CHANGE_REALM"
-  username = "PLEASE_CHANGE_USERNAME"
-  password = "PLEASE_CHANGE_PASSWORD"
+  realm    = "YOUR_REALM_NAME"
+  username = "YOUR_USERNAME"
+  password = "YOUR_PASSWORD"
   clientid = "self-service"
-  authurl = "https://axual.cloud/auth/realms/PLEASE_CHANGE_REALM/protocol/openid-connect/token"
-  scopes = ["openid", "profile", "email"]
-# }
+  authurl  = "https://axual.cloud/auth/realms/YOUR_REALM_NAME/protocol/openid-connect/token"
+  scopes   = ["openid", "profile", "email"]
+}
 ```
 
-Now you can run `terraform plan` to test the provider.
-> Note you don't need to run `terraform init`.
-> 
-### Troubleshooting
-Usually if Go is installed with brew, you don't need to set any environment variables,
-but just in case things are not working, you can try the setting below in `~/.zshrc`.
+### Authentication
 
-```shell
-export GOPATH=$HOME/go
-export GOROOT=“$(brew --prefix golang)/libexec”
-export PATH=“$PATH:${GOPATH}/bin:${GOROOT}/bin”
+The provider supports authentication via:
+- Direct credentials in the provider block
+- Environment variables: `AXUAL_AUTH_USERNAME` and `AXUAL_AUTH_PASSWORD`
+
+### Example Usage
+
+After configuring the provider, initialize and apply your Terraform configuration:
+
+```bash
+terraform init
+terraform plan
+terraform apply
 ```
 
-## Terraform Documentation
+For more examples, see the `examples/` directory in this repository.
 
+## Documentation
 
-### Generate
+Full provider documentation, including all available resources and data sources, is available on the [Terraform Registry](https://registry.terraform.io/).
 
-- To generate documentation, run this command in the terraform-provider-axual directory
-```shell
-go generate
-```
-- This command generates documentation based on the templates in the templates' directory and the MarkdownDescription available in the resources schema..
+## Contributing
 
-## Terraform Manifest file(terraform-registry-manifest.json)
+Contributions are welcome! If you'd like to contribute to the development of this provider, please see [DEVELOPERS.md](DEVELOPERS.md) for information on:
+- Setting up a local development environment
+- Building the provider from source
+- Running tests
+- Debugging
 
-- **version** is the numeric version of the manifest format, not the version of our provider.
-- **protocol_versions** is the Terraform protocol version. This is set to 6.0 because we are using Terraform Plugin Framework to develop our provider.
+## Support
 
-## Debugging in IntelliJ IDEA using Delve
-- There are four IntelliJ IDEA run configurations in `.run` folder. Open IntelliJ run configuration menu to see them.
-- Steps to debug Terraform Provider
-  - brew install delve
-  - Run "Axual build to _bin" to generate executable in `/go/bin` and name it terraform-provider-axual
-  - Run "Axual Delve binary" (Run icon) to start Delve's debugging session on this binary. It looks for terraform-provider-axual executable in `/go/bin`.
-  - Run "Axual Go Remote" (Debug icon) to connect IntelliJ to the Delve's debugging session. On the console you will see a string: TF_REATTACH_PROVIDERS='{"axual...
-  - Copy this string and use it as environment variable: export TF_REATTACH_PROVIDERS='{"axual...
-    - For some reason, it only works in a separate terminal session on MacOS. Also run terraform commands from the same iTerm terminal session.
-  - Set a breakpoint and run a command to run the provider like: tf plan or tf apply. It will stop at the breakpoint
-  - When done with debugging, remove the env variable: unset TF_REATTACH_PROVIDERS
-  - To do the same without generating the binary: Run "Axual Delve project" (Run icon)
+For issues, questions, or feature requests, please open an issue in this repository.
 
+## License
 
-## Debugging webclient
-- The module axual-webclient-exec is used to test and debug axual-webclient module without any Terraform functionality.
-
-## Logging
-- Logging in axual-webclient:
-  - log.Println using the module "log"
-  - For example:
-    - log.Println("strings.NewReader(string(marshal))", strings.NewReader(string(marshal)))
-- Logging in internal folder:
-  - tflog.Debug(or Info,Trace, etc)
-  - Then run TF_LOG=DEBUG(Or INFO,TRACE,ERROR) terraform plan
-  - For example:
-    - marshal, err := json.Marshal(ApplicationRequest)
-    - tflog.Error(ctx, "MARSHAL", map[string]interface{}{
-      "MARSHAL": string(marshal),
-      })
-    - Run: TF_LOG=ERROR terraform apply -auto-approve
-
-## Acceptance tests
-
-- Please read how to run tests from `DEVELOPERS.md`
+See [LICENSE](LICENSE) for details.
