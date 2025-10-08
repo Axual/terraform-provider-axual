@@ -347,11 +347,3 @@ To debug acceptance tests in IntelliJ IDEA:
 3. Click the Debug button
 
 **Note:** Debugging only works with a locally compiled provider, not when using a provider from the registry.
-
-## Contributing
-
-We welcome contributions! Please ensure:
-- All tests pass before submitting a pull request
-- New features include appropriate tests
-- Documentation is generated with `go generate` if schema changes are made
-- Code follows Go best practices and existing project patterns

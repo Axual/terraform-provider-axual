@@ -11,10 +11,10 @@ Please note we have a code of conduct, please follow it in all your interactions
 2. Document your code appropriately.
 3. Code coverage should meet the expected 70%.
 4. Bugfixes should include a unit test or integration test reproducing the issue.
-5. Try to keep merge request short and submit separate ones for unrelated features, but feel 
+5. Try to keep the merge request short and submit separate ones for unrelated features, but feel 
 free to combine simple bugfixes/tests into one merge request.
 6. Update the [`README.md`](README.md) if necessary with details of changes to the interface, 
-this includes new environment variables, useful file locations etc.
+this includes new environment variables, useful file locations, etc.
 7. You may merge the merge request in once you have the sign-off of two other developers, or 
 if you do not have permission to do that, you may request the second reviewer to merge it for you.
 
