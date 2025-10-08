@@ -204,4 +204,4 @@ For issues, questions, or feature requests, please open an issue in this reposit
 
 ## License
 
-See [LICENSE](LICENSE) for details.
+See [LICENSE](LICENSE.txt) for details.
