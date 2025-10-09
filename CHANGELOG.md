@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented in this file.
 
+## [master](https://github.com/Axual/terraform-provider-axual/tree/master) - TBR
+
 ## [2.6.1](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.6.1) - 2025-10-08
 * Refactor documentation to separate user and developer audiences
 
