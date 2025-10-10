@@ -1,9 +1,10 @@
 package SchemaVersionResource
 
 import (
-	. "axual.com/terraform-provider-axual/internal/tests"
 	"regexp"
 	"testing"
+
+	. "axual.com/terraform-provider-axual/internal/tests"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
@@ -19,7 +20,7 @@ func TestSchemaVersionAvroResource(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("axual_schema_version.test_v1", "version", "1.0.0"),
 					resource.TestCheckResourceAttr("axual_schema_version.test_v1", "description", "Gitops test schema version"),
-					CheckBodyMatchesFile("axual_schema_version.test_v1", "body", "avro-schemas/gitops_test_v1.avsc"),
+					CheckBodyMatchesFile("axual_schema_version.test_v1", "body", "avro-schemas/gitops_test_1_v1.avsc"),
 				),
 			},
 			{
@@ -40,11 +41,11 @@ func TestSchemaVersionAvroResource(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_schema_version.test_v1", "version", "1.0.0"),
 					resource.TestCheckResourceAttr("axual_schema_version.test_v1", "description", "Gitops test schema version"),
 					resource.TestCheckResourceAttr("axual_schema_version.test_v1", "full_name", "io.axual.qa.general.GitOpsTest1"),
-					CheckBodyMatchesFile("axual_schema_version.test_v1", "body", "avro-schemas/gitops_test_v1.avsc"),
+					CheckBodyMatchesFile("axual_schema_version.test_v1", "body", "avro-schemas/gitops_test_1_v1.avsc"),
 					resource.TestCheckResourceAttr("axual_schema_version.test_v2", "version", "2.0.0"),
 					resource.TestCheckResourceAttr("axual_schema_version.test_v1", "description", "Gitops test schema version"),
 					resource.TestCheckResourceAttr("axual_schema_version.test_v2", "full_name", "io.axual.qa.general.GitOpsTest1"),
-					CheckBodyMatchesFile("axual_schema_version.test_v2", "body", "avro-schemas/gitops_test_v2_backwards_compatible.avsc"),
+					CheckBodyMatchesFile("axual_schema_version.test_v2", "body", "avro-schemas/gitops_test_1_v2_backwards_compatible.avsc"),
 					resource.TestCheckResourceAttrPair(
 						"axual_schema_version.test_v1", "description",
 						"axual_schema_version.test_v2", "description",
@@ -90,7 +91,7 @@ func TestSchemaVersionAvroWithOwnersResource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("axual_schema_version.test_v2_with_owner", "schema_id"),
 					resource.TestCheckResourceAttrSet("axual_schema_version.test_v2_with_owner", "id"),
 					resource.TestCheckResourceAttrSet("axual_schema_version.test_v2_with_owner", "owners"),
-					CheckBodyMatchesFile("axual_schema_version.test_v2_with_owner", "body", "avro-schemas/gitops_test_v2.avsc"),
+					CheckBodyMatchesFile("axual_schema_version.test_v2_with_owner", "body", "avro-schemas/gitops_test_2_v1.avsc"),
 				),
 			},
 			{
@@ -119,7 +120,7 @@ func TestSchemaVersionAvroWithExplicitTypeResource(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_schema_version.test_avro_explicit_type_v1", "version", "1.0.0"),
 					resource.TestCheckResourceAttr("axual_schema_version.test_avro_explicit_type_v1", "description", "Gitops test schema version with explicit AVRO type"),
 					resource.TestCheckResourceAttr("axual_schema_version.test_avro_explicit_type_v1", "type", "AVRO"),
-					CheckBodyMatchesFile("axual_schema_version.test_avro_explicit_type_v1", "body", "avro-schemas/gitops_test_v1.avsc"),
+					CheckBodyMatchesFile("axual_schema_version.test_avro_explicit_type_v1", "body", "avro-schemas/gitops_test_2_v1.avsc"),
 				),
 			},
 			{
