@@ -4,6 +4,7 @@ type SchemaType struct {
 	SchemaId    string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	Type        string `json:"type"`
 	OptLock     int64  `json:"optLock"`
 	Uid         string `json:"uid"`
 	CreatedAt   string `json:"created_at"`
@@ -44,7 +45,8 @@ type ValidateSchemaVersionResponse struct {
 }
 
 type ValidateSchemaVersionRequest struct {
-	Schema string `json:"schema"`
+	Schema string  `json:"schema"`
+	Type   *string `json:"type,omitempty"`
 }
 
 type SchemaVersionResponse struct {
@@ -63,6 +65,7 @@ type SchemaVersionRequest struct {
 	Version     string  `json:"version"`
 	Description string  `json:"description"`
 	Owners      *string `json:"owners"`
+	Type        *string `json:"type,omitempty"`
 }
 
 type GetSchemaVersionsResponse struct {

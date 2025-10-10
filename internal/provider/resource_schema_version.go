@@ -36,6 +36,7 @@ type schemaVersionResourceData struct {
 	Body        jsontypes.Normalized `tfsdk:"body"`
 	Version     types.String         `tfsdk:"version"`
 	Description types.String         `tfsdk:"description"`
+	Type        types.String         `tfsdk:"type"`
 	Id          types.String         `tfsdk:"id"`
 	SchemaId    types.String         `tfsdk:"schema_id"`
 	FullName    types.String         `tfsdk:"full_name"`
@@ -52,7 +53,7 @@ func (r *schemaVersionResource) Schema(ctx context.Context, req resource.SchemaR
 
 		Attributes: map[string]schema.Attribute{
 			"body": schema.StringAttribute{
-				MarkdownDescription: "Avro schema as valid JSON",
+				MarkdownDescription: "Schema definition. For AVRO schemas, provide valid JSON. For PROTOBUF, provide .proto file content. For JSON_SCHEMA, provide valid JSON Schema definition.",
 				Required:            true,
 				CustomType:          jsontypes.NormalizedType{},
 				PlanModifiers: []planmodifier.String{
@@ -68,6 +69,13 @@ func (r *schemaVersionResource) Schema(ctx context.Context, req resource.SchemaR
 				Optional:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(1, 500),
+				},
+			},
+			"type": schema.StringAttribute{
+				MarkdownDescription: "The type of the schema. Valid values are: AVRO, PROTOBUF, JSON_SCHEMA. Defaults to AVRO if not specified.",
+				Optional:            true,
+				Validators: []validator.String{
+					stringvalidator.OneOf("AVRO", "PROTOBUF", "JSON_SCHEMA"),
 				},
 			},
 			"id": schema.StringAttribute{
@@ -206,6 +214,12 @@ func createValidateSchemaVersionRequestFromData(ctx context.Context, data *schem
 		Schema: data.Body.ValueString(),
 	}
 
+	// Add type field if specified
+	if !data.Type.IsNull() && data.Type.ValueString() != "" {
+		schemaType := data.Type.ValueString()
+		r.Type = &schemaType
+	}
+
 	tflog.Info(ctx, fmt.Sprintf("validating schema version request %q", r))
 	return r
 }
@@ -238,6 +252,12 @@ func createSchemaVersionRequestFromData(ctx context.Context, parsedSchema *webcl
 	// optional fields
 	if !data.Description.IsNull() {
 		schemaVersionRequest.Description = data.Description.ValueString()
+	}
+
+	// Add type field if specified
+	if !data.Type.IsNull() && data.Type.ValueString() != "" {
+		schemaType := data.Type.ValueString()
+		schemaVersionRequest.Type = &schemaType
 	}
 
 	tflog.Info(ctx, fmt.Sprintf("schema version request %q", schemaVersionRequest))
@@ -289,6 +309,14 @@ func mapGetSchemaVersionResponseToData(
 		newData.Description = types.StringNull()
 	} else {
 		newData.Description = types.StringValue(resp.Schema.Description)
+	}
+
+	tflog.Info(ctx, "Processing the schema type.")
+	if resp.Schema.Type == "" {
+		tflog.Info(ctx, "Schema type is empty, setting to null.")
+		newData.Type = types.StringNull()
+	} else {
+		newData.Type = types.StringValue(resp.Schema.Type)
 	}
 }
 

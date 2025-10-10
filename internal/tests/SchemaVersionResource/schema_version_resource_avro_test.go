@@ -106,3 +106,32 @@ func TestSchemaVersionAvroWithOwnersResource(t *testing.T) {
 		},
 	})
 }
+
+func TestSchemaVersionAvroWithExplicitTypeResource(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+
+		Steps: []resource.TestStep{
+			{
+				Config: GetProvider() + GetFile("axual_schema_version_avro_with_type.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_schema_version.test_avro_explicit_type_v1", "version", "1.0.0"),
+					resource.TestCheckResourceAttr("axual_schema_version.test_avro_explicit_type_v1", "description", "Gitops test schema version with explicit AVRO type"),
+					resource.TestCheckResourceAttr("axual_schema_version.test_avro_explicit_type_v1", "type", "AVRO"),
+					CheckBodyMatchesFile("axual_schema_version.test_avro_explicit_type_v1", "body", "avro-schemas/gitops_test_v1.avsc"),
+				),
+			},
+			{
+				ResourceName:      "axual_schema_version.test_avro_explicit_type_v1",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			{
+				// To ensure cleanup if one of the test cases had an error
+				Destroy: true,
+				Config:  GetProvider() + GetFile("axual_schema_version_avro_with_type.tf"),
+			},
+		},
+	})
+}
