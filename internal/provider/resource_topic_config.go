@@ -133,10 +133,10 @@ func (r *topicConfigResource) Create(ctx context.Context, req resource.CreateReq
 	}
 
 	if !data.KeySchemaVersion.IsNull() {
-		if topic.KeyType != "AVRO" {
+		if topic.KeyType != "AVRO" && topic.KeyType != "PROTOBUF" && topic.KeyType != "JSON_SCHEMA" {
 			resp.Diagnostics.AddError(
 				"CREATE request error for topic config resource",
-				fmt.Sprintf("Topic doesn't have an AVRO Key Schema. Please don't set the KeySchemaVersion: %s", data.KeySchemaVersion.ValueString()))
+				fmt.Sprintf("Topic doesn't have a schema-based Key Type (AVRO, PROTOBUF, or JSON_SCHEMA). Please don't set the KeySchemaVersion: %s", data.KeySchemaVersion.ValueString()))
 			return
 		} else {
 			r.validateSchemaVersionsForCreate(topic.Embedded.KeySchema.Uid, data.KeySchemaVersion.ValueString(), resp)
@@ -148,10 +148,10 @@ func (r *topicConfigResource) Create(ctx context.Context, req resource.CreateReq
 	}
 
 	if !data.ValueSchemaVersion.IsNull() {
-		if topic.ValueType != "AVRO" {
+		if topic.ValueType != "AVRO" && topic.ValueType != "PROTOBUF" && topic.ValueType != "JSON_SCHEMA" {
 			resp.Diagnostics.AddError(
 				"CREATE request error for topic config resource",
-				fmt.Sprintf("Topic doesn't have an AVRO Value Schema. Please don't set the ValueSchemaVersion: %s", data.ValueSchemaVersion))
+				fmt.Sprintf("Topic doesn't have a schema-based Value Type (AVRO, PROTOBUF, or JSON_SCHEMA). Please don't set the ValueSchemaVersion: %s", data.ValueSchemaVersion))
 			return
 		} else {
 			r.validateSchemaVersionsForCreate(topic.Embedded.ValueSchema.Uid, data.ValueSchemaVersion.ValueString(), resp)
@@ -234,10 +234,10 @@ func (r *topicConfigResource) Update(ctx context.Context, req resource.UpdateReq
 	}
 
 	if !data.KeySchemaVersion.IsNull() {
-		if topic.KeyType != "AVRO" {
+		if topic.KeyType != "AVRO" && topic.KeyType != "PROTOBUF" && topic.KeyType != "JSON_SCHEMA" {
 			resp.Diagnostics.AddError(
-				"CREATE request error for topic config resource",
-				fmt.Sprintf("Topic doesn't have an AVRO Key Schema. Please don't set the KeySchemaVersion: %s", data.KeySchemaVersion.ValueString()))
+				"UPDATE request error for topic config resource",
+				fmt.Sprintf("Topic doesn't have a schema-based Key Type (AVRO, PROTOBUF, or JSON_SCHEMA). Please don't set the KeySchemaVersion: %s", data.KeySchemaVersion.ValueString()))
 			return
 		} else {
 			r.validateSchemaVersionsForUpdate(topic.Embedded.KeySchema.Uid, data.KeySchemaVersion.ValueString(), resp)
@@ -249,10 +249,10 @@ func (r *topicConfigResource) Update(ctx context.Context, req resource.UpdateReq
 	}
 
 	if !data.ValueSchemaVersion.IsNull() {
-		if topic.ValueType != "AVRO" {
+		if topic.ValueType != "AVRO" && topic.ValueType != "PROTOBUF" && topic.ValueType != "JSON_SCHEMA" {
 			resp.Diagnostics.AddError(
-				"CREATE request error for topic config resource",
-				fmt.Sprintf("Topic doesn't have an AVRO Value Schema. Please don't set the ValueSchemaVersion: %s", data.ValueSchemaVersion))
+				"UPDATE request error for topic config resource",
+				fmt.Sprintf("Topic doesn't have a schema-based Value Type (AVRO, PROTOBUF, or JSON_SCHEMA). Please don't set the ValueSchemaVersion: %s", data.ValueSchemaVersion))
 			return
 		} else {
 			r.validateSchemaVersionsForUpdate(topic.Embedded.ValueSchema.Uid, data.ValueSchemaVersion.ValueString(), resp)

@@ -78,22 +78,22 @@ func (r *topicResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				MarkdownDescription: "The key type and reference to the schema. Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#key-type",
 				Required:            true,
 				Validators: []validator.String{
-					stringvalidator.OneOf("AVRO", "JSON", "Binary", "String", "Xml"),
+					stringvalidator.OneOf("AVRO", "JSON", "Binary", "String", "Xml", "PROTOBUF", "JSON_SCHEMA"),
 				},
 			},
 			"key_schema": schema.StringAttribute{
-				MarkdownDescription: "(if `key_type` is `AVRO`) The key type and reference to the schema (if applicable).",
+				MarkdownDescription: "(if `key_type` is `AVRO`, `PROTOBUF`, or `JSON_SCHEMA`) The key type and reference to the schema (if applicable).",
 				Optional:            true,
 			},
 			"value_type": schema.StringAttribute{
 				MarkdownDescription: "The value type and reference to the schema. Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#value-type",
 				Required:            true,
 				Validators: []validator.String{
-					stringvalidator.OneOf("AVRO", "JSON", "Binary", "String", "Xml"),
+					stringvalidator.OneOf("AVRO", "JSON", "Binary", "String", "Xml", "PROTOBUF", "JSON_SCHEMA"),
 				},
 			},
 			"value_schema": schema.StringAttribute{
-				MarkdownDescription: "(if `value_type` is `AVRO`) The value type and reference to the schema (if applicable).",
+				MarkdownDescription: "(if `value_type` is `AVRO`, `PROTOBUF`, or `JSON_SCHEMA`) The value type and reference to the schema (if applicable).",
 				Optional:            true,
 			},
 			"owners": schema.StringAttribute{
@@ -277,20 +277,22 @@ func createTopicRequestFromData(ctx context.Context, data *topicResourceData, r 
 	owners = fmt.Sprintf("%s/groups/%v", r.provider.client.ApiURL, owners)
 
 	var keySchema string
-	if data.KeyType.ValueString() == "AVRO" {
+	keyType := data.KeyType.ValueString()
+	if keyType == "AVRO" || keyType == "PROTOBUF" || keyType == "JSON_SCHEMA" {
 		if !data.KeySchema.IsNull() {
 			keySchema = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.KeySchema.ValueString())
 		} else {
-			return webclient.TopicRequest{}, fmt.Errorf("KeyType is AVRO but KeySchema is null")
+			return webclient.TopicRequest{}, fmt.Errorf("KeyType is %s but KeySchema is null", keyType)
 		}
 	}
 
 	var valueSchema string
-	if data.ValueType.ValueString() == "AVRO" {
+	valueType := data.ValueType.ValueString()
+	if valueType == "AVRO" || valueType == "PROTOBUF" || valueType == "JSON_SCHEMA" {
 		if !data.ValueSchema.IsNull() {
 			valueSchema = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.ValueSchema.ValueString())
 		} else {
-			return webclient.TopicRequest{}, fmt.Errorf("ValueType is AVRO but ValueSchema is null")
+			return webclient.TopicRequest{}, fmt.Errorf("ValueType is %s but ValueSchema is null", valueType)
 		}
 	}
 
@@ -356,13 +358,15 @@ func mapTopicResponseToData(ctx context.Context, data *topicResourceData, topic 
 		data.Viewers = viewers
 	}
 
-	if data.KeyType.ValueString() == "AVRO" {
+	keyType := data.KeyType.ValueString()
+	if keyType == "AVRO" || keyType == "PROTOBUF" || keyType == "JSON_SCHEMA" {
 		data.KeySchema = utils.SetStringValue(topic.Embedded.KeySchema.Uid)
 	} else {
 		data.KeySchema = types.StringNull()
 	}
 
-	if data.ValueType.ValueString() == "AVRO" {
+	valueType := data.ValueType.ValueString()
+	if valueType == "AVRO" || valueType == "PROTOBUF" || valueType == "JSON_SCHEMA" {
 		data.ValueSchema = utils.SetStringValue(topic.Embedded.ValueSchema.Uid)
 	} else {
 		data.ValueSchema = types.StringNull()
