@@ -2,11 +2,10 @@ package provider
 
 import (
 	webclient "axual-webclient"
-	"axual.com/terraform-provider-axual/internal/provider/utils"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -33,14 +32,14 @@ type schemaVersionResource struct {
 }
 
 type schemaVersionResourceData struct {
-	Body        jsontypes.Normalized `tfsdk:"body"`
-	Version     types.String         `tfsdk:"version"`
-	Description types.String         `tfsdk:"description"`
-	Type        types.String         `tfsdk:"type"`
-	Id          types.String         `tfsdk:"id"`
-	SchemaId    types.String         `tfsdk:"schema_id"`
-	FullName    types.String         `tfsdk:"full_name"`
-	Owners      types.String         `tfsdk:"owners"`
+	Body        types.String `tfsdk:"body"`
+	Version     types.String `tfsdk:"version"`
+	Description types.String `tfsdk:"description"`
+	Type        types.String `tfsdk:"type"`
+	Id          types.String `tfsdk:"id"`
+	SchemaId    types.String `tfsdk:"schema_id"`
+	FullName    types.String `tfsdk:"full_name"`
+	Owners      types.String `tfsdk:"owners"`
 }
 
 func (r *schemaVersionResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -55,10 +54,6 @@ func (r *schemaVersionResource) Schema(ctx context.Context, req resource.SchemaR
 			"body": schema.StringAttribute{
 				MarkdownDescription: "Schema definition. For AVRO schemas, provide valid JSON. For PROTOBUF, provide .proto file content. For JSON_SCHEMA, provide valid JSON Schema definition.",
 				Required:            true,
-				CustomType:          jsontypes.NormalizedType{},
-				PlanModifiers: []planmodifier.String{
-					utils.NormalizePlanModifier{},
-				},
 			},
 			"version": schema.StringAttribute{
 				MarkdownDescription: "The version of the schema",
@@ -74,6 +69,7 @@ func (r *schemaVersionResource) Schema(ctx context.Context, req resource.SchemaR
 			"type": schema.StringAttribute{
 				MarkdownDescription: "The type of the schema. Valid values are: AVRO, PROTOBUF, JSON_SCHEMA. Defaults to AVRO if not specified.",
 				Optional:            true,
+				Computed:            true,
 				Validators: []validator.String{
 					stringvalidator.OneOf("AVRO", "PROTOBUF", "JSON_SCHEMA"),
 				},
@@ -301,6 +297,14 @@ func mapGetSchemaVersionResponseToData(
 		newData.Owners = types.StringValue(resp.Schema.Owners.ID)
 	}
 
+	tflog.Info(ctx, "Processing the schema type.")
+	if resp.Schema.Type == "" {
+		tflog.Info(ctx, "Schema type is empty, setting to null.")
+		newData.Type = types.StringNull()
+	} else {
+		newData.Type = types.StringValue(resp.Schema.Type)
+	}
+
 	tflog.Info(ctx, "Processing the schema body.")
 	mapSchemaBody(ctx, existingState, newData, resp.SchemaBody, diagnostics)
 
@@ -309,14 +313,6 @@ func mapGetSchemaVersionResponseToData(
 		newData.Description = types.StringNull()
 	} else {
 		newData.Description = types.StringValue(resp.Schema.Description)
-	}
-
-	tflog.Info(ctx, "Processing the schema type.")
-	if resp.Schema.Type == "" {
-		tflog.Info(ctx, "Schema type is empty, setting to null.")
-		newData.Type = types.StringNull()
-	} else {
-		newData.Type = types.StringValue(resp.Schema.Type)
 	}
 }
 
@@ -329,28 +325,42 @@ func mapSchemaBody(
 ) {
 	if schemaBody == "" {
 		tflog.Info(ctx, "Schema body is empty, setting to null.")
-		newData.Body = jsontypes.NewNormalizedNull()
+		newData.Body = types.StringNull()
 		return
 	}
 
-	newBody := jsontypes.NewNormalizedValue(schemaBody)
+	// For JSON-based schemas (AVRO, JSON_SCHEMA), normalize JSON to avoid whitespace drift
+	schemaType := newData.Type.ValueString()
+	if schemaType == "AVRO" || schemaType == "JSON_SCHEMA" {
+		tflog.Info(ctx, fmt.Sprintf("Normalizing JSON for schema type: %s", schemaType))
 
-	if !existingState.Body.IsNull() {
-		tflog.Info(ctx, "Comparing schema body from API response with existing state.")
-		equal, diags := existingState.Body.StringSemanticEquals(ctx, newBody)
-		diagnostics.Append(diags...)
-		if diags.HasError() {
-			tflog.Warn(ctx, fmt.Sprintf("Diagnostics error while checking semantic equality of schema body: %v", diags.Errors()))
-			return
-		}
+		// Check if existing state has a body value
+		if !existingState.Body.IsNull() && !existingState.Body.IsUnknown() {
+			// Try to normalize both existing and new bodies for comparison
+			existingNormalized, existingErr := normalizeJSON(existingState.Body.ValueString())
+			newNormalized, newErr := normalizeJSON(schemaBody)
 
-		if equal {
-			tflog.Info(ctx, "Schema body from state and API are semantically equal. Preserving the existing state.")
-			newData.Body = existingState.Body
-			return
+			if existingErr == nil && newErr == nil && existingNormalized == newNormalized {
+				tflog.Info(ctx, "Schema bodies are semantically equivalent (after JSON normalization). Preserving existing state.")
+				newData.Body = existingState.Body
+				return
+			}
 		}
 	}
 
-	tflog.Info(ctx, "Setting new schema body as state and API are not semantically equal or no existing state is present.")
-	newData.Body = newBody
+	tflog.Info(ctx, "Setting schema body from API response.")
+	newData.Body = types.StringValue(schemaBody)
+}
+
+// normalizeJSON normalizes JSON by unmarshaling and marshaling with consistent formatting
+func normalizeJSON(jsonStr string) (string, error) {
+	var obj interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &obj); err != nil {
+		return "", err
+	}
+	normalized, err := json.Marshal(obj)
+	if err != nil {
+		return "", err
+	}
+	return string(normalized), nil
 }
