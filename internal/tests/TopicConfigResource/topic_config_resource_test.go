@@ -133,3 +133,62 @@ func TestTopicConfigAvroResource(t *testing.T) {
 		},
 	})
 }
+
+func TestTopicConfigMixResource(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+
+		Steps: []resource.TestStep{
+			{
+				Config: GetProvider() + GetFile(
+					"axual_topic_config_mix_setup.tf",
+					"axual_topic_config_mix_initial.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_topic_config.tf_test_topic_config", "partitions", "2"),
+					resource.TestCheckResourceAttr("axual_topic_config.tf_test_topic_config", "retention_time", "864000"),
+					resource.TestCheckResourceAttr("axual_topic_config.tf_test_topic_config", "properties.segment.ms", "600012"),
+					resource.TestCheckResourceAttr("axual_topic_config.tf_test_topic_config", "properties.retention.bytes", "-1"),
+					resource.TestCheckResourceAttrPair("axual_topic_config.tf_test_topic_config", "key_schema_version", "axual_schema_version.protobuf_v1", "id"),
+					resource.TestCheckResourceAttrPair("axual_topic_config.tf_test_topic_config", "value_schema_version", "axual_schema_version.json_v1", "id"),
+				),
+			},
+			{
+				Config: GetProvider() + GetFile(
+					"axual_topic_config_mix_setup.tf",
+					"axual_topic_config_mix_updated.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_topic_config.tf_test_topic_config", "retention_time", "864001"),
+					resource.TestCheckResourceAttr("axual_topic_config.tf_test_topic_config", "properties.segment.ms", "600013"),
+					resource.TestCheckResourceAttr("axual_topic_config.tf_test_topic_config", "properties.retention.bytes", "2"),
+					resource.TestCheckResourceAttrPair("axual_topic_config.tf_test_topic_config", "key_schema_version", "axual_schema_version.protobuf_v2", "id"),
+					resource.TestCheckResourceAttrPair("axual_topic_config.tf_test_topic_config", "value_schema_version", "axual_schema_version.json_v2", "id"),
+				),
+			},
+			{
+				Config: GetProvider() + GetFile(
+					"axual_topic_config_mix_setup.tf",
+					"axual_topic_config_mix_incompatible_updated.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_topic_config.tf_test_topic_config", "retention_time", "864001"),
+					resource.TestCheckResourceAttr("axual_topic_config.tf_test_topic_config", "properties.segment.ms", "600013"),
+					resource.TestCheckResourceAttr("axual_topic_config.tf_test_topic_config", "properties.retention.bytes", "2"),
+					resource.TestCheckResourceAttrPair("axual_topic_config.tf_test_topic_config", "key_schema_version", "axual_schema_version.protobuf_v2", "id"),
+					resource.TestCheckResourceAttrPair("axual_topic_config.tf_test_topic_config", "value_schema_version", "axual_schema_version.json_v3", "id"),
+				),
+			},
+			{
+				Config: GetProvider() + GetFile(
+					"axual_topic_config_mix_setup.tf",
+					"axual_topic_config_mix_properties_removed.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckNoResourceAttr("axual_topic_config.tf_test_topic_config", "properties"),
+				),
+			},
+		},
+	})
+}

@@ -6,8 +6,9 @@ option java_outer_classname = "AddressBook";
 
 message AddressBook {
   optional string name = 1;
-  optional int32 id = 2;
-  optional string email = 3;
+  optional string lastname = 2;
+  optional int32 id = 3;
+  optional string email = 4;
 
   enum PhoneType {
     PHONE_TYPE_UNSPECIFIED = 0;
@@ -21,5 +22,6 @@ message AddressBook {
     optional PhoneType type = 2 [default = PHONE_TYPE_HOME];
   }
 
-  repeated PhoneNumber phones = 4;
+  repeated PhoneNumber phones = 5;
+  optional string address = 6;
 }
