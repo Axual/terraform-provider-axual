@@ -116,12 +116,11 @@ func TestTopicConfigAvroResource(t *testing.T) {
 					resource.TestCheckNoResourceAttr("axual_topic_config.example-with-schema-version", "properties"),
 				),
 			},
-			//TODO: Regular topic import works, but if topic is AVRO topic then import does not work
-			//{
-			//	ResourceName:      "axual_topic_config.example-with-schema-version",
-			//	ImportState:       true,
-			//	ImportStateVerify: true,
-			//},
+			{
+				ResourceName:      "axual_topic_config.example-with-schema-version",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
@@ -187,6 +186,19 @@ func TestTopicConfigMixResource(t *testing.T) {
 				),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckNoResourceAttr("axual_topic_config.tf_test_topic_config", "properties"),
+				),
+			},
+			{
+				ResourceName:      "axual_topic_config.tf_test_topic_config",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			{
+				// To ensure cleanup if one of the test cases had an error
+				Destroy: true,
+				Config: GetProvider() + GetFile(
+					"axual_topic_config_mix_setup.tf",
+					"axual_topic_config_mix_properties_removed.tf",
 				),
 			},
 		},

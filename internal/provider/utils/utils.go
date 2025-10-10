@@ -2,12 +2,14 @@ package utils
 
 import (
 	"context"
+	"strings"
+
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-// Helper function to set a Terraform string value or null based on input
+// SetStringValue set a Terraform string value or null based on input
 func SetStringValue(input string) types.String {
 	if input != "" {
 		return types.StringValue(input)
@@ -15,7 +17,19 @@ func SetStringValue(input string) types.String {
 	return types.StringNull()
 }
 
-// Helper function to map the properties response from API to Terraform state
+// ExtractSchemaVersionFromHref extracts the UID from a URL like "https://platform.local/api/stream_config/uid-here/keyValueSchema"
+func ExtractSchemaVersionFromHref(href string) string {
+	if href == "" {
+		return ""
+	}
+	parts := strings.Split(href, "/")
+	if len(parts) > 0 {
+		return parts[len(parts)-2]
+	}
+	return ""
+}
+
+// HandlePropertiesMapping map the properties's response from API to Terraform state
 func HandlePropertiesMapping(ctx context.Context, propertiesAttr types.Map, apiProperties map[string]interface{}) types.Map {
 	// Map API properties to Terraform format
 	properties := map[string]attr.Value{}
