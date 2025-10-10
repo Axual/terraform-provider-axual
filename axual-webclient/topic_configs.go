@@ -17,14 +17,14 @@ func (c *Client) ReadTopicConfig(id string) (*TopicConfigResponse, error) {
 
 	keySchemaVersion, err := c.GetKeySchemaVersion(id)
 	if err == nil {
-		o.KeySchemaVersion = keySchemaVersion.Id
+		o.KeySchemaVersion = keySchemaVersion.Uid
 	} else if !errors.Is(err, NotFoundError) {
 		return nil, err
 	}
 
 	valueSchemaVersion, err := c.GetValueSchemaVersion(id)
 	if err == nil {
-		o.ValueSchemaVersion = valueSchemaVersion.Id
+		o.ValueSchemaVersion = valueSchemaVersion.Uid
 	} else if !errors.Is(err, NotFoundError) {
 		return nil, err
 	}
@@ -40,6 +40,21 @@ func (c *Client) CreateTopicConfig(topic TopicConfigRequest) (*TopicConfigRespon
 	}
 	err = c.RequestAndMap("POST", fmt.Sprintf("%s/stream_configs", c.ApiURL), strings.NewReader(string(marshal)), nil, &o)
 	if err != nil {
+		return nil, err
+	}
+	// Get the key schema versions for the topic config
+	keySchemaVersion, err := c.GetKeySchemaVersion(o.Uid)
+	if err == nil {
+		o.KeySchemaVersion = keySchemaVersion.Uid
+	} else if !errors.Is(err, NotFoundError) {
+		return nil, err
+	}
+
+	// Get the value schema versions for the topic config
+	valueSchemaVersion, err := c.GetValueSchemaVersion(o.Uid)
+	if err == nil {
+		o.ValueSchemaVersion = valueSchemaVersion.Uid
+	} else if !errors.Is(err, NotFoundError) {
 		return nil, err
 	}
 	time.Sleep(3 * time.Second) // ACL application can take significant time to apply in Kafka cluster for all the brokers, we have no control over how long it takes, especially with multiple topic configs
@@ -62,7 +77,21 @@ func (c *Client) UpdateTopicConfig(id string, topicRequest TopicConfigRequest) (
 			return nil, err
 		}
 	}
+	// Get the key schema versions for the topic config
+	keySchemaVersion, err := c.GetKeySchemaVersion(o.Uid)
+	if err == nil {
+		o.KeySchemaVersion = keySchemaVersion.Uid
+	} else if !errors.Is(err, NotFoundError) {
+		return nil, err
+	}
 
+	// Get the value schema versions for the topic config
+	valueSchemaVersion, err := c.GetValueSchemaVersion(o.Uid)
+	if err == nil {
+		o.ValueSchemaVersion = valueSchemaVersion.Uid
+	} else if !errors.Is(err, NotFoundError) {
+		return nil, err
+	}
 	time.Sleep(3 * time.Second) // ACL application can take significant time to apply in Kafka cluster for all the brokers, we have no control over how long it takes, especially with multiple topic configs
 	return &o, nil
 }

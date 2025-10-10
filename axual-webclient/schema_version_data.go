@@ -17,8 +17,11 @@ type SchemaType struct {
 	} `json:"owners"`
 }
 
+// GetSchemaVersionResponse
+// TODO remove `Uid` once SchemaVersion is part of `_embedded` in TopicConfig response
 type GetSchemaVersionResponse struct {
 	Id                string     `json:"id"`
+	Uid               string     `json:"uid"`
 	Version           string     `json:"version"`
 	SchemaBody        string     `json:"schemaBody"`
 	Schema            SchemaType `json:"schema"`

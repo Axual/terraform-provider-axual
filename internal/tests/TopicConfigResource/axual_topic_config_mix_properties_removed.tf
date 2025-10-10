@@ -5,5 +5,4 @@ resource "axual_topic_config" "tf_test_topic_config" {
   environment          = axual_environment.tf_test_env.id
   key_schema_version   = axual_schema_version.protobuf_v2.id
   value_schema_version = axual_schema_version.json_v3.id
-  force = true
 }

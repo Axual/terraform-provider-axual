@@ -379,6 +379,20 @@ func mapTopicConfigResponseToData(ctx context.Context, data *topicConfigResource
 	data.Topic = types.StringValue(topicConfig.Embedded.Stream.Uid)
 	data.Environment = types.StringValue(topicConfig.Embedded.Environment.Uid)
 	data.Properties = utils.HandlePropertiesMapping(ctx, data.Properties, topicConfig.Properties)
+
+	// Map schema versions if they exist
+	// TODO get from embedded instead of getting during `CreateTopicConfig`
+	if topicConfig.KeySchemaVersion != "" {
+		data.KeySchemaVersion = types.StringValue(topicConfig.KeySchemaVersion)
+	} else {
+		data.KeySchemaVersion = types.StringNull()
+	}
+
+	if topicConfig.ValueSchemaVersion != "" {
+		data.ValueSchemaVersion = types.StringValue(topicConfig.ValueSchemaVersion)
+	} else {
+		data.ValueSchemaVersion = types.StringNull()
+	}
 }
 
 func (r *topicConfigResource) validateSchemaVersionsForUpdate(schemaUid string, schemaVersionUid string, resp *resource.UpdateResponse) {
