@@ -348,3 +348,13 @@ To debug acceptance tests in IntelliJ IDEA:
 3. Click the Debug button
 
 **Note:** Debugging only works with a locally compiled provider, not when using a provider from the registry.
+
+## Release Process
+
+1. Update the `CHANGELOG.md` version to the target release
+2. Update any provider.tf version to the target release in the `examples/`
+3. Update `templates/index.md.tmpl` version to the target release
+4. Generate the documentation with `go generate` command
+5. Git Commit these files
+6. Git tag and push
+7. Update the https://github.com/Axual/terraform-provider-axual/releases page with the newly released tag
