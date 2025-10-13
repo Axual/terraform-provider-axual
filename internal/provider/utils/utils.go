@@ -2,7 +2,6 @@ package utils
 
 import (
 	"context"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -15,18 +14,6 @@ func SetStringValue(input string) types.String {
 		return types.StringValue(input)
 	}
 	return types.StringNull()
-}
-
-// ExtractSchemaVersionFromHref extracts the UID from a URL like "https://platform.local/api/stream_config/uid-here/keyValueSchema"
-func ExtractSchemaVersionFromHref(href string) string {
-	if href == "" {
-		return ""
-	}
-	parts := strings.Split(href, "/")
-	if len(parts) > 0 {
-		return parts[len(parts)-2]
-	}
-	return ""
 }
 
 // HandlePropertiesMapping map the properties's response from API to Terraform state
