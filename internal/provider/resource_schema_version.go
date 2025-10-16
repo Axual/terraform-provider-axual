@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -287,7 +288,7 @@ func mapGetSchemaVersionResponseToData(
 	newData.Id = types.StringValue(resp.Id)
 	newData.FullName = types.StringValue(resp.Schema.Name)
 	newData.Version = types.StringValue(resp.Version)
-	newData.Description = types.StringValue(resp.Schema.Description)
+	newData.Type = types.StringValue(resp.Schema.Type)
 
 	tflog.Info(ctx, "Mapping optional fields.")
 	if resp.Schema.Owners == nil || resp.Schema.Owners.ID == "" {
@@ -295,14 +296,6 @@ func mapGetSchemaVersionResponseToData(
 		newData.Owners = types.StringNull()
 	} else {
 		newData.Owners = types.StringValue(resp.Schema.Owners.ID)
-	}
-
-	tflog.Info(ctx, "Processing the schema type.")
-	if resp.Schema.Type == "" {
-		tflog.Info(ctx, "Schema type is empty, setting to null.")
-		newData.Type = types.StringNull()
-	} else {
-		newData.Type = types.StringValue(resp.Schema.Type)
 	}
 
 	tflog.Info(ctx, "Processing the schema body.")
