@@ -7,10 +7,6 @@
       "type": "string",
       "description": "The person's first name."
     },
-    "middleName": {
-      "type": "string",
-      "description": "The person's middle name."
-    },
     "lastName": {
       "type": "string",
       "description": "The person's last name."
