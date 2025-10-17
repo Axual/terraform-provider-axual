@@ -28,6 +28,18 @@ func TestTopicDataSource(t *testing.T) {
 					resource.TestCheckResourceAttrPair("data.axual_topic.topic-test-imported", "id", "axual_topic.topic-avro-test", "id"),
 					resource.TestCheckResourceAttrPair("data.axual_topic.topic-test-imported", "key_schema", "axual_topic.topic-avro-test", "key_schema"),
 					resource.TestCheckResourceAttrPair("data.axual_topic.topic-test-imported", "value_schema", "axual_topic.topic-avro-test", "value_schema"),
+
+					resource.TestCheckResourceAttr("data.axual_topic.topic_mix_test_imported", "name", "test-mix-topic"),
+					resource.TestCheckResourceAttr("data.axual_topic.topic_mix_test_imported", "description", "Demo of deploying a mixed schema topic via Terraform"),
+					resource.TestCheckResourceAttr("data.axual_topic.topic_mix_test_imported", "key_type", "JSON_SCHEMA"),
+					resource.TestCheckResourceAttr("data.axual_topic.topic_mix_test_imported", "value_type", "PROTOBUF"),
+					resource.TestCheckResourceAttr("data.axual_topic.topic_mix_test_imported", "retention_policy", "compact,delete"),
+					resource.TestCheckResourceAttr("data.axual_topic.topic_mix_test_imported", "properties.propertyKey1", "propertyValue3"),
+					resource.TestCheckResourceAttr("data.axual_topic.topic_mix_test_imported", "properties.propertyKey2", "propertyValue4"),
+					resource.TestCheckResourceAttrPair("data.axual_topic.topic_mix_test_imported", "owners", "axual_topic.topic_mix_test", "owners"),
+					resource.TestCheckResourceAttrPair("data.axual_topic.topic_mix_test_imported", "id", "axual_topic.topic_mix_test", "id"),
+					resource.TestCheckResourceAttrPair("data.axual_topic.topic_mix_test_imported", "key_schema", "axual_topic.topic_mix_test", "key_schema"),
+					resource.TestCheckResourceAttrPair("data.axual_topic.topic_mix_test_imported", "value_schema", "axual_topic.topic_mix_test", "value_schema"),
 				),
 			},
 			{

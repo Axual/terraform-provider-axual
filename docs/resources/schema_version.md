@@ -10,13 +10,14 @@ Schema version resource. None of the fields can be updated. Read more: https://d
 
 ### Required
 
-- `body` (String) Avro schema as valid JSON
+- `body` (String) Schema definition. For AVRO schemas, provide valid JSON. For PROTOBUF, provide .proto file content. For JSON_SCHEMA, provide valid JSON Schema definition.
 - `version` (String) The version of the schema
 
 ### Optional
 
 - `description` (String) A short text describing the Schema
 - `owners` (String) The UID of the team owning this Schema
+- `type` (String) The type of the schema. Valid values are: AVRO, PROTOBUF, JSON_SCHEMA. Defaults to AVRO if not specified.
 
 ### Read-Only
 

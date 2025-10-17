@@ -23,4 +23,5 @@ message AddressBook {
   }
 
   repeated PhoneNumber phones = 5;
+  optional string address = 6;
 }

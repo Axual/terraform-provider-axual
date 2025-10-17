@@ -22,9 +22,9 @@ A topic represents a flow of information (messages), which is continuously updat
 ### Optional
 
 - `description` (String) A text describing the purpose of the topic.
-- `key_schema` (String) (if `key_type` is `AVRO`) The key type and reference to the schema (if applicable).
+- `key_schema` (String) (if `key_type` is `AVRO`, `PROTOBUF`, or `JSON_SCHEMA`) The key type and reference to the schema (if applicable).
 - `properties` (Map of String) Advanced (Kafka) properties for a topic in a given environment. If no properties please leave properties empty like this: properties = { }.  Read more: https://docs.axual.io/axual/2025.3/self-service/advanced-features.html#configuring-topic-properties
-- `value_schema` (String) (if `value_type` is `AVRO`) The value type and reference to the schema (if applicable).
+- `value_schema` (String) (if `value_type` is `AVRO`, `PROTOBUF`, or `JSON_SCHEMA`) The value type and reference to the schema (if applicable).
 - `viewers` (Set of String) The Viewer Groups of this topic. Topic Viewer Groups define which Groups are authorized to View Topic Configurations, regardless of ownership and visibility. Read more: https://docs.axual.io/axual/2025.3/self-service/user-group-management.html#viewer-groups
 
 ### Read-Only
