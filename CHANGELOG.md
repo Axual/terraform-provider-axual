@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [master](https://github.com/Axual/terraform-provider-axual/tree/master) - TBR
+### Added
+* Support fo Axual-managed `KSML` Application
 
 ## [2.7.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.7.0) - 2025-11-04
 
