@@ -301,18 +301,10 @@ func mapGetSchemaVersionResponseToData(
 	tflog.Info(ctx, "Processing the schema body.")
 	mapSchemaBody(ctx, existingState, newData, resp.SchemaBody, diagnostics)
 
-	// For description, preserve the existing state value since:
-	// 1. The API's CreateSchemaVersionResponse doesn't return a description field
-	// 2. The API's GetSchemaVersionResponse returns the parent Schema's description, not the SchemaVersion's description
-	// 3. The user's configuration specifies a description for the schema version, which should be preserved
-	if !existingState.Description.IsNull() && !existingState.Description.IsUnknown() {
-		tflog.Info(ctx, "Preserving existing state description for schema version.")
-		newData.Description = existingState.Description
-	} else if resp.Schema.Description == "" {
-		tflog.Info(ctx, "Schema description is empty and no existing state, setting to null.")
+	if resp.Schema.Description == "" {
+		tflog.Info(ctx, "Schema description is empty, setting to null.")
 		newData.Description = types.StringNull()
 	} else {
-		tflog.Info(ctx, "No existing state description, using Schema description from API.")
 		newData.Description = types.StringValue(resp.Schema.Description)
 	}
 }
