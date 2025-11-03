@@ -18,7 +18,7 @@ func TestSchemaVersionJSONSchemaResource(t *testing.T) {
 				Config: GetProvider() + GetFile("axual_schema_version_json_schema_initial.tf"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("axual_schema_version.test_json_v1", "version", "1.0.0"),
-					resource.TestCheckResourceAttr("axual_schema_version.test_json_v1", "description", "Gitops test JSON schema version"),
+					resource.TestCheckResourceAttr("axual_schema_version.test_json_v1", "description", "Person schema"),
 					resource.TestCheckResourceAttr("axual_schema_version.test_json_v1", "type", "JSON_SCHEMA"),
 					CheckBodyMatchesFile("axual_schema_version.test_json_v1", "body", "json-schemas/tf-json-schema-test1.json"),
 				),
@@ -27,19 +27,19 @@ func TestSchemaVersionJSONSchemaResource(t *testing.T) {
 				Config: GetProvider() + GetFile("axual_schema_version_json_multiple_versions_for_same_schema.tf"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("axual_schema_version.test_json_v1", "version", "1.0.0"),
-					resource.TestCheckResourceAttr("axual_schema_version.test_json_v1", "description", "Gitops test JSON schema version"),
+					resource.TestCheckResourceAttr("axual_schema_version.test_json_v1", "description", "Person schema"),
 					resource.TestCheckResourceAttr("axual_schema_version.test_json_v1", "full_name", "Person"),
 					resource.TestCheckResourceAttr("axual_schema_version.test_json_v1", "type", "JSON_SCHEMA"),
 					CheckBodyMatchesFile("axual_schema_version.test_json_v1", "body", "json-schemas/tf-json-schema-test1.json"),
 
 					resource.TestCheckResourceAttr("axual_schema_version.test_json_v2", "version", "2.0.0"),
-					resource.TestCheckResourceAttr("axual_schema_version.test_json_v2", "description", "Gitops test JSON schema version"),
+					resource.TestCheckResourceAttr("axual_schema_version.test_json_v2", "description", "Person schema"),
 					resource.TestCheckResourceAttr("axual_schema_version.test_json_v2", "full_name", "Person"),
 					resource.TestCheckResourceAttr("axual_schema_version.test_json_v2", "type", "JSON_SCHEMA"),
 					CheckBodyMatchesFile("axual_schema_version.test_json_v2", "body", "json-schemas/tf-json-schema-test2.json"),
 
 					resource.TestCheckResourceAttr("axual_schema_version.test_json_v3", "version", "3.0.0"),
-					resource.TestCheckResourceAttr("axual_schema_version.test_json_v3", "description", "Gitops test JSON schema version"),
+					resource.TestCheckResourceAttr("axual_schema_version.test_json_v3", "description", "Person schema"),
 					resource.TestCheckResourceAttr("axual_schema_version.test_json_v3", "full_name", "Person"),
 					resource.TestCheckResourceAttr("axual_schema_version.test_json_v3", "type", "JSON_SCHEMA"),
 					CheckBodyMatchesFile("axual_schema_version.test_json_v3", "body", "json-schemas/tf-json-schema-test3.json"),

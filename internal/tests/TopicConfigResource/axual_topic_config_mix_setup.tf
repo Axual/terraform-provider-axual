@@ -12,14 +12,14 @@ resource "axual_environment" "tf_test_env" {
 resource "axual_schema_version" "protobuf_v1" {
   body        = file("protobuf-schemas/tf-protobuf-test1.proto")
   version     = "1.0.0"
-  description = "Protobuf AddressBook"
+  description = "AddressBook schema"
   type        = "PROTOBUF"
 }
 
 resource "axual_schema_version" "json_v1" {
   body        = file("json-schemas/tf-json-schema-test1.json")
   version     = "1.0.0"
-  description = "JSON Person"
+  description = "Person schema"
   type        = "JSON_SCHEMA"
 }
 
@@ -38,20 +38,20 @@ resource "axual_topic" "tf_test_topic" {
 resource "axual_schema_version" "protobuf_v2" {
   body        = file("protobuf-schemas/tf-protobuf-test2.proto")
   version     = "1.1.0"
-  description = "Protobuf AddressBook"
+  description = "AddressBook schema"
   type        = "PROTOBUF"
 }
 
 resource "axual_schema_version" "json_v2" {
   body        = file("json-schemas/tf-json-schema-test2.json")
   version     = "1.1.0"
-  description = "JSON Person"
+  description = "Person schema"
   type        = "JSON_SCHEMA"
 }
 
 resource "axual_schema_version" "json_v3" {
   body        = file("json-schemas/tf-json-schema-test3.json")
   version     = "2.0.0"
-  description = "JSON Person"
+  description = "Person schema"
   type        = "JSON_SCHEMA"
 }
