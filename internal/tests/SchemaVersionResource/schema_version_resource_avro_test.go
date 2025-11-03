@@ -24,7 +24,7 @@ func TestSchemaVersionAvroResource(t *testing.T) {
 				),
 			},
 			{
-				Config:      GetProvider() + GetFile("axual_schema_version_avro_desc_updated.tf"),
+				Config:      GetProvider() + GetFile("axual_schema_version_avro_desc_replaced.tf"),
 				ExpectError: regexp.MustCompile(`(?s)API does not allow update of schema version\. Please create another version of\s+the schema`),
 			},
 			{
@@ -34,6 +34,19 @@ func TestSchemaVersionAvroResource(t *testing.T) {
 			{
 				Config:      GetProvider() + GetFile("axual_schema_version_avro_v3_replaced.tf"),
 				ExpectError: regexp.MustCompile(`(?s)API does not allow update of schema version\. Please create another version of\s+the schema`),
+			},
+			{
+				Config: GetProvider() + GetFile("axual_schema_version_avro_desc_updated.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_schema_version.test_v1", "version", "1.0.0"),
+					resource.TestCheckResourceAttr("axual_schema_version.test_v1", "description", "Gitops test schema version"),
+					CheckBodyMatchesFile("axual_schema_version.test_v1", "body", "avro-schemas/gitops_test_1_v1.avsc"),
+					resource.TestCheckResourceAttr("axual_schema_version.test_v2", "version", "2.0.0"),
+					// TODO un-comment once PlatformManager support updating a Schema's description
+					//resource.TestCheckResourceAttr("axual_schema_version.test_v2", "description", "Gitops test schema version v2"),
+					resource.TestCheckResourceAttr("axual_schema_version.test_v2", "description", "Gitops test schema version"),
+					CheckBodyMatchesFile("axual_schema_version.test_v2", "body", "avro-schemas/gitops_test_1_v2_backwards_compatible.avsc"),
+				),
 			},
 			{
 				Config: GetProvider() + GetFile("axual_schema_version_avro_multiple_versions_for_same_schema.tf"),
