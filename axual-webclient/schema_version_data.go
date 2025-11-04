@@ -4,6 +4,7 @@ type SchemaType struct {
 	SchemaId    string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	Type        string `json:"type"`
 	OptLock     int64  `json:"optLock"`
 	Uid         string `json:"uid"`
 	CreatedAt   string `json:"created_at"`
@@ -16,8 +17,11 @@ type SchemaType struct {
 	} `json:"owners"`
 }
 
+// GetSchemaVersionResponse
+// TODO remove `Uid` once SchemaVersion is part of `_embedded` in TopicConfig response
 type GetSchemaVersionResponse struct {
 	Id                string     `json:"id"`
+	Uid               string     `json:"uid"`
 	Version           string     `json:"version"`
 	SchemaBody        string     `json:"schemaBody"`
 	Schema            SchemaType `json:"schema"`
@@ -44,7 +48,8 @@ type ValidateSchemaVersionResponse struct {
 }
 
 type ValidateSchemaVersionRequest struct {
-	Schema string `json:"schema"`
+	Schema string  `json:"schema"`
+	Type   *string `json:"type,omitempty"`
 }
 
 type SchemaVersionResponse struct {
@@ -63,6 +68,7 @@ type SchemaVersionRequest struct {
 	Version     string  `json:"version"`
 	Description string  `json:"description"`
 	Owners      *string `json:"owners"`
+	Type        *string `json:"type,omitempty"`
 }
 
 type GetSchemaVersionsResponse struct {

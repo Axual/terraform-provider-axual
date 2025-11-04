@@ -73,11 +73,11 @@ func (d *topicDataSource) Schema(ctx context.Context, req datasource.SchemaReque
 				Computed:            true,
 			},
 			"key_schema": schema.StringAttribute{
-				MarkdownDescription: "The key schema UID if `key_type` is 'AVRO'.",
+				MarkdownDescription: "The key schema UID if `key_type` is 'AVRO', 'PROTOBUF', or 'JSON_SCHEMA'.",
 				Computed:            true,
 			},
 			"value_schema": schema.StringAttribute{
-				MarkdownDescription: "The value schema UID if `value_type` is 'AVRO'.",
+				MarkdownDescription: "The value schema UID if `value_type` is 'AVRO', 'PROTOBUF', or 'JSON_SCHEMA'.",
 				Computed:            true,
 			},
 			"owners": schema.StringAttribute{
@@ -168,13 +168,15 @@ func mapTopicDataSourceResponseToData(ctx context.Context, data *topicDataSource
 		data.Description = types.StringValue(topic.Description.(string))
 	}
 
-	if data.KeyType.ValueString() == "AVRO" {
+	keyType := data.KeyType.ValueString()
+	if keyType == "AVRO" || keyType == "PROTOBUF" || keyType == "JSON_SCHEMA" {
 		data.KeySchema = utils.SetStringValue(topic.Embedded.KeySchema.Uid)
 	} else {
 		data.KeySchema = types.StringNull()
 	}
 
-	if data.ValueType.ValueString() == "AVRO" {
+	valueType := data.ValueType.ValueString()
+	if valueType == "AVRO" || valueType == "PROTOBUF" || valueType == "JSON_SCHEMA" {
 		data.ValueSchema = utils.SetStringValue(topic.Embedded.ValueSchema.Uid)
 	} else {
 		data.ValueSchema = types.StringNull()

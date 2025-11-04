@@ -87,7 +87,7 @@ func (c *Client) GetValueSchemaVersion(id string) (*GetSchemaVersionResponse, er
 		"Content-Type": "application/json",
 		"Accept":       "application/json",
 	}
-	err := c.RequestAndMap("GET", fmt.Sprintf("%s/schema_versions/%v/valueSchemaVersion", c.ApiURL, id), nil, headers, &o)
+	err := c.RequestAndMap("GET", fmt.Sprintf("%s/stream_configs/%v/valueSchemaVersion", c.ApiURL, id), nil, headers, &o)
 	if err != nil {
 		return nil, err
 	}
