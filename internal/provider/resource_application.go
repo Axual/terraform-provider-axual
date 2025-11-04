@@ -96,9 +96,9 @@ func (r *applicationResource) Schema(ctx context.Context, req resource.SchemaReq
 			},
 			"type": schema.StringAttribute{
 				Required:            true,
-				MarkdownDescription: "If application_type is Custom, type can be: Java, Pega, SAP, DotNet, Bridge. If application_type is Connector, type can be: SINK, SOURCE",
+				MarkdownDescription: "If application_type is Custom, type can be: Java, Kafka Streams, Pega, SAP, DotNet, Bridge, Python, KSML. If application_type is Connector, type can be: SINK, SOURCE",
 				Validators: []validator.String{
-					stringvalidator.OneOf("Java", "Pega", "SAP", "DotNet", "Bridge", "SINK", "SOURCE"),
+					stringvalidator.OneOf("Java", "Kafka Streams", "Pega", "SAP", "DotNet", "Bridge", "Python", "KSML", "SINK", "SOURCE"),
 				},
 			},
 			"application_class": schema.StringAttribute{
