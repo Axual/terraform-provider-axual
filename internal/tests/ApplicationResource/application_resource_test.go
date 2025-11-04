@@ -169,6 +169,19 @@ func TestApplicationResourceAllTypes(t *testing.T) {
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
+			// Test Other type
+			{
+				Config: GetProvider() + GetFile("axual_application_type_other.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_other", "type", "Other"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_other", "application_type", "Custom"),
+				),
+			},
+			{
+				ResourceName:      "axual_application.tf_test_app_type_other",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 			// Test SINK type (Connector)
 			{
 				Config: GetProvider() + GetFile("axual_application_type_sink.tf"),
@@ -211,6 +224,7 @@ func TestApplicationResourceAllTypes(t *testing.T) {
 					"axual_application_type_bridge.tf",
 					"axual_application_type_python.tf",
 					"axual_application_type_ksml.tf",
+					"axual_application_type_other.tf",
 					"axual_application_type_sink.tf",
 					"axual_application_type_source.tf",
 				),

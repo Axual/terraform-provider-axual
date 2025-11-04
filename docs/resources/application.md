@@ -18,7 +18,7 @@ Axual Terraform Provider supports both Custom and Connector Application Types. R
 - `name` (String) The name of the Application. Must be unique. Only the special characters `_`, `-`, `.` and ` ` are valid as part of an application name.
 - `owners` (String) Application Owner
 - `short_name` (String) Application short name. Unique human-readable name for the application. Only Alphanumeric and underscore allowed. Must be unique
-- `type` (String) If application_type is Custom, type can be: Java, Kafka Streams, Pega, SAP, DotNet, Bridge, Python, KSML. If application_type is Connector, type can be: SINK, SOURCE
+- `type` (String) If application_type is Custom, type can be: Java, Kafka Streams, Pega, SAP, DotNet, Bridge, Python, KSML, Other. If application_type is Connector, type can be: SINK, SOURCE. Use 'Other' when the desired application type is not available in the predefined list.
 - `visibility` (String) Application Visibility. Defines the visibility of this application. Possible values are Public and Private. Set the visibility to “Private” if you don’t want your application to end up in overviews such as the topic graph. Read more: https://docs.axual.io/axual/2025.3/self-service/application-management.html#app-visibility
 
 ### Optional
