@@ -1,9 +1,10 @@
 package ApplicationResource
 
 import (
-	. "axual.com/terraform-provider-axual/internal/tests"
 	"regexp"
 	"testing"
+
+	. "axual.com/terraform-provider-axual/internal/tests"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
@@ -17,27 +18,27 @@ func TestApplicationResource(t *testing.T) {
 			{
 				Config: GetProvider() + GetFile("axual_application_initial.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("axual_application.tf-test-app", "name", "tf-test app"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app", "application_type", "Custom"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app", "short_name", "tf_test_app"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app", "application_id", "tf.test.app"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app", "type", "Java"),
-					resource.TestCheckResourceAttrPair("axual_application.tf-test-app", "owners", "data.axual_group.test_group", "id"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app", "visibility", "Public"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app", "description", "Axual's TF Test Application"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app", "name", "tf-test app"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app", "application_type", "Custom"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app", "short_name", "tf_test_app"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app", "application_id", "tf.test.app"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app", "type", "Java"),
+					resource.TestCheckResourceAttrPair("axual_application.tf_test_app", "owners", "data.axual_group.test_group", "id"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app", "visibility", "Public"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app", "description", "Axual's TF Test Application"),
 				),
 			},
 			{
 				Config: GetProvider() + GetFile("axual_application_updated.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("axual_application.tf-test-app", "name", "tf-test-app1"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app", "application_type", "Custom"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app", "short_name", "tf_test_app1"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app", "application_id", "tf.test.app1"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app", "type", "Pega"),
-					resource.TestCheckResourceAttrPair("axual_application.tf-test-app", "owners", "data.axual_group.test_group", "id"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app", "visibility", "Private"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app", "description", "Axual's TF Test Application1"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app", "name", "tf-test-app1"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app", "application_type", "Custom"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app", "short_name", "tf_test_app1"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app", "application_id", "tf.test.app1"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app", "type", "Pega"),
+					resource.TestCheckResourceAttrPair("axual_application.tf_test_app", "owners", "data.axual_group.test_group", "id"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app", "visibility", "Private"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app", "description", "Axual's TF Test Application1"),
 				),
 			},
 			{
@@ -45,7 +46,7 @@ func TestApplicationResource(t *testing.T) {
 				ExpectError: regexp.MustCompile(`can only contain lowercase letters, numbers, and\s+underscores and cannot begin with an underscore`),
 			},
 			{
-				ResourceName:      "axual_application.tf-test-app",
+				ResourceName:      "axual_application.tf_test_app",
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -68,91 +69,101 @@ func TestApplicationResourceAllTypes(t *testing.T) {
 			{
 				Config: GetProvider() + GetFile("axual_application_type_java.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("axual_application.tf-test-app-type", "type", "Java"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app-type", "application_type", "Custom"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_java", "type", "Java"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_java", "application_type", "Custom"),
 				),
 			},
 			// Test Kafka Streams type
 			{
 				Config: GetProvider() + GetFile("axual_application_type_kafka_streams.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("axual_application.tf-test-app-type", "type", "Kafka Streams"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app-type", "application_type", "Custom"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_kafka_streams", "type", "Kafka Streams"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_kafka_streams", "application_type", "Custom"),
 				),
 			},
 			// Test Pega type
 			{
 				Config: GetProvider() + GetFile("axual_application_type_pega.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("axual_application.tf-test-app-type", "type", "Pega"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app-type", "application_type", "Custom"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_pega", "type", "Pega"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_pega", "application_type", "Custom"),
 				),
 			},
 			// Test SAP type
 			{
 				Config: GetProvider() + GetFile("axual_application_type_sap.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("axual_application.tf-test-app-type", "type", "SAP"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app-type", "application_type", "Custom"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_sap", "type", "SAP"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_sap", "application_type", "Custom"),
 				),
 			},
 			// Test DotNet type
 			{
 				Config: GetProvider() + GetFile("axual_application_type_dotnet.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("axual_application.tf-test-app-type", "type", "DotNet"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app-type", "application_type", "Custom"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_dotnet", "type", "DotNet"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_dotnet", "application_type", "Custom"),
 				),
 			},
 			// Test Bridge type
 			{
 				Config: GetProvider() + GetFile("axual_application_type_bridge.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("axual_application.tf-test-app-type", "type", "Bridge"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app-type", "application_type", "Custom"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_bridge", "type", "Bridge"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_bridge", "application_type", "Custom"),
 				),
 			},
 			// Test Python type
 			{
 				Config: GetProvider() + GetFile("axual_application_type_python.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("axual_application.tf-test-app-type", "type", "Python"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app-type", "application_type", "Custom"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_python", "type", "Python"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_python", "application_type", "Custom"),
 				),
 			},
 			// Test KSML type
 			{
 				Config: GetProvider() + GetFile("axual_application_type_ksml.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("axual_application.tf-test-app-type", "type", "KSML"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app-type", "application_type", "Custom"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_ksml", "type", "KSML"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_ksml", "application_type", "Custom"),
 				),
 			},
 			// Test SINK type (Connector)
 			{
 				Config: GetProvider() + GetFile("axual_application_type_sink.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("axual_application.tf-test-app-connector", "type", "SINK"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app-connector", "application_type", "Connector"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_sink", "type", "SINK"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_sink", "application_type", "Connector"),
 				),
 			},
 			// Test SOURCE type (Connector)
 			{
 				Config: GetProvider() + GetFile("axual_application_type_source.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("axual_application.tf-test-app-connector", "type", "SOURCE"),
-					resource.TestCheckResourceAttr("axual_application.tf-test-app-connector", "application_type", "Connector"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_source", "type", "SOURCE"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_source", "application_type", "Connector"),
 				),
 			},
 			// Test invalid type - should fail validation
 			{
 				Config:      GetProvider() + GetFile("axual_application_type_invalid.tf"),
-				ExpectError: regexp.MustCompile(`expected type to be one of`),
+				ExpectError: regexp.MustCompile(`Attribute type value must be one of: `),
 			},
 			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
-				Config:  GetProvider() + GetFile("axual_application_type_source.tf"),
+				Config: GetProvider() + GetFile(
+					"axual_application_type_java.tf",
+					"axual_application_type_kafka_streams.tf",
+					"axual_application_type_pega.tf",
+					"axual_application_type_dotnet.tf",
+					"axual_application_type_bridge.tf",
+					"axual_application_type_python.tf",
+					"axual_application_type_ksml.tf",
+					"axual_application_type_sink.tf",
+					"axual_application_type_source.tf",
+				),
 			},
 		},
 	})
