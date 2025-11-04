@@ -2,10 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
-## [master](https://github.com/Axual/terraform-provider-axual/tree/master) - TBR
+## [2.7.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.7.0) - 2025-11-04
 
 ### Added
-* Support for Protobuf and JSON Schema types in `axual_schema_version` resource
+* Support for **Protobuf** and **JSON Schema** types in `axual_schema_version` resource
+* Support for **Kafka Streams**, **Pyton**, **KSML** and **Other** application types in `axual_application` resource
 
 ## [2.6.1](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.6.1) - 2025-10-08
 * Refactor documentation to separate user and developer audiences
