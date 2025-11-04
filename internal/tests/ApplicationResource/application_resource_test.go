@@ -73,6 +73,11 @@ func TestApplicationResourceAllTypes(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_java", "application_type", "Custom"),
 				),
 			},
+			{
+				ResourceName:      "axual_application.tf_test_app_type_java",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 			// Test Kafka Streams type
 			{
 				Config: GetProvider() + GetFile("axual_application_type_kafka_streams.tf"),
@@ -80,6 +85,11 @@ func TestApplicationResourceAllTypes(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_kafka_streams", "type", "Kafka Streams"),
 					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_kafka_streams", "application_type", "Custom"),
 				),
+			},
+			{
+				ResourceName:      "axual_application.tf_test_app_type_kafka_streams",
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 			// Test Pega type
 			{
@@ -89,6 +99,11 @@ func TestApplicationResourceAllTypes(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_pega", "application_type", "Custom"),
 				),
 			},
+			{
+				ResourceName:      "axual_application.tf_test_app_type_pega",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 			// Test SAP type
 			{
 				Config: GetProvider() + GetFile("axual_application_type_sap.tf"),
@@ -96,6 +111,11 @@ func TestApplicationResourceAllTypes(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_sap", "type", "SAP"),
 					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_sap", "application_type", "Custom"),
 				),
+			},
+			{
+				ResourceName:      "axual_application.tf_test_app_type_sap",
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 			// Test DotNet type
 			{
@@ -105,6 +125,11 @@ func TestApplicationResourceAllTypes(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_dotnet", "application_type", "Custom"),
 				),
 			},
+			{
+				ResourceName:      "axual_application.tf_test_app_type_dotnet",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 			// Test Bridge type
 			{
 				Config: GetProvider() + GetFile("axual_application_type_bridge.tf"),
@@ -112,6 +137,11 @@ func TestApplicationResourceAllTypes(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_bridge", "type", "Bridge"),
 					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_bridge", "application_type", "Custom"),
 				),
+			},
+			{
+				ResourceName:      "axual_application.tf_test_app_type_bridge",
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 			// Test Python type
 			{
@@ -121,6 +151,11 @@ func TestApplicationResourceAllTypes(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_python", "application_type", "Custom"),
 				),
 			},
+			{
+				ResourceName:      "axual_application.tf_test_app_type_python",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 			// Test KSML type
 			{
 				Config: GetProvider() + GetFile("axual_application_type_ksml.tf"),
@@ -128,6 +163,11 @@ func TestApplicationResourceAllTypes(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_ksml", "type", "KSML"),
 					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_ksml", "application_type", "Custom"),
 				),
+			},
+			{
+				ResourceName:      "axual_application.tf_test_app_type_ksml",
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 			// Test SINK type (Connector)
 			{
@@ -137,6 +177,11 @@ func TestApplicationResourceAllTypes(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_sink", "application_type", "Connector"),
 				),
 			},
+			{
+				ResourceName:      "axual_application.tf_test_app_type_sink",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 			// Test SOURCE type (Connector)
 			{
 				Config: GetProvider() + GetFile("axual_application_type_source.tf"),
@@ -144,6 +189,11 @@ func TestApplicationResourceAllTypes(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_source", "type", "SOURCE"),
 					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_source", "application_type", "Connector"),
 				),
+			},
+			{
+				ResourceName:      "axual_application.tf_test_app_type_source",
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 			// Test invalid type - should fail validation
 			{
