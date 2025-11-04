@@ -1,4 +1,4 @@
-resource "axual_application" "tf-test-app" {
+resource "axual_application" "tf_test_app" {
   name             = "tf-test-app1"
   application_type = "Custom"
   short_name       = "tf_test_app1"
