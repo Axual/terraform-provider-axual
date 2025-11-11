@@ -1,6 +1,6 @@
 resource "axual_application" "tf-test-ksml-app" {
   name              = "tf-test-ksml-app"
-  application_type  = "KSML"
+  application_type  = "Ksml"
   short_name        = "tf_test_ksml_app"
   application_id    = "tf.test.ksml.app"
   owners            = data.axual_group.test_group.id
@@ -63,7 +63,7 @@ resource "axual_application_deployment" "ksml_axual_application_deployment" {
   environment = axual_environment.tf-test-ksml-env.id
   application = axual_application.tf-test-ksml-app.id
   type = "KSML"
-  definition = file("ksml-definition.yaml")
+  definition = file("definitions/ksml-definition.yaml")
   deployment_size = "M"
   restart_policy = "on_exit"
   depends_on = [

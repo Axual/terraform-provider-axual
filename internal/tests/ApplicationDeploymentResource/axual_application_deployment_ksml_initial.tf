@@ -1,11 +1,11 @@
 resource "axual_application" "tf-test-ksml-app" {
-  name              = "tf-test-ksml-app"
-  application_type  = "KSML"
-  short_name        = "tf_test_ksml_app"
-  application_id    = "tf.test.ksml.app"
-  owners            = data.axual_group.test_group.id
-  visibility        = "Public"
-  description       = "Axual's TF Test KSML Application"
+  name             = "tf-test-ksml-app"
+  application_type = "Ksml"
+  short_name       = "tf_test_ksml_app"
+  application_id   = "tf.test.ksml.app"
+  owners           = data.axual_group.test_group.id
+  visibility       = "Public"
+  description      = "Axual's TF Test KSML Application"
 }
 
 resource "axual_environment" "tf-test-ksml-env" {
@@ -32,7 +32,7 @@ resource "axual_topic" "tf-test-ksml-topic" {
   value_type       = "String"
   owners           = data.axual_group.test_group.id
   retention_policy = "delete"
-  properties = {}
+  properties       = {}
   description      = "Demo of KSML topic via Terraform"
 }
 
@@ -41,7 +41,7 @@ resource "axual_topic_config" "tf-ksml-topic-config" {
   retention_time = 864000
   topic          = axual_topic.tf-test-ksml-topic.id
   environment    = axual_environment.tf-test-ksml-env.id
-  properties = { "segment.ms" = "600012", "retention.bytes" = "-1" }
+  properties     = { "segment.ms" = "600012", "retention.bytes" = "-1" }
 }
 
 resource "axual_application_access_grant" "tf-test-ksml-application-access-grant" {
@@ -63,9 +63,9 @@ resource "axual_application_deployment" "ksml_axual_application_deployment" {
   environment = axual_environment.tf-test-ksml-env.id
   application = axual_application.tf-test-ksml-app.id
   type = "KSML"
-  definition = file("ksml-definition.yaml")
+  definition = file("definitions/ksml-definition.yaml")
   deployment_size = "S"
-  restart_policy = "on_exit"
+  restart_policy  = "on_exit"
   depends_on = [
     axual_application_access_grant_approval.tf-test-ksml-application-access-grant-approval,
   ]

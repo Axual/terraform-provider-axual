@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -13,7 +15,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"strings"
 )
 
 var _ resource.Resource = &applicationPrincipalResource{}
@@ -211,10 +212,6 @@ func createApplicationPrincipalRequestFromData(ctx context.Context, data *applic
 	if err != nil {
 		return [1]webclient.ApplicationPrincipalRequest{}, err
 	}
-	if err != nil {
-		return [1]webclient.ApplicationPrincipalRequest{}, err
-	}
-
 	environment = fmt.Sprintf("%s/%v", r.provider.client.ApiURL, environment)
 
 	rawApplication, err := data.Application.ToTerraformValue(ctx)
