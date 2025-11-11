@@ -1,8 +1,8 @@
 streams:
-  sensor_source_avro:
-    topic: ksml_sensordata_avro
+  ksml_test_topic:
+    topic: ksml-test-topic
     keyType: string
-    valueType: 'avro:SensorData'
+    valueType: string
 functions:
   # This function print each message
   print_message:
@@ -11,5 +11,5 @@ functions:
       print('key=' + str(key) + ', value=' + str(value))
 pipelines:
   consume_avro:
-    from: sensor_source_avro
+    from: ksml_test_topic
     forEach: print_message
