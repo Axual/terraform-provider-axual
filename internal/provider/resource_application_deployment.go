@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -33,14 +35,14 @@ type applicationDeploymentResource struct {
 }
 
 type ApplicationDeploymentResourceData struct {
-	Id            types.String `tfsdk:"id"`
-	Application   types.String `tfsdk:"application"`
-	Environment   types.String `tfsdk:"environment"`
-	Configs       types.Map    `tfsdk:"configs"`
-	Type          types.String `tfsdk:"type"`
-	Definition    types.String `tfsdk:"definition"`
+	Id             types.String `tfsdk:"id"`
+	Application    types.String `tfsdk:"application"`
+	Environment    types.String `tfsdk:"environment"`
+	Configs        types.Map    `tfsdk:"configs"`
+	Type           types.String `tfsdk:"type"`
+	Definition     types.String `tfsdk:"definition"`
 	DeploymentSize types.String `tfsdk:"deployment_size"`
-	RestartPolicy types.String `tfsdk:"restart_policy"`
+	RestartPolicy  types.String `tfsdk:"restart_policy"`
 }
 
 func (r *applicationDeploymentResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -67,11 +69,14 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				},
 			},
 			"type": schema.StringAttribute{
-				MarkdownDescription: "The type of application deployment. Valid values are 'Connector' or 'KSML'. Defaults to 'Connector' if not specified.",
+				MarkdownDescription: "The type of application deployment. Valid values are 'Connector' or 'Ksml'. Defaults to 'Connector' if not specified.",
 				Optional:            true,
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					stringvalidator.OneOf("Connector", "Ksml"),
 				},
 			},
 			"configs": schema.MapAttribute{
@@ -115,15 +120,27 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 	applicationURL := fmt.Sprintf("%s/applications/%v", r.provider.client.ApiURL, data.Application.ValueString())
 	environmentURL := fmt.Sprintf("%s/environments/%v", r.provider.client.ApiURL, data.Environment.ValueString())
 
+	// we count if there is at least one authentication defined for these application and environment
+	authenticationCount := 0
 	// We check if Application Principal exists for this environment and application
-	ApplicationPrincipalFindByApplicationAndEnvironmentResponse, err := r.provider.client.FindApplicationPrincipalByApplicationAndEnvironment(applicationURL, environmentURL)
+	applicationPrincipalsResponse, err := r.provider.client.FindApplicationPrincipalByApplicationAndEnvironment(applicationURL, environmentURL)
 	if err != nil {
 		resp.Diagnostics.AddError("Error querying for Application Principal for this application and environment", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
-	// We do not allow creating Application Deployment if there is no Application Principal because we can't start the connector without it
-	if len(ApplicationPrincipalFindByApplicationAndEnvironmentResponse.Embedded.ApplicationPrincipalResponses) == 0 {
-		resp.Diagnostics.AddError("Error from Terraform Provider validation", "Please first create Application Principal for this application and environment")
+	authenticationCount += len(applicationPrincipalsResponse.Embedded.ApplicationPrincipalResponses)
+	if isKSML(data.Type.ValueString()) {
+		// For KSML applications, we check if Application Credential exists for this environment and application
+		applicationCredentialsResponse, err := r.provider.client.FindApplicationCredentialByApplicationAndEnvironment(applicationURL, environmentURL)
+		if err != nil {
+			resp.Diagnostics.AddError("Error querying for Application Principal for this application and environment", fmt.Sprintf("Error message: %s", err.Error()))
+			return
+		}
+		authenticationCount += len(applicationCredentialsResponse)
+	}
+
+	if authenticationCount == 0 {
+		resp.Diagnostics.AddError("Error from Terraform Provider validation", "Please first create an Application Principal or Application Credential for this application and environment")
 		return
 	}
 
@@ -156,7 +173,7 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 		return
 	}
 
-	// We search for the Application Deployment we just created, because we need to save its UID, because creating it did not respond with UID.
+	// We search for the Application Deployment we just created because we need to save its UID, because creating it did not respond with UID.
 	ApplicationDeploymentFindByApplicationAndEnvironmentResponse, err := r.provider.client.FindApplicationDeploymentByApplicationAndEnvironment(applicationURL, environmentURL)
 
 	if err != nil {
@@ -167,7 +184,7 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 		Action: "START",
 	}
 
-	// We start the Connector Application
+	// We start the Application Deployment
 	err = r.provider.client.OperateApplicationDeployment(ApplicationDeploymentFindByApplicationAndEnvironmentResponse.Embedded.ApplicationDeploymentResponses[0].Uid, "START", applicationStartRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to start Application, got error: %s", err))
@@ -230,7 +247,10 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 	}
 
 	// Check the connectorState.state before deciding to stop or delete directly
-	if applicationDeploymentStatus.ConnectorState.State == "Running" {
+	// if the connectorState.state is not `Stopped`
+	// or if the ksmlStatus.Status is not `Undeployed`,
+	// we stop the deployment first
+	if applicationDeploymentStatus.ConnectorState.State != "Stopped" || applicationDeploymentStatus.KsmlStatus.Status != "Undeployed" {
 		// If running, then stop the application deployment first
 		var applicationStopRequest = webclient.ApplicationDeploymentOperationRequest{
 			Action: "STOP",
@@ -282,7 +302,10 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 	}
 
 	// Check the connectorState.state before deciding to stop or delete directly
-	if applicationDeploymentStatus.ConnectorState.State == "Running" {
+	// if the connectorState.state is not `Stopped`
+	// or if the ksmlStatus.Status is not `Undeployed`,
+	// we stop the deployment first
+	if applicationDeploymentStatus.ConnectorState.State != "Stopped" || applicationDeploymentStatus.KsmlStatus.Status != "Undeployed" {
 		// If running, then stop the application deployment first
 		var applicationStopRequest = webclient.ApplicationDeploymentOperationRequest{
 			Action: "STOP",
@@ -306,55 +329,10 @@ func mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx conte
 	data.Environment = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Environment.Uid)
 	data.Application = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Application.Uid)
 
-	// Initialize the map for configs
-	configs := make(map[string]attr.Value)
-
-	// Track if we found KSML-specific configs
-	var ksmlDefinition, ksmlDeploymentSize, ksmlRestartPolicy string
-	isKSML := false
-
-	// We want to map the configs of the first ApplicationDeploymentResponse
-	// We check if there is at least one ApplicationDeploymentResponse
 	if len(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses) > 0 {
-		firstDeploymentResponse := applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0]
-		// We iterate through the Configs and extract KSML-specific ones
-		for _, config := range firstDeploymentResponse.Configs {
-			switch config.ConfigKey {
-			case "ksml_definition":
-				ksmlDefinition = config.ConfigValue
-				isKSML = true
-			case "ksml_deployment_size":
-				ksmlDeploymentSize = config.ConfigValue
-			case "ksml_restart_policy":
-				ksmlRestartPolicy = config.ConfigValue
-			default:
-				configs[config.ConfigKey] = types.StringValue(config.ConfigValue)
-			}
-		}
-	}
-
-	// Set the deployment type and KSML-specific fields
-	if isKSML {
-		data.Type = types.StringValue("KSML")
-		data.Definition = types.StringValue(ksmlDefinition)
-		if ksmlDeploymentSize != "" {
-			data.DeploymentSize = types.StringValue(ksmlDeploymentSize)
-		}
-		if ksmlRestartPolicy != "" {
-			data.RestartPolicy = types.StringValue(ksmlRestartPolicy)
-		}
-		// For KSML, configs map should be empty or null
-		data.Configs = types.MapNull(types.StringType)
+		mapResponseConfigsToData(ctx, data, applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Application.ApplicationType, applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Configs)
 	} else {
-		// For Connector deployments
-		if data.Type.IsNull() || data.Type.IsUnknown() {
-			data.Type = types.StringValue("Connector")
-		}
-		mapValue, diags := types.MapValue(types.StringType, configs)
-		if diags.HasError() {
-			tflog.Error(ctx, "Error creating configs map when mapping application deployment response")
-		}
-		data.Configs = mapValue
+		tflog.Error(ctx, "Error processing mapping application deployment response, found multiple application deployments for the same application and environment")
 	}
 }
 
@@ -363,82 +341,14 @@ func mapApplicationDeploymentByIdResponseToData(ctx context.Context, data *Appli
 	data.Environment = types.StringValue(applicationDeploymentResponse.Embedded.Environment.Uid)
 	data.Application = types.StringValue(applicationDeploymentResponse.Embedded.Application.Uid)
 
-	// Initialize the map for configs
-	configs := make(map[string]attr.Value)
-
-	// Track if we found KSML-specific configs
-	var ksmlDefinition, ksmlDeploymentSize, ksmlRestartPolicy string
-	isKSML := false
-
-	// We want to map the configs of the ApplicationDeploymentResponse
-	for _, config := range applicationDeploymentResponse.Configs {
-		switch config.ConfigKey {
-		case "ksml_definition":
-			ksmlDefinition = config.ConfigValue
-			isKSML = true
-		case "ksml_deployment_size":
-			ksmlDeploymentSize = config.ConfigValue
-		case "ksml_restart_policy":
-			ksmlRestartPolicy = config.ConfigValue
-		default:
-			configs[config.ConfigKey] = types.StringValue(config.ConfigValue)
-		}
-	}
-
-	// Set the deployment type and KSML-specific fields
-	if isKSML {
-		data.Type = types.StringValue("KSML")
-		data.Definition = types.StringValue(ksmlDefinition)
-		if ksmlDeploymentSize != "" {
-			data.DeploymentSize = types.StringValue(ksmlDeploymentSize)
-		}
-		if ksmlRestartPolicy != "" {
-			data.RestartPolicy = types.StringValue(ksmlRestartPolicy)
-		}
-		// For KSML, configs map should be empty or null
-		data.Configs = types.MapNull(types.StringType)
-	} else {
-		// For Connector deployments
-		if data.Type.IsNull() || data.Type.IsUnknown() {
-			data.Type = types.StringValue("Connector")
-		}
-		mapValue, diags := types.MapValue(types.StringType, configs)
-		if diags.HasError() {
-			tflog.Error(ctx, "Error creating configs map when mapping application deployment response")
-		}
-		data.Configs = mapValue
-	}
-} 
+	mapResponseConfigsToData(ctx, data, applicationDeploymentResponse.Embedded.Application.ApplicationType, applicationDeploymentResponse.Configs)
+}
 
 func createApplicationDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData, r *applicationDeploymentResource) (webclient.ApplicationDeploymentCreateRequest, error) {
-	configs := make(map[string]string)
+	configs, err := createConfigsForDeploymentType(data)
 
-	// Determine the deployment type, default to "Connector" if not specified
-	deploymentType := "Connector"
-	if !data.Type.IsNull() && !data.Type.IsUnknown() {
-		deploymentType = data.Type.ValueString()
-	}
-
-	if deploymentType == "KSML" {
-		// For KSML deployments, add KSML-specific configs
-		if !data.Definition.IsNull() && !data.Definition.IsUnknown() {
-			configs["ksml_definition"] = data.Definition.ValueString()
-		}
-		if !data.DeploymentSize.IsNull() && !data.DeploymentSize.IsUnknown() {
-			configs["ksml_deployment_size"] = data.DeploymentSize.ValueString()
-		}
-		if !data.RestartPolicy.IsNull() && !data.RestartPolicy.IsUnknown() {
-			configs["ksml_restart_policy"] = data.RestartPolicy.ValueString()
-		}
-	} else {
-		// For Connector deployments, use the configs map
-		for key, value := range data.Configs.Elements() {
-			strValue, ok := value.(types.String)
-			if !ok {
-				return webclient.ApplicationDeploymentCreateRequest{}, fmt.Errorf("type assertion to types.String failed for key: %s", key)
-			}
-			configs[key] = strValue.ValueString()
-		}
+	if err != nil {
+		return webclient.ApplicationDeploymentCreateRequest{}, err
 	}
 
 	ApplicationDeploymentRequest := webclient.ApplicationDeploymentCreateRequest{
@@ -452,34 +362,10 @@ func createApplicationDeploymentRequestFromData(ctx context.Context, data *Appli
 }
 
 func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData, r *applicationDeploymentResource) (webclient.ApplicationDeploymentUpdateRequest, error) {
-	configs := make(map[string]string)
+	configs, err := createConfigsForDeploymentType(data)
 
-	// Determine the deployment type, default to "Connector" if not specified
-	deploymentType := "Connector"
-	if !data.Type.IsNull() && !data.Type.IsUnknown() {
-		deploymentType = data.Type.ValueString()
-	}
-
-	if deploymentType == "KSML" {
-		// For KSML deployments, add KSML-specific configs
-		if !data.Definition.IsNull() && !data.Definition.IsUnknown() {
-			configs["ksml_definition"] = data.Definition.ValueString()
-		}
-		if !data.DeploymentSize.IsNull() && !data.DeploymentSize.IsUnknown() {
-			configs["ksml_deployment_size"] = data.DeploymentSize.ValueString()
-		}
-		if !data.RestartPolicy.IsNull() && !data.RestartPolicy.IsUnknown() {
-			configs["ksml_restart_policy"] = data.RestartPolicy.ValueString()
-		}
-	} else {
-		// For Connector deployments, use the configs map
-		for key, value := range data.Configs.Elements() {
-			strValue, ok := value.(types.String)
-			if !ok {
-				return webclient.ApplicationDeploymentUpdateRequest{}, fmt.Errorf("type assertion to types.String failed for key: %s", key)
-			}
-			configs[key] = strValue.ValueString()
-		}
+	if err != nil {
+		return webclient.ApplicationDeploymentUpdateRequest{}, err
 	}
 
 	ApplicationDeploymentUpdateRequest := webclient.ApplicationDeploymentUpdateRequest{
@@ -514,7 +400,7 @@ func (r *applicationDeploymentResource) ImportState(ctx context.Context, req res
 
 	// Map the response to Terraform state
 	var data ApplicationDeploymentResourceData
-mapApplicationDeploymentByIdResponseToData(ctx, &data, applicationDeployment)
+	mapApplicationDeploymentByIdResponseToData(ctx, &data, applicationDeployment)
 
 	// Validate that the mapped data is complete
 	if data.Id.IsNull() || data.Id.ValueString() == "" {
@@ -526,15 +412,96 @@ mapApplicationDeploymentByIdResponseToData(ctx, &data, applicationDeployment)
 	}
 
 	tflog.Info(ctx, fmt.Sprintf("Successfully imported Application Deployment with ID: %s", data.Id.ValueString()))
-	
+
 	// Set the state with the imported data
 	diags := resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
-	
+
 	if resp.Diagnostics.HasError() {
 		tflog.Error(ctx, "Failed to set state during import")
 		return
 	}
 
 	tflog.Info(ctx, "Application Deployment import completed successfully")
+
+}
+
+func createConfigsForDeploymentType(data *ApplicationDeploymentResourceData) (map[string]string, error) {
+	configs := make(map[string]string)
+
+	// Determine the deployment type, default to "Connector" if not specified
+	deploymentType := "Connector"
+	if !data.Type.IsNull() && !data.Type.IsUnknown() {
+		deploymentType = data.Type.ValueString()
+	}
+
+	if isKSML(deploymentType) {
+		// For KSML deployments, add KSML-specific configs
+		if !data.Definition.IsNull() && !data.Definition.IsUnknown() {
+			configs["ksml_definition"] = data.Definition.ValueString()
+		}
+		if !data.DeploymentSize.IsNull() && !data.DeploymentSize.IsUnknown() {
+			configs["ksml_deployment_size"] = data.DeploymentSize.ValueString()
+		}
+		if !data.RestartPolicy.IsNull() && !data.RestartPolicy.IsUnknown() {
+			configs["ksml_restart_policy"] = data.RestartPolicy.ValueString()
+		}
+	} else {
+		// For Connector deployments, use the configs map
+		for key, value := range data.Configs.Elements() {
+			strValue, ok := value.(types.String)
+			if !ok {
+				return configs, fmt.Errorf("type assertion to types.String failed for key: %s", key)
+			}
+			configs[key] = strValue.ValueString()
+		}
+	}
+	return configs, nil
+}
+
+func mapResponseConfigsToData(ctx context.Context, data *ApplicationDeploymentResourceData, deploymentType string, responseConfigs []webclient.Config) {
+	// Initialize the map for configs
+	configs := make(map[string]attr.Value)
+
+	var ksmlDefinition, ksmlDeploymentSize, ksmlRestartPolicy string
+
+	// We iterate through the Configs and extract KSML-specific ones
+	for _, config := range responseConfigs {
+		switch config.ConfigKey {
+		case "ksml_definition":
+			ksmlDefinition = config.ConfigValue
+		case "ksml_deployment_size":
+			ksmlDeploymentSize = config.ConfigValue
+		case "ksml_restart_policy":
+			ksmlRestartPolicy = config.ConfigValue
+		default:
+			configs[config.ConfigKey] = types.StringValue(config.ConfigValue)
+		}
+	}
+
+	if isKSML(deploymentType) {
+		data.Type = types.StringValue("Ksml")
+		data.Definition = types.StringValue(ksmlDefinition)
+		data.DeploymentSize = types.StringValue(ksmlDeploymentSize)
+		data.RestartPolicy = types.StringValue(ksmlRestartPolicy)
+		// For KSML, the configs map should be empty or null
+		data.Configs = types.MapNull(types.StringType)
+	} else {
+		if data.Type.IsNull() || data.Type.IsUnknown() {
+			data.Type = types.StringValue("Connector")
+		}
+		mapValue, diags := types.MapValue(types.StringType, configs)
+		if diags.HasError() {
+			tflog.Error(ctx, "Error creating configs map when mapping application deployment response")
+		}
+		data.Configs = mapValue
+	}
+}
+
+func isKSML(deploymentType string) bool {
+	if deploymentType == "Ksml" {
+		return true
+	} else {
+		return false
+	}
 }
