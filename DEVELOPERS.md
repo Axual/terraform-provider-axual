@@ -183,11 +183,12 @@ Before running acceptance tests:
 
    In [`internal/tests/test_config.yaml`](./internal/tests/test_config.yaml), update:
    - `instanceName` and `instanceShortName` to point to an instance with:
-     - `EnabledAuthenticationMethod`: SSL, SCRAM_SHA_512, OAUTHBEARER
+     - `EnabledAuthenticationMethod` are SSL, SCRAM_SHA_512, OAUTHBEARER
        - SSL using [Axual Dummy Root CA as the Signing Authority](https://gitlab.com/axual/qa/local-development/-/blob/main/governance/files/axual-dummy-intermediate)
-     - `GranularBrowsePermission` : enabled
-     - `ConnectSupport`: enabled
+     - `GranularBrowsePermission` is enabled
+     - `ConnectSupport` is enabled
      - has an `Apicurio` Schema Registry configured
+     - `certificateReusePreventionLevel` is set to `None`
    - `groupName`: A group you are a member of
    - `userEmail`: Your email
    - `username`: Your username
