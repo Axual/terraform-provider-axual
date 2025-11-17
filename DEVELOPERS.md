@@ -187,6 +187,7 @@ Before running acceptance tests:
        - SSL using [Axual Dummy Root CA as the Signing Authority](https://gitlab.com/axual/qa/local-development/-/blob/main/governance/files/axual-dummy-intermediate)
      - `GranularBrowsePermission` is enabled
      - `ConnectSupport` is enabled
+     - has a `KSML Provisioner` configured
      - has an `Apicurio` Schema Registry configured
      - `certificateReusePreventionLevel` is set to `None`
    - `groupName`: A group you are a member of
