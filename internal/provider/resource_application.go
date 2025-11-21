@@ -56,10 +56,10 @@ func (r *applicationResource) Schema(ctx context.Context, req resource.SchemaReq
 		MarkdownDescription: "An application is responsible for producing and/or consuming data on a topic, whether it is a Java or .NET app or a connector.",
 		Attributes: map[string]schema.Attribute{
 			"application_type": schema.StringAttribute{
-				MarkdownDescription: "Axual Application type. Possible values are Custom or Connector.",
+				MarkdownDescription: "Axual Application type. Possible values are Custom, Connector, or Ksml.",
 				Required:            true,
 				Validators: []validator.String{
-					stringvalidator.OneOf("Custom", "Connector"),
+					stringvalidator.OneOf("Custom", "Connector", "Ksml"),
 				},
 			},
 			"application_id": schema.StringAttribute{
@@ -95,10 +95,11 @@ func (r *applicationResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"type": schema.StringAttribute{
-				Required:            true,
-				MarkdownDescription: "If application_type is Custom, type can be: Java, Kafka Streams, Pega, SAP, DotNet, Bridge, Python, KSML, Other. If application_type is Connector, type can be: SINK, SOURCE. Use 'Other' when the desired application type is not available in the predefined list.",
+				Optional:            true,
+				MarkdownDescription: "If application_type is Custom, type can be: Java, Kafka Streams, Pega, SAP, DotNet, Bridge, Python, KSML, Other. If application_type is Connector, type can be: SINK, SOURCE. If application_type is Ksml, this field must be null/omitted. Use 'Other' when the desired application type is not available in the predefined list.",
 				Validators: []validator.String{
 					stringvalidator.OneOf("Java", "Kafka Streams", "Pega", "SAP", "DotNet", "Bridge", "Python", "KSML", "Other", "SINK", "SOURCE"),
+					custom_validator.NewKsmlApplicationTypeValidator(),
 				},
 			},
 			"application_class": schema.StringAttribute{
@@ -270,11 +271,14 @@ func createApplicationRequestFromData(ctx context.Context, data *ApplicationReso
 		ShortName:       data.ShortName.ValueString(),
 		Owners:          owners,
 		Viewers:         viewers,
-		Type:            data.Type.ValueString(),
 		Visibility:      data.Visibility.ValueString(),
 	}
 
 	// optional fields
+	if !data.Type.IsNull() {
+		ApplicationRequest.Type = data.Type.ValueString()
+	}
+
 	if !data.Description.IsNull() {
 		ApplicationRequest.Description = data.Description.ValueString()
 	}
@@ -295,10 +299,15 @@ func mapApplicationResponseToData(_ context.Context, data *ApplicationResourceDa
 	data.ShortName = types.StringValue(application.ShortName)
 	owners := types.StringValue(application.Owners.Uid)
 	data.Owners = types.StringValue(owners.ValueString())
-	data.Type = types.StringValue(application.Type)
 	data.Visibility = types.StringValue(application.Visibility)
 
 	// optional fields
+	if application.Type == "" {
+		data.Type = types.StringNull()
+	} else {
+		data.Type = types.StringValue(application.Type)
+	}
+
 	if application.Description == "" {
 		data.Description = types.StringNull()
 	} else {

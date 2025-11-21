@@ -132,7 +132,7 @@ type ApplicationRequest struct {
 	ShortName        string   `json:"shortName"`
 	Owners           string   `json:"owners"`
 	Viewers          []string `json:"viewers"`
-	Type             string   `json:"type"`
+	Type             string   `json:"type,omitempty"`
 	ApplicationClass string   `json:"applicationClass,omitempty"`
 	Visibility       string   `json:"visibility"`
 	Description      string   `json:"description"`
