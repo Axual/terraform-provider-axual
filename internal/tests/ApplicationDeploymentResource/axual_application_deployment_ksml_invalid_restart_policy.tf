@@ -3,6 +3,7 @@ resource "axual_application_deployment" "ksml_axual_application_deployment" {
   application     = axual_application.tf-test-ksml-app.id
   definition      = file("definitions/ksml-definition.yaml")
   deployment_size = "M"
+  restart_policy = "invalid_policy"
   depends_on = [
     axual_application_access_grant_approval.tf-test-ksml-application-access-grant-approval,
   ]

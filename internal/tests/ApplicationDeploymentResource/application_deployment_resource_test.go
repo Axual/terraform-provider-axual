@@ -1,6 +1,7 @@
 package ApplicationDeploymentResource
 
 import (
+	"regexp"
 	"testing"
 
 	. "axual.com/terraform-provider-axual/internal/tests"
@@ -77,9 +78,17 @@ func TestApplicationDeploymentKSMLResource(t *testing.T) {
 					resource.TestCheckResourceAttrPair("axual_application_deployment.ksml_axual_application_deployment", "application", "axual_application.tf-test-ksml-app", "id"),
 					resource.TestCheckResourceAttr("axual_application_deployment.ksml_axual_application_deployment", "type", "Ksml"),
 					resource.TestCheckResourceAttr("axual_application_deployment.ksml_axual_application_deployment", "deployment_size", "M"),
-					resource.TestCheckResourceAttr("axual_application_deployment.ksml_axual_application_deployment", "restart_policy", "on_exit"),
+					resource.TestCheckNoResourceAttr("axual_application_deployment.ksml_axual_application_deployment", "restart_policy"),
 					resource.TestCheckResourceAttrSet("axual_application_deployment.ksml_axual_application_deployment", "definition"),
 				),
+			},
+			// Test invalid `restart_policy` - should fail validation
+			{
+				Config: GetProvider() + GetFile(
+					"axual_application_deployment_ksml_setup.tf",
+					"axual_application_deployment_ksml_invalid_restart_policy.tf",
+				),
+				ExpectError: regexp.MustCompile(`Attribute restart_policy value must be one of: `),
 			},
 			{
 				ResourceName:      "axual_application_deployment.ksml_axual_application_deployment",

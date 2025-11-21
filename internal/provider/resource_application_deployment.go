@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -74,13 +76,13 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				},
 			},
 			"configs": schema.MapAttribute{
-				MarkdownDescription: "Connector config for Application Deployment. Required for Connector type deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. All available application plugin class names, plugin types and plugin configs are listed here in API- `GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass` and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html",
+				MarkdownDescription: "Connector config for Application Deployment. Required for Connector deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. All available application plugin class names, plugin types and plugin configs are listed here in API- `GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass` and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html",
 				Optional:            true,
 				ElementType:         types.StringType,
 				Sensitive:           true,
 			},
 			"definition": schema.StringAttribute{
-				MarkdownDescription: "KSML definition for Application Deployment. Required for KSML type deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.",
+				MarkdownDescription: "KSML definition for Application Deployment. Required for KSML deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.",
 				Optional:            true,
 				Sensitive:           true,
 			},
@@ -89,8 +91,11 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				Optional:            true,
 			},
 			"restart_policy": schema.StringAttribute{
-				MarkdownDescription: "The restart policy for KSML applications. Example: 'on_exit'. Optional for KSML type deployments.",
+				MarkdownDescription: "The restart policy for KSML applications. Valid values are 'on_exit' and 'never'. Optional for KSML deployments.",
 				Optional:            true,
+				Validators: []validator.String{
+					stringvalidator.OneOf("on_exit", "never"),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed: true,
@@ -482,7 +487,11 @@ func mapResponseConfigsToData(ctx context.Context, data *ApplicationDeploymentRe
 		data.Type = types.StringValue("Ksml")
 		data.Definition = types.StringValue(ksmlDefinition)
 		data.DeploymentSize = types.StringValue(ksmlDeploymentSize)
-		data.RestartPolicy = types.StringValue(ksmlRestartPolicy)
+		if ksmlRestartPolicy != "" {
+			data.RestartPolicy = types.StringValue(ksmlRestartPolicy)
+		} else {
+			data.RestartPolicy = types.StringNull()
+		}
 		// For KSML, the configs map should be empty or null
 		data.Configs = types.MapNull(types.StringType)
 	} else {
