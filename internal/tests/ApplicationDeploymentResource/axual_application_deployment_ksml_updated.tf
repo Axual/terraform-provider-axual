@@ -1,7 +1,6 @@
 resource "axual_application_deployment" "ksml_axual_application_deployment" {
   environment     = axual_environment.tf-test-ksml-env.id
   application     = axual_application.tf-test-ksml-app.id
-  type            = "Ksml"
   definition      = file("definitions/ksml-definition.yaml")
   deployment_size = "M"
   restart_policy  = "on_exit"

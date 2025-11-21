@@ -6,13 +6,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -51,7 +49,7 @@ func (r *applicationDeploymentResource) Metadata(ctx context.Context, req resour
 func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "An Application Deployment stores the configs for connector or KSML application type that is saved for an Application on an Environment.",
+		MarkdownDescription: "An Application Deployment stores the configs for 'Connector' or 'Ksml' application type that is saved for an Application on an Environment.",
 
 		Attributes: map[string]schema.Attribute{
 			"application": schema.StringAttribute{
@@ -69,14 +67,10 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				},
 			},
 			"type": schema.StringAttribute{
-				MarkdownDescription: "The type of application deployment. Valid values are 'Connector' or 'Ksml'. Defaults to 'Connector' if not specified.",
-				Optional:            true,
+				MarkdownDescription: "The type of application deployment. This is automatically set based on the application's type.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
-				},
-				Validators: []validator.String{
-					stringvalidator.OneOf("Connector", "Ksml"),
 				},
 			},
 			"configs": schema.MapAttribute{
@@ -117,6 +111,16 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	// Fetch application to determine its type
+	application, err := r.provider.client.GetApplication(data.Application.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error fetching application", fmt.Sprintf("Error message: %s", err.Error()))
+		return
+	}
+
+	// Set the type based on the application's type
+	data.Type = types.StringValue(application.ApplicationType)
+
 	applicationURL := fmt.Sprintf("%s/applications/%v", r.provider.client.ApiURL, data.Application.ValueString())
 	environmentURL := fmt.Sprintf("%s/environments/%v", r.provider.client.ApiURL, data.Environment.ValueString())
 
