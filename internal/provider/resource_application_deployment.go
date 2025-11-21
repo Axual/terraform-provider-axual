@@ -133,7 +133,7 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 		// For KSML applications, we check if Application Credential exists for this environment and application
 		applicationCredentialsResponse, err := r.provider.client.FindApplicationCredentialByApplicationAndEnvironment(applicationURL, environmentURL)
 		if err != nil {
-			resp.Diagnostics.AddError("Error querying for Application Principal for this application and environment", fmt.Sprintf("Error message: %s", err.Error()))
+			resp.Diagnostics.AddError("Error querying for Application Credential for this application and environment", fmt.Sprintf("Error message: %s", err.Error()))
 			return
 		}
 		authenticationCount += len(applicationCredentialsResponse)
@@ -246,11 +246,7 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 		return
 	}
 
-	// Check the connectorState.state before deciding to stop or delete directly
-	// if the connectorState.state is not `Stopped`
-	// or if the ksmlStatus.Status is not `Undeployed`,
-	// we stop the deployment first
-	if applicationDeploymentStatus.ConnectorState.State != "Stopped" || applicationDeploymentStatus.KsmlStatus.Status != "Undeployed" {
+	if shouldStopDeployment(planData, applicationDeploymentStatus) {
 		// If running, then stop the application deployment first
 		var applicationStopRequest = webclient.ApplicationDeploymentOperationRequest{
 			Action: "STOP",
@@ -301,11 +297,7 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 		return
 	}
 
-	// Check the connectorState.state before deciding to stop or delete directly
-	// if the connectorState.state is not `Stopped`
-	// or if the ksmlStatus.Status is not `Undeployed`,
-	// we stop the deployment first
-	if applicationDeploymentStatus.ConnectorState.State != "Stopped" || applicationDeploymentStatus.KsmlStatus.Status != "Undeployed" {
+	if shouldStopDeployment(data, applicationDeploymentStatus) {
 		// If running, then stop the application deployment first
 		var applicationStopRequest = webclient.ApplicationDeploymentOperationRequest{
 			Action: "STOP",
@@ -499,9 +491,16 @@ func mapResponseConfigsToData(ctx context.Context, data *ApplicationDeploymentRe
 }
 
 func isKSML(deploymentType string) bool {
-	if deploymentType == "Ksml" {
+	return deploymentType == "Ksml"
+}
+
+func shouldStopDeployment(data ApplicationDeploymentResourceData, status *webclient.ApplicationDeploymentStatusResponse) bool {
+	// Check the connectorState.state before deciding to stop or delete directly
+	// if the connectorState.state is not `Stopped`
+	// or if the ksmlStatus.Status is not `Undeployed`,
+	// we stop the deployment first
+	if (isKSML(data.Type.ValueString()) && status.KsmlStatus.Status != "Undeployed") || (!isKSML(data.Type.ValueString()) && status.ConnectorState.State != "Stopped") {
 		return true
-	} else {
-		return false
 	}
+	return false
 }
