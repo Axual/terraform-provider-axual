@@ -321,14 +321,17 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 }
 
 func mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx context.Context, data *ApplicationDeploymentResourceData, applicationDeploymentResponse *webclient.ApplicationDeploymentFindByApplicationAndEnvironmentResponse) {
-	data.Id = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Uid)
-	data.Environment = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Environment.Uid)
-	data.Application = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Application.Uid)
-
-	if len(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses) > 0 {
-		mapResponseConfigsToData(ctx, data, applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Application.ApplicationType, applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Configs)
+	if len(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses) == 0 {
+		tflog.Error(ctx, "Error processing mapping application deployment response, no application deployment found for the application and environment")
+		return
+	} else if len(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses) > 1 {
+		tflog.Error(ctx, "Error processing mapping application deployment response, multiple application deployments found for the application and environment")
+		return
 	} else {
-		tflog.Error(ctx, "Error processing mapping application deployment response, found multiple application deployments for the same application and environment")
+		data.Id = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Uid)
+		data.Environment = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Environment.Uid)
+		data.Application = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Application.Uid)
+		mapResponseConfigsToData(ctx, data, applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Application.ApplicationType, applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Configs)
 	}
 }
 
