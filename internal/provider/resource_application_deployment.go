@@ -87,7 +87,7 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				Sensitive:           true,
 			},
 			"deployment_size": schema.StringAttribute{
-				MarkdownDescription: "The deployment size for KSML applications. Valid values are 'S', 'M', 'L', 'XL'. Required for KSML type deployments.",
+				MarkdownDescription: "The deployment size for KSML applications. Optional for KSML deployments.",
 				Optional:            true,
 			},
 			"restart_policy": schema.StringAttribute{
@@ -486,7 +486,11 @@ func mapResponseConfigsToData(ctx context.Context, data *ApplicationDeploymentRe
 	if isKSML(deploymentType) {
 		data.Type = types.StringValue("Ksml")
 		data.Definition = types.StringValue(ksmlDefinition)
-		data.DeploymentSize = types.StringValue(ksmlDeploymentSize)
+		if ksmlDeploymentSize != "" {
+			data.DeploymentSize = types.StringValue(ksmlDeploymentSize)
+		} else {
+			data.DeploymentSize = types.StringNull()
+		}
 		if ksmlRestartPolicy != "" {
 			data.RestartPolicy = types.StringValue(ksmlRestartPolicy)
 		} else {
