@@ -16,7 +16,10 @@ func TestApplicationDeploymentResource(t *testing.T) {
 
 		Steps: []resource.TestStep{
 			{
-				Config: GetProvider() + GetFile("axual_application_deployment_initial.tf"),
+				Config: GetProvider() + GetFile(
+					"axual_application_deployment_setup.tf",
+					"axual_application_deployment_initial.tf",
+				),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttrPair("axual_application_deployment.connector_axual_application_deployment", "environment", "axual_environment.tf-test-env", "id"),
 					resource.TestCheckResourceAttrPair("axual_application_deployment.connector_axual_application_deployment", "application", "axual_application.tf-test-app", "id"),
@@ -25,7 +28,10 @@ func TestApplicationDeploymentResource(t *testing.T) {
 				),
 			},
 			{
-				Config: GetProvider() + GetFile("axual_application_deployment_updated.tf"),
+				Config: GetProvider() + GetFile(
+					"axual_application_deployment_setup.tf",
+					"axual_application_deployment_updated.tf",
+				),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttrPair("axual_application_deployment.connector_axual_application_deployment", "environment", "axual_environment.tf-test-env", "id"),
 					resource.TestCheckResourceAttrPair("axual_application_deployment.connector_axual_application_deployment", "application", "axual_application.tf-test-app", "id"),
@@ -42,7 +48,10 @@ func TestApplicationDeploymentResource(t *testing.T) {
 			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
-				Config:  GetProvider() + GetFile("axual_application_deployment_updated.tf"),
+				Config: GetProvider() + GetFile(
+					"axual_application_deployment_setup.tf",
+					"axual_application_deployment_updated.tf",
+				),
 			},
 		},
 	})
