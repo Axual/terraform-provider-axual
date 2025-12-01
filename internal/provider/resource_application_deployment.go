@@ -87,11 +87,15 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				Sensitive:           true,
 			},
 			"deployment_size": schema.StringAttribute{
-				MarkdownDescription: "The deployment size for KSML applications. Optional for KSML deployments.",
+				MarkdownDescription: "The deployment size for KSML applications. Optional for KSML deployments. If not specified, the Platform Manager will assign a default value.",
 				Optional:            true,
+				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"restart_policy": schema.StringAttribute{
-				MarkdownDescription: "The restart policy for KSML applications. Valid values are 'on_exit' and 'never'. Optional for KSML deployments.",
+				MarkdownDescription: "The restart policy for KSML applications. Valid values are 'on_exit' and 'never'. Required for KSML deployments.",
 				Optional:            true,
 				Validators: []validator.String{
 					stringvalidator.OneOf("on_exit", "never"),
@@ -507,6 +511,10 @@ func mapResponseConfigsToData(ctx context.Context, data *ApplicationDeploymentRe
 			tflog.Error(ctx, "Error creating configs map when mapping application deployment response")
 		}
 		data.Configs = mapValue
+		// For Connector deployments, KSML-specific fields should be null
+		data.Definition = types.StringNull()
+		data.DeploymentSize = types.StringNull()
+		data.RestartPolicy = types.StringNull()
 	}
 }
 
