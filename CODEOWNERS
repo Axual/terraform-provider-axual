@@ -1,0 +1,4 @@
+# CODEOWNERS file for terraform-provider-axual
+
+# Default owners for everything in the repo
+*       @DarioAxual @xsreality @jeroenvandisseldorp @KasparMetsa @richard-axual @daniel-axual
