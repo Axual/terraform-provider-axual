@@ -15,6 +15,14 @@ func TestApplicationDeploymentResource(t *testing.T) {
 		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
 
 		Steps: []resource.TestStep{
+			// Test missing `configs` - should fail response
+			{
+				Config: GetProvider() + GetFile(
+					"axual_application_deployment_setup.tf",
+					"axual_application_deployment_missing_configs.tf",
+				),
+				ExpectError: regexp.MustCompile(`Invalid config uploaded`),
+			},
 			{
 				Config: GetProvider() + GetFile(
 					"axual_application_deployment_setup.tf",
@@ -63,6 +71,22 @@ func TestApplicationDeploymentKSMLResource(t *testing.T) {
 		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
 
 		Steps: []resource.TestStep{
+			// Test invalid `restart_policy` - should fail validation
+			{
+				Config: GetProvider() + GetFile(
+					"axual_application_deployment_ksml_setup.tf",
+					"axual_application_deployment_ksml_invalid_restart_policy.tf",
+				),
+				ExpectError: regexp.MustCompile(`Attribute restart_policy value must be one of: `),
+			},
+			// Test missing `definition` - should fail response
+			{
+				Config: GetProvider() + GetFile(
+					"axual_application_deployment_ksml_setup.tf",
+					"axual_application_deployment_ksml_missing_definition.tf",
+				),
+				ExpectError: regexp.MustCompile(`KSML_DEFINITION must be provided`),
+			},
 			{
 				Config: GetProvider() + GetFile(
 					"axual_application_deployment_ksml_setup.tf",
@@ -90,14 +114,6 @@ func TestApplicationDeploymentKSMLResource(t *testing.T) {
 					resource.TestCheckNoResourceAttr("axual_application_deployment.ksml_axual_application_deployment", "restart_policy"),
 					resource.TestCheckResourceAttrSet("axual_application_deployment.ksml_axual_application_deployment", "definition"),
 				),
-			},
-			// Test invalid `restart_policy` - should fail validation
-			{
-				Config: GetProvider() + GetFile(
-					"axual_application_deployment_ksml_setup.tf",
-					"axual_application_deployment_ksml_invalid_restart_policy.tf",
-				),
-				ExpectError: regexp.MustCompile(`Attribute restart_policy value must be one of: `),
 			},
 			{
 				ResourceName:      "axual_application_deployment.ksml_axual_application_deployment",
