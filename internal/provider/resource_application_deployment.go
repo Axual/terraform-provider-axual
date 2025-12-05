@@ -203,7 +203,11 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to start Application, got error: %s", err))
 		return
 	}
-	mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx, &data, ApplicationDeploymentFindByApplicationAndEnvironmentResponse)
+	err = mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx, &data, ApplicationDeploymentFindByApplicationAndEnvironmentResponse)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to map Application Deployment, got error: %s", err))
+		return
+	}
 	tflog.Info(ctx, "Successfully created Application Deployment")
 
 	diags = resp.State.Set(ctx, &data)
@@ -231,7 +235,11 @@ func (r *applicationDeploymentResource) Read(ctx context.Context, req resource.R
 		}
 		return
 	}
-	mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx, &data, ApplicationDeploymentFindByApplicationAndEnvironmentResponse)
+	err = mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx, &data, ApplicationDeploymentFindByApplicationAndEnvironmentResponse)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to map Application Deployment, got error: %s", err))
+		return
+	}
 	tflog.Info(ctx, "saving the resource to state")
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
@@ -329,18 +337,22 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 	}
 }
 
-func mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx context.Context, data *ApplicationDeploymentResourceData, applicationDeploymentResponse *webclient.ApplicationDeploymentFindByApplicationAndEnvironmentResponse) {
+func mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(
+	ctx context.Context,
+	data *ApplicationDeploymentResourceData,
+	applicationDeploymentResponse *webclient.ApplicationDeploymentFindByApplicationAndEnvironmentResponse) error {
 	if len(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses) == 0 {
 		tflog.Error(ctx, "Error processing mapping application deployment response, no application deployment found for the application and environment")
-		return
+		return fmt.Errorf("error processing mapping application deployment response, no application deployment found for the application and environment")
 	} else if len(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses) > 1 {
 		tflog.Error(ctx, "Error processing mapping application deployment response, multiple application deployments found for the application and environment")
-		return
+		return fmt.Errorf("error processing mapping application deployment response, multiple application deployments found for the application and environment")
 	} else {
 		data.Id = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Uid)
 		data.Environment = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Environment.Uid)
 		data.Application = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Application.Uid)
 		mapResponseConfigsToData(ctx, data, applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Application.ApplicationType, applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Configs)
+		return nil
 	}
 }
 
