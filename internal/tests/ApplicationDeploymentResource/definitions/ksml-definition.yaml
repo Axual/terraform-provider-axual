@@ -1,0 +1,15 @@
+streams:
+  ksml_test_topic:
+    topic: ksml-test-topic
+    keyType: string
+    valueType: string
+functions:
+  # This function print each message
+  print_message:
+    type: forEach
+    code: |
+      print('key=' + str(key) + ', value=' + str(value))
+pipelines:
+  consume_avro:
+    from: ksml_test_topic
+    forEach: print_message
