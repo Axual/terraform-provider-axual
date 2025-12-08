@@ -342,10 +342,8 @@ func mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(
 	data *ApplicationDeploymentResourceData,
 	applicationDeploymentResponse *webclient.ApplicationDeploymentFindByApplicationAndEnvironmentResponse) error {
 	if len(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses) == 0 {
-		tflog.Error(ctx, "Error processing mapping application deployment response, no application deployment found for the application and environment")
 		return fmt.Errorf("error processing mapping application deployment response, no application deployment found for the application and environment")
 	} else if len(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses) > 1 {
-		tflog.Error(ctx, "Error processing mapping application deployment response, multiple application deployments found for the application and environment")
 		return fmt.Errorf("error processing mapping application deployment response, multiple application deployments found for the application and environment")
 	} else {
 		data.Id = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Uid)
