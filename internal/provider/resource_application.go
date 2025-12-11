@@ -63,7 +63,7 @@ func (r *applicationResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"application_id": schema.StringAttribute{
-				MarkdownDescription: "The Application ID of the Application, usually a fully qualified class name. Must be unique. The application ID, used in logging and to determine the consumer group (if applicable). Read more: https://docs.axual.io/axual/2025.1/self-service/application-management.html#app-id",
+				MarkdownDescription: "The Application ID of the Application, usually a fully qualified class name. Must be unique. The application ID, used in logging and to determine the consumer group (if applicable). Read more: https://docs.axual.io/axual/2025.2/self-service/application-management.html#app-id",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
@@ -87,7 +87,7 @@ func (r *applicationResource) Schema(ctx context.Context, req resource.SchemaReq
 				Required:            true,
 			},
 			"viewers": schema.SetAttribute{
-				MarkdownDescription: "Application Viewer Groups define which Groups are authorized to View Application Configuration, regardless of ownership and visibility. Read more: https://docs.axual.io/axual/2025.1/self-service/user-group-management.html#viewer-groups",
+				MarkdownDescription: "Application Viewer Groups define which Groups are authorized to View Application Configuration, regardless of ownership and visibility. Read more: https://docs.axual.io/axual/2025.2/self-service/user-group-management.html#viewer-groups",
 				Optional:            true,
 				ElementType:         types.StringType,
 				Validators: []validator.Set{
@@ -107,7 +107,7 @@ func (r *applicationResource) Schema(ctx context.Context, req resource.SchemaReq
 			},
 			"visibility": schema.StringAttribute{
 				Required:            true,
-				MarkdownDescription: "Application Visibility. Defines the visibility of this application. Possible values are Public and Private. Set the visibility to “Private” if you don’t want your application to end up in overviews such as the topic graph. Read more: https://docs.axual.io/axual/2025.1/self-service/application-management.html#app-visibility",
+				MarkdownDescription: "Application Visibility. Defines the visibility of this application. Possible values are Public and Private. Set the visibility to “Private” if you don’t want your application to end up in overviews such as the topic graph. Read more: https://docs.axual.io/axual/2025.2/self-service/application-management.html#app-visibility",
 				Validators: []validator.String{
 					stringvalidator.OneOf("Public", "Private"),
 				},
