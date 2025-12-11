@@ -4,12 +4,13 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"fmt"
+	"net/url"
+	"regexp"
+
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
-	"net/url"
-	"regexp"
 
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -106,24 +107,26 @@ func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	attributes := url.Values{}
-	attributes.Set("name", data.Name.ValueString())
-	appByName, err := d.provider.client.GetApplicationsByAttributes(attributes)
-	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application by name, got error: %s", err))
-		return
-	}
-	if len(appByName.Embedded.Applications) == 0 {
-		resp.Diagnostics.AddError("Client Error", "Application not found")
-		return
-	}
-	app, err := d.provider.client.GetApplication(appByName.Embedded.Applications[0].Uid)
-	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application, got error: %s", err))
-		return
+
+	params := url.Values{}
+	searchParam := "name"
+
+	var searchValue string
+	if data.ShortName.ValueString() == "" {
+		searchValue = data.Name.ValueString()
+		params.Set("name", searchValue)
+	} else {
+		searchValue = data.ShortName.ValueString()
+		params.Set("shortName", searchValue)
+		searchParam = "shortName"
 	}
 
-	mapApplicationDataSourceResponseToData(&data, app)
+	appResponse, err := d.provider.client.GetApplicationByNameOrShortName(params)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application by %s: '%s', got error: %s", searchParam, searchValue, err))
+	}
+
+	mapApplicationDataSourceResponseToData(&data, appResponse)
 
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
