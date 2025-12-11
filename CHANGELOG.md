@@ -2,6 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.5.7](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.5.7) - TBR
+* Retrieve an application using `findByName` or `findByShortName` endpoints instead of `findByAttributes`
+
 ## [2.5.6](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.5.6) - 2025-06-06
 * Add User data source
 * Guide for JSON schema

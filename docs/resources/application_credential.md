@@ -1,6 +1,6 @@
 # axual_application_credential (Resource)
 
-An Application Credential is a security credential (SASL) that uniquely authenticates an Application in an Environment. Read more: https://docs.axual.io/axual/2025.1/self-service/application-management.html#configuring-application-securityauthentication
+An Application Credential is a security credential (SASL) that uniquely authenticates an Application in an Environment. Read more: https://docs.axual.io/axual/2025.2/self-service/application-management.html#configuring-application-securityauthentication
 
 ## Security
 - Since password is a `sensitive` field, Terraform Provider will not print the password in `terraform plan` or `terraform apply` output.
