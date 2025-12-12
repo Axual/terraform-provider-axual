@@ -15,7 +15,8 @@ resource "axual_topic_config" "example-with-schema-version" {
   retention_time       = 864001
   topic                = axual_topic.tf-test-topic.id
   environment          = axual_environment.tf-test-env.id
-  key_schema_version   = axual_schema_version.test_key_v2.id
+  key_schema_version   = axual_schema_version.test_key_v3.id
   value_schema_version = axual_schema_version.test_value_v2.id
   properties           = { "segment.ms" = "600013", "retention.bytes" = "2" }
+  force                = true
 }

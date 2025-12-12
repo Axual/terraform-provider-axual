@@ -31,6 +31,7 @@ type AuthStruct struct {
 }
 
 var NotFoundError = errors.New("resource not found")
+var UnprocessableEntityError = errors.New("unprocessable entity")
 
 // NewClient creates a new Client using the provided API URL, realm, and authentication settings.
 func NewClient(apiUrl string, realm string, auth AuthStruct) (*Client, error) {
@@ -74,6 +75,9 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 	}
 	if res.StatusCode == http.StatusNotFound {
 		return nil, NotFoundError
+	}
+	if res.StatusCode == http.StatusUnprocessableEntity {
+		return nil, UnprocessableEntityError
 	}
 	defer func() {
 		if closeErr := res.Body.Close(); closeErr != nil {
