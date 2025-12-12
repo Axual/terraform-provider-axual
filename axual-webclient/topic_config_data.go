@@ -146,6 +146,7 @@ type TopicConfigRequest struct {
 	Properties         map[string]interface{} `json:"properties,omitempty"`
 	KeySchemaVersion   string                 `json:"keySchemaVersion,omitempty"`
 	ValueSchemaVersion string                 `json:"valueSchemaVersion,omitempty"`
+	Force              bool                   `json:"force,omitempty"`
 }
 
 type PermissionRequest struct {
