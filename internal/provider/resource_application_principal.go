@@ -130,6 +130,37 @@ func (r *applicationPrincipalResource) Create(ctx context.Context, req resource.
 	tflog.Info(ctx, "Saving the resource to state")
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
+
+	// Check if the application is a connector and start the deployment if it exists
+	application, err := r.provider.client.GetApplication(data.Application.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application, got error: %s", err))
+		return
+	}
+
+	isConnector := application.ApplicationType == "Connector"
+
+	var deploymentResp *webclient.ApplicationDeploymentFindByApplicationAndEnvironmentResponse
+
+	if isConnector {
+		// Find deployment and start it
+		applicationURL := fmt.Sprintf("%s/applications/%v", r.provider.client.ApiURL, data.Application.ValueString())
+		environmentURL := fmt.Sprintf("%s/environments/%v", r.provider.client.ApiURL, data.Environment.ValueString())
+		deploymentResp, err = r.provider.client.FindApplicationDeploymentByApplicationAndEnvironment(applicationURL, environmentURL)
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to find deployment, got error: %s", err))
+			return
+		}
+		if len(deploymentResp.Embedded.ApplicationDeploymentResponses) > 0 {
+			deploymentID := deploymentResp.Embedded.ApplicationDeploymentResponses[0].Uid
+			startRequest := webclient.ApplicationDeploymentOperationRequest{Action: "START"}
+			err = r.provider.client.OperateApplicationDeployment(deploymentID, "START", startRequest)
+			if err != nil {
+				resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to start connector, got error: %s", err))
+				return
+			}
+		}
+	}
 }
 
 func (r *applicationPrincipalResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
