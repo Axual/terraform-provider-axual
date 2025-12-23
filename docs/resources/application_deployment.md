@@ -1,6 +1,6 @@
 # axual_application_deployment (Resource)
 
-An Application Deployment stores the configs for connector application type that is saved for an Application on an Environment.
+An Application Deployment stores the configs for 'Connector' or 'Ksml' application type that is saved for an Application on an Environment.
 
 
 ## Usage
@@ -24,12 +24,19 @@ An Application Deployment stores the configs for connector application type that
 ### Required
 
 - `application` (String) A valid Uid of an existing application
-- `configs` (Map of String, Sensitive) Connector config for Application Deployment. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. All available application plugin class names, plugin types and plugin configs are listed here in API- `GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass` and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html
 - `environment` (String) A valid Uid of an existing environment
+
+### Optional
+
+- `configs` (Map of String, Sensitive) Connector config for Application Deployment. Required for Connector deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. All available application plugin class names, plugin types and plugin configs are listed here in API- `GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass` and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html
+- `definition` (String, Sensitive) KSML definition for Application Deployment. Required for KSML deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.
+- `deployment_size` (String) The deployment size for KSML applications. Optional for KSML deployments. If not specified, the Platform Manager will assign a default value.
+- `restart_policy` (String) The restart policy for KSML applications. Valid values are 'on_exit' and 'never'. Required for KSML deployments.
 
 ### Read-Only
 
 - `id` (String) The ID of this resource.
+- `type` (String) The type of application deployment. This is automatically set based on the application's type.
 
 ## Example Usage
 
