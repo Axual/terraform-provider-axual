@@ -2,6 +2,7 @@ package provider
 
 import (
 	webclient "axual-webclient"
+	"axual.com/terraform-provider-axual/internal/provider/utils"
 	"context"
 	"errors"
 	"fmt"
@@ -142,7 +143,7 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 		return
 	}
 	authenticationCount += len(applicationPrincipalsResponse.Embedded.ApplicationPrincipalResponses)
-	if isKSML(data.Type.ValueString()) {
+	if utils.IsKSML(data.Type.ValueString()) {
 		// For KSML applications, we check if Application Credential exists for this environment and application
 		applicationCredentialsResponse, err := r.provider.client.FindApplicationCredentialByApplicationAndEnvironment(applicationURL, environmentURL)
 		if err != nil {
@@ -267,7 +268,7 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 		return
 	}
 
-	if shouldStopDeployment(planData, applicationDeploymentStatus) {
+	if utils.ShouldStopDeployment(planData.Type.ValueString(), applicationDeploymentStatus) {
 		// If running, then stop the application deployment first
 		var applicationStopRequest = webclient.ApplicationDeploymentOperationRequest{
 			Action: "STOP",
@@ -318,7 +319,7 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 		return
 	}
 
-	if shouldStopDeployment(data, applicationDeploymentStatus) {
+	if utils.ShouldStopDeployment(data.Type.ValueString(), applicationDeploymentStatus) {
 		// If running, then stop the application deployment first
 		var applicationStopRequest = webclient.ApplicationDeploymentOperationRequest{
 			Action: "STOP",
@@ -453,7 +454,7 @@ func createConfigsForDeploymentType(data *ApplicationDeploymentResourceData) (ma
 		deploymentType = data.Type.ValueString()
 	}
 
-	if isKSML(deploymentType) {
+	if utils.IsKSML(deploymentType) {
 		// For KSML deployments, add KSML-specific configs
 		if !data.Definition.IsNull() && !data.Definition.IsUnknown() {
 			configs["ksml_definition"] = data.Definition.ValueString()
@@ -497,7 +498,7 @@ func mapResponseConfigsToData(ctx context.Context, data *ApplicationDeploymentRe
 		}
 	}
 
-	if isKSML(deploymentType) {
+	if utils.IsKSML(deploymentType) {
 		data.Type = types.StringValue("Ksml")
 		data.Definition = types.StringValue(ksmlDefinition)
 		if ksmlDeploymentSize != "" {
@@ -526,19 +527,4 @@ func mapResponseConfigsToData(ctx context.Context, data *ApplicationDeploymentRe
 		data.DeploymentSize = types.StringNull()
 		data.RestartPolicy = types.StringNull()
 	}
-}
-
-func isKSML(deploymentType string) bool {
-	return deploymentType == "Ksml"
-}
-
-func shouldStopDeployment(data ApplicationDeploymentResourceData, status *webclient.ApplicationDeploymentStatusResponse) bool {
-	// Check the connectorState.state before deciding to stop or delete directly
-	// if the connectorState.state is not `Stopped`
-	// or if the ksmlStatus.Status is not `Undeployed`,
-	// we stop the deployment first
-	if (isKSML(data.Type.ValueString()) && status.KsmlStatus.Status != "Undeployed") || (!isKSML(data.Type.ValueString()) && status.ConnectorState.State != "Stopped") {
-		return true
-	}
-	return false
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	webclient "axual-webclient"
 )
 
 // SetStringValue set a Terraform string value or null based on input
@@ -49,4 +50,16 @@ func HandlePropertiesMapping(ctx context.Context, propertiesAttr types.Map, apiP
 		tflog.Error(ctx, "Error creating properties map")
 	}
 	return mapValue
+}
+
+func ShouldStopDeployment(deploymentType string, status *webclient.ApplicationDeploymentStatusResponse) bool {
+    // Reuse logic: Check if connector is not stopped or KSML is not undeployed
+    if (IsKSML(deploymentType) && status.KsmlStatus.Status != "Undeployed") || (!IsKSML(deploymentType) && status.ConnectorState.State != "Stopped") {
+        return true
+    }
+    return false
+}
+
+func IsKSML(deploymentType string) bool {
+    return deploymentType == "Ksml"
 }
