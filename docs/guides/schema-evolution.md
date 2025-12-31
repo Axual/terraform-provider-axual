@@ -112,7 +112,7 @@ resource "axual_schema_version" "key_v2" {
 }
 
 resource "axual_topic" "logs" {
-  key_schema = axual_schema_version.key_v1.schema_id  # Stays the same
+  key_schema = axual_schema_version.key_v2.schema_id  # Stays the same - both versions reference the same parent schema
 }
 
 resource "axual_topic_config" "logs_in_dev" {
@@ -165,7 +165,7 @@ Incompatible schema_version change identified. Retry with force=true in the axua
 
 ## Changing the Topic's Base Schema
 
-A topic once created with a specific key or value schema must continue to use the same schema for its lifetime. **If the schema itself needs changing then there is no option but to delete and recreate the topic.** This is by design and not a bug.
+A topic once created with a specific key or value schema must continue to use the same schema for its lifetime. **If the schema itself needs changing then there is no option but to delete and recreate the topic.**
 
 If you attempt to change `axual_topic.key_schema` or `axual_topic.value_schema` while a topic_config exists, you will receive an error:
 ```
