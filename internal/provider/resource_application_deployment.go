@@ -142,13 +142,19 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 		Action: "START",
 	}
 
+	// Check if deployment was found before starting
+	err = mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx, &data, ApplicationDeploymentFindByApplicationAndEnvironmentResponse)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to map Application Deployment after creation, got error: %s", err))
+		return
+	}
+
 	// We start the Connector Application
-	err = r.provider.client.OperateApplicationDeployment(ApplicationDeploymentFindByApplicationAndEnvironmentResponse.Embedded.ApplicationDeploymentResponses[0].Uid, "START", applicationStartRequest)
+	err = r.provider.client.OperateApplicationDeployment(data.Id.ValueString(), "START", applicationStartRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to start Application, got error: %s", err))
 		return
 	}
-	mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx, &data, ApplicationDeploymentFindByApplicationAndEnvironmentResponse)
 	tflog.Info(ctx, "Successfully created Application Deployment")
 
 	diags = resp.State.Set(ctx, &data)
@@ -176,7 +182,11 @@ func (r *applicationDeploymentResource) Read(ctx context.Context, req resource.R
 		}
 		return
 	}
-	mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx, &data, ApplicationDeploymentFindByApplicationAndEnvironmentResponse)
+	err = mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx, &data, ApplicationDeploymentFindByApplicationAndEnvironmentResponse)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to map Application Deployment, got error: %s", err))
+		return
+	}
 	tflog.Info(ctx, "saving the resource to state")
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
@@ -276,7 +286,16 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 	}
 }
 
-func mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx context.Context, data *ApplicationDeploymentResourceData, applicationDeploymentResponse *webclient.ApplicationDeploymentFindByApplicationAndEnvironmentResponse) {
+func mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx context.Context, data *ApplicationDeploymentResourceData, applicationDeploymentResponse *webclient.ApplicationDeploymentFindByApplicationAndEnvironmentResponse) error {
+	// Check if response is empty or has multiple results before accessing [0]
+	if len(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses) == 0 {
+		tflog.Error(ctx, "Error processing mapping application deployment response, no application deployment found for the application and environment")
+		return fmt.Errorf("error processing mapping application deployment response, no application deployment found for the application and environment")
+	} else if len(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses) > 1 {
+		tflog.Error(ctx, "Error processing mapping application deployment response, multiple application deployments found for the application and environment")
+		return fmt.Errorf("error processing mapping application deployment response, multiple application deployments found for the application and environment")
+	}
+
 	data.Id = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Uid)
 	data.Environment = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Environment.Uid)
 	data.Application = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Application.Uid)
@@ -284,21 +303,19 @@ func mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx conte
 	// Initialize the map for configs
 	configs := make(map[string]attr.Value)
 
-	// We want to map the configs of the first ApplicationDeploymentResponse
-	// We check if there is at least one ApplicationDeploymentResponse
-	if len(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses) > 0 {
-		firstDeploymentResponse := applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0]
-		// We iterate through the Configs and add them to the map
-		for _, config := range firstDeploymentResponse.Configs {
-			configs[config.ConfigKey] = types.StringValue(config.ConfigValue)
-		}
+	// We iterate through the Configs and add them to the map
+	firstDeploymentResponse := applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0]
+	for _, config := range firstDeploymentResponse.Configs {
+		configs[config.ConfigKey] = types.StringValue(config.ConfigValue)
 	}
+
 	mapValue, diags := types.MapValue(types.StringType, configs)
 	if diags.HasError() {
 		tflog.Error(ctx, "Error creating members slice when mapping group response")
 	}
 	// Set the Configs in the ApplicationDeploymentResourceData
 	data.Configs = mapValue
+	return nil
 }
 
 func mapApplicationDeploymentByIdResponseToData(ctx context.Context, data *ApplicationDeploymentResourceData, applicationDeploymentResponse *webclient.ApplicationDeploymentResponse) {
@@ -319,7 +336,7 @@ func mapApplicationDeploymentByIdResponseToData(ctx context.Context, data *Appli
 	}
 	// Set the Configs in the ApplicationDeploymentResourceData
 	data.Configs = mapValue
-} 
+}
 
 func createApplicationDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData, r *applicationDeploymentResource) (webclient.ApplicationDeploymentCreateRequest, error) {
 	configs := make(map[string]string)
@@ -385,7 +402,7 @@ func (r *applicationDeploymentResource) ImportState(ctx context.Context, req res
 
 	// Map the response to Terraform state
 	var data ApplicationDeploymentResourceData
-mapApplicationDeploymentByIdResponseToData(ctx, &data, applicationDeployment)
+	mapApplicationDeploymentByIdResponseToData(ctx, &data, applicationDeployment)
 
 	// Validate that the mapped data is complete
 	if data.Id.IsNull() || data.Id.ValueString() == "" {
@@ -397,11 +414,11 @@ mapApplicationDeploymentByIdResponseToData(ctx, &data, applicationDeployment)
 	}
 
 	tflog.Info(ctx, fmt.Sprintf("Successfully imported Application Deployment with ID: %s", data.Id.ValueString()))
-	
+
 	// Set the state with the imported data
 	diags := resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
-	
+
 	if resp.Diagnostics.HasError() {
 		tflog.Error(ctx, "Failed to set state during import")
 		return
