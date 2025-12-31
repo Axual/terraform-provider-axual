@@ -74,6 +74,9 @@ func (r *schemaVersionResource) Schema(ctx context.Context, req resource.SchemaR
 				Validators: []validator.String{
 					stringvalidator.OneOf("AVRO", "PROTOBUF", "JSON_SCHEMA"),
 				},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
