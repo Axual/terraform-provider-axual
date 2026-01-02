@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.1](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.7.1) - 2026-01-02
+* Fix for issue: https://github.com/Axual/terraform-provider-axual/issues/125
+* Fix for issue: https://github.com/Axual/terraform-provider-axual/issues/133
+- New guide for schemas
+- Rewrote the guide for data sources
+
 ## [2.7.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.7.0) - 2025-11-04
 
 ### Added
@@ -20,6 +26,11 @@ All notable changes to this project will be documented in this file.
 * Retrieve an application using `findByName` or `findByShortName` endpoints instead of `findByAttributes`
 * Fixed `axual_topic_config` to allow in-place updates of `key_schema_version` and `value_schema_version` fields instead of forcing resource replacement
 * Added boolean `force` attribute to `axual_topic_config` resource to force updates with incompatible schema version changes
+
+## [2.5.6](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.5.6) - 2025-06-06
+* Add User data source
+* Guide for JSON schema
+* Removed trial guide
 
 ## [2.5.5](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.5.5) - 2025-03-07
 * Removed unused method for `/groups/{uid}/members/{uid}`
