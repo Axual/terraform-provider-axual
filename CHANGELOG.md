@@ -2,8 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [master](https://github.com/Axual/terraform-provider-axual/tree/master) - TBR
+## [2.8.1](https://github.com/Axual/terraform-provider-axual/tree/master) - 2026-01-02
 ### Added
+* Fix for issues: https://github.com/Axual/terraform-provider-axual/issues/133
+* New guide for schemas
+* Rewrote the guide for data sources
+* Fix CHANGELOG.md
+* Fix test against PM 12.0.0
 
 ## [2.8.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.8.0) - 2025-12-23
 ### Added
