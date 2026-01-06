@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -188,30 +190,52 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 
 	// We search for the Application Deployment we just created because we need to save its UID, because creating it did not respond with UID.
 	ApplicationDeploymentFindByApplicationAndEnvironmentResponse, err := r.provider.client.FindApplicationDeploymentByApplicationAndEnvironment(applicationURL, environmentURL)
-
 	if err != nil {
 		resp.Diagnostics.AddError("Error finding application deployment", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
-	var applicationStartRequest = webclient.ApplicationDeploymentOperationRequest{
-		Action: "START",
-	}
 
-	// We start the Application Deployment
-	err = r.provider.client.OperateApplicationDeployment(ApplicationDeploymentFindByApplicationAndEnvironmentResponse.Embedded.ApplicationDeploymentResponses[0].Uid, "START", applicationStartRequest)
-	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to start Application, got error: %s", err))
-		return
-	}
+	// Map response to data
 	err = mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx, &data, ApplicationDeploymentFindByApplicationAndEnvironmentResponse)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to map Application Deployment, got error: %s", err))
 		return
 	}
-	tflog.Info(ctx, "Successfully created Application Deployment")
 
+	// Save state IMMEDIATELY after creation, BEFORE starting
+	// This prevents state loss if the START operation times out
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	tflog.Info(ctx, "State saved immediately after deployment creation")
+
+	// START deployment with retry logic
+	var applicationStartRequest = webclient.ApplicationDeploymentOperationRequest{
+		Action: "START",
+	}
+
+	err = Retry(3, 10*time.Second, func() error {
+		return r.provider.client.OperateApplicationDeployment(data.Id.ValueString(), "START", applicationStartRequest)
+	})
+	if err != nil {
+		// Check if the error indicates the deployment is already running
+		// This means a previous START succeeded but response timed out
+		if strings.Contains(err.Error(), "Invalid action for this state of deployment") {
+			tflog.Info(ctx, "Deployment appears to be already running - previous START may have succeeded")
+			return
+		}
+
+		// Other errors - deployment created but START failed
+		resp.Diagnostics.AddWarning(
+			"Deployment created but START failed after retries",
+			fmt.Sprintf("The deployment was created and saved to state, but could not be started after 3 attempts: %s. "+
+				"Run 'terraform apply' again to retry starting the deployment.", err))
+		return
+	}
+
+	tflog.Info(ctx, "Successfully created and started Application Deployment")
 }
 
 func (r *applicationDeploymentResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -291,14 +315,31 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 	diags = resp.State.Set(ctx, &planData)
 	resp.Diagnostics.Append(diags...)
 
+	// START deployment with retry logic
 	var applicationStartRequest = webclient.ApplicationDeploymentOperationRequest{
 		Action: "START",
 	}
-	err = r.provider.client.OperateApplicationDeployment(planData.Id.ValueString(), "START", applicationStartRequest)
+
+	err = Retry(3, 5*time.Second, func() error {
+		return r.provider.client.OperateApplicationDeployment(planData.Id.ValueString(), "START", applicationStartRequest)
+	})
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to start Application, got error: %s", err))
+		// Check if the error indicates the deployment is already running
+		// This means a previous START succeeded but response timed out
+		if strings.Contains(err.Error(), "Invalid action for this state of deployment") {
+			tflog.Info(ctx, "Deployment appears to be already running - previous START may have succeeded")
+			return
+		}
+
+		// Other errors - deployment updated but START failed
+		resp.Diagnostics.AddWarning(
+			"Deployment updated but START failed after retries",
+			fmt.Sprintf("The deployment was updated successfully but could not be started after 3 attempts: %s. "+
+				"Run 'terraform apply' again to retry starting the deployment.", err))
 		return
 	}
+
+	tflog.Info(ctx, "Successfully started Application Deployment after update")
 }
 
 func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
