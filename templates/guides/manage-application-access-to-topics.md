@@ -11,7 +11,7 @@ This guide explains how to manage access grants through Terraform. The workflow 
 | `Auto` | Grants are approved automatically by the system |
 | `Stream owner` | Grants require explicit approval from Topic Owner |
 
-**Important**: In Auto environments, access is granted immediately without any approval resource. However, if the Topic Owner wants to manage the grant in Terraform (e.g., to revoke it later), they should create an `axual_application_access_grant_approval` resource.
+**Important**: In both environment types, the Topic Owner should create an `axual_application_access_grant_approval` resource. In Auto environments, the grant is already approved by the system, so creating the approval resource adopts it into Terraform state. This is required to revoke access later.
 
 ---
 
@@ -36,8 +36,8 @@ This guide explains how to manage access grants through Terraform. The workflow 
                 (automatic)     (delete approval)
 ```
 
-1. Grant is created → automatically approved by the system (access is granted)
-2. *(Optional)* Topic Owner creates approval resource → adopts the grant into Terraform state
+1. Grant is created → automatically approved by the system
+2. Topic Owner creates approval resource → adopts the grant into Terraform state
 3. Topic Owner deletes approval resource → grant is revoked
 
 ### Stream Owner Environment
@@ -91,8 +91,8 @@ resource "axual_application_access_grant" "my_app_consume_logs" {
 }
 ```
 
-- **Auto environment**: Grant is approved automatically. Access is fully granted—no further action required from Application Owner.
-- **Stream owner environment**: Grant starts in **Pending** status. Wait for Topic Owner to approve.
+- **Auto environment**: Grant is approved automatically by the system. Topic Owner should still create approval resource.
+- **Stream owner environment**: Grant starts in **Pending** status. Topic Owner must create approval resource to approve.
 
 ### Cancelling a Pending Grant (Stream Owner Only)
 
@@ -198,9 +198,9 @@ See the [Multi-Repo Guide](multi-repo) for detailed setup instructions.
 
 ### Scenario 1: Auto Environment - Grant Flow
 
-1. **Application Owner** creates `axual_application_access_grant` → auto-approved, access granted immediately
-2. Application can now produce/consume
-3. *(Optional)* **Topic Owner** creates `axual_application_access_grant_approval` → adopts grant into Terraform for management
+1. **Application Owner** creates `axual_application_access_grant` → auto-approved by system
+2. **Topic Owner** creates `axual_application_access_grant_approval` → adopts grant into Terraform
+3. Application can now produce/consume
 
 ### Scenario 2: Stream Owner Environment - Approval Flow
 
