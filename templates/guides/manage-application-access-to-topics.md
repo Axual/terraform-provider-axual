@@ -265,7 +265,6 @@ See the [Multi-Repo Guide](multi-repo) for detailed setup instructions.
 - **Revocation only via approval resource (Terraform provider limitation).** Both Application Owner and Topic Owner can revoke by deleting `axual_application_access_grant_approval`. However, deleting `axual_application_access_grant` while status is Approved will fail with: "Please Revoke this grant before attempting to delete it."
 - Grant attributes cannot be updated in place. The grant must be revoked, deleted, and recreated.
 - After rejection or revocation, the Application Owner should delete their grant resource before requesting access again.
-- Rejection is only available in Topic owner environments.
 
 ## Notes
 
