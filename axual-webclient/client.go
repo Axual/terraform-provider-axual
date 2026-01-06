@@ -41,7 +41,7 @@ func NewClient(apiUrl string, realm string, auth AuthStruct) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	client.Timeout = 10 * time.Second
+	client.Timeout = 30 * time.Second
 	c := Client{
 		HTTPClient: client,
 		ApiURL:     apiUrl,
