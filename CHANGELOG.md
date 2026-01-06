@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.8.2](https://github.com/Axual/terraform-provider-axual/tree/master) - 2026-01-06
+* Fix Application Access Grant failing to update when status is "Approved"
+* Fix Application Deployment state not being saved when START operation times out
+* Add retry logic for deployment START operation to handle transient failures
+* Increase HTTP client timeout from 10s to 30s
+* Rewrite "Managing application access to topics" guide
+
 ## [2.8.1](https://github.com/Axual/terraform-provider-axual/tree/master) - 2026-01-02
 ### Added
 * Fix for issues: https://github.com/Axual/terraform-provider-axual/issues/133
