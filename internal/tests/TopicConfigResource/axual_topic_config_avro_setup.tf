@@ -21,6 +21,12 @@ resource "axual_schema_version" "test_key_v2" {
   description = "Gitops test schema version"
 }
 
+resource "axual_schema_version" "test_key_v3" {
+  body        = file("avro-schemas/avro-schema1-v3.avsc")
+  version     = "3.0.0"
+  description = "Gitops test schema version"
+}
+
 resource "axual_schema_version" "test_value_v1" {
   body = file("avro-schemas/avro-schema2.avsc")
   version     = "1.0.0"

@@ -44,7 +44,7 @@ you would need to perform some actions.
 
 Now you are ready to run the Acceptance Tests.
 
-- First try to run one acceptance test, before trying to run all the tests. It might happen that if a test fails, you have to manually delete resources using the UI.
+- First, try to run one acceptance test before trying to run all the tests. It might happen that if a test fails, you have to manually delete resources using the UI.
     - We recommend trying to run in this order:
         - user_resource_test.go
         - topic_data_source_test.go
