@@ -2,10 +2,13 @@ package provider
 
 import (
 	webclient "axual-webclient"
-	"axual.com/terraform-provider-axual/internal/provider/utils"
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
+
+	"axual.com/terraform-provider-axual/internal/provider/utils"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/mapvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -18,8 +21,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"strings"
-	"time"
 )
 
 var _ resource.Resource = &topicConfigResource{}
@@ -44,6 +45,7 @@ type topicConfigResourceData struct {
 	ValueSchemaVersion types.String `tfsdk:"value_schema_version"`
 	Id                 types.String `tfsdk:"id"`
 	Properties         types.Map    `tfsdk:"properties"`
+	Force              types.Bool   `tfsdk:"force"`
 }
 
 func (r *topicConfigResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -87,16 +89,10 @@ func (r *topicConfigResource) Schema(ctx context.Context, req resource.SchemaReq
 			"key_schema_version": schema.StringAttribute{
 				MarkdownDescription: "The schema version this topic config supports for the key.",
 				Optional:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
 			},
 			"value_schema_version": schema.StringAttribute{
 				MarkdownDescription: "The schema version this topic config supports for the value.",
 				Optional:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
 			},
 			"properties": schema.MapAttribute{
 				MarkdownDescription: "You can define Kafka properties for your topic here. All options are: `segment.ms`, `retention.bytes`, `min.compaction.lag.ms`, `max.compaction.lag.ms`, `message.timestamp.difference.max.ms`, `message.timestamp.type` Read more: https://docs.axual.io/axual/2025.1/self-service/topic-management.html#configuring-a-topic-for-an-environment",
@@ -112,6 +108,10 @@ func (r *topicConfigResource) Schema(ctx context.Context, req resource.SchemaReq
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
+			},
+			"force": schema.BoolAttribute{
+				Optional:            true,
+				MarkdownDescription: "Force the update of topic configuration even in case of incompatible schema changes. Defaults to false.",
 			},
 		},
 	}
@@ -365,7 +365,9 @@ func createTopicConfigRequestFromData(ctx context.Context, data *topicConfigReso
 	if !data.ValueSchemaVersion.IsNull() {
 		topicConfigRequest.ValueSchemaVersion = fmt.Sprintf("%s/schemas/%v", r.provider.client.ApiURL, data.ValueSchemaVersion.ValueString())
 	}
-
+	if !data.Force.IsNull() {
+		topicConfigRequest.Force = data.Force.ValueBool()
+	}
 	return topicConfigRequest, nil
 }
 
