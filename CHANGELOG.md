@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.5.7](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.5.7) - TBR
+## [2.5.7](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.5.7) - 2026-01-09
 * Fixed `axual_topic_config` to allow in-place updates of `key_schema_version` and `value_schema_version` fields instead of forcing resource replacement
 * Added boolean `force` attribute to `axual_topic_config` resource to force updates with incompatible schema version changes
 * Retrieve an application using `findByName` or `findByShortName` endpoints instead of `findByAttributes`
