@@ -60,30 +60,18 @@ func (r *applicationAccessGrantResource) Schema(ctx context.Context, req resourc
 			"application": schema.StringAttribute{
 				MarkdownDescription: "Application Unique Identifier",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
 			},
 			"topic": schema.StringAttribute{
 				MarkdownDescription: "Topic Unique Identifier",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
 			},
 			"environment": schema.StringAttribute{
 				MarkdownDescription: "Environment Unique Identifier",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
 			},
 			"access_type": schema.StringAttribute{
 				MarkdownDescription: "Application Access Type. Accepted values: CONSUMER, PRODUCER",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
 				Validators: []validator.String{
 					stringvalidator.OneOf("CONSUMER", "PRODUCER"),
 				},
@@ -162,8 +150,14 @@ func (r *applicationAccessGrantResource) Read(ctx context.Context, req resource.
 func (r *applicationAccessGrantResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	resp.Diagnostics.AddError(
 		"Application Access Grant cannot be updated",
-		"If you would like to cancel this request, delete the resource. This is only possible if the request is still pending.",
-	)
+		`The Axual API does not support updating grant attributes. To change access_type, application, topic, or environment:
+
+1. Delete the axual_application_access_grant_approval resource (this revokes the grant)
+2. Delete the axual_application_access_grant resource
+3. Recreate the axual_application_access_grant with new attributes
+4. Recreate the axual_application_access_grant_approval
+
+For detailed instructions, see: https://registry.terraform.io/providers/Axual/axual/latest/docs/guides/manage-application-access-to-topics`)
 }
 
 func (r *applicationAccessGrantResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
