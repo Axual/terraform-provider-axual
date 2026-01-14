@@ -18,6 +18,41 @@
 
 {{ .SchemaMarkdown | trimspace }}
 
+## State Synchronization
+
+~> **Important:** The `status` attribute is computed and may become stale when another resource modifies the grant.
+
+### When Does This Happen?
+
+When you create an `axual_application_access_grant_approval` or `axual_application_access_grant_rejection` resource, it changes the grant's status via the API. However, the grant resource's Terraform state is **not automatically updated** - it still shows the previous status until the next refresh.
+
+**Example timeline:**
+
+```
+1. terraform apply (creates grant)     → state: status = "Pending"
+2. terraform apply (creates approval)  → API changes grant to "Approved"
+                                       → grant state still shows "Pending" (STALE)
+3. terraform refresh (or next apply)   → state syncs: status = "Approved"
+```
+
+### How to Sync the State
+
+Run any of these commands to refresh the grant's status from the API:
+
+```shell
+terraform refresh
+# or
+terraform apply   # refresh happens automatically at the start
+# or
+terraform plan    # refresh happens automatically at the start
+```
+
+### Why This Happens
+
+This is expected Terraform behavior. When one resource modifies another resource via the API, Terraform's state for the modified resource is not automatically updated. The state is only synced during the refresh phase, which runs at the start of `plan`, `apply`, and `refresh` commands.
+
+~> **Note:** In normal workflows, you won't notice this issue because Terraform automatically refreshes state before any `plan` or `apply`. The stale state only matters if you inspect the state file immediately after creating the approval/rejection resource.
+
 ## Example Usage
 
 ```hcl
@@ -37,4 +72,28 @@ For a full example which shows the capabilities of the latest TerraForm provider
 
 ## Import
 
-Import is not currently supported.
+Application Access Grant can be imported using the grant's UID:
+
+```shell
+terraform import axual_application_access_grant.example 1234567890abcdef1234567890abcdef
+```
+
+### Notes
+
+- The grant UID can be found in the Axual Self-Service UI or via the API
+- All grant attributes (`application`, `topic`, `environment`, `access_type`, `status`) are populated during import
+- Grants in any status (Pending, Approved, Rejected, Revoked, Cancelled) can be imported
+
+### Delete Behavior
+
+When deleting an `axual_application_access_grant`:
+
+| Grant Status | Delete Action |
+|--------------|---------------|
+| Pending | Grant is cancelled |
+| Approved | Grant is automatically revoked, then removed from state |
+| Rejected | Grant is removed from state |
+| Revoked | Grant is removed from state |
+| Cancelled | Grant is removed from state |
+
+This means you no longer need a separate `axual_application_access_grant_approval` resource just for cleanup in Auto environments - approved grants are auto-revoked on delete.

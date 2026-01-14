@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -14,7 +16,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"time"
 )
 
 var _ resource.Resource = &applicationAccessGrantResource{}
@@ -124,27 +125,75 @@ func (r *applicationAccessGrantResource) Read(ctx context.Context, req resource.
 		return
 	}
 
-	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.Id.ValueString())
+	// Use search endpoint to get full grant details (includes application, topic, access_type)
+	// The GET by ID endpoint doesn't return these fields, so we always use search
+	tflog.Info(ctx, fmt.Sprintf("Reading Application Access Grant via search endpoint. Id: %s", data.Id.ValueString()))
+	applicationAccessGrant, err := r.findGrantById(ctx, data.Id.ValueString())
 	if err != nil {
-		if errors.Is(err, webclient.NotFoundError) {
+		if errors.Is(err, errGrantNotFound) {
 			tflog.Warn(ctx, fmt.Sprintf("Application Access Grant not found. Id: %s", data.Id.ValueString()))
 			resp.State.RemoveResource(ctx)
-		} else {
-			resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
+			return
 		}
+		resp.Diagnostics.AddError("Failed to read Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
 
 	tflog.Info(ctx, "mapping the resource")
 	data.Id = types.StringValue(applicationAccessGrant.Uid)
 	data.Status = types.StringValue(applicationAccessGrant.Status)
-	data.TopicId = types.StringValue(data.TopicId.ValueString())
-	data.EnvironmentId = types.StringValue(applicationAccessGrant.Embedded.Environment.Uid)
-	data.ApplicationId = types.StringValue(data.ApplicationId.ValueString())
+	data.ApplicationId = types.StringValue(applicationAccessGrant.ApplicationUid)
+	data.TopicId = types.StringValue(applicationAccessGrant.StreamUid)
+	data.EnvironmentId = types.StringValue(applicationAccessGrant.EnvironmentUid)
+	data.AccessType = types.StringValue(applicationAccessGrant.AccessType)
 
 	tflog.Info(ctx, "Saving Application Access Grant resource to state")
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
+}
+
+// grantSearchResult holds the extracted grant data from search results
+type grantSearchResult struct {
+	Uid            string
+	Status         string
+	ApplicationUid string
+	StreamUid      string
+	EnvironmentUid string
+	AccessType     string
+}
+
+// errGrantNotFound is returned when a grant cannot be found
+var errGrantNotFound = errors.New("grant not found")
+
+// findGrantById searches for a grant by its UID using the search endpoint
+// This is used instead of GET by ID because the GET endpoint doesn't return
+// application, topic, or access_type fields needed for Terraform state
+func (r *applicationAccessGrantResource) findGrantById(ctx context.Context, grantId string) (*grantSearchResult, error) {
+	// Search with common statuses to find the grant
+	// Include all possible statuses to handle import of grants in any state
+	searchAttrs := webclient.ApplicationAccessGrantAttributes{
+		Statuses: "PENDING,APPROVED,REVOKED,REJECTED,CANCELLED",
+		Size:     9999,
+	}
+	result, err := r.provider.client.GetApplicationAccessGrantsByAttributes(searchAttrs)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, grant := range result.Embedded.ApplicationAccessGrantResponses {
+		if grant.Uid == grantId {
+			return &grantSearchResult{
+				Uid:            grant.Uid,
+				Status:         grant.Status,
+				ApplicationUid: grant.Embedded.Application.Uid,
+				StreamUid:      grant.Embedded.Stream.Uid,
+				EnvironmentUid: grant.Embedded.Environment.Uid,
+				AccessType:     grant.AccessType,
+			}, nil
+		}
+	}
+
+	return nil, errGrantNotFound
 }
 
 func (r *applicationAccessGrantResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -172,11 +221,29 @@ func (r *applicationAccessGrantResource) Delete(ctx context.Context, req resourc
 
 	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.Id.ValueString())
 	if err != nil {
+		// If grant not found, it's already deleted - success
+		if errors.Is(err, webclient.NotFoundError) {
+			tflog.Info(ctx, fmt.Sprintf("Grant already deleted. Id: %s", data.Id.ValueString()))
+			return
+		}
 		resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
 
+	// Terminal states - grant is already "destroyed", just remove from state
+	// We check this BEFORE attempting any API calls to avoid "invalid state" errors
+	// This also handles the case where approval resource revoked the grant at the same time.
+	if applicationAccessGrant.Status == "Revoked" ||
+		applicationAccessGrant.Status == "Rejected" ||
+		applicationAccessGrant.Status == "Cancelled" {
+		tflog.Info(ctx, fmt.Sprintf("Grant is in terminal state (%s), removing from state. Id: %s",
+			applicationAccessGrant.Status, data.Id.ValueString()))
+		return
+	}
+
+	// Pending grants - can be cancelled
 	if applicationAccessGrant.Links.Cancel.Href != "" {
+		tflog.Info(ctx, fmt.Sprintf("Cancelling pending grant. Id: %s", data.Id.ValueString()))
 		// Retry logic for cancelling the grant to give time for Kafka to propagate changes
 		err1 := Retry(3, 3*time.Second, func() error {
 			return r.provider.client.CancelGrant(data.Id.ValueString())
@@ -188,15 +255,52 @@ func (r *applicationAccessGrantResource) Delete(ctx context.Context, req resourc
 		return
 	}
 
-	if applicationAccessGrant.Status == "Approved" {
-		resp.Diagnostics.AddError(
-			"Application Access Grant cannot be cancelled",
-			fmt.Sprintf(
-				"Please Revoke this grant before attempting to delete it.\nCurrent Status of the grant: %s",
-				applicationAccessGrant.Status))
+	// Approved grants - revoke first, then remove from state
+	// This enables terraform destroy to work after import, when the dependency
+	// between grant and approval resources is lost and they're destroyed in parallel
+	if applicationAccessGrant.Status == "Approved" && applicationAccessGrant.Links.Revoke.Href != "" {
+		tflog.Info(ctx, fmt.Sprintf("Revoking approved grant before deletion. Id: %s", data.Id.ValueString()))
+		err := r.provider.client.RevokeOrDenyGrant(data.Id.ValueString(), "Revoked during terraform destroy")
+		if err != nil {
+			// Handle race condition: approval resource may have revoked at the same time
+			// The API is not idempotent - revoking an already-revoked grant throws an error
+			// Re-fetch grant to check if it's now in a terminal state
+			tflog.Warn(ctx, fmt.Sprintf("Revoke failed, checking if grant was revoked by another process. Id: %s, Error: %s",
+				data.Id.ValueString(), err.Error()))
+
+			updatedGrant, fetchErr := r.provider.client.GetApplicationAccessGrant(data.Id.ValueString())
+			if fetchErr != nil {
+				if errors.Is(fetchErr, webclient.NotFoundError) {
+					tflog.Info(ctx, fmt.Sprintf("Grant was deleted by another process. Id: %s", data.Id.ValueString()))
+					return
+				}
+				resp.Diagnostics.AddError("Failed to revoke grant during deletion",
+					fmt.Sprintf("Original error: %s", err.Error()))
+				return
+			}
+
+			// If grant is now in terminal state, someone else handled it - success
+			if updatedGrant.Status == "Revoked" ||
+				updatedGrant.Status == "Rejected" ||
+				updatedGrant.Status == "Cancelled" {
+				tflog.Info(ctx, fmt.Sprintf("Grant was revoked by another process (status: %s). Id: %s",
+					updatedGrant.Status, data.Id.ValueString()))
+				return
+			}
+
+			// Still not terminal - report the original error
+			resp.Diagnostics.AddError("Failed to revoke grant during deletion",
+				fmt.Sprintf("Error message: %s", err.Error()))
+			return
+		}
+		tflog.Info(ctx, fmt.Sprintf("Grant revoked successfully, removing from state. Id: %s", data.Id.ValueString()))
 		return
 	}
 
+	// Unexpected state - shouldn't reach here
+	resp.Diagnostics.AddError(
+		"Application Access Grant cannot be deleted",
+		fmt.Sprintf("Grant is in unexpected state: %s", applicationAccessGrant.Status))
 }
 
 func (r *applicationAccessGrantResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

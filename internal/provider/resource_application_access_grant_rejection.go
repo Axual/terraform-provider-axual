@@ -1,7 +1,9 @@
 package provider
 
 import (
+	webclient "axual-webclient"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -105,20 +107,33 @@ func (r *applicationAccessGrantRejectionResource) Read(ctx context.Context, req 
 		return
 	}
 
+	tflog.Info(ctx, fmt.Sprintf("Reading Application Access Grant Rejection for grant: %s", data.ApplicationAccessGrant.ValueString()))
+
 	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.ApplicationAccessGrant.ValueString())
 	if err != nil {
+		if errors.Is(err, webclient.NotFoundError) {
+			tflog.Warn(ctx, fmt.Sprintf("Application Access Grant not found, removing rejection from state. Id: %s", data.ApplicationAccessGrant.ValueString()))
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
-	// If Grant is already Rejected, simply import the state
+
 	if applicationAccessGrant.Status == "Rejected" {
+		tflog.Info(ctx, fmt.Sprintf("Grant is Rejected, saving rejection state. Id: %s", data.ApplicationAccessGrant.ValueString()))
+		// Note: The 'reason' attribute is not returned by the API, so it will be preserved from state
+		// or be null after import. This is expected behavior.
 		diags = resp.State.Set(ctx, &data)
 		resp.Diagnostics.Append(diags...)
-		tflog.Info(ctx, "mapping the resource")
 		return
 	}
-	resp.Diagnostics.AddError("Grant is not Rejected", "Error")
 
+	// Grant exists but is not in Rejected status
+	// Remove the rejection resource from state since it no longer represents a rejected grant
+	tflog.Warn(ctx, fmt.Sprintf("Grant is not in Rejected status (current: %s), removing rejection from state. Id: %s",
+		applicationAccessGrant.Status, data.ApplicationAccessGrant.ValueString()))
+	resp.State.RemoveResource(ctx)
 }
 
 func (r *applicationAccessGrantRejectionResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -133,5 +148,5 @@ func (r *applicationAccessGrantRejectionResource) Delete(ctx context.Context, re
 }
 
 func (r *applicationAccessGrantRejectionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	resource.ImportStatePassthroughID(ctx, path.Root("application_access_grant"), req, resp)
 }

@@ -2,6 +2,7 @@ package webclient
 
 type ApplicationAccessGrant struct {
 	Status      string      `json:"status"`
+	AccessType  string      `json:"accessType"`
 	RequestedBy string      `json:"requestedBy"`
 	ProcessedBy interface{} `json:"processedBy"`
 	Comment     string      `json:"comment"`
@@ -40,6 +41,15 @@ type ApplicationAccessGrant struct {
 				} `json:"self"`
 			} `json:"_links"`
 		} `json:"environment"`
+		Application struct {
+			Name      string `json:"name"`
+			ShortName string `json:"shortName"`
+			Uid       string `json:"uid"`
+		} `json:"application"`
+		Stream struct {
+			Name string `json:"name"`
+			Uid  string `json:"uid"`
+		} `json:"stream"`
 	} `json:"_embedded"`
 	Links struct {
 		Self struct {

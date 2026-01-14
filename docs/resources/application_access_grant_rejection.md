@@ -24,6 +24,16 @@ Application Access Grant Rejection: Reject a request to access a topic
 
 - `reason` (String) Reason for denying approval.
 
+## State Synchronization
+
+~> **Important:** After creating this resource, the `axual_application_access_grant` resource's `status` attribute in Terraform state will still show "Pending" until the next refresh. Run `terraform plan`, `terraform apply`, or `terraform refresh` to sync the state.
+
+### Why This Happens
+
+This is expected Terraform behavior. When one resource modifies another resource via the API, Terraform's state for the modified resource is not automatically updated. The state is only synced during the refresh phase, which runs at the start of `plan`, `apply`, and `refresh` commands.
+
+~> **Note:** In normal workflows, you won't notice this issue because Terraform automatically refreshes state before any `plan` or `apply`. The stale state only matters if you inspect the state file immediately after creating the approval/rejection resource.
+
 ## Example Usage
 
 ```hcl
@@ -37,4 +47,44 @@ For a full example which shows the capabilities of the latest TerraForm provider
 
 ## Import
 
-Import is not currently supported.
+Application Access Grant Rejection can be imported using the grant's UID:
+
+```shell
+terraform import axual_application_access_grant_rejection.example 1234567890abcdef1234567890abcdef
+```
+
+### Prerequisites
+
+- The grant must exist and be in "Rejected" status
+- If the grant is not in "Rejected" status, import will fail (the rejection resource is removed from state)
+
+### Handling the `reason` Attribute
+
+The `reason` attribute is **not returned by the API**. After import, this attribute will be `null`. If your configuration specifies a `reason`, subsequent `terraform plan` will show a diff.
+
+**Recommended:** Add a lifecycle block to ignore changes to `reason`:
+
+```hcl
+resource "axual_application_access_grant_rejection" "example" {
+  application_access_grant = axual_application_access_grant.my_grant.id
+  reason                   = "Access denied due to security policy"
+
+  lifecycle {
+    ignore_changes = [reason]
+  }
+}
+```
+
+Alternatively, omit the `reason` attribute from your configuration if it's not critical:
+
+```hcl
+resource "axual_application_access_grant_rejection" "example" {
+  application_access_grant = axual_application_access_grant.my_grant.id
+  # reason omitted - no diff after import
+}
+```
+
+### Notes
+
+- The grant UID can be found in the Axual Self-Service UI or via the API
+- After import, the `application_access_grant` attribute will contain the grant UID

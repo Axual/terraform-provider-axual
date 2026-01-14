@@ -100,25 +100,31 @@ func (r *applicationAccessGrantApprovalResource) Read(ctx context.Context, req r
 		return
 	}
 
+	tflog.Info(ctx, fmt.Sprintf("Reading Application Access Grant Approval for grant: %s", data.ApplicationAccessGrant.ValueString()))
+
 	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.ApplicationAccessGrant.ValueString())
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
-			tflog.Warn(ctx, fmt.Sprintf("Application Access Grant not found. Id: %s", data.ApplicationAccessGrant.ValueString()))
-		} else {
-			resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
+			tflog.Warn(ctx, fmt.Sprintf("Application Access Grant not found, removing approval from state. Id: %s", data.ApplicationAccessGrant.ValueString()))
+			resp.State.RemoveResource(ctx)
+			return
 		}
+		resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
 
 	if applicationAccessGrant.Status == "Approved" {
+		tflog.Info(ctx, fmt.Sprintf("Grant is Approved, saving approval state. Id: %s", data.ApplicationAccessGrant.ValueString()))
 		diags = resp.State.Set(ctx, &data)
 		resp.Diagnostics.Append(diags...)
-		tflog.Info(ctx, "mapping the resource")
-		data.ApplicationAccessGrant = types.StringValue(applicationAccessGrant.Uid)
-	} else {
-		resp.Diagnostics.AddError("Grant is not Approved", fmt.Sprintf("Only Pending grants can be approved \nCurrent status of the grant is: %s", applicationAccessGrant.Status))
 		return
 	}
+
+	// Grant exists but is not in Approved status - this means the approval was revoked or the grant was rejected
+	// Remove the approval resource from state since it no longer represents an approved grant
+	tflog.Warn(ctx, fmt.Sprintf("Grant is not in Approved status (current: %s), removing approval from state. Id: %s",
+		applicationAccessGrant.Status, data.ApplicationAccessGrant.ValueString()))
+	resp.State.RemoveResource(ctx)
 }
 
 func (r *applicationAccessGrantApprovalResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
