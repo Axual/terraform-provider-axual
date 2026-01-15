@@ -372,6 +372,40 @@ resource "axual_application_access_grant_approval" "approve_grant" {
 
 But this will fail if the underlying grant is in Revoked status. The Topic Owner has no visibility into the grant's current state from their Terraform configuration.
 
+### Checking Grant Status
+
+To determine whether a grant can be approved, check its current status:
+
+```shell
+# Refresh state from the API
+terraform refresh
+
+# Show the grant's current status
+terraform state show axual_application_access_grant.my_grant
+```
+
+Example output:
+
+```
+# axual_application_access_grant.my_grant:
+resource "axual_application_access_grant" "my_grant" {
+    access_type = "PRODUCER"
+    application = "b67f7c3b03a646b3b86b6a3320ddf1f3"
+    environment = "b10456f91c634e2aadbc3ad64b20f10b"
+    id          = "a7b9346f4e9a49ebb6934553dbc246c3"
+    status      = "Revoked"
+    topic       = "4fa97a80527f4977befe91ce80893621"
+}
+```
+
+| Status | Can Create Approval? | Action Required |
+|--------|---------------------|-----------------|
+| `Pending` | ✅ Yes | Create approval resource |
+| `Approved` | ✅ Yes (adopts into state) | Create approval resource |
+| `Revoked` | ❌ No | Delete and recreate grant first |
+| `Rejected` | ❌ No | Delete and recreate grant first |
+| `Cancelled` | ❌ No | Delete and recreate grant first |
+
 ### Correct Workflow to Restore Access After Revocation
 
 **Coordination is required:**

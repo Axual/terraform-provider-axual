@@ -85,9 +85,51 @@ func (r *applicationAccessGrantApprovalResource) Create(ctx context.Context, req
 		resp.Diagnostics.Append(diags...)
 		return
 	}
-	resp.Diagnostics.AddError(
-		"Error: Failed to approve grant",
-		fmt.Sprintf("Only Pending grants can be approved \nCurrent status of the grant is: %s", applicationAccessGrant.Status))
+
+	// Specific error messages for terminal states with remediation steps
+	grantId := data.ApplicationAccessGrant.ValueString()
+	switch applicationAccessGrant.Status {
+	case "Revoked":
+		resp.Diagnostics.AddError(
+			"Cannot approve revoked grant",
+			fmt.Sprintf(
+				"Grant '%s' was previously approved and then revoked. "+
+					"Revoked grants cannot be re-approved.\n\n"+
+					"To request access again:\n"+
+					"1. Application Owner: Delete axual_application_access_grant resource\n"+
+					"2. Application Owner: Recreate axual_application_access_grant resource\n"+
+					"3. Topic Owner: Create axual_application_access_grant_approval resource\n\n"+
+					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",
+				grantId))
+	case "Rejected":
+		resp.Diagnostics.AddError(
+			"Cannot approve rejected grant",
+			fmt.Sprintf(
+				"Grant '%s' was rejected. Rejected grants cannot be approved.\n\n"+
+					"To request access again:\n"+
+					"1. Application Owner: Delete axual_application_access_grant resource\n"+
+					"2. Application Owner: Recreate axual_application_access_grant resource\n"+
+					"3. Topic Owner: Create axual_application_access_grant_approval resource\n\n"+
+					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",
+				grantId))
+	case "Cancelled":
+		resp.Diagnostics.AddError(
+			"Cannot approve cancelled grant",
+			fmt.Sprintf(
+				"Grant '%s' was cancelled by the Application Owner. "+
+					"Cancelled grants cannot be approved.\n\n"+
+					"The Application Owner must recreate the grant to request access again.\n\n"+
+					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",
+				grantId))
+	default:
+		resp.Diagnostics.AddError(
+			"Cannot approve grant",
+			fmt.Sprintf(
+				"Only Pending grants can be approved.\n"+
+					"Current status: %s\nGrant ID: %s\n\n"+
+					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",
+				applicationAccessGrant.Status, grantId))
+	}
 }
 
 func (r *applicationAccessGrantApprovalResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {

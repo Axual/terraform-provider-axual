@@ -53,6 +53,44 @@ This is expected Terraform behavior. When one resource modifies another resource
 
 ~> **Note:** In normal workflows, you won't notice this issue because Terraform automatically refreshes state before any `plan` or `apply`. The stale state only matters if you inspect the state file immediately after creating the approval/rejection resource.
 
+## Checking Grant Status
+
+To check the current status of a grant:
+
+```shell
+# Refresh state from the API
+terraform refresh
+
+# Show the grant's current status
+terraform state show axual_application_access_grant.my_grant
+```
+
+Example output:
+
+```
+# axual_application_access_grant.my_grant:
+resource "axual_application_access_grant" "my_grant" {
+    access_type = "PRODUCER"
+    application = "b67f7c3b03a646b3b86b6a3320ddf1f3"
+    environment = "b10456f91c634e2aadbc3ad64b20f10b"
+    id          = "a7b9346f4e9a49ebb6934553dbc246c3"
+    status      = "Revoked"
+    topic       = "4fa97a80527f4977befe91ce80893621"
+}
+```
+
+The `status` attribute determines what actions are available:
+
+| Status | Can Create Approval? | Can Delete Grant? |
+|--------|---------------------|-------------------|
+| `Pending` | ✅ Yes | ✅ Yes (cancels) |
+| `Approved` | ✅ Yes (adopts into state) | ✅ Yes (auto-revokes first) |
+| `Revoked` | ❌ No - must recreate grant | ✅ Yes (removes from state) |
+| `Rejected` | ❌ No - must recreate grant | ✅ Yes (removes from state) |
+| `Cancelled` | ❌ No - must recreate grant | ✅ Yes (removes from state) |
+
+~> **Important:** Revoked, Rejected, and Cancelled are terminal states. To request access again, delete the grant resource and recreate it.
+
 ## Example Usage
 
 ```hcl
