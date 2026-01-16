@@ -1,6 +1,6 @@
 # Test: Stream owner environment - grant is rejected with a reason
-# This tests that the rejection resource can be imported, but note that the
-# 'reason' attribute is not returned by the API and will be null after import.
+# This tests that the rejection resource can be imported and the 'reason'
+# attribute is correctly populated from the API's 'comment' field.
 
 resource "axual_application" "tf-test-app" {
   name             = "tf-test-app"

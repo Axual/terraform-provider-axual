@@ -125,8 +125,8 @@ func (r *applicationAccessGrantResource) Read(ctx context.Context, req resource.
 		return
 	}
 
-	// Use search endpoint to get full grant details (includes application, topic, access_type)
-	// The GET by ID endpoint doesn't return these fields, so we always use search
+	// TODO: Change to use GET /application_access_grants/{id} once the API returns application, topic, and access_type fields.
+	// Currently using search endpoint as a workaround because GET by ID doesn't return these fields.
 	tflog.Info(ctx, fmt.Sprintf("Reading Application Access Grant via search endpoint. Id: %s", data.Id.ValueString()))
 	applicationAccessGrant, err := r.findGrantById(ctx, data.Id.ValueString())
 	if err != nil {
@@ -165,15 +165,14 @@ type grantSearchResult struct {
 // errGrantNotFound is returned when a grant cannot be found
 var errGrantNotFound = errors.New("grant not found")
 
-// findGrantById searches for a grant by its UID using the search endpoint
-// This is used instead of GET by ID because the GET endpoint doesn't return
-// application, topic, or access_type fields needed for Terraform state
+// findGrantById searches for a grant by its UID using the search endpoint.
+// TODO: Replace with GET /application_access_grants/{id} once the API returns application, topic, and access_type fields.
+// This is an anti-pattern (fetching all to find one), but necessary as a workaround until the API is updated.
 func (r *applicationAccessGrantResource) findGrantById(ctx context.Context, grantId string) (*grantSearchResult, error) {
-	// Search with common statuses to find the grant
-	// Include all possible statuses to handle import of grants in any state
+	// Note: Not filtering by status - the API returns all grants when statuses is not provided.
+	// Possible grant statuses: PENDING, APPROVED, REVOKED, REJECTED, CANCELLED
 	searchAttrs := webclient.ApplicationAccessGrantAttributes{
-		Statuses: "PENDING,APPROVED,REVOKED,REJECTED,CANCELLED",
-		Size:     9999,
+		Size: 9999,
 	}
 	result, err := r.provider.client.GetApplicationAccessGrantsByAttributes(searchAttrs)
 	if err != nil {
@@ -262,7 +261,7 @@ func (r *applicationAccessGrantResource) Delete(ctx context.Context, req resourc
 		tflog.Info(ctx, fmt.Sprintf("Revoking approved grant before deletion. Id: %s", data.Id.ValueString()))
 		err := r.provider.client.RevokeOrDenyGrant(data.Id.ValueString(), "Revoked during terraform destroy")
 		if err != nil {
-			// Handle race condition: approval resource may have revoked at the same time
+			// Handle race condition: approval resource may have been revoked at the same time
 			// The API is not idempotent - revoking an already-revoked grant throws an error
 			// Re-fetch grant to check if it's now in a terminal state
 			tflog.Warn(ctx, fmt.Sprintf("Revoke failed, checking if grant was revoked by another process. Id: %s, Error: %s",

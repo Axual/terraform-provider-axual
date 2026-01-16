@@ -9,9 +9,9 @@ This guide explains how to manage access grants through Terraform. The workflow 
 | `authorization_issuer` | Grant Behavior |
 |------------------------|----------------|
 | `Auto` | Grants are approved automatically by the system |
-| `Topic owner` | Grants require explicit approval from Topic Owner |
+| `Stream owner` | Grants require explicit approval from Topic Owner |
 
-**Important**: In Topic owner environments, the Topic Owner must create an `axual_application_access_grant_approval` resource to approve the grant. In Auto environments, this is optional—the grant is already approved by the system. Creating the approval resource in Auto environments adopts it into Terraform state, which is useful if Topic Owner wants to revoke via Terraform. However, Application Owner can also revoke by simply deleting the grant resource (the provider auto-revokes approved grants on delete).
+**Important**: In Environments where `Authorization Issuer=Stream owner`, the Topic Owner must create an `axual_application_access_grant_approval` resource to approve the grant. In Environments where `Authorization Issuer=Auto`, this is optional — the grant is already approved by the system. Creating the approval resource in Auto environments adopts it into Terraform state, which is useful if Topic Owner wants to revoke via Terraform. However, Application Owner can also revoke by simply deleting the grant resource (the provider auto-revokes approved grants on delete).
 
 ---
 
@@ -21,7 +21,7 @@ This guide explains how to manage access grants through Terraform. The workflow 
 |----------|---------|
 | `axual_application_access_grant` | Request access to a topic (created by Application Owner) |
 | `axual_application_access_grant_approval` | Approve a grant and manage it in Terraform state. **Deleting this resource revokes the grant.** Created by Topic Owner; can be deleted by either Application Owner or Topic Owner to revoke. |
-| `axual_application_access_grant_rejection` | Reject a pending grant (Topic owner environments only, because Auto grants are never pending) |
+| `axual_application_access_grant_rejection` | Reject a pending grant (In Environments where `Authorization Issuer=Stream owner` only, because in Environments where `Authorization Issuer=Auto` grants are never pending) |
 
 ---
 
@@ -38,9 +38,9 @@ This guide explains how to manage access grants through Terraform. The workflow 
 
 1. Grant is created → automatically approved by the system → application can produce/consume
 2. *(Optional)* Topic Owner creates approval resource → adopts the grant into Terraform state
-3. To revoke: Delete approval resource OR delete grant directly (auto-revokes)
+3. To revoke: Delete approval resource or delete grant directly (auto-revokes)
 
-### Topic Owner Environment
+### Stream Owner Environment
 
 ```
                          ┌───────────┐
@@ -66,7 +66,7 @@ This guide explains how to manage access grants through Terraform. The workflow 
 | Pending | Approved | Topic Owner creates approval |
 | Pending | Rejected | Topic Owner creates rejection |
 | Pending | Cancelled | Application Owner deletes grant |
-| Approved | Revoked | Delete approval OR delete grant (auto-revokes) |
+| Approved | Revoked | Delete approval or delete grant (auto-revokes) |
 
 **Terminal states (Revoked, Rejected, Cancelled):** Delete the grant and recreate to request access again.
 
@@ -91,10 +91,10 @@ resource "axual_application_access_grant" "my_app_consume_logs" {
 }
 ```
 
-- **Auto environment**: Grant is approved automatically by the system. Topic Owner can optionally create approval resource to manage it in Terraform. Application Owner can revoke by deleting the grant directly (auto-revokes).
-- **Topic owner environment**: Grant starts in **Pending** status. Topic Owner must create approval resource to approve.
+- **Environments with `Authorization Issuer=Auto`**: Grant is approved automatically by the system. Topic Owner can optionally create approval resource to manage it in Terraform. Application Owner can revoke by deleting the grant directly (auto-revokes).
+- **Environments with `Authorization Issuer=Stream owner`**: Grant starts in **Pending** status. Topic Owner must create approval resource to approve.
 
-### Pending Grant: Cancel vs Reject (Topic Owner Environment Only)
+### Pending Grant: Cancel vs Reject (Stream Owner Environment Only)
 
 A pending grant can be resolved in two ways:
 
@@ -160,7 +160,7 @@ resource "axual_application_access_grant_approval" "approve_grant" {
 ```
 
 **Behavior by environment type:**
-- **Topic owner**: This calls the approve API and changes status from Pending to Approved
+- **Stream owner**: This calls the approve API and changes status from Pending to Approved
 - **Auto**: The grant is already approved; this adopts it into Terraform state for management
 
 ### Rejecting a Grant (Topic Owner Only)
@@ -172,7 +172,7 @@ resource "axual_application_access_grant_rejection" "reject_grant" {
 }
 ```
 
-**Why Topic owner only?** In Auto environments, grants are never in Pending status—they're approved immediately. You can only reject a Pending grant. To deny access in Auto environments, revoke the grant instead (delete the approval resource).
+**Why Stream owner environments only?** In Auto environments, grants are never in Pending status—they're approved immediately. You can only reject a Pending grant. To deny access in Auto environments, revoke the grant instead (delete the approval resource).
 
 **Note**: Rejection is final. The Application Owner must delete and recreate the grant to request access again.
 
@@ -184,9 +184,9 @@ resource "axual_application_access_grant_rejection" "reject_grant" {
 terraform destroy -target=axual_application_access_grant_approval.approve_grant
 ```
 
-This changes the grant status to **Revoked** in both Auto and Topic owner environments. Access is revoked immediately.
+This changes the grant status to **Revoked** in both Auto and Stream owner environments. Access is revoked immediately.
 
-**Alternative:** Application Owners can also delete the `axual_application_access_grant` resource directly—the provider will automatically revoke the grant before deleting it. This is useful when the approval resource is managed in a different repository.
+**Alternative:** Application Owners can also delete the `axual_application_access_grant` resource directly — the provider will automatically revoke the grant before deleting it. This is useful when the approval resource is managed in a different repository.
 
 After revocation (via either method), the Application Owner's `axual_application_access_grant` resource can be deleted without API calls (just cleans up Terraform state).
 
@@ -199,7 +199,7 @@ In a multi-team GitOps setup:
 | Team | Repository | Resources |
 |------|------------|-----------|
 | Application Team | `app-team-repo` | `axual_application_access_grant` |
-| Topic Team | `topic-team-repo` | `axual_application_access_grant_approval` (or `_rejection` in Topic owner) |
+| Topic Team | `topic-team-repo` | `axual_application_access_grant_approval` (or `_rejection` in Stream owner) |
 
 The Topic Team references the Application Team's grant using a **data source**, not a direct resource reference.
 
@@ -225,26 +225,26 @@ See the [Multi-Repo Guide](multi-repo) for detailed setup instructions.
 
 ## Common Scenarios
 
-### Scenario 1: Auto Environment - Grant Flow
+### Scenario 1: Environment with `Authorization Issuer=Auto` - Grant Flow
 
 1. **Application Owner** creates `axual_application_access_grant` → auto-approved by system
 2. Application can now produce/consume
 3. *(Optional)* **Topic Owner** creates `axual_application_access_grant_approval` → adopts grant into Terraform state
 4. To revoke: Either delete the approval resource OR delete the grant directly (auto-revokes)
 
-### Scenario 2: Topic Owner Environment - Approval Flow
+### Scenario 2: Environments with `Authorization Issuer=Stream owner` - Approval Flow
 
 1. **Application Owner** creates `axual_application_access_grant` → Status: **Pending**
 2. **Topic Owner** creates `axual_application_access_grant_approval` → Status: **Approved**
 3. Application can now produce/consume
 
-### Scenario 3: Topic Owner Environment - Rejection
+### Scenario 3: Environments with `Authorization Issuer=Stream owner` - Rejection
 
 1. **Application Owner** creates `axual_application_access_grant` → Status: **Pending**
 2. **Topic Owner** creates `axual_application_access_grant_rejection` → Status: **Rejected**
 3. To try again: Application Owner deletes and recreates the grant
 
-### Scenario 4: Revoking Access (Both Environment Types)
+### Scenario 4: Revoking Access (Environments with any `Authorization Issuer`)
 
 **Option A: Via approval resource**
 1. Grant is **Approved**
@@ -316,20 +316,9 @@ The grant UID can be found in:
 | `axual_application_access_grant_approval` | Must be "Approved" |
 | `axual_application_access_grant_rejection` | Must be "Rejected" |
 
-### Rejection Import: Handling the `reason` Attribute
+### Rejection Import: The `reason` Attribute
 
-The `reason` attribute is not returned by the API. After import, it will be `null`. If your configuration specifies a `reason`, add a lifecycle block:
-
-```hcl
-resource "axual_application_access_grant_rejection" "my_rejection" {
-  application_access_grant = axual_application_access_grant.my_grant.id
-  reason                   = "Access denied due to security policy"
-
-  lifecycle {
-    ignore_changes = [reason]
-  }
-}
-```
+The `reason` attribute is stored as `comment` in the API. After import, the reason will be correctly populated from the API response.
 
 ---
 

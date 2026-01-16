@@ -119,7 +119,7 @@ func (r *applicationAccessGrantRejectionResource) Create(ctx context.Context, re
 		resp.Diagnostics.AddError(
 			"Cannot reject cancelled grant",
 			fmt.Sprintf(
-				"Grant '%s' was cancelled by the Application Owner. "+
+				"Grant '%s' is cancelled by the Application Owner. "+
 					"Cancelled grants cannot be rejected.\n\n"+
 					"The grant is already in a terminal state - the access request was withdrawn.\n\n"+
 					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",
@@ -161,8 +161,10 @@ func (r *applicationAccessGrantRejectionResource) Read(ctx context.Context, req 
 
 	if applicationAccessGrant.Status == "Rejected" {
 		tflog.Info(ctx, fmt.Sprintf("Grant is Rejected, saving rejection state. Id: %s", data.ApplicationAccessGrant.ValueString()))
-		// Note: The 'reason' attribute is not returned by the API, so it will be preserved from state
-		// or be null after import. This is expected behavior.
+		// Map the API's 'comment' field to the Terraform 'reason' attribute
+		if applicationAccessGrant.Comment != "" {
+			data.Reason = types.StringValue(applicationAccessGrant.Comment)
+		}
 		diags = resp.State.Set(ctx, &data)
 		resp.Diagnostics.Append(diags...)
 		return

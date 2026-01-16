@@ -78,17 +78,15 @@ func (r *applicationAccessGrantApprovalResource) Create(ctx context.Context, req
 		return
 	}
 
-	// If Grant is already approved, simply import the state
-	if applicationAccessGrant.Status == "Approved" {
-		tflog.Info(ctx, "Saving Application Access Grant Approval resource to state")
+	// Handle based on grant status
+	grantId := data.ApplicationAccessGrant.ValueString()
+	switch applicationAccessGrant.Status {
+	case "Approved":
+		// Grant is already approved, simply adopt into Terraform state
+		tflog.Info(ctx, "Grant already approved, adopting into Terraform state")
 		diags = resp.State.Set(ctx, &data)
 		resp.Diagnostics.Append(diags...)
 		return
-	}
-
-	// Specific error messages for terminal states with remediation steps
-	grantId := data.ApplicationAccessGrant.ValueString()
-	switch applicationAccessGrant.Status {
 	case "Revoked":
 		resp.Diagnostics.AddError(
 			"Cannot approve revoked grant",
@@ -105,8 +103,9 @@ func (r *applicationAccessGrantApprovalResource) Create(ctx context.Context, req
 		resp.Diagnostics.AddError(
 			"Cannot approve rejected grant",
 			fmt.Sprintf(
-				"Grant '%s' was rejected. Rejected grants cannot be approved.\n\n"+
-					"To request access again:\n"+
+				"Grant '%s' is rejected. Rejected grants cannot be approved.\n\n"+
+					"Be sure that you are approving a Pending grant.\n"+
+					"In case you want to re-use the same Grant definition, request the access again:\n"+
 					"1. Application Owner: Delete axual_application_access_grant resource\n"+
 					"2. Application Owner: Recreate axual_application_access_grant resource\n"+
 					"3. Topic Owner: Create axual_application_access_grant_approval resource\n\n"+
@@ -116,7 +115,7 @@ func (r *applicationAccessGrantApprovalResource) Create(ctx context.Context, req
 		resp.Diagnostics.AddError(
 			"Cannot approve cancelled grant",
 			fmt.Sprintf(
-				"Grant '%s' was cancelled by the Application Owner. "+
+				"Grant '%s' is cancelled by the Application Owner. "+
 					"Cancelled grants cannot be approved.\n\n"+
 					"The Application Owner must recreate the grant to request access again.\n\n"+
 					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",

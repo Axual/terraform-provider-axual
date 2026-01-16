@@ -393,8 +393,8 @@ func TestApplicationAccessGrantRejection_Import(t *testing.T) {
 
 // TestApplicationAccessGrantRejection_ImportWithReason tests import with reason attribute
 //
-// The 'reason' attribute is not returned by the API. After import, it will be null.
-// This test uses ImportStateVerifyIgnore to handle this known limitation.
+// The 'reason' attribute is returned by the API as 'comment' field. After import,
+// the reason will be correctly populated from the API response.
 func TestApplicationAccessGrantRejection_ImportWithReason(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
@@ -410,24 +410,25 @@ func TestApplicationAccessGrantRejection_ImportWithReason(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_application_access_grant_rejection.tf-test-application-access-grant-rejection", "reason", "Not authorized for this environment"),
 				),
 			},
-			// Step 2: REFRESH STEP
+			// Step 2: REFRESH STEP - sync state and verify reason is preserved
 			{
 				Config: GetProvider() + GetFile("axual_application_access_grant_stream_owner_rejection_with_reason.tf"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("axual_application_access_grant.tf-test-application-access-grant", "status", "Rejected"),
+					// Verify reason is read back from API (stored as 'comment' in API)
+					resource.TestCheckResourceAttr("axual_application_access_grant_rejection.tf-test-application-access-grant-rejection", "reason", "Not authorized for this environment"),
 				),
 			},
-			// Step 3: Import - must ignore 'reason' as API doesn't return it
+			// Step 3: Import - reason should be populated from API's 'comment' field
 			// Notes:
 			// - ImportStateIdFunc: needed because the resource doesn't have an 'id' attribute
 			// - ImportStateVerifyIdentifierAttribute: tells verify to use 'application_access_grant' as identifier
-			// - ImportStateVerifyIgnore: 'reason' is not returned by API
+			// - No ImportStateVerifyIgnore needed: reason is now read from API's 'comment' field
 			{
 				ResourceName:                         "axual_application_access_grant_rejection.tf-test-application-access-grant-rejection",
 				ImportState:                          true,
 				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "application_access_grant",
-				ImportStateVerifyIgnore:              []string{"reason"},
 				ImportStateIdFunc: func(s *terraform.State) (string, error) {
 					rs, ok := s.RootModule().Resources["axual_application_access_grant_rejection.tf-test-application-access-grant-rejection"]
 					if !ok {
@@ -453,7 +454,8 @@ func TestApplicationAccessGrantRejection_ImportWithReason(t *testing.T) {
 // deleted without a separate approval resource.
 //
 // Previously, deleting an approved grant would fail with:
-//   "Application Access Grant cannot be cancelled. Please Revoke first."
+//
+//	"Application Access Grant cannot be cancelled. Please Revoke first."
 //
 // With the fix to the grant Delete function, approved grants are automatically
 // revoked before being removed from state. This enables:
