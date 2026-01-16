@@ -131,6 +131,7 @@ func (r *applicationAccessGrantApprovalResource) Create(ctx context.Context, req
 					"Current status: %s\nGrant ID: %s\n\n"+
 					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",
 				applicationAccessGrant.Status, grantId))
+		return
 	}
 }
 

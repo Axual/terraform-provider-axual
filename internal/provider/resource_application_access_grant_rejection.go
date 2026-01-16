@@ -135,8 +135,8 @@ func (r *applicationAccessGrantRejectionResource) Create(ctx context.Context, re
 					"Current status: %s\nGrant ID: %s\n\n"+
 					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",
 				applicationAccessGrant.Status, grantId))
+		return
 	}
-
 }
 
 func (r *applicationAccessGrantRejectionResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
