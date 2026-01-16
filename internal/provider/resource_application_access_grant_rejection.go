@@ -105,6 +105,7 @@ func (r *applicationAccessGrantRejectionResource) Create(ctx context.Context, re
 					"2. Or delete the axual_application_access_grant resource (auto-revokes)\n\n"+
 					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",
 				grantId))
+		return
 	case "Revoked":
 		resp.Diagnostics.AddError(
 			"Cannot reject revoked grant",
@@ -115,6 +116,7 @@ func (r *applicationAccessGrantRejectionResource) Create(ctx context.Context, re
 					"To request access again, the Application Owner must delete and recreate the grant.\n\n"+
 					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",
 				grantId))
+		return
 	case "Cancelled":
 		resp.Diagnostics.AddError(
 			"Cannot reject cancelled grant",
@@ -124,6 +126,7 @@ func (r *applicationAccessGrantRejectionResource) Create(ctx context.Context, re
 					"The grant is already in a terminal state - the access request was withdrawn.\n\n"+
 					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",
 				grantId))
+		return
 	default:
 		resp.Diagnostics.AddError(
 			"Cannot reject grant",

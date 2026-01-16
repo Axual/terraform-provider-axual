@@ -99,6 +99,7 @@ func (r *applicationAccessGrantApprovalResource) Create(ctx context.Context, req
 					"3. Topic Owner: Create axual_application_access_grant_approval resource\n\n"+
 					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",
 				grantId))
+		return
 	case "Rejected":
 		resp.Diagnostics.AddError(
 			"Cannot approve rejected grant",
@@ -111,6 +112,7 @@ func (r *applicationAccessGrantApprovalResource) Create(ctx context.Context, req
 					"3. Topic Owner: Create axual_application_access_grant_approval resource\n\n"+
 					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",
 				grantId))
+		return
 	case "Cancelled":
 		resp.Diagnostics.AddError(
 			"Cannot approve cancelled grant",
@@ -120,6 +122,7 @@ func (r *applicationAccessGrantApprovalResource) Create(ctx context.Context, req
 					"The Application Owner must recreate the grant to request access again.\n\n"+
 					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",
 				grantId))
+		return
 	default:
 		resp.Diagnostics.AddError(
 			"Cannot approve grant",
