@@ -128,7 +128,7 @@ func (r *applicationAccessGrantResource) Read(ctx context.Context, req resource.
 	// TODO: Change to use GET /application_access_grants/{id} once the API returns application, topic, and access_type fields.
 	// Currently using search endpoint as a workaround because GET by ID doesn't return these fields.
 	tflog.Info(ctx, fmt.Sprintf("Reading Application Access Grant via search endpoint. Id: %s", data.Id.ValueString()))
-	applicationAccessGrant, err := r.findGrantById(ctx, data.Id.ValueString())
+	applicationAccessGrant, err := r.findGrantByIdWithFilters(ctx, &data)
 	if err != nil {
 		if errors.Is(err, errGrantNotFound) {
 			tflog.Warn(ctx, fmt.Sprintf("Application Access Grant not found. Id: %s", data.Id.ValueString()))
@@ -165,20 +165,29 @@ type grantSearchResult struct {
 // errGrantNotFound is returned when a grant cannot be found
 var errGrantNotFound = errors.New("grant not found")
 
-// findGrantById searches for a grant by its UID using the search endpoint.
+// findGrantByIdWithFilters searches for a grant by its UID using the search endpoint with filters.
+// Uses application, topic, environment, and access_type from state to filter the search,
+// significantly reducing the response size (typically 0-2 grants instead of all grants).
 // TODO: Replace with GET /application_access_grants/{id} once the API returns application, topic, and access_type fields.
-// This is an anti-pattern (fetching all to find one), but necessary as a workaround until the API is updated.
-func (r *applicationAccessGrantResource) findGrantById(ctx context.Context, grantId string) (*grantSearchResult, error) {
-	// Note: Not filtering by status - the API returns all grants when statuses is not provided.
-	// Possible grant statuses: PENDING, APPROVED, REVOKED, REJECTED, CANCELLED
+func (r *applicationAccessGrantResource) findGrantByIdWithFilters(ctx context.Context, data *applicationAccessGrantData) (*grantSearchResult, error) {
 	searchAttrs := webclient.ApplicationAccessGrantAttributes{
-		Size: 9999,
+		ApplicationId: data.ApplicationId.ValueString(),
+		TopicId:       data.TopicId.ValueString(),
+		EnvironmentId: data.EnvironmentId.ValueString(),
+		AccessType:    data.AccessType.ValueString(),
+		Size:          9999,
 	}
+
+	tflog.Debug(ctx, fmt.Sprintf("Searching for grant with filters: app=%s, topic=%s, env=%s, type=%s",
+		data.ApplicationId.ValueString(), data.TopicId.ValueString(),
+		data.EnvironmentId.ValueString(), data.AccessType.ValueString()))
+
 	result, err := r.provider.client.GetApplicationAccessGrantsByAttributes(searchAttrs)
 	if err != nil {
 		return nil, err
 	}
 
+	grantId := data.Id.ValueString()
 	for _, grant := range result.Embedded.ApplicationAccessGrantResponses {
 		if grant.Uid == grantId {
 			return &grantSearchResult{
