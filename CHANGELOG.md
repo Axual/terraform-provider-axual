@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## master (https://github.com/Axual/terraform-provider-axual/tree/master) - 2026-01-15
+### Added
+* Import support for `axual_application_access_grant` resource
+* Import support for `axual_application_access_grant_approval` resource
+* Import support for `axual_application_access_grant_rejection` resource
+* Auto-revoke on delete: Deleting an approved `axual_application_access_grant` now automatically revokes it first
+* Grant Delete now handles terminal states (Revoked, Rejected, Cancelled) gracefully - just removes from state
+
+### Changed
+* Updated "Managing application access to topics" guide with import instructions and auto-revoke documentation
+* Updated resource documentation for all three grant-related resources
+
+### Fixed
+* Grant Delete no longer fails with "Please Revoke first" error - approved grants are auto-revoked
+* Approval and Rejection Read functions now properly handle NotFoundError and status changes
+
+
 ## [2.8.2](https://github.com/Axual/terraform-provider-axual/tree/master) - 2026-01-06
 * Fix Application Access Grant failing to update when status is "Approved"
 * Fix Application Deployment state not being saved when START operation times out

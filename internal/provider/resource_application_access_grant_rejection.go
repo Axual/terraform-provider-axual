@@ -1,7 +1,9 @@
 package provider
 
 import (
+	webclient "axual-webclient"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -84,15 +86,57 @@ func (r *applicationAccessGrantRejectionResource) Create(ctx context.Context, re
 
 	// If Grant is already Rejected, simply import the state
 	if applicationAccessGrant.Status == "Rejected" {
+		tflog.Info(ctx, "Grant is already Rejected, adopting into Terraform state")
 		diags = resp.State.Set(ctx, &data)
 		resp.Diagnostics.Append(diags...)
-		tflog.Info(ctx, "mapping the resource")
+		return
 	}
 
-	resp.Diagnostics.AddError(
-		"Error: Failed to Reject/Deny grant",
-		fmt.Sprintf("Grant is not in correct state \nCurrent status of the grant is: %s", applicationAccessGrant.Status))
-
+	// Specific error messages for non-rejectable states with remediation steps
+	grantId := data.ApplicationAccessGrant.ValueString()
+	switch applicationAccessGrant.Status {
+	case "Approved":
+		resp.Diagnostics.AddError(
+			"Cannot reject approved grant",
+			fmt.Sprintf(
+				"Grant '%s' is already approved. Approved grants cannot be rejected.\n\n"+
+					"To deny access:\n"+
+					"1. Delete the axual_application_access_grant_approval resource to revoke the grant\n"+
+					"2. Or delete the axual_application_access_grant resource (auto-revokes)\n\n"+
+					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",
+				grantId))
+		return
+	case "Revoked":
+		resp.Diagnostics.AddError(
+			"Cannot reject revoked grant",
+			fmt.Sprintf(
+				"Grant '%s' was previously approved and then revoked. "+
+					"Revoked grants cannot be rejected.\n\n"+
+					"The grant is already in a terminal state - access is denied.\n"+
+					"To request access again, the Application Owner must delete and recreate the grant.\n\n"+
+					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",
+				grantId))
+		return
+	case "Cancelled":
+		resp.Diagnostics.AddError(
+			"Cannot reject cancelled grant",
+			fmt.Sprintf(
+				"Grant '%s' is cancelled by the Application Owner. "+
+					"Cancelled grants cannot be rejected.\n\n"+
+					"The grant is already in a terminal state - the access request was withdrawn.\n\n"+
+					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",
+				grantId))
+		return
+	default:
+		resp.Diagnostics.AddError(
+			"Cannot reject grant",
+			fmt.Sprintf(
+				"Only Pending grants can be rejected.\n"+
+					"Current status: %s\nGrant ID: %s\n\n"+
+					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",
+				applicationAccessGrant.Status, grantId))
+		return
+	}
 }
 
 func (r *applicationAccessGrantRejectionResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -105,20 +149,35 @@ func (r *applicationAccessGrantRejectionResource) Read(ctx context.Context, req 
 		return
 	}
 
+	tflog.Info(ctx, fmt.Sprintf("Reading Application Access Grant Rejection for grant: %s", data.ApplicationAccessGrant.ValueString()))
+
 	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.ApplicationAccessGrant.ValueString())
 	if err != nil {
+		if errors.Is(err, webclient.NotFoundError) {
+			tflog.Warn(ctx, fmt.Sprintf("Application Access Grant not found, removing rejection from state. Id: %s", data.ApplicationAccessGrant.ValueString()))
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
-	// If Grant is already Rejected, simply import the state
+
 	if applicationAccessGrant.Status == "Rejected" {
+		tflog.Info(ctx, fmt.Sprintf("Grant is Rejected, saving rejection state. Id: %s", data.ApplicationAccessGrant.ValueString()))
+		// Map the API's 'comment' field to the Terraform 'reason' attribute
+		if applicationAccessGrant.Comment != "" {
+			data.Reason = types.StringValue(applicationAccessGrant.Comment)
+		}
 		diags = resp.State.Set(ctx, &data)
 		resp.Diagnostics.Append(diags...)
-		tflog.Info(ctx, "mapping the resource")
 		return
 	}
-	resp.Diagnostics.AddError("Grant is not Rejected", "Error")
 
+	// Grant exists but is not in Rejected status
+	// Remove the rejection resource from state since it no longer represents a rejected grant
+	tflog.Warn(ctx, fmt.Sprintf("Grant is not in Rejected status (current: %s), removing rejection from state. Id: %s",
+		applicationAccessGrant.Status, data.ApplicationAccessGrant.ValueString()))
+	resp.State.RemoveResource(ctx)
 }
 
 func (r *applicationAccessGrantRejectionResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -133,5 +192,5 @@ func (r *applicationAccessGrantRejectionResource) Delete(ctx context.Context, re
 }
 
 func (r *applicationAccessGrantRejectionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	resource.ImportStatePassthroughID(ctx, path.Root("application_access_grant"), req, resp)
 }

@@ -78,16 +78,61 @@ func (r *applicationAccessGrantApprovalResource) Create(ctx context.Context, req
 		return
 	}
 
-	// If Grant is already approved, simply import the state
-	if applicationAccessGrant.Status == "Approved" {
-		tflog.Info(ctx, "Saving Application Access Grant Approval resource to state")
+	// Handle based on grant status
+	grantId := data.ApplicationAccessGrant.ValueString()
+	switch applicationAccessGrant.Status {
+	case "Approved":
+		// Grant is already approved, simply adopt into Terraform state
+		tflog.Info(ctx, "Grant already approved, adopting into Terraform state")
 		diags = resp.State.Set(ctx, &data)
 		resp.Diagnostics.Append(diags...)
 		return
+	case "Revoked":
+		resp.Diagnostics.AddError(
+			"Cannot approve revoked grant",
+			fmt.Sprintf(
+				"Grant '%s' was previously approved and then revoked. "+
+					"Revoked grants cannot be re-approved.\n\n"+
+					"To request access again:\n"+
+					"1. Application Owner: Delete axual_application_access_grant resource\n"+
+					"2. Application Owner: Recreate axual_application_access_grant resource\n"+
+					"3. Topic Owner: Create axual_application_access_grant_approval resource\n\n"+
+					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",
+				grantId))
+		return
+	case "Rejected":
+		resp.Diagnostics.AddError(
+			"Cannot approve rejected grant",
+			fmt.Sprintf(
+				"Grant '%s' is rejected. Rejected grants cannot be approved.\n\n"+
+					"Be sure that you are approving a Pending grant.\n"+
+					"In case you want to re-use the same Grant definition, request the access again:\n"+
+					"1. Application Owner: Delete axual_application_access_grant resource\n"+
+					"2. Application Owner: Recreate axual_application_access_grant resource\n"+
+					"3. Topic Owner: Create axual_application_access_grant_approval resource\n\n"+
+					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",
+				grantId))
+		return
+	case "Cancelled":
+		resp.Diagnostics.AddError(
+			"Cannot approve cancelled grant",
+			fmt.Sprintf(
+				"Grant '%s' is cancelled by the Application Owner. "+
+					"Cancelled grants cannot be approved.\n\n"+
+					"The Application Owner must recreate the grant to request access again.\n\n"+
+					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",
+				grantId))
+		return
+	default:
+		resp.Diagnostics.AddError(
+			"Cannot approve grant",
+			fmt.Sprintf(
+				"Only Pending grants can be approved.\n"+
+					"Current status: %s\nGrant ID: %s\n\n"+
+					"Tip: Run 'terraform state show axual_application_access_grant.<name>' to check the grant's current status.",
+				applicationAccessGrant.Status, grantId))
+		return
 	}
-	resp.Diagnostics.AddError(
-		"Error: Failed to approve grant",
-		fmt.Sprintf("Only Pending grants can be approved \nCurrent status of the grant is: %s", applicationAccessGrant.Status))
 }
 
 func (r *applicationAccessGrantApprovalResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -100,25 +145,31 @@ func (r *applicationAccessGrantApprovalResource) Read(ctx context.Context, req r
 		return
 	}
 
+	tflog.Info(ctx, fmt.Sprintf("Reading Application Access Grant Approval for grant: %s", data.ApplicationAccessGrant.ValueString()))
+
 	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.ApplicationAccessGrant.ValueString())
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
-			tflog.Warn(ctx, fmt.Sprintf("Application Access Grant not found. Id: %s", data.ApplicationAccessGrant.ValueString()))
-		} else {
-			resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
+			tflog.Warn(ctx, fmt.Sprintf("Application Access Grant not found, removing approval from state. Id: %s", data.ApplicationAccessGrant.ValueString()))
+			resp.State.RemoveResource(ctx)
+			return
 		}
+		resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
 
 	if applicationAccessGrant.Status == "Approved" {
+		tflog.Info(ctx, fmt.Sprintf("Grant is Approved, saving approval state. Id: %s", data.ApplicationAccessGrant.ValueString()))
 		diags = resp.State.Set(ctx, &data)
 		resp.Diagnostics.Append(diags...)
-		tflog.Info(ctx, "mapping the resource")
-		data.ApplicationAccessGrant = types.StringValue(applicationAccessGrant.Uid)
-	} else {
-		resp.Diagnostics.AddError("Grant is not Approved", fmt.Sprintf("Only Pending grants can be approved \nCurrent status of the grant is: %s", applicationAccessGrant.Status))
 		return
 	}
+
+	// Grant exists but is not in Approved status - this means the approval was revoked or the grant was rejected
+	// Remove the approval resource from state since it no longer represents an approved grant
+	tflog.Warn(ctx, fmt.Sprintf("Grant is not in Approved status (current: %s), removing approval from state. Id: %s",
+		applicationAccessGrant.Status, data.ApplicationAccessGrant.ValueString()))
+	resp.State.RemoveResource(ctx)
 }
 
 func (r *applicationAccessGrantApprovalResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {

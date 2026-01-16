@@ -1,3 +1,7 @@
+# Test: PRODUCER access type (Auto environment)
+# This tests that PRODUCER access type works correctly
+# Approval resource is needed for REVOKE during cleanup (not for approve - that's automatic)
+
 resource "axual_application" "tf-test-app" {
   name             = "tf-test-app"
   application_type = "Custom"
@@ -23,7 +27,7 @@ resource "axual_environment" "tf-test-env" {
 resource "axual_application_principal" "tf-test-app-principal" {
   environment = axual_environment.tf-test-env.id
   application = axual_application.tf-test-app.id
-  principal = file("certs/generic-application-1.pem")
+  principal   = file("certs/generic-application-1.pem")
 }
 
 resource "axual_topic" "tf-test-topic" {
@@ -32,7 +36,7 @@ resource "axual_topic" "tf-test-topic" {
   value_type       = "String"
   owners           = data.axual_group.test_group.id
   retention_policy = "delete"
-  properties = {}
+  properties       = {}
   description      = "Demo of deploying a topic config via Terraform"
 }
 
@@ -41,21 +45,21 @@ resource "axual_topic_config" "tf-test-topic-config" {
   retention_time = 864000
   topic          = axual_topic.tf-test-topic.id
   environment    = axual_environment.tf-test-env.id
-  properties = { "segment.ms" = "600012", "retention.bytes" = "-1" }
+  properties     = { "segment.ms" = "600012", "retention.bytes" = "-1" }
 }
 
 resource "axual_application_access_grant" "tf-test-application-access-grant" {
   application = axual_application.tf-test-app.id
   topic       = axual_topic.tf-test-topic.id
   environment = axual_environment.tf-test-env.id
-  access_type = "CONSUMER"
+  access_type = "PRODUCER"
   depends_on = [
     axual_application_principal.tf-test-app-principal,
     axual_topic_config.tf-test-topic-config
   ]
 }
 
+# Approval resource: In Auto env, Create is a no-op (already approved), but Delete triggers REVOKE
 resource "axual_application_access_grant_approval" "tf-test-application-access-grant-approval" {
   application_access_grant = axual_application_access_grant.tf-test-application-access-grant.id
 }
-
