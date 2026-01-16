@@ -19,6 +19,16 @@
 
 {{ .SchemaMarkdown | trimspace }}
 
+## State Synchronization
+
+~> **Important:** After creating this resource, the `axual_application_access_grant` resource's `status` attribute in Terraform state will still show the previous value (e.g., "Pending") until the next refresh. Run `terraform plan`, `terraform apply`, or `terraform refresh` to sync the state.
+
+### Why This Happens
+
+This is expected Terraform behavior. When one resource modifies another resource via the API, Terraform's state for the modified resource is not automatically updated. The state is only synced during the refresh phase, which runs at the start of `plan`, `apply`, and `refresh` commands.
+
+~> **Note:** In normal workflows, you won't notice this issue because Terraform automatically refreshes state before any `plan` or `apply`. The stale state only matters if you inspect the state file immediately after creating the approval/rejection resource.
+
 ## Example Usage
 
 ```hcl
@@ -31,4 +41,51 @@ For a full example which shows the capabilities of the latest TerraForm provider
 
 ## Import
 
-Import is not currently supported.
+Application Access Grant Approval can be imported using the grant's UID:
+
+```shell
+terraform import axual_application_access_grant_approval.example 1234567890abcdef1234567890abcdef
+```
+
+### Prerequisites
+
+- The grant must exist and be in "Approved" status
+- If the grant is not in "Approved" status, import will fail (the approval resource is removed from state)
+
+### Import Order
+
+Import `axual_application_access_grant` before importing `axual_application_access_grant_approval`:
+
+```shell
+# Step 1: Import the grant first
+terraform import axual_application_access_grant.my_grant 1234567890abcdef1234567890abcdef
+
+# Step 2: Import the approval using the same grant UID
+terraform import axual_application_access_grant_approval.my_approval 1234567890abcdef1234567890abcdef
+```
+
+### Finding the Grant UID
+
+The grant UID can be found in:
+
+1. **Terraform state file** - After importing `axual_application_access_grant`, look for the `id` attribute:
+   ```json
+   {
+     "type": "axual_application_access_grant",
+     "name": "my_grant",
+     "instances": [{
+       "attributes": {
+         "id": "1234567890abcdef1234567890abcdef"
+       }
+     }]
+   }
+   ```
+
+2. **Axual Self-Service UI** - Navigate to the grant details page
+
+3. **Axual API** - Query the `/application_access_grants` endpoint
+
+### Notes
+
+- After import, the `application_access_grant` attribute will contain the grant UID
+- Deleting the approval resource will revoke the grant (change status from "Approved" to "Revoked")
