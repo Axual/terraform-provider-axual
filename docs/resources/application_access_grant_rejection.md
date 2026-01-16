@@ -58,31 +58,9 @@ terraform import axual_application_access_grant_rejection.example 1234567890abcd
 - The grant must exist and be in "Rejected" status
 - If the grant is not in "Rejected" status, import will fail (the rejection resource is removed from state)
 
-### Handling the `reason` Attribute
+### The `reason` Attribute
 
-The `reason` attribute is **not returned by the API**. After import, this attribute will be `null`. If your configuration specifies a `reason`, subsequent `terraform plan` will show a diff.
-
-**Recommended:** Add a lifecycle block to ignore changes to `reason`:
-
-```hcl
-resource "axual_application_access_grant_rejection" "example" {
-  application_access_grant = axual_application_access_grant.my_grant.id
-  reason                   = "Access denied due to security policy"
-
-  lifecycle {
-    ignore_changes = [reason]
-  }
-}
-```
-
-Alternatively, omit the `reason` attribute from your configuration if it's not critical:
-
-```hcl
-resource "axual_application_access_grant_rejection" "example" {
-  application_access_grant = axual_application_access_grant.my_grant.id
-  # reason omitted - no diff after import
-}
-```
+The `reason` attribute is stored as `comment` in the API. After import, the reason will be correctly populated from the API response.
 
 ### Notes
 
