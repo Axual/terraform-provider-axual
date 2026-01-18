@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.9.1](https://github.com/Axual/terraform-provider-axual/tree/master) - 2026-01-18
+* Fixed the compatibility matrix
+* Fixed documentation about grants, clarifying that terraform plan does not automatically refresh the state.
+
 ## [2.9.0](https://github.com/Axual/terraform-provider-axual/tree/master) - 2026-01-18
 ### Added
 * Import support for `axual_application_access_grant` resource
