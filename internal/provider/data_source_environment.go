@@ -4,6 +4,8 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"fmt"
+	"regexp"
+
 	"github.com/hashicorp/terraform-plugin-framework-validators/datasourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -13,7 +15,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"regexp"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces
@@ -186,14 +187,14 @@ func mapEnvironmentDataSourceResponseToData(ctx context.Context, data *environme
 	data.Id = types.StringValue(environment.Uid)
 	data.Name = types.StringValue(environment.Name)
 	data.ShortName = types.StringValue(environment.ShortName)
-	data.Description = types.StringValue(environment.Embedded.Instance.Description)
 	data.Color = types.StringValue(environment.Color)
 	data.Visibility = types.StringValue(environment.Visibility)
 	data.AuthorizationIssuer = types.StringValue(environment.AuthorizationIssuer)
-	data.Owners = types.StringValue(environment.Embedded.Owners.Uid)
 	data.RetentionTime = types.Int64Value(int64(environment.RetentionTime))
 	data.Partitions = types.Int64Value(int64(environment.Partitions))
-	data.Instance = types.StringValue(environment.Links.Instance.Href)
+	// embedded fields
+	data.Owners = types.StringValue(environment.Embedded.Owners.Uid)
+	data.Instance = types.StringValue(environment.Embedded.Instance.Uid)
 
 	properties := make(map[string]attr.Value)
 	for key, value := range environment.Properties {

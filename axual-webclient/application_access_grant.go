@@ -86,10 +86,7 @@ type ApplicationAccessGrantAttributes struct {
 	ApplicationId string `json:"applicationId"`
 	EnvironmentId string `json:"environmentId"`
 	AccessType    string `json:"accessType"`
-	OwnersIds     string `json:"ownersIds"`
 	Statuses      string `json:"statuses"`
-	Sort          string `json:"sort"`
-	Page          int    `json:"page"`
 	Size          int    `json:"size"`
 }
 

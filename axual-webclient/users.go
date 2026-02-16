@@ -7,15 +7,6 @@ import (
 	"strings"
 )
 
-func (c *Client) GetUsers() (*UsersResponse, error) {
-	o := UsersResponse{}
-	err := c.RequestAndMap("GET", fmt.Sprintf("%s/users", c.ApiURL), nil, nil, &o)
-	if err != nil {
-		return nil, err
-	}
-	return &o, nil
-}
-
 func (c *Client) GetUser(id string) (*UserResponse, error) {
 	o := UserResponse{}
 	err := c.RequestAndMap("GET", fmt.Sprintf("%s/users/%v", c.ApiURL, id), nil, nil, &o)
