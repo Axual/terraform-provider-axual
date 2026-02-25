@@ -64,4 +64,52 @@ For a full example which shows the capabilities of the latest TerraForm provider
 
 ## Import
 
-Import is not currently supported.
+Application Principal can be imported using the resource `id`:
+
+```shell
+terraform import axual_application_principal.example <application-principal-uid>
+```
+
+After import, `principal`, `environment`, and `application` are populated from the API.
+
+### Connector principals (`private_key`)
+
+The API does not return the private key for security reasons. After importing a connector principal, Terraform will plan a replacement because `private_key` is missing from state. Two options:
+
+1. **Accept the one-time replace** — run `terraform apply` to destroy and recreate the principal with the full config including the private key. **Warning:** replacing a principal also destroys and recreates any dependent resources such as `axual_application_access_grant` and `axual_application_access_grant_approval`. This causes a brief disruption and may require re-approval of grants if the environment uses `Stream owner` authorization.
+2. **Use lifecycle ignore (recommended)** — add the following to suppress the diff:
+
+```hcl
+resource "axual_application_principal" "example" {
+  environment = "..."
+  application = "..."
+  principal   = file("certs/my-connector.pem")
+  private_key = file("certs/my-connector.key")
+
+  lifecycle {
+    ignore_changes = [private_key]
+  }
+}
+```
+
+Remove the `lifecycle` block once the state is stable. Subsequent `terraform apply` runs from config will include the private key normally since Create always sends it.
+
+### Custom principals (`custom`)
+
+The API does not return the `custom` boolean. After importing a custom (OAUTHBEARER) principal, Terraform will plan a replacement because `custom` is missing from state. The same two options apply:
+
+1. **Accept the one-time replace** — run `terraform apply`. **Warning:** this also destroys and recreates any dependent resources (grants, approvals). See the warning above.
+2. **Use lifecycle ignore (recommended)**:
+
+```hcl
+resource "axual_application_principal" "example" {
+  environment = "..."
+  application = "..."
+  principal   = "my-client-id"
+  custom      = true
+
+  lifecycle {
+    ignore_changes = [custom]
+  }
+}
+```
