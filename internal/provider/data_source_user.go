@@ -87,16 +87,28 @@ func (d *userDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 		return
 	}
 
+	// Find exact match from results, since the API may return partial/substring matches
+	exactMatchIndex := -1
+	for i, u := range usersResponse.Embedded.Users {
+		if u.Emailaddress.Email == data.Email.ValueString() {
+			exactMatchIndex = i
+			break
+		}
+	}
+	if exactMatchIndex == -1 {
+		resp.Diagnostics.AddError("User Not Found", fmt.Sprintf("No user found with exact email '%s'. The API returned %d partial matches.", data.Email.ValueString(), len(usersResponse.Embedded.Users)))
+		return
+	}
+
 	// Map the API response to the Terraform data structure.
-	mapUserDataSourceResponseToData(ctx, &data, usersResponse)
+	mapUserDataSourceResponseToData(ctx, &data, usersResponse, exactMatchIndex)
 
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 }
 
-func mapUserDataSourceResponseToData(ctx context.Context, data *userDataSourceData, usersResponse *webclient.UsersResponse) {
-	// Since the email is unique, we assume there is always exactly one user in the response.
-	user := usersResponse.Embedded.Users[0]
+func mapUserDataSourceResponseToData(ctx context.Context, data *userDataSourceData, usersResponse *webclient.UsersResponse, index int) {
+	user := usersResponse.Embedded.Users[index]
 
 	data.Id = types.StringValue(user.UID)
 	data.Email = types.StringValue(user.Emailaddress.Email)

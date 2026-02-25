@@ -92,7 +92,20 @@ func (d *schemaVersionDataSource) Read(ctx context.Context, req datasource.ReadR
 		return
 	}
 
-	sv, err2 := d.provider.client.GetSchemaVersionsBySchema(axualSchema.Embedded.Schemas[0].Links.Self.Href)
+	// Find exact match from results, since the API may return partial/substring matches
+	exactMatchIndex := -1
+	for i, s := range axualSchema.Embedded.Schemas {
+		if s.Name == data.FullName.ValueString() {
+			exactMatchIndex = i
+			break
+		}
+	}
+	if exactMatchIndex == -1 {
+		resp.Diagnostics.AddError("Schema not found error", fmt.Sprintf("No schema found with exact name '%s'. The API returned %d partial matches.", data.FullName.ValueString(), len(axualSchema.Embedded.Schemas)))
+		return
+	}
+
+	sv, err2 := d.provider.client.GetSchemaVersionsBySchema(axualSchema.Embedded.Schemas[exactMatchIndex].Links.Self.Href)
 
 	if err2 != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read axualSchema version, got error: %s", err2))
