@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
+
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -153,6 +155,22 @@ func (r *applicationCredentialResource) Create(ctx context.Context, req resource
 	data.Clusters = types.StringValue(applicationCredential.AuthData.Clusters)
 	data.AuthProvider = types.StringValue(applicationCredential.AuthData.Provider)
 
+	// The Create API response does not include the credential ID.
+	// Look up the newly created credential by application+environment and match by username to populate the ID.
+	credentials, err := r.provider.client.FindApplicationCredentialByApplicationAndEnvironment(data.ApplicationId.ValueString(), data.EnvironmentId.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error looking up credential ID after creation", fmt.Sprintf("Error message: %s", err.Error()))
+		return
+	}
+	for _, cred := range credentials {
+		if cred.Username == applicationCredential.AuthData.Username {
+			data.Id = types.StringValue(cred.ID)
+			data.Description = types.StringValue(cred.Description)
+			data.Types = convertAuthTypeListToTypesStringList(cred.Types)
+			break
+		}
+	}
+
 	tflog.Trace(ctx, "Created an application credential resource")
 	tflog.Info(ctx, "Saving the resource to state")
 	diags = resp.State.Set(ctx, &data)
@@ -164,6 +182,34 @@ func (r *applicationCredentialResource) Read(ctx context.Context, req resource.R
 	diags := req.State.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Import mode: EnvironmentId is not in state, so look up by ApplicationId and match by credential ID
+	if data.EnvironmentId.ValueString() == "" {
+		tflog.Info(ctx, "Import mode: searching credentials by application ID")
+		credentials, err := r.provider.client.FindApplicationCredentialByApplicationId(data.ApplicationId.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to search application credentials, got error: %s", err))
+			return
+		}
+
+		var found bool
+		for _, credential := range credentials {
+			if credential.ID == data.Id.ValueString() {
+				mapApplicationCredentialResponseToData(ctx, &data, &credential)
+				found = true
+				break
+			}
+		}
+		if !found {
+			resp.Diagnostics.AddError("Import Error", fmt.Sprintf("Application credential with id %s not found for application %s", data.Id.ValueString(), data.ApplicationId.ValueString()))
+			return
+		}
+
+		tflog.Info(ctx, "Saving imported credential to state")
+		diags = resp.State.Set(ctx, &data)
+		resp.Diagnostics.Append(diags...)
 		return
 	}
 
@@ -244,7 +290,16 @@ func (r *applicationCredentialResource) Delete(ctx context.Context, req resource
 }
 
 func (r *applicationCredentialResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	parts := strings.Split(req.ID, "/")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		resp.Diagnostics.AddError(
+			"Unexpected Import Identifier",
+			fmt.Sprintf("Expected import identifier with format: applicationId/credentialId. Got: %q", req.ID),
+		)
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("application"), parts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[1])...)
 }
 
 func createApplicationCredentialRequestFromData(ctx context.Context, data *applicationCredentialResourceData) (webclient.ApplicationCredentialCreateRequest, error) {
@@ -279,6 +334,8 @@ func createApplicationCredentialRequestFromData(ctx context.Context, data *appli
 
 func mapApplicationCredentialResponseToData(_ context.Context, data *applicationCredentialResourceData, applicationCredential *webclient.ApplicationCredentialFindByApplicationAndEnvironmentResponse) {
 	data.Id = types.StringValue(applicationCredential.ID)
+	data.ApplicationId = types.StringValue(applicationCredential.Application.ID)
+	data.EnvironmentId = types.StringValue(applicationCredential.Environment.ID)
 	data.Description = types.StringValue(applicationCredential.Description)
 	data.UserName = types.StringValue(applicationCredential.Username)
 	data.Types = convertAuthTypeListToTypesStringList(applicationCredential.Types)
