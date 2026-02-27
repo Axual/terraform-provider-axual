@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -145,12 +146,20 @@ func (r *environmentResource) Schema(ctx context.Context, req resource.SchemaReq
 			"properties": schema.MapAttribute{
 				MarkdownDescription: "Environment-wide properties for all topics and applications.",
 				Optional:            true,
+				Computed:            true,
 				ElementType:         types.StringType,
+				PlanModifiers: []planmodifier.Map{
+					mapplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"settings": schema.MapAttribute{
 				MarkdownDescription: "A list of Environment specific settings in Key,Value format. The options are: `enforceDataMasking`(boolean). Please note that setting `enforceDataMasking` to `true` only works if Data Masking is enabled in Tenant settings.",
 				Optional:            true,
+				Computed:            true,
 				ElementType:         types.StringType,
+				PlanModifiers: []planmodifier.Map{
+					mapplanmodifier.UseStateForUnknown(),
+				},
 				Validators: []validator.Map{
 					mapvalidator.KeysAre(stringvalidator.OneOf("enforceDataMasking")),
 				},
@@ -387,8 +396,8 @@ func mapEnvironmentResponseToData(ctx context.Context, data *environmentResource
 	data.Owners = types.StringValue(environment.Embedded.Owners.Uid)
 	data.RetentionTime = types.Int64Value(int64(environment.RetentionTime))
 	data.Partitions = types.Int64Value(int64(environment.Partitions))
-	data.Properties = utils.HandlePropertiesMapping(ctx, data.Properties, environment.Properties)
-	data.Settings = utils.HandlePropertiesMapping(ctx, data.Settings, environment.Settings)
+	data.Properties = utils.HandlePropertiesMapping(ctx, environment.Properties)
+	data.Settings = utils.HandlePropertiesMapping(ctx, environment.Settings)
 	data.Instance = types.StringValue(environment.Embedded.Instance.Uid)
 
 	// optional fields

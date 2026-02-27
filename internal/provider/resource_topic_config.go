@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -97,7 +98,11 @@ func (r *topicConfigResource) Schema(ctx context.Context, req resource.SchemaReq
 			"properties": schema.MapAttribute{
 				MarkdownDescription: "You can define Kafka properties for your topic here. All options are: `segment.ms`, `retention.bytes`, `min.compaction.lag.ms`, `max.compaction.lag.ms`, `message.timestamp.difference.max.ms`, `message.timestamp.type` Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#supported-kafka-properties",
 				Optional:            true,
+				Computed:            true,
 				ElementType:         types.StringType,
+				PlanModifiers: []planmodifier.Map{
+					mapplanmodifier.UseStateForUnknown(),
+				},
 				Validators: []validator.Map{
 					mapvalidator.KeysAre(stringvalidator.OneOf("max.compaction.lag.ms", "message.timestamp.difference.max.ms", "message.timestamp.type", "min.compaction.lag.ms", "retention.bytes", "segment.ms")),
 				},
@@ -378,7 +383,7 @@ func mapTopicConfigResponseToData(ctx context.Context, data *topicConfigResource
 	data.RetentionTime = types.Int64Value(int64(topicConfig.RetentionTime))
 	data.Topic = types.StringValue(topicConfig.Embedded.Stream.Uid)
 	data.Environment = types.StringValue(topicConfig.Embedded.Environment.Uid)
-	data.Properties = utils.HandlePropertiesMapping(ctx, data.Properties, topicConfig.Properties)
+	data.Properties = utils.HandlePropertiesMapping(ctx, topicConfig.Properties)
 
 	// Map schema versions if they exist
 	// TODO get from embedded instead of getting during `CreateTopicConfig`

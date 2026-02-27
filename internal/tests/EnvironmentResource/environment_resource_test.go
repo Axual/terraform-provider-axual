@@ -57,8 +57,8 @@ func TestEnvironmentResource(t *testing.T) {
 					resource.TestCheckResourceAttrPair("axual_environment.tf-test-env", "owners", "data.axual_group.test_group", "id"),
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "retention_time", "80000"),
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "partitions", "1"),
-					resource.TestCheckNoResourceAttr("axual_environment.tf-test-env", "properties"),
-					resource.TestCheckNoResourceAttr("axual_environment.tf-test-env", "settings"),
+					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "properties.%", "0"),
+					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "settings.%", "0"),
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "viewers.#", "1"),
 				),
 			},
@@ -71,6 +71,33 @@ func TestEnvironmentResource(t *testing.T) {
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
 				Config:  GetProvider() + GetFile("axual_environment_removed_settings_properties.tf"),
+			},
+		},
+	})
+
+	// Test import with empty properties and settings maps
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+
+		Steps: []resource.TestStep{
+			{
+				Config: GetProvider() + GetFile("axual_environment_empty_properties_settings.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_environment.tf-test-env-empty-maps", "name", "tf-empty-maps"),
+					resource.TestCheckResourceAttr("axual_environment.tf-test-env-empty-maps", "properties.%", "0"),
+					resource.TestCheckResourceAttr("axual_environment.tf-test-env-empty-maps", "settings.%", "0"),
+				),
+			},
+			{
+				ResourceName:      "axual_environment.tf-test-env-empty-maps",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			{
+				// To ensure cleanup if one of the test cases had an error
+				Destroy: true,
+				Config:  GetProvider() + GetFile("axual_environment_empty_properties_settings.tf"),
 			},
 		},
 	})

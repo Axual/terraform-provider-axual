@@ -42,7 +42,7 @@ func TestTopicConfigResource(t *testing.T) {
 					"axual_topic_config_setup.tf", "axual_topic_config_properties_removed.tf",
 				),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckNoResourceAttr("axual_topic_config.tf-topic-config", "properties"),
+					resource.TestCheckResourceAttr("axual_topic_config.tf-topic-config", "properties.%", "0"),
 				),
 			},
 			{
@@ -113,7 +113,7 @@ func TestTopicConfigAvroResource(t *testing.T) {
 					"axual_topic_config_avro_properties_removed.tf",
 				),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckNoResourceAttr("axual_topic_config.example-with-schema-version", "properties"),
+					resource.TestCheckResourceAttr("axual_topic_config.example-with-schema-version", "properties.%", "0"),
 				),
 			},
 			{
@@ -185,7 +185,7 @@ func TestTopicConfigMixResource(t *testing.T) {
 					"axual_topic_config_mix_properties_removed.tf",
 				),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckNoResourceAttr("axual_topic_config.tf_test_topic_config", "properties"),
+					resource.TestCheckResourceAttr("axual_topic_config.tf_test_topic_config", "properties.%", "0"),
 				),
 			},
 			{
