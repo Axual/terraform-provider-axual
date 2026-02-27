@@ -147,6 +147,10 @@ func (r *applicationPrincipalResource) Create(ctx context.Context, req resource.
 	returnedUid := strings.ReplaceAll(trimmedResponse, fmt.Sprintf("%s/%s", r.provider.client.ApiURL, "application_principals/"), "")
 
 	data.Id = types.StringValue(returnedUid)
+	// Normalize principal to match what the API stores/returns (trimmed).
+	// Without this, state keeps the config value (e.g. with trailing \n from file()),
+	// causing ImportStateVerify to fail against the trimmed API value.
+	data.Principal = types.StringValue(strings.TrimSpace(data.Principal.ValueString()))
 
 	tflog.Trace(ctx, "Created an application principal resource")
 	tflog.Info(ctx, "Saving the resource to state")
