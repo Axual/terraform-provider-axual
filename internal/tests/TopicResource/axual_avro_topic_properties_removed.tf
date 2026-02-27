@@ -13,4 +13,5 @@ resource "axual_topic" "topic-avro-test" {
   owners           = data.axual_group.test_group.id
   retention_policy = "delete"
   description      = "Changed Demo of deploying a topic via Terraform"
+  properties       = {}
 }

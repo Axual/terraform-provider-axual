@@ -147,10 +147,6 @@ func (r *applicationPrincipalResource) Create(ctx context.Context, req resource.
 	returnedUid := strings.ReplaceAll(trimmedResponse, fmt.Sprintf("%s/%s", r.provider.client.ApiURL, "application_principals/"), "")
 
 	data.Id = types.StringValue(returnedUid)
-	// Normalize principal to match what the API stores/returns (trimmed).
-	// Without this, state keeps the config value (e.g. with trailing \n from file()),
-	// causing ImportStateVerify to fail against the trimmed API value.
-	data.Principal = types.StringValue(strings.TrimSpace(data.Principal.ValueString()))
 
 	tflog.Trace(ctx, "Created an application principal resource")
 	tflog.Info(ctx, "Saving the resource to state")
@@ -276,9 +272,20 @@ func mapApplicationPrincipalResponseToData(_ context.Context, data *applicationP
 	data.Application = types.StringValue(applicationPrincipal.Embedded.Application.Uid)
 	// For SSL principals, applicationPem contains the full PEM certificate chain.
 	// For OAUTH (custom) principals, applicationPem is empty and the principal field contains the client ID.
+	var apiPrincipal string
 	if applicationPrincipal.ApplicationPem != "" {
-		data.Principal = types.StringValue(applicationPrincipal.ApplicationPem)
+		apiPrincipal = applicationPrincipal.ApplicationPem
 	} else {
-		data.Principal = types.StringValue(applicationPrincipal.Principal)
+		apiPrincipal = applicationPrincipal.Principal
+	}
+	// Preserve existing state value when only whitespace differs. The API returns
+	// trimmed values, but the config (from file()) may include a trailing newline.
+	// Without this, every Read would overwrite state with the trimmed API value,
+	// causing the trimSpaceSemanticallyEqual plan modifier to activate unnecessarily.
+	if !data.Principal.IsNull() && !data.Principal.IsUnknown() &&
+		strings.TrimSpace(data.Principal.ValueString()) == strings.TrimSpace(apiPrincipal) {
+		// Keep existing state value — semantically equal
+	} else {
+		data.Principal = types.StringValue(apiPrincipal)
 	}
 }

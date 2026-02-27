@@ -23,9 +23,10 @@ func TestApplicationPrincipalResource(t *testing.T) {
 				),
 			},
 			{
-				ResourceName:      "axual_application_principal.tf-test-app-principal",
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            "axual_application_principal.tf-test-app-principal",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"principal"},
 			},
 			{
 				Config: GetProvider() + GetFile(
