@@ -205,7 +205,15 @@ Before running acceptance tests:
    - Schema Admin (needed for deleting Schemas not assigned to your Group)
    - Topic Author
 
-4. **Configure Provider Connection:**
+4. **Configure Test Users:**
+
+   Some tests (e.g., `TopicBrowsePermissionsResource`) require existing users to be referenced. Update the test files in [`internal/tests/TopicBrowsePermissionsResource/`](./internal/tests/TopicBrowsePermissionsResource/) with email addresses of users that exist in your test environment.
+
+   The tests require users with the following roles:
+   - Users with roles: `APPLICATION_AUTHOR`, `ENVIRONMENT_AUTHOR`, `STREAM_AUTHOR`
+   - Users with roles: `APPLICATION_AUTHOR`, `SCHEMA_AUTHOR`
+
+5. **Configure Provider Connection:**
 
    Edit [`internal/tests/test_provider.go`](./internal/tests/test_provider.go) to connect to your target environment.
 
@@ -237,7 +245,6 @@ Execute the [`.run/Run all the tests.run.xml`](.run/Run%20all%20the%20tests.run.
 #### Recommended Testing Order
 
 When running tests for the first time, try them in this order to verify your setup:
-1. `user_resource_test.go`
 2. `topic_data_source_test.go`
 3. `application_deployment_resource_test.go`
 4. All tests together

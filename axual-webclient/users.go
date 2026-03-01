@@ -46,30 +46,6 @@ func (c *Client) DeleteUser(id string) error {
 	return nil
 }
 
-func (c *Client) CreateUser(data UserRequest) (*UserResponse, error) {
-	o := UserResponse{}
-
-	up := UserRequestWithPass{data, "kkdiennc"}
-	marshal, err := json.Marshal(up)
-	if err != nil {
-		return nil, err
-	}
-
-	err = c.RequestAndMap("POST", fmt.Sprintf("%s/users", c.ApiURL), strings.NewReader(string(marshal)), nil, &o)
-	if err != nil {
-		return nil, err
-	}
-	err = c.UpdateUserRoles(o.Uid, data.Roles)
-	if err != nil {
-		return nil, err
-	}
-	user, err := c.GetUser(o.Uid)
-	if err != nil {
-		return nil, err
-	}
-	return user, nil
-}
-
 func (c *Client) UpdateUserRoles(id string, data []UserRole) error {
 	marshal, err := json.Marshal(data)
 	if err != nil {

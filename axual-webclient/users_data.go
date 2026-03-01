@@ -38,11 +38,6 @@ type UserRequest struct {
 	Roles        []UserRole `json:"roles,omitempty"`
 }
 
-type UserRequestWithPass struct {
-	UserRequest
-	Password string `json:"password"`
-}
-
 type UserRole struct {
 	Name string `json:"name"`
 }

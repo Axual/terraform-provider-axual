@@ -98,28 +98,12 @@ func (r *userResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 }
 
 func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data userResourceData
-
-	diags := req.Config.Get(ctx, &data)
-	resp.Diagnostics.Append(diags...)
-
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	userRequest := createUserRequestFromData(ctx, &data)
-
-	user, err := r.provider.client.CreateUser(userRequest)
-	if err != nil {
-		resp.Diagnostics.AddError("CREATE request error for user resource", fmt.Sprintf("Error message: %s", err.Error()))
-		return
-	}
-
-	mapUserResponseToData(ctx, &data, user)
-	tflog.Trace(ctx, "created a resource")
-	tflog.Info(ctx, "saving the resource to state")
-	diags = resp.State.Set(ctx, &data)
-	resp.Diagnostics.Append(diags...)
+	resp.Diagnostics.AddError(
+		"User creation is not supported",
+		"The POST /users API endpoint has been removed (AXPD-10624). "+
+			"Users cannot be created via Terraform. Please use terraform import to manage existing users, "+
+			"or use the axual_user data source to reference users.",
+	)
 }
 
 func (r *userResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
