@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -147,10 +148,7 @@ func (r *topicBrowsePermissionsResource) Delete(ctx context.Context, req resourc
 	}
 }
 func (r *topicBrowsePermissionsResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resp.Diagnostics.AddError(
-		"Import Not Supported",
-		"This resource does not support import operation.",
-	)
+	resource.ImportStatePassthroughID(ctx, path.Root("topic_config"), req, resp)
 }
 
 // Helper to create PermissionRequest object from resource data
