@@ -87,7 +87,7 @@ After import, the following attributes are populated from the API:
 
 The following attributes are **not** available after import:
 - `password` - Stored in Vault and never exposed via GET. The password is only returned once during credential creation.
-- `target` - Only used in the create request, not persisted on the credential entity.
+- `target` - Not a persisted field on the credential entity. The `target` value (`KAFKA` or `SCHEMA_REGISTRY`) is used during creation to determine credential types (e.g., `SCRAM_SHA_512` for KAFKA) but is not stored or returned by the GET endpoint.
 - `auth_provider` - Only returned during creation (`authData.provider`), not part of the credential entity.
 
 After importing, add `lifecycle { ignore_changes }` to prevent Terraform from replacing the credential. The `target` attribute is not returned by the API, so Terraform sees a diff between state (`null`) and config (`"KAFKA"`) and plans a replace. The `ignore_changes` block suppresses this diff:

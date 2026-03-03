@@ -58,10 +58,9 @@ After import, `principal`, `environment`, and `application` are populated from t
 
 ### Connector principals (`private_key`)
 
-The API does not return the private key for security reasons. After importing a connector principal, Terraform will plan a replacement because `private_key` is missing from state. Two options:
+The API does not return the private key for security reasons. After importing a connector principal, Terraform will plan a replacement because `private_key` is missing from state.
 
-1. **Accept the one-time replace** — run `terraform apply` to destroy and recreate the principal with the full config including the private key. **Warning:** replacing a principal also destroys and recreates any dependent resources such as `axual_application_access_grant` and `axual_application_access_grant_approval`. This causes a brief disruption and may require re-approval of grants if the environment uses `Stream owner` authorization.
-2. **Use lifecycle ignore (recommended)** — add the following to suppress the diff:
+**Use lifecycle ignore** — add the following to suppress the diff:
 
 ```hcl
 resource "axual_application_principal" "example" {
@@ -82,8 +81,7 @@ Remove the `lifecycle` block once the state is stable. Subsequent `terraform app
 
 The API does not return the `custom` boolean. After importing a custom (OAUTHBEARER) principal, Terraform will plan a replacement because `custom` is missing from state. The same two options apply:
 
-1. **Accept the one-time replace** — run `terraform apply`. **Warning:** this also destroys and recreates any dependent resources (grants, approvals). See the warning above.
-2. **Use lifecycle ignore (recommended)**:
+**Use lifecycle ignore**:
 
 ```hcl
 resource "axual_application_principal" "example" {
