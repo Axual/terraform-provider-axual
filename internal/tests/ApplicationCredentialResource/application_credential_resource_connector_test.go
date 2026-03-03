@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
 func TestApplicationCredentialConnectorResource(t *testing.T) {
@@ -39,13 +38,6 @@ func TestApplicationCredentialConnectorResource(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"password", "target", "auth_provider"},
-				ImportStateIdFunc: func(s *terraform.State) (string, error) {
-					rs, ok := s.RootModule().Resources["axual_application_credential.tf-test-app-credential"]
-					if !ok {
-						return "", fmt.Errorf("Resource not found in state")
-					}
-					return fmt.Sprintf("%s/%s", rs.Primary.Attributes["application"], rs.Primary.Attributes["id"]), nil
-				},
 			},
 			{
 				// To ensure cleanup if one of the test cases had an error

@@ -8,14 +8,13 @@ import (
 	"time"
 )
 
-func (c *Client) FindApplicationCredentialByApplicationId(applicationId string) ([]ApplicationCredentialFindByApplicationAndEnvironmentResponse, error) {
-	var o []ApplicationCredentialFindByApplicationAndEnvironmentResponse
-	err := c.RequestAndMap("GET", fmt.Sprintf("%s/application_credentials/search/findByApplicationId?applicationId=%v",
-		c.ApiURL, url.QueryEscape(applicationId)), nil, nil, &o)
+func (c *Client) ReadApplicationCredential(id string) (*ApplicationCredentialFindByApplicationAndEnvironmentResponse, error) {
+	o := ApplicationCredentialFindByApplicationAndEnvironmentResponse{}
+	err := c.RequestAndMap("GET", fmt.Sprintf("%s/application_credentials/%s", c.ApiURL, id), nil, nil, &o)
 	if err != nil {
 		return nil, err
 	}
-	return o, nil
+	return &o, nil
 }
 
 func (c *Client) CreateApplicationCredential(applicationCredentialRequest ApplicationCredentialCreateRequest) (ApplicationCredentialResponse, error) {

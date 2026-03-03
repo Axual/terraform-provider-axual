@@ -69,13 +69,12 @@ output "consumer_creds" {
 
 ## Import
 
-Application Credentials can be imported using a composite key of the application ID and credential ID, separated by `/`:
+Application Credentials can be imported using the credential ID:
 
 ```shell
-terraform import axual_application_credential.example <application-id>/<credential-id>
+terraform import axual_application_credential.example <credential-id>
 ```
 
-The application ID is required because the API does not support looking up credentials by credential ID alone.
 You can find the credential ID in the Axual Platform UI or via the API.
 
 After import, the following attributes are populated from the API:
@@ -91,10 +90,7 @@ The following attributes are **not** available after import:
 - `target` - Only used in the create request, not persisted on the credential entity.
 - `auth_provider` - Only returned during creation (`authData.provider`), not part of the credential entity.
 
-After importing, Terraform will plan a replacement because `password`, `target`, and `auth_provider` are missing from state. Two options:
-
-1. **Accept the one-time replace** — run `terraform apply` to destroy and recreate the credential with the full config. **Warning:** replacing a credential also destroys and recreates any dependent resources such as `axual_application_access_grant` and `axual_application_access_grant_approval`. This causes a brief disruption and may require re-approval of grants if the environment uses `Stream owner` authorization.
-2. **Use lifecycle ignore (recommended)** — add the following to suppress the diff:
+After importing, add `lifecycle { ignore_changes }` to prevent Terraform from replacing the credential. The `target` attribute is not returned by the API, so Terraform sees a diff between state (`null`) and config (`"KAFKA"`) and plans a replace. The `ignore_changes` block suppresses this diff:
 
 ```hcl
 resource "axual_application_credential" "example" {
@@ -103,9 +99,11 @@ resource "axual_application_credential" "example" {
   target      = "KAFKA"
 
   lifecycle {
-    ignore_changes = [password, target, auth_provider]
+    ignore_changes = [target]
   }
 }
 ```
+
+Only `target` needs to be ignored. `password` and `auth_provider` are `Computed`-only attributes (not set by the user in config), so Terraform does not diff them and `ignore_changes` is not needed for them.
 
 Remove the `lifecycle` block once the state is stable. Subsequent `terraform apply` runs from config will include all attributes normally since Create always returns them.
