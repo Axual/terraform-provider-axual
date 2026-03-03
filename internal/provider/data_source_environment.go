@@ -170,24 +170,7 @@ func (d *environmentDataSource) Read(ctx context.Context, req datasource.ReadReq
 		return
 	}
 
-	// Find exact match from results, since the API may return partial/substring matches
-	exactMatchIndex := -1
-	for i, env := range environmentResponse.Embedded.Environments {
-		if data.Name.ValueString() != "" && env.Name == data.Name.ValueString() {
-			exactMatchIndex = i
-			break
-		}
-		if data.ShortName.ValueString() != "" && env.ShortName == data.ShortName.ValueString() {
-			exactMatchIndex = i
-			break
-		}
-	}
-	if exactMatchIndex == -1 {
-		resp.Diagnostics.AddError("Resource Not Found", fmt.Sprintf("No environment found with exact name '%s' or short_name '%s'. The API returned %d partial matches.", data.Name.ValueString(), data.ShortName.ValueString(), len(environmentResponse.Embedded.Environments)))
-		return
-	}
-
-	environment, err := d.provider.client.GetEnvironment(environmentResponse.Embedded.Environments[exactMatchIndex].Uid)
+	environment, err := d.provider.client.GetEnvironment(environmentResponse.Embedded.Environments[0].Uid)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment, got error: %s", err))
 		return

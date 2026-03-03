@@ -87,21 +87,8 @@ func (d *userDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 		return
 	}
 
-	// Find exact match from results, since the API may return partial/substring matches
-	exactMatchIndex := -1
-	for i, u := range usersResponse.Embedded.Users {
-		if u.Emailaddress.Email == data.Email.ValueString() {
-			exactMatchIndex = i
-			break
-		}
-	}
-	if exactMatchIndex == -1 {
-		resp.Diagnostics.AddError("User Not Found", fmt.Sprintf("No user found with exact email '%s'. The API returned %d partial matches.", data.Email.ValueString(), len(usersResponse.Embedded.Users)))
-		return
-	}
-
 	// Map the API response to the Terraform data structure.
-	mapUserDataSourceResponseToData(ctx, &data, usersResponse, exactMatchIndex)
+	mapUserDataSourceResponseToData(ctx, &data, usersResponse, 0)
 
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)

@@ -97,20 +97,7 @@ func (d *groupDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 		return
 	}
 
-	// Find exact match from results, since the API may return partial/substring matches
-	exactMatchIndex := -1
-	for i, g := range groupByName.Embedded.Groups {
-		if g.Name == data.Name.ValueString() {
-			exactMatchIndex = i
-			break
-		}
-	}
-	if exactMatchIndex == -1 {
-		resp.Diagnostics.AddError("Resource Not Found", fmt.Sprintf("No group found with exact name '%s'. The API returned %d partial matches.", data.Name.ValueString(), len(groupByName.Embedded.Groups)))
-		return
-	}
-
-	group, err2 := d.provider.client.GetGroup(groupByName.Embedded.Groups[exactMatchIndex].Uid)
+	group, err2 := d.provider.client.GetGroup(groupByName.Embedded.Groups[0].Uid)
 	if err2 != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read group, got error: %s", err2))
 		return

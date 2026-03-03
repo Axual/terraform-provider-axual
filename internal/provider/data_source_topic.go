@@ -126,20 +126,7 @@ func (d *topicDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 		return
 	}
 
-	// Find exact match from results, since the API may return partial/substring matches
-	exactMatchIndex := -1
-	for i, t := range topicByName.Embedded.Topics {
-		if t.Name == data.Name.ValueString() {
-			exactMatchIndex = i
-			break
-		}
-	}
-	if exactMatchIndex == -1 {
-		resp.Diagnostics.AddError("Resource Not Found", fmt.Sprintf("No topic found with exact name '%s'. The API returned %d partial matches.", data.Name.ValueString(), len(topicByName.Embedded.Topics)))
-		return
-	}
-
-	topic, err := d.provider.client.GetTopic(topicByName.Embedded.Topics[exactMatchIndex].Uid)
+	topic, err := d.provider.client.GetTopic(topicByName.Embedded.Topics[0].Uid)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read topic, got error: %s", err))
 		return
