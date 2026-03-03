@@ -1,6 +1,6 @@
 # This TerraForm file shows the basic capabilities of the TerraForm provider for Axual
 
-# The Terraform provider cannot be used to create a user. Please ensure that a user already exists before proceeding. To verify, please try logging into the UI.
+# The Terraform provider cannot be used to create a user. Please ensure that a user already exists in the self-service before proceeding. To verify, please try logging into the UI.
 # Look up yourself by e-mail – change the address
 data "axual_user" "my-user" {
   email = "<your_email>"

@@ -9,7 +9,7 @@ Creating new users via Terraform is **no longer supported**.
 ### Why was user creation removed?
 
 User creation via the API was removed because:
-- Users created via the API were only added to the Self-Service database, not to the authentication provider (Keycloak, Auth0, etc.)
+- Users created via the API were only added to the Self-Service database, not to the authentication provider (e.g., Keycloak)
 - This meant API-created users could not actually log in to Self-Service
 - Proper user management requires integration with the authentication provider
 
@@ -32,12 +32,13 @@ You have two options for managing existing users with Terraform:
 
 ### Creating new users
 
-New users must be created through:
-- The authentication provider (Keycloak, Auth0, etc.)
-- The Self-Service UI
+New users are created by logging in through your organization's Single Sign-On (SSO) provider. When a user authenticates via SSO for the first time, they are automatically registered in Self-Service.
 
 ## Required Roles
-- TENANT_ADMIN (for update and delete operations)
+
+- **No role required** for importing and managing your own user
+- **TENANT_ADMIN** required for update and delete operations on other users
+
 
 {{ .SchemaMarkdown | trimspace }}
 
