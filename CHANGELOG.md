@@ -28,7 +28,7 @@ All notable changes to this project will be documented in this file.
 * Grant Delete no longer fails with "Please Revoke first" error - approved grants are auto-revoked
 * Approval and Rejection Read functions now properly handle NotFoundError and status changes
 
-## [2.8.2](https://github.com/Axual/terraform-provider-axual/tree/master) - 2026-01-06
+## [2.8.2](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.8.2) - 2026-01-06
 * Fix Application Access Grant failing to update when status is "Approved"
 * Fix Application Deployment state not being saved when START operation times out
 * Add retry logic for deployment START operation to handle transient failures
