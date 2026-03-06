@@ -101,7 +101,7 @@ func (r *applicationCredentialResource) Schema(ctx context.Context, req resource
 					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{
-					stringvalidator.OneOf("KAFKA"),
+					stringvalidator.OneOf("KAFKA", "SCHEMA_REGISTRY"),
 				},
 			},
 			"description": schema.StringAttribute{
@@ -320,6 +320,11 @@ func mapApplicationCredentialResponseToData(_ context.Context, data *application
 	data.UserName = types.StringValue(applicationCredential.Username)
 	data.Types = convertAuthTypeListToTypesStringList(applicationCredential.Types)
 	data.Clusters = types.StringValue(applicationCredential.Metadata.Clusters)
+
+	// Derive target from types: the API does not persist the target field,
+	// but we can infer it from the credential types.
+	// SCHEMA_REGISTRY_BASIC_AUTH only -> SCHEMA_REGISTRY, otherwise -> KAFKA.
+	data.Target = types.StringValue(deriveTargetFromTypes(applicationCredential.Types))
 }
 
 func convertAuthTypeListToTypesStringList(input []webclient.AuthType) []types.String {
@@ -328,4 +333,19 @@ func convertAuthTypeListToTypesStringList(input []webclient.AuthType) []types.St
 		result = append(result, types.StringValue(v.Type))
 	}
 	return result
+}
+
+// deriveTargetFromTypes infers the target from credential types.
+// When all types are SCHEMA_REGISTRY_BASIC_AUTH, the target is SCHEMA_REGISTRY.
+// Otherwise (e.g. SCRAM_SHA_512), the target is KAFKA.
+func deriveTargetFromTypes(authTypes []webclient.AuthType) string {
+	if len(authTypes) == 0 {
+		return "KAFKA"
+	}
+	for _, t := range authTypes {
+		if t.Type != "SCHEMA_REGISTRY_BASIC_AUTH" {
+			return "KAFKA"
+		}
+	}
+	return "SCHEMA_REGISTRY"
 }
