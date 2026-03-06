@@ -8,7 +8,7 @@ All notable changes to this project will be documented in this file.
 * Import support for `axual_topic_browse_permissions`
 * Fix `axual_environment` import limitation
 
-## [2.9.1](https://github.com/Axual/terraform-provider-axual/tree/master) - 2026-01-18
+## [2.9.1](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.9.1) - 2026-01-18
 * Fixed the compatibility matrix
 * Fixed documentation about grants, clarifying that terraform plan does not automatically refresh the state.
 
