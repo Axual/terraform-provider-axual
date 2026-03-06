@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-func (c *Client) ReadApplicationCredential(id string) (*ApplicationCredentialResponse, error) {
-	o := ApplicationCredentialResponse{}
+func (c *Client) ReadApplicationCredential(id string) (*ApplicationCredentialFindByApplicationAndEnvironmentResponse, error) {
+	o := ApplicationCredentialFindByApplicationAndEnvironmentResponse{}
 	err := c.RequestAndMap("GET", fmt.Sprintf("%s/application_credentials/%s", c.ApiURL, id), nil, nil, &o)
 	if err != nil {
 		return nil, err

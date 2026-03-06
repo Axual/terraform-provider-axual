@@ -26,3 +26,13 @@ resource "axual_topic_browse_permissions" "support_browse_users_and_groups" {
   groups = [axual_group.team-awesome.id, axual_group.team-bonanza.id]
 }
 ```
+
+## Import
+
+Topic Browse Permissions can be imported using the topic config ID:
+
+```shell
+terraform import axual_topic_browse_permissions.example <topic-config-id>
+```
+
+After import, `users` and `groups` are populated from the API based on the current browse permissions for that topic config.

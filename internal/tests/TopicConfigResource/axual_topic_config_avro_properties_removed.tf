@@ -17,4 +17,5 @@ resource "axual_topic_config" "example-with-schema-version" {
   environment          = axual_environment.tf-test-env.id
   key_schema_version   = axual_schema_version.test_key_v1.id
   value_schema_version = axual_schema_version.test_value_v1.id
+  properties           = {}
 }

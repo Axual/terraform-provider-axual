@@ -17,7 +17,7 @@ func SetStringValue(input string) types.String {
 }
 
 // HandlePropertiesMapping map the properties's response from API to Terraform state
-func HandlePropertiesMapping(ctx context.Context, propertiesAttr types.Map, apiProperties map[string]interface{}) types.Map {
+func HandlePropertiesMapping(ctx context.Context, apiProperties map[string]interface{}) types.Map {
 	// Map API properties to Terraform format
 	properties := map[string]attr.Value{}
 	for key, value := range apiProperties {
@@ -26,20 +26,9 @@ func HandlePropertiesMapping(ctx context.Context, propertiesAttr types.Map, apiP
 		}
 	}
 
-	// Retrieve the current Terraform state for `properties`
-	var currentPropertiesState map[string]string
-	diags := propertiesAttr.ElementsAs(ctx, &currentPropertiesState, false)
-	if diags.HasError() {
-		tflog.Error(ctx, "Error reading current properties state", map[string]interface{}{"errors": diags.Errors()})
-	}
-
-	// The properties in API response is an empty map: properties = {}
+	// Always return an empty map when the API response has no properties.
+	// This avoids a null vs {} mismatch during import.
 	if len(properties) == 0 {
-		// The properties in config are missing or null, which means that properties = null in Terraform state
-		if currentPropertiesState == nil {
-			return types.MapNull(types.StringType)
-		}
-		// The properties in config is empty map: properties = {}, which means that properties = {} in Terraform state
 		return types.MapValueMust(types.StringType, map[string]attr.Value{})
 	}
 

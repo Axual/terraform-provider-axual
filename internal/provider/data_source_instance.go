@@ -119,15 +119,32 @@ func (d *instanceDataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 
-	mapInstanceDataSourceResponseToData(ctx, &data, instanceResponse)
+	// Find exact match from results, since the API may return partial/substring matches
+	exactMatchIndex := -1
+	for i, inst := range instanceResponse.Embedded.Instances {
+		if data.Name.ValueString() != "" && inst.Name == data.Name.ValueString() {
+			exactMatchIndex = i
+			break
+		}
+		if data.ShortName.ValueString() != "" && inst.ShortName == data.ShortName.ValueString() {
+			exactMatchIndex = i
+			break
+		}
+	}
+	if exactMatchIndex == -1 {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("No instance found with exact name '%s' or short_name '%s'. The API returned %d partial matches.", data.Name.ValueString(), data.ShortName.ValueString(), len(instanceResponse.Embedded.Instances)))
+		return
+	}
+
+	mapInstanceDataSourceResponseToData(ctx, &data, instanceResponse, exactMatchIndex)
 
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 }
 
-func mapInstanceDataSourceResponseToData(ctx context.Context, data *instanceDataSourceData, instanceResponseAttributes *webclient.InstancesResponseByAttributes) {
+func mapInstanceDataSourceResponseToData(ctx context.Context, data *instanceDataSourceData, instanceResponseAttributes *webclient.InstancesResponseByAttributes, index int) {
 
-	instance := instanceResponseAttributes.Embedded.Instances[0]
+	instance := instanceResponseAttributes.Embedded.Instances[index]
 
 	data.Id = types.StringValue(instance.Uid)
 	data.Name = types.StringValue(instance.Name)

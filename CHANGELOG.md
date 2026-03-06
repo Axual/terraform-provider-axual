@@ -2,11 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.9.1](https://github.com/Axual/terraform-provider-axual/tree/master) - 2026-01-18
+## [2.9.2](https://github.com/Axual/terraform-provider-axual/tree/master) - 2026-03-02
+* Import support for `axual_application_principal`
+* Import support for `axual_application_credential`
+* Import support for `axual_topic_browse_permissions`
+* Fix `axual_environment` import limitation
+
+## [2.9.1](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.9.1) - 2026-01-18
 * Fixed the compatibility matrix
 * Fixed documentation about grants, clarifying that terraform plan does not automatically refresh the state.
 
-## [2.9.0](https://github.com/Axual/terraform-provider-axual/tree/master) - 2026-01-18
+## [2.9.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.9.0) - 2026-01-18
 ### Added
 * Import support for `axual_application_access_grant` resource
 * Import support for `axual_application_access_grant_approval` resource
@@ -22,14 +28,14 @@ All notable changes to this project will be documented in this file.
 * Grant Delete no longer fails with "Please Revoke first" error - approved grants are auto-revoked
 * Approval and Rejection Read functions now properly handle NotFoundError and status changes
 
-## [2.8.2](https://github.com/Axual/terraform-provider-axual/tree/master) - 2026-01-06
+## [2.8.2](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.8.2) - 2026-01-06
 * Fix Application Access Grant failing to update when status is "Approved"
 * Fix Application Deployment state not being saved when START operation times out
 * Add retry logic for deployment START operation to handle transient failures
 * Increase HTTP client timeout from 10s to 30s
 * Rewrite "Managing application access to topics" guide
 
-## [2.8.1](https://github.com/Axual/terraform-provider-axual/tree/master) - 2026-01-02
+## [2.8.1](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.8.1) - 2026-01-02
 ### Added
 * Fix for issues: https://github.com/Axual/terraform-provider-axual/issues/133
 * New guide for schemas

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -100,7 +101,7 @@ func (r *applicationCredentialResource) Schema(ctx context.Context, req resource
 					stringplanmodifier.RequiresReplace(),
 				},
 				Validators: []validator.String{
-					stringvalidator.OneOf("KAFKA"),
+					stringvalidator.OneOf("KAFKA", "SCHEMA_REGISTRY"),
 				},
 			},
 			"description": schema.StringAttribute{
@@ -153,6 +154,22 @@ func (r *applicationCredentialResource) Create(ctx context.Context, req resource
 	data.Clusters = types.StringValue(applicationCredential.AuthData.Clusters)
 	data.AuthProvider = types.StringValue(applicationCredential.AuthData.Provider)
 
+	// The Create API response does not include the credential ID.
+	// Look up the newly created credential by application+environment and match by username to populate the ID.
+	credentials, err := r.provider.client.FindApplicationCredentialByApplicationAndEnvironment(data.ApplicationId.ValueString(), data.EnvironmentId.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error looking up credential ID after creation", fmt.Sprintf("Error message: %s", err.Error()))
+		return
+	}
+	for _, cred := range credentials {
+		if cred.Username == applicationCredential.AuthData.Username {
+			data.Id = types.StringValue(cred.ID)
+			data.Description = types.StringValue(cred.Description)
+			data.Types = convertAuthTypeListToTypesStringList(cred.Types)
+			break
+		}
+	}
+
 	tflog.Trace(ctx, "Created an application credential resource")
 	tflog.Info(ctx, "Saving the resource to state")
 	diags = resp.State.Set(ctx, &data)
@@ -164,6 +181,24 @@ func (r *applicationCredentialResource) Read(ctx context.Context, req resource.R
 	diags := req.State.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Import mode: only the credential ID is in state (from ImportStatePassthroughID).
+	// Use GET /application_credentials/{uid} to read the full credential.
+	if data.ApplicationId.ValueString() == "" {
+		tflog.Info(ctx, "Import mode: reading credential by ID")
+		credential, err := r.provider.client.ReadApplicationCredential(data.Id.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application credential, got error: %s", err))
+			return
+		}
+
+		mapApplicationCredentialResponseToData(ctx, &data, credential)
+
+		tflog.Info(ctx, "Saving imported credential to state")
+		diags = resp.State.Set(ctx, &data)
+		resp.Diagnostics.Append(diags...)
 		return
 	}
 
@@ -279,10 +314,17 @@ func createApplicationCredentialRequestFromData(ctx context.Context, data *appli
 
 func mapApplicationCredentialResponseToData(_ context.Context, data *applicationCredentialResourceData, applicationCredential *webclient.ApplicationCredentialFindByApplicationAndEnvironmentResponse) {
 	data.Id = types.StringValue(applicationCredential.ID)
+	data.ApplicationId = types.StringValue(applicationCredential.Application.ID)
+	data.EnvironmentId = types.StringValue(applicationCredential.Environment.ID)
 	data.Description = types.StringValue(applicationCredential.Description)
 	data.UserName = types.StringValue(applicationCredential.Username)
 	data.Types = convertAuthTypeListToTypesStringList(applicationCredential.Types)
 	data.Clusters = types.StringValue(applicationCredential.Metadata.Clusters)
+
+	// Derive target from types: the API does not persist the target field,
+	// but we can infer it from the credential types.
+	// SCHEMA_REGISTRY_BASIC_AUTH only -> SCHEMA_REGISTRY, otherwise -> KAFKA.
+	data.Target = types.StringValue(deriveTargetFromTypes(applicationCredential.Types))
 }
 
 func convertAuthTypeListToTypesStringList(input []webclient.AuthType) []types.String {
@@ -291,4 +333,19 @@ func convertAuthTypeListToTypesStringList(input []webclient.AuthType) []types.St
 		result = append(result, types.StringValue(v.Type))
 	}
 	return result
+}
+
+// deriveTargetFromTypes infers the target from credential types.
+// When all types are SCHEMA_REGISTRY_BASIC_AUTH, the target is SCHEMA_REGISTRY.
+// Otherwise (e.g. SCRAM_SHA_512), the target is KAFKA.
+func deriveTargetFromTypes(authTypes []webclient.AuthType) string {
+	if len(authTypes) == 0 {
+		return "KAFKA"
+	}
+	for _, t := range authTypes {
+		if t.Type != "SCHEMA_REGISTRY_BASIC_AUTH" {
+			return "KAFKA"
+		}
+	}
+	return "SCHEMA_REGISTRY"
 }

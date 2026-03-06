@@ -34,6 +34,12 @@ func TestApplicationCredentialConnectorResource(t *testing.T) {
 				),
 			},
 			{
+				ResourceName:            "axual_application_credential.tf-test-app-credential",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"password", "auth_provider"},
+			},
+			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
 				Config:  GetProvider() + GetFile("axual_application_credential_custom_initial.tf"),

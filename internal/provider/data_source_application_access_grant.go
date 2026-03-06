@@ -96,6 +96,11 @@ func (d applicationAccessGrantDataSource) Read(ctx context.Context, req datasour
 		return
 	}
 
+	if len(applicationAccessGrant.Embedded.ApplicationAccessGrantResponses) == 0 {
+		resp.Diagnostics.AddError("Resource Not Found", "No application access grant found matching the specified attributes.")
+		return
+	}
+
 	mapApplicationAccessGrantDataSourceResponseToData(ctx, &data, applicationAccessGrant)
 
 	diags = resp.State.Set(ctx, &data)

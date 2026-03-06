@@ -24,6 +24,12 @@ func TestApplicationPrincipalConnectorResource(t *testing.T) {
 				),
 			},
 			{
+				ResourceName:            "axual_application_principal.connector_axual_application_principal",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"private_key"},
+			},
+			{
 				Config: GetProvider() + GetFile(
 					"axual_application_principal_connector_setup.tf",
 					"axual_application_principal_connector_replaced.tf",

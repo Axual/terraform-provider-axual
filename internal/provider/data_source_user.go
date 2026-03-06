@@ -88,15 +88,14 @@ func (d *userDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 	}
 
 	// Map the API response to the Terraform data structure.
-	mapUserDataSourceResponseToData(ctx, &data, usersResponse)
+	mapUserDataSourceResponseToData(ctx, &data, usersResponse, 0)
 
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 }
 
-func mapUserDataSourceResponseToData(ctx context.Context, data *userDataSourceData, usersResponse *webclient.UsersResponse) {
-	// Since the email is unique, we assume there is always exactly one user in the response.
-	user := usersResponse.Embedded.Users[0]
+func mapUserDataSourceResponseToData(ctx context.Context, data *userDataSourceData, usersResponse *webclient.UsersResponse, index int) {
+	user := usersResponse.Embedded.Users[index]
 
 	data.Id = types.StringValue(user.UID)
 	data.Email = types.StringValue(user.Emailaddress.Email)

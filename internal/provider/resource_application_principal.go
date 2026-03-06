@@ -43,6 +43,29 @@ func (r *applicationPrincipalResource) Metadata(ctx context.Context, req resourc
 	resp.TypeName = req.ProviderTypeName + "_application_principal"
 }
 
+// trimSpaceSemanticallyEqual suppresses diffs caused only by surrounding whitespace.
+// This is needed because the Create function trims whitespace before sending to the API,
+// so the API returns a trimmed value, while the Terraform config (from file()) may include
+// a trailing newline. Without this, every import would show a spurious replacement diff.
+type trimSpaceSemanticallyEqual struct{}
+
+func (m trimSpaceSemanticallyEqual) Description(_ context.Context) string {
+	return "Suppresses diffs caused only by surrounding whitespace differences."
+}
+
+func (m trimSpaceSemanticallyEqual) MarkdownDescription(_ context.Context) string {
+	return "Suppresses diffs caused only by surrounding whitespace differences."
+}
+
+func (m trimSpaceSemanticallyEqual) PlanModifyString(_ context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+	if req.StateValue.IsNull() || req.StateValue.IsUnknown() || req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if strings.TrimSpace(req.StateValue.ValueString()) == strings.TrimSpace(req.ConfigValue.ValueString()) {
+		resp.PlanValue = req.StateValue
+	}
+}
+
 func (r *applicationPrincipalResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
@@ -54,6 +77,7 @@ func (r *applicationPrincipalResource) Schema(ctx context.Context, req resource.
 				Required:            true,
 				Sensitive:           true,
 				PlanModifiers: []planmodifier.String{
+					trimSpaceSemanticallyEqual{},
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
@@ -246,4 +270,20 @@ func mapApplicationPrincipalResponseToData(_ context.Context, data *applicationP
 	data.Id = types.StringValue(applicationPrincipal.Uid)
 	data.Environment = types.StringValue(applicationPrincipal.Embedded.Environment.Uid)
 	data.Application = types.StringValue(applicationPrincipal.Embedded.Application.Uid)
+	// Branch on API type: only SSL deals with PEM certificate files.
+	if applicationPrincipal.Type == "OAUTH" {
+		data.Custom = types.BoolValue(true)
+		data.Principal = types.StringValue(applicationPrincipal.Principal)
+	} else {
+		// SSL: applicationPem contains the full PEM certificate chain.
+		// Preserve existing state value when only whitespace differs. The API returns
+		// trimmed values, but the config (from file()) may include a trailing newline.
+		apiPrincipal := applicationPrincipal.ApplicationPem
+		if !data.Principal.IsNull() && !data.Principal.IsUnknown() &&
+			strings.TrimSpace(data.Principal.ValueString()) == strings.TrimSpace(apiPrincipal) {
+			// Keep existing state value — semantically equal
+		} else {
+			data.Principal = types.StringValue(apiPrincipal)
+		}
+	}
 }

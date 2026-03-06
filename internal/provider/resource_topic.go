@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -115,10 +116,16 @@ func (r *topicResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 					stringvalidator.OneOf("compact", "delete", "compact,delete"),
 				},
 			},
+			// Optional+Computed: omitting properties from config keeps the previous state (no-op).
+			// To remove all properties, set properties = {} explicitly.
 			"properties": schema.MapAttribute{
 				MarkdownDescription: "Advanced (Kafka) properties for a topic in a given environment. If no properties please leave properties empty like this: properties = { }.  Read more: https://docs.axual.io/axual/2025.3/self-service/advanced-features.html#configuring-topic-properties",
 				Optional:            true,
+				Computed:            true,
 				ElementType:         types.StringType,
+				PlanModifiers: []planmodifier.Map{
+					mapplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -335,7 +342,7 @@ func mapTopicResponseToData(ctx context.Context, data *topicResourceData, topic 
 	data.ValueType = types.StringValue(topic.ValueType)
 	data.Owners = types.StringValue(topic.Embedded.Owners.Uid)
 	data.RetentionPolicy = types.StringValue(topic.RetentionPolicy)
-	data.Properties = utils.HandlePropertiesMapping(ctx, data.Properties, topic.Properties)
+	data.Properties = utils.HandlePropertiesMapping(ctx, topic.Properties)
 
 	// Optional fields
 	if topic.Description == nil || len(topic.Description.(string)) == 0 {

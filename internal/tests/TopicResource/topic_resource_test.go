@@ -62,7 +62,7 @@ func TestTopicResource(t *testing.T) {
 			{
 				Config: GetProvider() + GetFile("axual_avro_topic_properties_removed.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckNoResourceAttr("axual_topic.topic-avro-test", "properties"),
+					resource.TestCheckResourceAttr("axual_topic.topic-avro-test", "properties.%", "0"),
 				),
 			},
 			{

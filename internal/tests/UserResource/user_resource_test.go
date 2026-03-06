@@ -32,7 +32,7 @@ func TestUserResource(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_user.bob", "first_name", "Bob1"),
 					resource.TestCheckResourceAttr("axual_user.bob", "middle_name", "Bar1"),
 					resource.TestCheckResourceAttr("axual_user.bob", "last_name", "Foo1"),
-					resource.TestCheckResourceAttr("axual_user.bob", "email_address", "bob1.foo@example.com"),
+					resource.TestCheckResourceAttr("axual_user.bob", "email_address", "bob.foo@example.com"),
 					resource.TestCheckResourceAttr("axual_user.bob", "phone_number", "+1234567"),
 					resource.TestCheckResourceAttr("axual_user.bob", "roles.0.name", "APPLICATION_AUTHOR"),
 					resource.TestCheckResourceAttr("axual_user.bob", "roles.1.name", "SCHEMA_AUTHOR"),
