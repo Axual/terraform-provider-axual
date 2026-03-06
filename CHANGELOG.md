@@ -35,7 +35,7 @@ All notable changes to this project will be documented in this file.
 * Increase HTTP client timeout from 10s to 30s
 * Rewrite "Managing application access to topics" guide
 
-## [2.8.1](https://github.com/Axual/terraform-provider-axual/tree/master) - 2026-01-02
+## [2.8.1](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.8.1) - 2026-01-02
 ### Added
 * Fix for issues: https://github.com/Axual/terraform-provider-axual/issues/133
 * New guide for schemas
