@@ -143,6 +143,8 @@ func (r *environmentResource) Schema(ctx context.Context, req resource.SchemaReq
 					int64validator.AtMost(120000),
 				},
 			},
+			// Optional+Computed: omitting properties from config keeps the previous state (no-op).
+			// To remove all properties, set properties = {} explicitly.
 			"properties": schema.MapAttribute{
 				MarkdownDescription: "Environment-wide properties for all topics and applications.",
 				Optional:            true,

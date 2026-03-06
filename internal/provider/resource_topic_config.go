@@ -95,6 +95,8 @@ func (r *topicConfigResource) Schema(ctx context.Context, req resource.SchemaReq
 				MarkdownDescription: "The schema version this topic config supports for the value.",
 				Optional:            true,
 			},
+			// Optional+Computed: omitting properties from config keeps the previous state (no-op).
+			// To remove all properties, set properties = {} explicitly.
 			"properties": schema.MapAttribute{
 				MarkdownDescription: "You can define Kafka properties for your topic here. All options are: `segment.ms`, `retention.bytes`, `min.compaction.lag.ms`, `max.compaction.lag.ms`, `message.timestamp.difference.max.ms`, `message.timestamp.type` Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#supported-kafka-properties",
 				Optional:            true,

@@ -270,8 +270,9 @@ func mapApplicationPrincipalResponseToData(_ context.Context, data *applicationP
 	data.Id = types.StringValue(applicationPrincipal.Uid)
 	data.Environment = types.StringValue(applicationPrincipal.Embedded.Environment.Uid)
 	data.Application = types.StringValue(applicationPrincipal.Embedded.Application.Uid)
-	// For SSL principals, applicationPem contains the full PEM certificate chain.
-	// For OAUTH (custom) principals, applicationPem is empty and the principal field contains the client ID.
+	// The API returns type "SSL" or "OAUTH".
+	// SSL: applicationPem contains the full PEM certificate chain.
+	// OAUTH: applicationPem is empty, principal contains the client ID.
 	var apiPrincipal string
 	if applicationPrincipal.ApplicationPem != "" {
 		apiPrincipal = applicationPrincipal.ApplicationPem
@@ -287,5 +288,9 @@ func mapApplicationPrincipalResponseToData(_ context.Context, data *applicationP
 		// Keep existing state value — semantically equal
 	} else {
 		data.Principal = types.StringValue(apiPrincipal)
+	}
+	// Set custom from API type field: OAUTH -> custom=true, SSL _> custom not set
+	if applicationPrincipal.Type == "OAUTH" {
+		data.Custom = types.BoolValue(true)
 	}
 }

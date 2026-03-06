@@ -95,19 +95,4 @@ Remove the `lifecycle` block once the state is stable. Subsequent `terraform app
 
 ### Custom principals (`custom`)
 
-The API does not return the `custom` boolean. After importing a custom (OAUTHBEARER) principal, Terraform will plan a replacement because `custom` is missing from state. The same two options apply:
-
-**Use lifecycle ignore**:
-
-```hcl
-resource "axual_application_principal" "example" {
-  environment = "..."
-  application = "..."
-  principal   = "my-client-id"
-  custom      = true
-
-  lifecycle {
-    ignore_changes = [custom]
-  }
-}
-```
+The API returns the principal `type` (`SSL` or `OAUTH`). The provider maps `type: OAUTH` to `custom = true` automatically, so no `lifecycle { ignore_changes }` is needed for the `custom` attribute after import.

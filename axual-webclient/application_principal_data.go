@@ -10,6 +10,7 @@ type ApplicationPrincipalResponse struct {
 	PrivateKeyPem      interface{} `json:"privateKeyPem"`
 	PrivateKeyUploaded interface{} `json:"privateKeyUploaded"`
 	ExpiresOn          string      `json:"expiresOn"`
+	Type               string      `json:"type"`
 	Uid                string      `json:"uid"`
 	CreatedAt          string      `json:"created_at"`
 	ModifiedAt         string      `json:"modified_at"`

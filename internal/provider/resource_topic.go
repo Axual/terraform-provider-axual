@@ -116,6 +116,8 @@ func (r *topicResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 					stringvalidator.OneOf("compact", "delete", "compact,delete"),
 				},
 			},
+			// Optional+Computed: omitting properties from config keeps the previous state (no-op).
+			// To remove all properties, set properties = {} explicitly.
 			"properties": schema.MapAttribute{
 				MarkdownDescription: "Advanced (Kafka) properties for a topic in a given environment. If no properties please leave properties empty like this: properties = { }.  Read more: https://docs.axual.io/axual/2025.3/self-service/advanced-features.html#configuring-topic-properties",
 				Optional:            true,

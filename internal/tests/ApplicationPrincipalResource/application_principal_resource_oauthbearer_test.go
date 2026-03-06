@@ -27,7 +27,7 @@ func TestApplicationPrincipalOauthbearerResource(t *testing.T) {
 				ResourceName:            "axual_application_principal.tf-test-app-principal",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"custom"},
+				ImportStateVerifyIgnore: []string{},
 			},
 			{
 				Config: GetProvider() + GetFile(
