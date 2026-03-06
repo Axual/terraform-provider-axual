@@ -270,27 +270,20 @@ func mapApplicationPrincipalResponseToData(_ context.Context, data *applicationP
 	data.Id = types.StringValue(applicationPrincipal.Uid)
 	data.Environment = types.StringValue(applicationPrincipal.Embedded.Environment.Uid)
 	data.Application = types.StringValue(applicationPrincipal.Embedded.Application.Uid)
-	// The API returns type "SSL" or "OAUTH".
-	// SSL: applicationPem contains the full PEM certificate chain.
-	// OAUTH: applicationPem is empty, principal contains the client ID.
-	var apiPrincipal string
-	if applicationPrincipal.ApplicationPem != "" {
-		apiPrincipal = applicationPrincipal.ApplicationPem
-	} else {
-		apiPrincipal = applicationPrincipal.Principal
-	}
-	// Preserve existing state value when only whitespace differs. The API returns
-	// trimmed values, but the config (from file()) may include a trailing newline.
-	// Without this, every Read would overwrite state with the trimmed API value,
-	// causing the trimSpaceSemanticallyEqual plan modifier to activate unnecessarily.
-	if !data.Principal.IsNull() && !data.Principal.IsUnknown() &&
-		strings.TrimSpace(data.Principal.ValueString()) == strings.TrimSpace(apiPrincipal) {
-		// Keep existing state value — semantically equal
-	} else {
-		data.Principal = types.StringValue(apiPrincipal)
-	}
-	// Set custom from API type field: OAUTH -> custom=true, SSL _> custom not set
+	// Branch on API type: only SSL deals with PEM certificate files.
 	if applicationPrincipal.Type == "OAUTH" {
 		data.Custom = types.BoolValue(true)
+		data.Principal = types.StringValue(applicationPrincipal.Principal)
+	} else {
+		// SSL: applicationPem contains the full PEM certificate chain.
+		// Preserve existing state value when only whitespace differs. The API returns
+		// trimmed values, but the config (from file()) may include a trailing newline.
+		apiPrincipal := applicationPrincipal.ApplicationPem
+		if !data.Principal.IsNull() && !data.Principal.IsUnknown() &&
+			strings.TrimSpace(data.Principal.ValueString()) == strings.TrimSpace(apiPrincipal) {
+			// Keep existing state value — semantically equal
+		} else {
+			data.Principal = types.StringValue(apiPrincipal)
+		}
 	}
 }
