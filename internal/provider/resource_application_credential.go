@@ -74,16 +74,10 @@ func (r *applicationCredentialResource) Schema(ctx context.Context, req resource
 			"application": schema.StringAttribute{
 				MarkdownDescription: "A valid Id of an existing application",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
 			},
 			"environment": schema.StringAttribute{
 				MarkdownDescription: "A valid Id of an existing environment",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
 			},
 			"username": schema.StringAttribute{
 				Computed:            true,
@@ -97,9 +91,6 @@ func (r *applicationCredentialResource) Schema(ctx context.Context, req resource
 			"target": schema.StringAttribute{
 				Required:            true,
 				MarkdownDescription: "The authentication credential provider (e.g., Apache Kafka, Schema Registry).",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
 				Validators: []validator.String{
 					stringvalidator.OneOf("KAFKA", "SCHEMA_REGISTRY"),
 				},
@@ -107,9 +98,6 @@ func (r *applicationCredentialResource) Schema(ctx context.Context, req resource
 			"description": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "Description information for the credentials.",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
 			},
 			"clusters": schema.StringAttribute{
 				Computed:            true,
@@ -248,7 +236,7 @@ func (r *applicationCredentialResource) Read(ctx context.Context, req resource.R
 }
 
 func (r *applicationCredentialResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-
+	resp.Diagnostics.AddError("Client Error", "API does not allow update of application credential. Please delete and recreate the resource.")
 }
 
 func (r *applicationCredentialResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

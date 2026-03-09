@@ -3,6 +3,7 @@ package ApplicationCredentialResource
 import (
 	. "axual.com/terraform-provider-axual/internal/tests"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -38,6 +39,10 @@ func TestApplicationCredentialConnectorResource(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"password", "auth_provider"},
+			},
+			{
+				Config:      GetProvider() + GetFile("axual_application_credential_custom_update.tf"),
+				ExpectError: regexp.MustCompile("API does not allow update of application credential"),
 			},
 			{
 				// To ensure cleanup if one of the test cases had an error

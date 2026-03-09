@@ -1,6 +1,7 @@
 package TopicConfigResource
 
 import (
+	"regexp"
 	"testing"
 
 	. "axual.com/terraform-provider-axual/internal/tests"
@@ -199,6 +200,42 @@ func TestTopicConfigMixResource(t *testing.T) {
 				Config: GetProvider() + GetFile(
 					"axual_topic_config_mix_setup.tf",
 					"axual_topic_config_mix_properties_removed.tf",
+				),
+			},
+		},
+	})
+}
+
+func TestTopicConfigImmutableFieldUpdateError(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+
+		Steps: []resource.TestStep{
+			{
+				Config: GetProvider() + GetFile(
+					"axual_topic_config_immutable_update_setup.tf",
+					"axual_topic_config_immutable_update_initial.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrPair("axual_topic_config.tf-topic-config-immutable", "topic", "axual_topic.tf-test-topic-1", "id"),
+					resource.TestCheckResourceAttr("axual_topic_config.tf-topic-config-immutable", "partitions", "1"),
+					resource.TestCheckResourceAttr("axual_topic_config.tf-topic-config-immutable", "retention_time", "864000"),
+				),
+			},
+			{
+				Config: GetProvider() + GetFile(
+					"axual_topic_config_immutable_update_setup.tf",
+					"axual_topic_config_immutable_update_changed_topic.tf",
+				),
+				ExpectError: regexp.MustCompile("API does not allow updating the topic field"),
+			},
+			{
+				// To ensure cleanup if one of the test cases had an error
+				Destroy: true,
+				Config: GetProvider() + GetFile(
+					"axual_topic_config_immutable_update_setup.tf",
+					"axual_topic_config_immutable_update_initial.tf",
 				),
 			},
 		},

@@ -15,7 +15,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -62,9 +61,6 @@ func (r *topicConfigResource) Schema(ctx context.Context, req resource.SchemaReq
 			"partitions": schema.Int64Attribute{
 				MarkdownDescription: "The number of partitions define how many consumer instances can be started in parallel on this topic. Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#partitions-number",
 				Required:            true,
-				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.RequiresReplace(),
-				},
 			},
 			"retention_time": schema.Int64Attribute{
 				MarkdownDescription: "Determine how long the messages should be available on a topic. There should be an agreed value most likely discussed in Intake session with the team supporting Axual Platform. In most cases, it is 7 days. Minimum value is 1000 (ms). Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#retention-time",
@@ -76,16 +72,10 @@ func (r *topicConfigResource) Schema(ctx context.Context, req resource.SchemaReq
 			"topic": schema.StringAttribute{
 				MarkdownDescription: "The Topic this topic configuration is associated with",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
 			},
 			"environment": schema.StringAttribute{
 				MarkdownDescription: "The environment this topic configuration is associated with",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
 			},
 			"key_schema_version": schema.StringAttribute{
 				MarkdownDescription: "The schema version this topic config supports for the key.",
@@ -226,11 +216,23 @@ func (r *topicConfigResource) Read(ctx context.Context, req resource.ReadRequest
 
 func (r *topicConfigResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data topicConfigResourceData
+	var stateData topicConfigResourceData
 
 	diags := req.Plan.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
+	diags = req.State.Get(ctx, &stateData)
+	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if data.Topic != stateData.Topic {
+		resp.Diagnostics.AddError("Client Error", "API does not allow updating the topic field of a topic config. Please delete and recreate the resource.")
+		return
+	}
+	if data.Environment != stateData.Environment {
+		resp.Diagnostics.AddError("Client Error", "API does not allow updating the environment field of a topic config. Please delete and recreate the resource.")
 		return
 	}
 
