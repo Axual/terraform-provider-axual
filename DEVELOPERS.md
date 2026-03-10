@@ -184,7 +184,7 @@ Before running acceptance tests:
    In [`internal/tests/test_config.yaml`](./internal/tests/test_config.yaml), update:
    - `instanceName` and `instanceShortName` to point to an instance with:
      - `EnabledAuthenticationMethod` are SSL, SCRAM_SHA_512, OAUTHBEARER
-       - SSL using [Axual Dummy Root CA as the Signing Authority](https://gitlab.com/axual/qa/local-development/-/blob/main/governance/files/axual-dummy-intermediate)
+       - SSL using `Axual Dummy Root CA` as the Signing Authority
      - `GranularBrowsePermission` is enabled
      - `ConnectSupport` is enabled
      - has a `KSML Provisioner` configured
@@ -248,9 +248,9 @@ Execute the [`.run/Run all the tests.run.xml`](.run/Run%20all%20the%20tests.run.
 #### Recommended Testing Order
 
 When running tests for the first time, try them in this order to verify your setup:
-2. `topic_data_source_test.go`
-3. `application_deployment_resource_test.go`
-4. All tests together
+1. `topic_data_source_test.go`
+2. `application_deployment_resource_test.go`
+3. All tests together
 
 **Note:** If a test fails, you may need to manually delete resources using the Axual Platform UI.
 
