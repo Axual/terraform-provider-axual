@@ -231,6 +231,13 @@ func TestTopicConfigImmutableFieldUpdateError(t *testing.T) {
 				ExpectError: regexp.MustCompile("API does not allow updating the topic field"),
 			},
 			{
+				Config: GetProvider() + GetFile(
+					"axual_topic_config_immutable_update_setup.tf",
+					"axual_topic_config_immutable_update_changed_partitions.tf",
+				),
+				ExpectError: regexp.MustCompile("API does not allow updating the partitions field"),
+			},
+			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
 				Config: GetProvider() + GetFile(

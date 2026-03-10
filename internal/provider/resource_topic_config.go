@@ -235,6 +235,10 @@ func (r *topicConfigResource) Update(ctx context.Context, req resource.UpdateReq
 		resp.Diagnostics.AddError("Client Error", "API does not allow updating the environment field of a topic config. Please delete and recreate the resource.")
 		return
 	}
+	if data.Partitions != stateData.Partitions {
+		resp.Diagnostics.AddError("Client Error", "API does not allow updating the partitions field of a topic config. Please delete and recreate the resource.")
+		return
+	}
 
 	topic, err := r.provider.client.GetTopic(data.Topic.ValueString())
 	if err != nil {
