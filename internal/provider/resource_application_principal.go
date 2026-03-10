@@ -10,7 +10,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -78,30 +77,20 @@ func (r *applicationPrincipalResource) Schema(ctx context.Context, req resource.
 				Sensitive:           true,
 				PlanModifiers: []planmodifier.String{
 					trimSpaceSemanticallyEqual{},
-					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"private_key": schema.StringAttribute{
 				MarkdownDescription: "The private key of a Connector Application for an Environment. Must be PEM-format. If committing terraform configuration(.tf) file in version control repository, please make sure there is a secure way of providing private key for a Connector application's Application Principal. Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/.",
 				Optional:            true,
 				Sensitive:           true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
 			},
 			"application": schema.StringAttribute{
 				MarkdownDescription: "A valid UID of an existing application",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
 			},
 			"environment": schema.StringAttribute{
 				MarkdownDescription: "A valid Uid of an existing environment",
 				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -113,9 +102,6 @@ func (r *applicationPrincipalResource) Schema(ctx context.Context, req resource.
 			"custom": schema.BoolAttribute{
 				Optional:            true,
 				MarkdownDescription: "A boolean identifying whether we are creating a custom principal. If true, the custom principal will be stored in `principal` property. Custom principal allows an application with SASL+OAUTHBEARER to produce/consume a topic. Custom Application Principal certificate is used to authenticate your application with an IAM provider using the custom ApplicationPrincipal as Client ID",
-				PlanModifiers: []planmodifier.Bool{
-					boolplanmodifier.RequiresReplace(),
-				},
 			},
 		},
 	}
@@ -184,25 +170,7 @@ func (r *applicationPrincipalResource) Read(ctx context.Context, req resource.Re
 }
 
 func (r *applicationPrincipalResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data applicationPrincipalResourceData
-
-	diags := req.Plan.Get(ctx, &data)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	var applicationPrincipalUpdateRequest webclient.ApplicationPrincipalUpdateRequest
-	applicationPrincipalUpdateRequest = webclient.ApplicationPrincipalUpdateRequest{
-		Principal: data.Principal.ValueString(),
-	}
-	tflog.Info(ctx, fmt.Sprintf("Update application principal request %v", applicationPrincipalUpdateRequest))
-	applicationPrincipal, err := r.provider.client.UpdateApplicationPrincipal(data.Id.ValueString(), applicationPrincipalUpdateRequest)
-	if err != nil {
-		resp.Diagnostics.AddError("PATCH request error for application principal resource", fmt.Sprintf("Error message: %s %s", applicationPrincipal, err))
-		return
-	}
-	diags = resp.State.Set(ctx, &data)
-	resp.Diagnostics.Append(diags...)
+	resp.Diagnostics.AddError("Client Error", "API does not allow update of application principal. Please delete and recreate the resource.")
 }
 
 func (r *applicationPrincipalResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
