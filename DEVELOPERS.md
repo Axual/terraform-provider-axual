@@ -237,7 +237,6 @@ Execute the [`.run/Run all the tests.run.xml`](.run/Run%20all%20the%20tests.run.
 #### Recommended Testing Order
 
 When running tests for the first time, try them in this order to verify your setup:
-1. `user_resource_test.go`
 2. `topic_data_source_test.go`
 3. `application_deployment_resource_test.go`
 4. All tests together

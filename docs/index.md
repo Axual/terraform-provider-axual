@@ -59,7 +59,7 @@ Before using the provider:
 ```terraform
 # This TerraForm file shows the basic capabilities of the TerraForm provider for Axual
 
-# The Terraform provider cannot be used to create a user. Please ensure that a user already exists before proceeding. To verify, please try logging into the UI.
+# The Terraform provider cannot be used to create a user. Please ensure that a user already exists in the self-service before proceeding. To verify, please try logging into the UI.
 # Look up yourself by e-mail – change the address
 data "axual_user" "my-user" {
   email = "<your_email>"
@@ -232,11 +232,12 @@ The Axual Terraform provider enables a distributed GitOps setup across teams:
 | 2.3.x                      | 8.5.x                                |
 | 2.4.x                      | 8.6.x – 9.0.x                        |
 | 2.5.0 - 2.5.6              | 9.1.x - 11.0.3                       |
-| 2.5.7                      | 11.0.4 - onward                      |
-| 2.6.x                      | 12.0.x - onward                      |
-| 2.7.x                      | 12.0.x - onward                      |
-| 2.8.x                      | 12.0.x - onward                      |
-| 2.9.x                      | 12.0.x - onward                      |
+| 2.5.7                      | 11.0.4 - 14.0.0                      |
+| 2.6.x                      | 12.0.x - 14.0.0                      |
+| 2.7.x                      | 12.0.x - 14.0.0                      |
+| 2.8.x                      | 12.0.x - 14.0.0                      |
+| 2.9.x                      | 12.0.x - 14.0.0                      |
+| 3.0.x                      | 12.0.x - onward                      |
 
 ## Custom JSON Schema Support
 

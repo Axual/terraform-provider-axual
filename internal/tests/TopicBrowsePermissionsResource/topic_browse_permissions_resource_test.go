@@ -19,7 +19,6 @@ func TestTopicBrowsePermissionsResource(t *testing.T) {
 			{
 				Config: GetProvider() + GetFile("axual_topic_browse_permissions_initial.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttrPair("axual_topic_browse_permissions.tf-test-topic-browse-permissions", "users.0", "axual_user.ben", "id"),
 					resource.TestCheckResourceAttrPair("axual_topic_browse_permissions.tf-test-topic-browse-permissions", "groups.0", "axual_group.team-group", "id"),
 				),
 			},
@@ -39,7 +38,6 @@ func TestTopicBrowsePermissionsResource(t *testing.T) {
 			{
 				Config: GetProvider() + GetFile("axual_topic_browse_permissions_updated.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttrPair("axual_topic_browse_permissions.tf-test-topic-browse-permissions", "users.0", "axual_user.chris", "id"),
 					resource.TestCheckResourceAttrPair("axual_topic_browse_permissions.tf-test-topic-browse-permissions", "groups.0", "axual_group.team-group3", "id"),
 				),
 			},

@@ -7,15 +7,6 @@ import (
 	"strings"
 )
 
-func (c *Client) GetGroups() (*GroupsResponse, error) {
-	o := GroupsResponse{}
-	err := c.RequestAndMap("GET", fmt.Sprintf("%s/groups", c.ApiURL), nil, nil, &o)
-	if err != nil {
-		return nil, err
-	}
-	return &o, nil
-}
-
 func (c *Client) CreateGroup(group GroupRequest) (*GroupResponse, error) {
 	o := GroupResponse{}
 	marshal, err := json.Marshal(group)

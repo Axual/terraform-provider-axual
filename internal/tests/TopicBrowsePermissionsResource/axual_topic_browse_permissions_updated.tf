@@ -1,32 +1,8 @@
-resource "axual_user" "chris" {
-  first_name    = "Chris"
-  middle_name   = "Bar"
-  last_name     = "Foo"
-  email_address = "chris.foo@example.com"
-  phone_number  = "+1234567"
-  roles = [
-    { name = "APPLICATION_AUTHOR" },
-    { name = "SCHEMA_AUTHOR" }
-  ]
-}
-
-resource "axual_user" "susan" {
-  first_name    = "Susan"
-  middle_name   = "Bar"
-  last_name     = "Foo"
-  email_address = "susan.foo@example.com"
-  phone_number  = "+1234567"
-  roles = [
-    { name = "APPLICATION_AUTHOR" },
-    { name = "SCHEMA_AUTHOR" }
-  ]
-}
-
 resource "axual_group" "team-group3" {
   name          = "team-group3"
   phone_number  = "+6112356789"
   email_address = "test.user@axual.com"
-  members = [axual_user.susan.id]
+  members = [data.axual_user.test_user.id]
 }
 
 resource "axual_environment" "tf-test-env" {
@@ -60,6 +36,6 @@ resource "axual_topic_config" "tf-topic-config" {
 
 resource "axual_topic_browse_permissions" "tf-test-topic-browse-permissions" {
   topic_config = axual_topic_config.tf-topic-config.id
-  users = [axual_user.chris.id]
-  groups = [axual_group.team-group3.id]
+  users        = []
+  groups       = [axual_group.team-group3.id]
 }
