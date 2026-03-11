@@ -32,7 +32,6 @@ You have two options for managing existing users with Terraform:
 
 ### Creating new users
 
-
 New users are created by logging in through your organization's Single Sign-On (SSO) provider. When a user authenticates via SSO for the first time, they are automatically registered in Self-Service.
 
 ## Required Roles

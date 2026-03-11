@@ -205,21 +205,7 @@ Before running acceptance tests:
    - Schema Admin (needed for deleting Schemas not assigned to your Group)
    - Topic Author
 
-4. **Creating Test Users:**
-   Some tests (e.g., `TopicBrowsePermissionsResource`) require existing users to be referenced. Update the test files in [`internal/tests/TopicBrowsePermissionsResource/`](./internal/tests/TopicBrowsePermissionsResource/) with email addresses of users that exist in your test environment.
-   
-   Create the following test users in the authentication provider and login into the self-service.
-   - ***User1***
-     - `Name`: ben
-     - `Email`: ben.foo@example.com
-     - `Roles`: `APPLICATION_AUTHOR`, `ENVIRONMENT_AUTHOR`, `STREAM_AUTHOR`
-
-   - ***User2***
-     - `Name`: chris
-     - `Email`: chris.foo@example.com
-     - `Roles`: `APPLICATION_AUTHOR`, `SCHEMA_AUTHOR`
-
-5. **Configure Provider Connection:**
+4. **Configure Provider Connection:**
 
    Edit [`internal/tests/test_provider.go`](./internal/tests/test_provider.go) to connect to your target environment.
 
