@@ -17,7 +17,7 @@ func TestTopicBrowsePermissionsResource(t *testing.T) {
 		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
 
 		Steps: []resource.TestStep{
-			// Step 1: Create initial resource with 1 user and 1 group
+			// Step 1: Create the initial resource with 1 user and 1 group
 			{
 				Config: GetProvider() + GetFile("axual_topic_browse_permissions_initial.tf"),
 				Check: resource.ComposeTestCheckFunc(
@@ -39,7 +39,7 @@ func TestTopicBrowsePermissionsResource(t *testing.T) {
 					return rs.Primary.Attributes["topic_config"], nil
 				},
 			},
-			// Step 3: Update by removing user (only group remains, users is empty list)
+			// Step 3: Update by removing the users (only the groups field remains, users field is removed)
 			{
 				Config: GetProvider() + GetFile("axual_topic_browse_permissions_updated_remove_user.tf"),
 				Check: resource.ComposeTestCheckFunc(
@@ -48,7 +48,7 @@ func TestTopicBrowsePermissionsResource(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_topic_browse_permissions.tf-test-topic-browse-permissions", "groups.#", "1"),
 				),
 			},
-			// Step 4: Update by removing group and adding user back (only user remains, groups is empty list)
+			// Step 4: Update by removing groups and adding users back (only the users field remains, groups field is removed)
 			{
 				Config: GetProvider() + GetFile("axual_topic_browse_permissions_updated_remove_group.tf"),
 				Check: resource.ComposeTestCheckFunc(
@@ -57,7 +57,7 @@ func TestTopicBrowsePermissionsResource(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_topic_browse_permissions.tf-test-topic-browse-permissions", "groups.#", "0"),
 				),
 			},
-			// Step 5: Update by adding both user and group back
+			// Step 5: Update by adding both users and groups back
 			{
 				Config: GetProvider() + GetFile("axual_topic_browse_permissions_updated_add_both.tf"),
 				Check: resource.ComposeTestCheckFunc(
