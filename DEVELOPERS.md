@@ -208,13 +208,12 @@ Before running acceptance tests:
 4. **Creating Test Users:**
    Some tests (e.g., `TopicBrowsePermissionsResource`) require existing users to be referenced. Update the test files in [`internal/tests/TopicBrowsePermissionsResource/`](./internal/tests/TopicBrowsePermissionsResource/) with email addresses of users that exist in your test environment.
    
-   Create the following test user in the authentication provider and login into the self-service.
+   Create the following test user in the authentication provider and log in into the self-service.
    - ***User1***
-     - `FirstName`: ben
-     - `LastNAame`: foo
+     - `FirstName`: Ben
+     - `LastNAame`: Foo
      - `Email`: ben.foo@example.com
      - `Roles`: `APPLICATION_AUTHOR`, `ENVIRONMENT_AUTHOR`, `STREAM_AUTHOR`
-
 
 5. **Configure Provider Connection:**
 
