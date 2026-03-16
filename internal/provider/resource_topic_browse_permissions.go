@@ -4,6 +4,7 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -38,7 +39,7 @@ func (r *topicBrowsePermissionsResource) Metadata(ctx context.Context, req resou
 
 func (r *topicBrowsePermissionsResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "With this resource you can configure who can browse topic's messages in a specified environment. Only works if the Environment's Instance has Granular Stream Browse Permissions turned on. Granular Stream browse permissions are disabled in private environments and in public environments with the authorization issuer set to \"auto\". Either users or groups need to be specified- both can't be empty. Read more: https://docs.axual.io/axual/2025.3/self-service/stream-browse.html#controlling-permissions-to-browse-a-stream",
+		MarkdownDescription: "With this resource you can configure who can browse a topic's messages in a specified environment.\n> Only works if the Environment's Instance has Granular Stream Browse Permissions turned on.\n>\n> Granular Stream browse permissions are disabled in private environments and in public environments with the authorization issuer set to \"auto\".\n\nEither users or groups need to be specified — both can't be empty.\n\nRead more: https://docs.axual.io/axual/2025.3/self-service/topic-browse.html#controlling-permissions-to-browse-a-topic",
 		Attributes: map[string]schema.Attribute{
 			"topic_config": schema.StringAttribute{
 				MarkdownDescription: "UID of the Topic configuration.",
