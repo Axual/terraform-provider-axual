@@ -1,22 +1,5 @@
-# Users must exist in the test environment - update email addresses below with your own users.
-# See DEVELOPERS.md "Configure Test Users" for required roles.
-# user with the role `APPLICATION_AUTHOR`, `ENVIRONMENT_AUTHOR`, `STREAM_AUTHOR`
 data "axual_user" "ben" {
   email = "ben.foo@example.com"
-}
-
-resource "axual_group" "team-group" {
-  name          = "team-group1"
-  phone_number  = "+6112356789"
-  email_address = "test.user@axual.com"
-  members = [data.axual_user.ben.id]
-}
-
-resource "axual_group" "team-group3" {
-  name          = "team-group3"
-  phone_number  = "+6112356789"
-  email_address = "test.user@axual.com"
-  members = [data.axual_user.ben.id]
 }
 
 resource "axual_environment" "tf-test-env" {
@@ -36,7 +19,7 @@ resource "axual_topic" "tf-test-topic" {
   value_type       = "String"
   owners           = data.axual_group.test_group.id
   retention_policy = "delete"
-  properties = {}
+  properties       = {}
   description      = "Demo of deploying a topic config via Terraform"
 }
 
@@ -45,11 +28,10 @@ resource "axual_topic_config" "tf-topic-config" {
   retention_time = 864000
   topic          = axual_topic.tf-test-topic.id
   environment    = axual_environment.tf-test-env.id
-  properties = { "segment.ms" = "600012", "retention.bytes" = "-1" }
+  properties     = { "segment.ms" = "600012", "retention.bytes" = "-1" }
 }
 
 resource "axual_topic_browse_permissions" "tf-test-topic-browse-permissions" {
   topic_config = axual_topic_config.tf-topic-config.id
-  users = [data.axual_user.ben.id]
-  groups = [axual_group.team-group.id]
+  users        = [data.axual_user.ben.id]
 }

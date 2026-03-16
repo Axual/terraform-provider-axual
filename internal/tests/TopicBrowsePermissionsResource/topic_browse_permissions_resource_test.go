@@ -1,10 +1,11 @@
 package TopicBrowsePermissionsResource
 
 import (
-	. "axual.com/terraform-provider-axual/internal/tests"
 	"fmt"
 	"regexp"
 	"testing"
+
+	. "axual.com/terraform-provider-axual/internal/tests"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
@@ -19,6 +20,7 @@ func TestTopicBrowsePermissionsResource(t *testing.T) {
 			{
 				Config: GetProvider() + GetFile("axual_topic_browse_permissions_initial.tf"),
 				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrPair("axual_topic_browse_permissions.tf-test-topic-browse-permissions", "users.0", "data.axual_user.ben", "id"),
 					resource.TestCheckResourceAttrPair("axual_topic_browse_permissions.tf-test-topic-browse-permissions", "groups.0", "axual_group.team-group", "id"),
 				),
 			},
@@ -36,8 +38,23 @@ func TestTopicBrowsePermissionsResource(t *testing.T) {
 				},
 			},
 			{
-				Config: GetProvider() + GetFile("axual_topic_browse_permissions_updated.tf"),
+				Config: GetProvider() + GetFile("axual_topic_browse_permissions_updated_remove_user.tf"),
 				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_topic_browse_permissions.tf-test-topic-browse-permissions", "users.#", "0"),
+					resource.TestCheckResourceAttrPair("axual_topic_browse_permissions.tf-test-topic-browse-permissions", "groups.0", "axual_group.team-group", "id"),
+				),
+			},
+			{
+				Config: GetProvider() + GetFile("axual_topic_browse_permissions_updated_remove_group.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrPair("axual_topic_browse_permissions.tf-test-topic-browse-permissions", "users.0", "data.axual_user.ben", "id"),
+					resource.TestCheckResourceAttr("axual_topic_browse_permissions.tf-test-topic-browse-permissions", "groups.#", "0"),
+				),
+			},
+			{
+				Config: GetProvider() + GetFile("axual_topic_browse_permissions_updated_add_both.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrPair("axual_topic_browse_permissions.tf-test-topic-browse-permissions", "users.0", "data.axual_user.ben", "id"),
 					resource.TestCheckResourceAttrPair("axual_topic_browse_permissions.tf-test-topic-browse-permissions", "groups.0", "axual_group.team-group3", "id"),
 				),
 			},
