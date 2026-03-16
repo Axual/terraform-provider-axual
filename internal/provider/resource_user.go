@@ -50,7 +50,7 @@ func (r *userResource) Metadata(ctx context.Context, req resource.MetadataReques
 func (r *userResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "User resource. Please note that creating a new user with Terraform does not automatically allow the user to log in. This is because the user is only created in the Self-Service Database, not in an authentication provider such as Keycloak or Auth0. For new users please either use user data source or import using with terraform import command. Read more about user in Axual Self-Service: https://docs.axual.io/axual/2025.3/self-service/user-group-management.html#users",
+		MarkdownDescription: "User resource. Creating new users via Terraform is not supported. Use the axual_user data source to reference existing users, or use terraform import to manage existing users. New users are created by logging in through your organization's SSO provider. Read more: https://docs.axual.io/axual/2025.3/self-service/user-group-management.html#users",
 		Attributes: map[string]schema.Attribute{
 			"first_name": schema.StringAttribute{
 				MarkdownDescription: "User's first name",
@@ -98,28 +98,12 @@ func (r *userResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 }
 
 func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data userResourceData
-
-	diags := req.Config.Get(ctx, &data)
-	resp.Diagnostics.Append(diags...)
-
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	userRequest := createUserRequestFromData(ctx, &data)
-
-	user, err := r.provider.client.CreateUser(userRequest)
-	if err != nil {
-		resp.Diagnostics.AddError("CREATE request error for user resource", fmt.Sprintf("Error message: %s", err.Error()))
-		return
-	}
-
-	mapUserResponseToData(ctx, &data, user)
-	tflog.Trace(ctx, "created a resource")
-	tflog.Info(ctx, "saving the resource to state")
-	diags = resp.State.Set(ctx, &data)
-	resp.Diagnostics.Append(diags...)
+	resp.Diagnostics.AddError(
+		"User creation is not supported",
+		"The POST /users API endpoint has been removed. "+
+			"Users cannot be created via Terraform. Please use terraform import to manage existing users, "+
+			"or use the axual_user data source to reference users.",
+	)
 }
 
 func (r *userResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {

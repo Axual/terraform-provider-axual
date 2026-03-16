@@ -184,7 +184,7 @@ Before running acceptance tests:
    In [`internal/tests/test_config.yaml`](./internal/tests/test_config.yaml), update:
    - `instanceName` and `instanceShortName` to point to an instance with:
      - `EnabledAuthenticationMethod` are SSL, SCRAM_SHA_512, OAUTHBEARER
-       - SSL using [Axual Dummy Root CA as the Signing Authority](https://gitlab.com/axual/qa/local-development/-/blob/main/governance/files/axual-dummy-intermediate)
+       - SSL using `Axual Dummy Root CA` as the Signing Authority
      - `GranularBrowsePermission` is enabled
      - `ConnectSupport` is enabled
      - has a `KSML Provisioner` configured
@@ -205,7 +205,17 @@ Before running acceptance tests:
    - Schema Admin (needed for deleting Schemas not assigned to your Group)
    - Topic Author
 
-4. **Configure Provider Connection:**
+4. **Creating Test Users:**
+   Some tests (e.g., `TopicBrowsePermissionsResource`) require existing users to be referenced. Update the test files in [`internal/tests/TopicBrowsePermissionsResource/`](./internal/tests/TopicBrowsePermissionsResource/) with email addresses of users that exist in your test environment.
+   
+   Create the following test user in the authentication provider and log in into the self-service.
+   - ***User1***
+     - `FirstName`: Ben
+     - `LastNAame`: Foo
+     - `Email`: ben.foo@example.com
+     - `Roles`: `APPLICATION_AUTHOR`, `ENVIRONMENT_AUTHOR`, `STREAM_AUTHOR`
+
+5. **Configure Provider Connection:**
 
    Edit [`internal/tests/test_provider.go`](./internal/tests/test_provider.go) to connect to your target environment.
 
@@ -237,10 +247,9 @@ Execute the [`.run/Run all the tests.run.xml`](.run/Run%20all%20the%20tests.run.
 #### Recommended Testing Order
 
 When running tests for the first time, try them in this order to verify your setup:
-1. `user_resource_test.go`
-2. `topic_data_source_test.go`
-3. `application_deployment_resource_test.go`
-4. All tests together
+1. `topic_data_source_test.go`
+2. `application_deployment_resource_test.go`
+3. All tests together
 
 **Note:** If a test fails, you may need to manually delete resources using the Axual Platform UI.
 

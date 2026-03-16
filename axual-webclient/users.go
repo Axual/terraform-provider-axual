@@ -7,15 +7,6 @@ import (
 	"strings"
 )
 
-func (c *Client) GetUsers() (*UsersResponse, error) {
-	o := UsersResponse{}
-	err := c.RequestAndMap("GET", fmt.Sprintf("%s/users", c.ApiURL), nil, nil, &o)
-	if err != nil {
-		return nil, err
-	}
-	return &o, nil
-}
-
 func (c *Client) GetUser(id string) (*UserResponse, error) {
 	o := UserResponse{}
 	err := c.RequestAndMap("GET", fmt.Sprintf("%s/users/%v", c.ApiURL, id), nil, nil, &o)
@@ -53,30 +44,6 @@ func (c *Client) DeleteUser(id string) error {
 		return err
 	}
 	return nil
-}
-
-func (c *Client) CreateUser(data UserRequest) (*UserResponse, error) {
-	o := UserResponse{}
-
-	up := UserRequestWithPass{data, "kkdiennc"}
-	marshal, err := json.Marshal(up)
-	if err != nil {
-		return nil, err
-	}
-
-	err = c.RequestAndMap("POST", fmt.Sprintf("%s/users", c.ApiURL), strings.NewReader(string(marshal)), nil, &o)
-	if err != nil {
-		return nil, err
-	}
-	err = c.UpdateUserRoles(o.Uid, data.Roles)
-	if err != nil {
-		return nil, err
-	}
-	user, err := c.GetUser(o.Uid)
-	if err != nil {
-		return nil, err
-	}
-	return user, nil
 }
 
 func (c *Client) UpdateUserRoles(id string, data []UserRole) error {

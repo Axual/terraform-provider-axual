@@ -2,37 +2,59 @@
 
 {{ .Description | trimspace }}
 
-## Limitations
-- Creating a user with Terraform adds the user to the Self-Service database, but does not register the user in the authentication system (such as Keycloak or Auth0). As a result, users created with Terraform cannot log in to Self-Service.
-- For referencing existing users:
-    - Use the user data source: https://registry.terraform.io/providers/Axual/axual/latest/docs/data-sources/user
-    - Or import existing users using `terraform import`: https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/user#import
+## Important: User Creation No Longer Supported
+
+Creating new users via Terraform is **no longer supported**.
+
+### Why was user creation removed?
+
+User creation via the API was removed because:
+- Users created via the API were only added to the Self-Service database, not to the authentication provider (e.g., Keycloak)
+- This meant API-created users could not actually log in to Self-Service
+- Proper user management requires integration with the authentication provider
+
+### How to manage users with Terraform
+
+You have two options for managing existing users with Terraform:
+
+1. **Use the `axual_user` data source** to reference existing users:
+   ```hcl
+   data "axual_user" "john" {
+     email_address = "john.doe@example.com"
+   }
+   ```
+   See: https://registry.terraform.io/providers/Axual/axual/latest/docs/data-sources/user
+
+2. **Import existing users** into your Terraform state:
+   ```shell
+   terraform import axual_user.john <USER_UID>
+   ```
+
+### Creating new users
+
+New users are created by logging in through your organization's Single Sign-On (SSO) provider. When a user authenticates via SSO for the first time, they are automatically registered in Self-Service.
 
 ## Required Roles
-- TENANT_ADMIN
+
+- **No role required** for importing and managing your own user
+- **TENANT_ADMIN** required for update and delete operations on other users
+
 
 {{ .SchemaMarkdown | trimspace }}
 
 ## Example Usage
 
+### Importing and managing an existing user
+
 ```hcl
+# First, import the user:
+# terraform import axual_user.john b21cf1d63a55436391463cee3f56e393
+
 resource "axual_user" "john" {
   first_name    = "John"
   last_name     = "Doe"
   email_address = "john.doe@example.com"
-  phone_number = "+37253412551"
-  roles         = [
-    { name = "APPLICATION_AUTHOR" },
-    { name = "ENVIRONMENT_AUTHOR" },
-    { name = "STREAM_AUTHOR" }
-  ]
-}
-
-resource "axual_user" "jane" {
-  first_name    = "Jane"
-  last_name     = "Walker"
-  email_address = "jane.walker@example.com"
-  phone_number = "+37253412553"
+  phone_number  = "+37253412551"
   roles         = [
     { name = "APPLICATION_AUTHOR" },
     { name = "ENVIRONMENT_AUTHOR" },
@@ -41,7 +63,17 @@ resource "axual_user" "jane" {
 }
 ```
 
-For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
+### Referencing a user via data source (recommended)
+
+```hcl
+data "axual_user" "john" {
+  email_address = "john.doe@example.com"
+}
+
+# Use data.axual_user.john.id to reference the user
+```
+
+For a full example which shows the capabilities of the latest Terraform provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 
 ## Import
 

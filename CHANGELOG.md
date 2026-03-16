@@ -7,6 +7,10 @@ All notable changes to this project will be documented in this file.
 * Import support for `axual_application_credential`
 * Import support for `axual_topic_browse_permissions`
 * Fix `axual_environment` import limitation
+* User creation via Terraform is no longer supported.
+* Removed unused API response fields across multiple data structures for improved maintainability
+* Removed `bootstrapServers` field references as the field has been removed from the `/clusters` API endpoints
+* Updated `axual_user` resource documentation to reflect the removal of user creation capability
 
 ## [2.9.1](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.9.1) - 2026-01-18
 * Fixed the compatibility matrix

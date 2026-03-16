@@ -8,14 +8,10 @@ type Config struct {
 	ConfigValue string `json:"configValue"`
 }
 type ApplicationDeploymentResponse struct {
-	Configs    []Config `json:"configs"`
-	State      string   `json:"state"`
-	Uid        string   `json:"uid"`
-	CreatedAt  string   `json:"created_at"`
-	ModifiedAt string   `json:"modified_at"`
-	CreatedBy  string   `json:"created_by"`
-	ModifiedBy string   `json:"modified_by"`
-	Embedded   struct {
+	Configs  []Config `json:"configs"`
+	State    string   `json:"state"`
+	Uid      string   `json:"uid"`
+	Embedded struct {
 		Application struct {
 			ShortName       string `json:"shortName"`
 			ApplicationType string `json:"applicationType"`
@@ -53,8 +49,6 @@ type ApplicationDeploymentStatusResponse struct {
 		State string `json:"state"`
 	} `json:"connectorState"`
 	KsmlStatus struct {
-		Status        string `json:"status"`
-		Replicas      int    `json:"replicas"`
-		ReadyReplicas int    `json:"readyReplicas"`
+		Status string `json:"status"`
 	} `json:"ksmlStatus"`
 }

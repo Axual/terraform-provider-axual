@@ -59,7 +59,7 @@ Before using the provider:
 ```terraform
 # This TerraForm file shows the basic capabilities of the TerraForm provider for Axual
 
-# The Terraform provider cannot be used to create a user. Please ensure that a user already exists before proceeding. To verify, please try logging into the UI.
+# The Terraform provider cannot be used to create a user. Please ensure that a user already exists in the self-service before proceeding. To verify, please try logging into the UI.
 # Look up yourself by e-mail – change the address
 data "axual_user" "my-user" {
   email = "<your_email>"
@@ -225,18 +225,19 @@ The Axual Terraform provider enables a distributed GitOps setup across teams:
   - Or import them: [`terraform import`](https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/user#import)
 
 ## Compatibility
-| Terraform Provider Version | Supported Platform Manager Versions  |
-|----------------------------|--------------------------------------|
-| 2.1.x                      | 7.0.7 - 8.4.x                        |
-| 2.2.x                      | 8.5.x                                |
-| 2.3.x                      | 8.5.x                                |
-| 2.4.x                      | 8.6.x – 9.0.x                        |
-| 2.5.0 - 2.5.6              | 9.1.x - 11.0.3                       |
-| 2.5.7                      | 11.0.4 - onward                      |
-| 2.6.x                      | 12.0.x - onward                      |
-| 2.7.x                      | 12.0.x - onward                      |
-| 2.8.x                      | 12.0.x - onward                      |
-| 2.9.x                      | 12.0.x - onward                      |
+| Terraform Provider Version | Supported Platform Manager Versions  | Supported Platform Versions |
+|----------------------------|--------------------------------------|-----------------------------|
+| 2.1.x                      | 7.0.7 - 8.4.x                        |   2023.3 - 2024.1           |
+| 2.2.x                      | 8.5.x                                |   2024.1                    |
+| 2.3.x                      | 8.5.x                                |   2024.1                    |
+| 2.4.x                      | 8.6.x – 9.0.x                        |   2024.2 - 2024.4           |
+| 2.5.0 - 2.5.6              | 9.1.x - 11.0.3                       |   2024.4 - 2025.2           |
+| 2.5.7                      | 11.0.4 - 13.0.2                      |   2025.2 - 2025.4           |
+| 2.6.x                      | 12.0.x - 13.0.2                      |   2025.3 - 2025.4           |
+| 2.7.x                      | 12.0.x - 13.0.2                      |   2025.3 - 2025.4           |
+| 2.8.x                      | 12.0.x - 13.0.2                      |   2025.3 - 2025.4           |
+| 2.9.x                      | 12.0.x - 13.0.2                      |   2025.3 - 2025.4           |
+| 3.0.x                      | 12.0.x - onward                      |   2025.3 - onwards          |
 
 ## Custom JSON Schema Support
 

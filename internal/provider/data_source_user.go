@@ -4,6 +4,7 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -98,22 +99,22 @@ func mapUserDataSourceResponseToData(ctx context.Context, data *userDataSourceDa
 	user := usersResponse.Embedded.Users[index]
 
 	data.Id = types.StringValue(user.UID)
-	data.Email = types.StringValue(user.Emailaddress.Email)
+	data.Email = types.StringValue(user.EmailAddress.Email)
 	data.FirstName = types.StringValue(user.Firstname)
 	data.LastName = types.StringValue(user.Lastname)
 
 	// Map the middle name, defaulting to an empty string if nil.
 	data.MiddleName = types.StringValue("")
-	if user.Middlename != nil {
-		if middle, ok := user.Middlename.(string); ok {
+	if user.MiddleName != nil {
+		if middle, ok := user.MiddleName.(string); ok {
 			data.MiddleName = types.StringValue(middle)
 		}
 	}
 
 	// Map the phone number, defaulting to an empty string if nil.
 	data.PhoneNumber = types.StringValue("")
-	if user.Phonenumber != nil {
-		if phone, ok := user.Phonenumber.(string); ok {
+	if user.PhoneNumber != nil {
+		if phone, ok := user.PhoneNumber.(string); ok {
 			data.PhoneNumber = types.StringValue(phone)
 		}
 	}

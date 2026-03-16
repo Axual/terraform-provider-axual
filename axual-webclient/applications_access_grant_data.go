@@ -23,12 +23,6 @@ type ApplicationAccessGrant struct {
 	} `json:"_links"`
 }
 
-// ApplicationAccessGrantRevoke is used for revoke/deny API requests
-type ApplicationAccessGrantRevoke struct {
-	Reason      string `json:"reason"`
-	Environment string `json:"environment"`
-}
-
 // ApplicationAccessGrantRequest is used for creating a new grant
 type ApplicationAccessGrantRequest struct {
 	ApplicationId string `json:"applicationId"`
@@ -69,10 +63,4 @@ type GetApplicationAccessGrantsByAttributeResponse struct {
 			} `json:"_embedded"`
 		} `json:"applicationAccessGrantResponses"`
 	} `json:"_embedded"`
-	Page struct {
-		Size          int `json:"size"`
-		TotalElements int `json:"totalElements"`
-		TotalPages    int `json:"totalPages"`
-		Number        int `json:"number"`
-	} `json:"page"`
 }
