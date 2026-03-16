@@ -181,8 +181,16 @@ func mapPermissionsResponseToData(ctx context.Context, data *topicBrowsePermissi
 		}
 	}
 
-	data.Users, _ = types.SetValue(types.StringType, users)
-	data.Groups, _ = types.SetValue(types.StringType, groups)
+	if len(users) == 0 {
+		data.Users = types.SetNull(types.StringType)
+	} else {
+		data.Users, _ = types.SetValue(types.StringType, users)
+	}
+	if len(groups) == 0 {
+		data.Groups = types.SetNull(types.StringType)
+	} else {
+		data.Groups, _ = types.SetValue(types.StringType, groups)
+	}
 }
 
 // Utility function to convert a Set to a slice of strings
