@@ -40,5 +40,6 @@ resource "axual_topic_config" "tf-topic-config" {
 
 resource "axual_topic_browse_permissions" "tf-test-topic-browse-permissions" {
   topic_config = axual_topic_config.tf-topic-config.id
+  users        = []
   groups       = [axual_group.team-group.id]
 }
