@@ -198,7 +198,7 @@ Before running acceptance tests:
 3. **Verify Test User Permissions:**
 
    Ensure your test user has these roles:
-   - Tenant Admin (needed for creating Groups and Users)
+   - Tenant Admin (needed for creating Groups)
    - Application Author
    - Environment Author
    - Schema Author
