@@ -2,7 +2,7 @@ terraform {
   required_providers {
     axual = {
       source  = "Axual/axual"
-      version = "2.9.2"
+      version = "3.0.0"
     }
   }
 }
