@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.9.2](https://github.com/Axual/terraform-provider-axual/tree/master) - 2026-03-02
+## [3.0.0](https://github.com/Axual/terraform-provider-axual/tree/master) - 2026-03-24
 * Import support for `axual_application_principal`
 * Import support for `axual_application_credential`
 * Import support for `axual_topic_browse_permissions`
