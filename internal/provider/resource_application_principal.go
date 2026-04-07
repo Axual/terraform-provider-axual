@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -35,6 +36,7 @@ type applicationPrincipalResourceData struct {
 	Application types.String `tfsdk:"application"`
 	Environment types.String `tfsdk:"environment"`
 	Custom      types.Bool   `tfsdk:"custom"`
+	Active      types.Bool   `tfsdk:"active"`
 	Id          types.String `tfsdk:"id"`
 }
 
@@ -87,10 +89,24 @@ func (r *applicationPrincipalResource) Schema(ctx context.Context, req resource.
 			"application": schema.StringAttribute{
 				MarkdownDescription: "A valid UID of an existing application",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"environment": schema.StringAttribute{
 				MarkdownDescription: "A valid Uid of an existing environment",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"active": schema.BoolAttribute{
+				Optional:            true,
+				Computed:            true,
+				MarkdownDescription: "Whether this principal is the active one for the application in the environment. When set to `true` on create, the principal will be activated after upload. When updating a principal, the new certificate/private-key is always activated and the old one is deleted. Deleting an active principal is not allowed; activate another principal first.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -134,6 +150,17 @@ func (r *applicationPrincipalResource) Create(ctx context.Context, req resource.
 
 	data.Id = types.StringValue(returnedUid)
 
+	if !data.Active.IsNull() && data.Active.ValueBool() {
+		err = r.provider.client.ActivateApplicationPrincipal(returnedUid)
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to activate application principal, got error: %s", err))
+			return
+		}
+		data.Active = types.BoolValue(true)
+	} else {
+		data.Active = types.BoolValue(false)
+	}
+
 	tflog.Trace(ctx, "Created an application principal resource")
 	tflog.Info(ctx, "Saving the resource to state")
 	diags = resp.State.Set(ctx, &data)
@@ -170,7 +197,58 @@ func (r *applicationPrincipalResource) Read(ctx context.Context, req resource.Re
 }
 
 func (r *applicationPrincipalResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	resp.Diagnostics.AddError("Client Error", "API does not allow update of application principal. Please delete and recreate the resource.")
+	var state applicationPrincipalResourceData
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var plan applicationPrincipalResourceData
+	diags = req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	oldId := state.Id.ValueString()
+
+	applicationPrincipalRequest, err := createApplicationPrincipalRequestFromData(ctx, &plan, r)
+	if err != nil {
+		resp.Diagnostics.AddError("Error creating UPDATE request struct for application principal resource", fmt.Sprintf("Error message: %s", err.Error()))
+		return
+	}
+
+	tflog.Info(ctx, fmt.Sprintf("Update application principal: creating new principal to replace %s", oldId))
+	newPrincipal, err := r.provider.client.CreateApplicationPrincipal(applicationPrincipalRequest)
+	if err != nil {
+		resp.Diagnostics.AddError("CREATE request error during application principal update", fmt.Sprintf("Error message: %s %s", newPrincipal, err))
+		return
+	}
+
+	var trimmedResponse = strings.Trim(string(newPrincipal), "\"")
+	newId := strings.ReplaceAll(trimmedResponse, fmt.Sprintf("%s/%s", r.provider.client.ApiURL, "application_principals/"), "")
+
+	tflog.Info(ctx, fmt.Sprintf("Activating new application principal %s", newId))
+	err = r.provider.client.ActivateApplicationPrincipal(newId)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to activate new application principal, got error: %s", err))
+		return
+	}
+
+	tflog.Info(ctx, fmt.Sprintf("Deleting old application principal %s", oldId))
+	err = r.provider.client.DeleteApplicationPrincipal(oldId)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete old application principal, got error: %s", err))
+		return
+	}
+
+	plan.Id = types.StringValue(newId)
+	plan.Active = types.BoolValue(true)
+
+	tflog.Trace(ctx, "Updated application principal resource")
+	diags = resp.State.Set(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
 }
 
 func (r *applicationPrincipalResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -180,6 +258,14 @@ func (r *applicationPrincipalResource) Delete(ctx context.Context, req resource.
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if data.Active.ValueBool() {
+		resp.Diagnostics.AddError(
+			"Cannot delete active application principal",
+			"This application principal is currently active. Please activate another principal before deleting this one.",
+		)
 		return
 	}
 
@@ -238,6 +324,7 @@ func mapApplicationPrincipalResponseToData(_ context.Context, data *applicationP
 	data.Id = types.StringValue(applicationPrincipal.Uid)
 	data.Environment = types.StringValue(applicationPrincipal.Embedded.Environment.Uid)
 	data.Application = types.StringValue(applicationPrincipal.Embedded.Application.Uid)
+	data.Active = types.BoolValue(applicationPrincipal.Active)
 	// Branch on API type: only SSL deals with PEM certificate files.
 	if applicationPrincipal.Type == "OAUTH" {
 		data.Custom = types.BoolValue(true)

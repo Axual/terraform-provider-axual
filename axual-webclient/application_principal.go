@@ -47,6 +47,14 @@ func (c *Client) UpdateApplicationPrincipal(id string, applicationUpdatePrincipa
 	return o, nil
 }
 
+func (c *Client) ActivateApplicationPrincipal(id string) error {
+	err := c.RequestAndMap("POST", fmt.Sprintf("%s/application_authentications/%v/activate", c.ApiURL, id), nil, nil, nil)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *Client) DeleteApplicationPrincipal(id string) error {
 	err := c.RequestAndMap("DELETE", fmt.Sprintf("%s/application_principals/%v", c.ApiURL, id), nil, nil, nil)
 	if err != nil {

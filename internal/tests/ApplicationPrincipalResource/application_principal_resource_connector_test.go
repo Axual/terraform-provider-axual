@@ -22,6 +22,7 @@ func TestApplicationPrincipalConnectorResource(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					CheckBodyMatchesFile("axual_application_principal.connector_axual_application_principal", "principal", "certs/generic_application_1.cer"),
 					CheckBodyMatchesFile("axual_application_principal.connector_axual_application_principal", "private_key", "certs/generic_application_1.key"),
+					resource.TestCheckResourceAttr("axual_application_principal.connector_axual_application_principal", "active", "false"),
 				),
 			},
 			{
@@ -31,19 +32,25 @@ func TestApplicationPrincipalConnectorResource(t *testing.T) {
 				ImportStateVerifyIgnore: []string{"private_key"},
 			},
 			{
+				// Replace the certificate: new principal is created, activated, old one deleted
 				Config: GetProvider() + GetFile(
 					"axual_application_principal_connector_setup.tf",
 					"axual_application_principal_connector_replaced.tf",
 				),
-				ExpectError: regexp.MustCompile("API does not allow update of application principal"),
+				Check: resource.ComposeTestCheckFunc(
+					CheckBodyMatchesFile("axual_application_principal.connector_axual_application_principal", "principal", "certs/generic_application_2.cer"),
+					CheckBodyMatchesFile("axual_application_principal.connector_axual_application_principal", "private_key", "certs/generic_application_2.key"),
+					resource.TestCheckResourceAttr("axual_application_principal.connector_axual_application_principal", "active", "true"),
+				),
 			},
 			{
-				// To ensure cleanup if one of the test cases had an error
+				// Verify that deleting an active principal returns a clear error
 				Destroy: true,
 				Config: GetProvider() + GetFile(
 					"axual_application_principal_connector_setup.tf",
-					"axual_application_principal_connector_initial.tf",
+					"axual_application_principal_connector_replaced.tf",
 				),
+				ExpectError: regexp.MustCompile("Cannot delete active application principal"),
 			},
 		},
 	})
