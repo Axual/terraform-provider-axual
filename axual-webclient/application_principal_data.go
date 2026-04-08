@@ -8,7 +8,7 @@ type ApplicationPrincipalResponse struct {
 	Principal      string `json:"principal"`
 	ApplicationPem string `json:"applicationPem"`
 	Type           string `json:"type"`
-	Active         bool   `json:"active"`
+	Active         *bool  `json:"active,omitempty"`
 	Embedded       struct {
 		Application struct {
 			ShortName string `json:"shortName"`

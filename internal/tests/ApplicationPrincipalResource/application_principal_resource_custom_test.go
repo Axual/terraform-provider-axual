@@ -1,9 +1,9 @@
 package ApplicationPrincipalResource
 
 import (
-	. "axual.com/terraform-provider-axual/internal/tests"
-	"regexp"
 	"testing"
+
+	. "axual.com/terraform-provider-axual/internal/tests"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
@@ -30,18 +30,22 @@ func TestApplicationPrincipalResource(t *testing.T) {
 				ImportStateVerifyIgnore: []string{"principal"},
 			},
 			{
+				// Replace the certificate: new principal is created, old one deleted (no activation for non-Connector)
 				Config: GetProvider() + GetFile(
 					"axual_application_principal_setup.tf",
 					"axual_application_principal_custom_replaced.tf",
 				),
-				ExpectError: regexp.MustCompile("API does not allow update of application principal"),
+				Check: resource.ComposeTestCheckFunc(
+					CheckBodyMatchesFile("axual_application_principal.tf-test-app-principal", "principal", "certs/example_stream_processor.cer"),
+					resource.TestCheckNoResourceAttr("axual_application_principal.tf-test-app-principal", "active"),
+				),
 			},
 			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
 				Config: GetProvider() + GetFile(
 					"axual_application_principal_setup.tf",
-					"axual_application_principal_custom_initial.tf",
+					"axual_application_principal_custom_replaced.tf",
 				),
 			},
 		},

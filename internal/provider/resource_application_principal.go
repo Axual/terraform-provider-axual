@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -67,10 +68,66 @@ func (m trimSpaceSemanticallyEqual) PlanModifyString(_ context.Context, req plan
 	}
 }
 
+// isCertificateChanging returns true when principal or private_key differs between plan and state,
+// indicating a certificate rotation is in progress. Used by plan modifiers for id and active
+// to mark those attributes as (known after apply) so the plan/apply cycle is consistent.
+func isCertificateChanging(ctx context.Context, plan tfsdk.Plan, state tfsdk.State) bool {
+	if state.Raw.IsNull() {
+		return false // Create operation — not an update
+	}
+	var planPrincipal, statePrincipal types.String
+	plan.GetAttribute(ctx, path.Root("principal"), &planPrincipal)
+	state.GetAttribute(ctx, path.Root("principal"), &statePrincipal)
+	if !planPrincipal.IsNull() && !planPrincipal.IsUnknown() &&
+		!statePrincipal.IsNull() && !statePrincipal.IsUnknown() &&
+		strings.TrimSpace(planPrincipal.ValueString()) != strings.TrimSpace(statePrincipal.ValueString()) {
+		return true
+	}
+	var planPrivateKey, statePrivateKey types.String
+	plan.GetAttribute(ctx, path.Root("private_key"), &planPrivateKey)
+	state.GetAttribute(ctx, path.Root("private_key"), &statePrivateKey)
+	return !planPrivateKey.Equal(statePrivateKey)
+}
+
+// unknownWhenCertChangesString marks a string attribute as (known after apply)
+// during certificate rotation so Terraform's plan matches what Update actually produces.
+type unknownWhenCertChangesString struct{}
+
+func (m unknownWhenCertChangesString) Description(_ context.Context) string {
+	return "Marks attribute as unknown when the certificate is being rotated."
+}
+func (m unknownWhenCertChangesString) MarkdownDescription(_ context.Context) string {
+	return "Marks attribute as unknown when the certificate is being rotated."
+}
+func (m unknownWhenCertChangesString) PlanModifyString(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+	if isCertificateChanging(ctx, req.Plan, req.State) {
+		resp.PlanValue = types.StringUnknown()
+	}
+}
+
+// unknownWhenCertChangesBool marks a bool attribute as (known after apply)
+// during certificate rotation so Terraform's plan matches what Update actually produces.
+type unknownWhenCertChangesBool struct{}
+
+func (m unknownWhenCertChangesBool) Description(_ context.Context) string {
+	return "Marks attribute as unknown when the certificate is being rotated."
+}
+func (m unknownWhenCertChangesBool) MarkdownDescription(_ context.Context) string {
+	return "Marks attribute as unknown when the certificate is being rotated."
+}
+func (m unknownWhenCertChangesBool) PlanModifyBool(ctx context.Context, req planmodifier.BoolRequest, resp *planmodifier.BoolResponse) {
+	if !req.ConfigValue.IsNull() {
+		return // user explicitly set active — respect it, don't override to unknown
+	}
+	if isCertificateChanging(ctx, req.Plan, req.State) {
+		resp.PlanValue = types.BoolUnknown()
+	}
+}
+
 func (r *applicationPrincipalResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "An Application Principal is a security principal (certificate or comparable) that uniquely authenticates an Application in an Environment. Read more: https://docs.axual.io/axual/2025.3/self-service/application-management.html#configuring-application-securityauthentication",
+		MarkdownDescription: "An Application Principal is a security principal (certificate or comparable) that uniquely authenticates an Application in an Environment. Read more: https://docs.axual.io/axual/2026.1/self-service/application-management.html#configuring-application-securityauthentication",
 
 		Attributes: map[string]schema.Attribute{
 			"principal": schema.StringAttribute{
@@ -106,6 +163,7 @@ func (r *applicationPrincipalResource) Schema(ctx context.Context, req resource.
 				MarkdownDescription: "Whether this principal is the active one for the application in the environment. When set to `true` on create, the principal will be activated after upload. When updating a principal, the new certificate/private-key is always activated and the old one is deleted. Deleting an active principal is not allowed; activate another principal first.",
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.UseStateForUnknown(),
+					unknownWhenCertChangesBool{},
 				},
 			},
 			"id": schema.StringAttribute{
@@ -113,6 +171,7 @@ func (r *applicationPrincipalResource) Schema(ctx context.Context, req resource.
 				MarkdownDescription: "Application Principal ID",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					unknownWhenCertChangesString{},
 				},
 			},
 			"custom": schema.BoolAttribute{
@@ -157,7 +216,7 @@ func (r *applicationPrincipalResource) Create(ctx context.Context, req resource.
 			return
 		}
 		data.Active = types.BoolValue(true)
-	} else {
+	} else if !data.Active.IsNull() {
 		data.Active = types.BoolValue(false)
 	}
 
@@ -229,11 +288,28 @@ func (r *applicationPrincipalResource) Update(ctx context.Context, req resource.
 	var trimmedResponse = strings.Trim(string(newPrincipal), "\"")
 	newId := strings.ReplaceAll(trimmedResponse, fmt.Sprintf("%s/%s", r.provider.client.ApiURL, "application_principals/"), "")
 
-	tflog.Info(ctx, fmt.Sprintf("Activating new application principal %s", newId))
-	err = r.provider.client.ActivateApplicationPrincipal(newId)
+	application, err := r.provider.client.GetApplication(plan.Application.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to activate new application principal, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application to determine type, got error: %s", err))
 		return
+	}
+
+	shouldActivate := application.ApplicationType == "Connector" && !plan.Active.Equal(types.BoolValue(false))
+	if shouldActivate {
+		tflog.Info(ctx, fmt.Sprintf("Activating new application principal %s (Connector application)", newId))
+		err = r.provider.client.ActivateApplicationPrincipal(newId)
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to activate new application principal, got error: %s", err))
+			return
+		}
+		plan.Active = types.BoolValue(true)
+	} else {
+		tflog.Info(ctx, fmt.Sprintf("Skipping activation of application principal %s (application type: %s, active: %s)", newId, application.ApplicationType, plan.Active))
+		if !state.Active.IsNull() {
+			plan.Active = types.BoolValue(false)
+		} else {
+			plan.Active = types.BoolNull()
+		}
 	}
 
 	tflog.Info(ctx, fmt.Sprintf("Deleting old application principal %s", oldId))
@@ -244,7 +320,6 @@ func (r *applicationPrincipalResource) Update(ctx context.Context, req resource.
 	}
 
 	plan.Id = types.StringValue(newId)
-	plan.Active = types.BoolValue(true)
 
 	tflog.Trace(ctx, "Updated application principal resource")
 	diags = resp.State.Set(ctx, &plan)
@@ -258,14 +333,6 @@ func (r *applicationPrincipalResource) Delete(ctx context.Context, req resource.
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	if data.Active.ValueBool() {
-		resp.Diagnostics.AddError(
-			"Cannot delete active application principal",
-			"This application principal is currently active. Please activate another principal before deleting this one.",
-		)
 		return
 	}
 
@@ -324,7 +391,9 @@ func mapApplicationPrincipalResponseToData(_ context.Context, data *applicationP
 	data.Id = types.StringValue(applicationPrincipal.Uid)
 	data.Environment = types.StringValue(applicationPrincipal.Embedded.Environment.Uid)
 	data.Application = types.StringValue(applicationPrincipal.Embedded.Application.Uid)
-	data.Active = types.BoolValue(applicationPrincipal.Active)
+	if applicationPrincipal.Active != nil {
+		data.Active = types.BoolValue(*applicationPrincipal.Active)
+	}
 	// Branch on API type: only SSL deals with PEM certificate files.
 	if applicationPrincipal.Type == "OAUTH" {
 		data.Custom = types.BoolValue(true)
