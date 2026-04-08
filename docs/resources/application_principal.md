@@ -1,13 +1,13 @@
 # axual_application_principal (Resource)
 
-An Application Principal is a security principal (certificate or comparable) that uniquely authenticates an Application in an Environment. Read more: https://docs.axual.io/axual/2025.3/self-service/application-management.html#configuring-application-securityauthentication
+An Application Principal is a security principal (certificate or comparable) that uniquely authenticates an Application in an Environment. Read more: https://docs.axual.io/axual/2026.1/self-service/application-management.html#configuring-application-securityauthentication
 
 ## Limitations
 - Axual Terraform Provider only support these authentication methods:
 	- SSL (MUTUAL TLS) as a Certificate(PEM). To use it please provide a string with PEM certificate as `principal` property.
-		- Read more: https://docs.axual.io/axual/2025.3/self-service/application-management.html#ssl-application-principals
+		- Read more: https://docs.axual.io/axual/2026.1/self-service/application-management.html#ssl-application-principals
 	- SASL (OAUTHBEARER) as a Custom Principal that specifies the ID referenced in URI and tokens. To use it please provide a string with PEM certificate as principal property. For example, `my-client`.
-		- Read more: https://docs.axual.io/axual/2025.3/self-service/application-management.html#application-custom-principal
+		- Read more: https://docs.axual.io/axual/2026.1/self-service/application-management.html#application-custom-principal
 
 ## Security
 - If using Application Principal for a Connector application private key is required.
@@ -29,6 +29,7 @@ An Application Principal is a security principal (certificate or comparable) tha
 
 ### Optional
 
+- `active` (Boolean) Whether this principal is the active one for the application in the environment. When set to `true` on create, the principal will be activated after upload. When updating a principal, the new certificate/private-key is always activated and the old one is deleted. Deleting an active principal is not allowed; activate another principal first.
 - `custom` (Boolean) A boolean identifying whether we are creating a custom principal. If true, the custom principal will be stored in `principal` property. Custom principal allows an application with SASL+OAUTHBEARER to produce/consume a topic. Custom Application Principal certificate is used to authenticate your application with an IAM provider using the custom ApplicationPrincipal as Client ID
 - `private_key` (String, Sensitive) The private key of a Connector Application for an Environment. Must be PEM-format. If committing terraform configuration(.tf) file in version control repository, please make sure there is a secure way of providing private key for a Connector application's Application Principal. Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/.
 

@@ -58,7 +58,7 @@ func (r *topicResource) Metadata(ctx context.Context, req resource.MetadataReque
 func (r *topicResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "A topic represents a flow of information (messages), which is continuously updated. Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html",
+		MarkdownDescription: "A topic represents a flow of information (messages), which is continuously updated. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
 				MarkdownDescription: "The name of the topic. Can only contain letters, numbers, dots, dashes and underscores and cannot begin with an underscore, dot or dash, but can't start with underscore, dot or dash. The topic name is usually discussed and finalized as part of the Intake session or a follow up.",
@@ -76,7 +76,7 @@ func (r *topicResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				},
 			},
 			"key_type": schema.StringAttribute{
-				MarkdownDescription: "The key type and reference to the schema. Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#key-type",
+				MarkdownDescription: "The key type and reference to the schema. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#key-type",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.OneOf("AVRO", "JSON", "Binary", "String", "Xml", "PROTOBUF", "JSON_SCHEMA"),
@@ -87,7 +87,7 @@ func (r *topicResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				Optional:            true,
 			},
 			"value_type": schema.StringAttribute{
-				MarkdownDescription: "The value type and reference to the schema. Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#value-type",
+				MarkdownDescription: "The value type and reference to the schema. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#value-type",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.OneOf("AVRO", "JSON", "Binary", "String", "Xml", "PROTOBUF", "JSON_SCHEMA"),
@@ -98,11 +98,11 @@ func (r *topicResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				Optional:            true,
 			},
 			"owners": schema.StringAttribute{
-				MarkdownDescription: "The team owning this topic. Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#topic-owner",
+				MarkdownDescription: "The team owning this topic. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#topic-owner",
 				Required:            true,
 			},
 			"viewers": schema.SetAttribute{
-				MarkdownDescription: "The Viewer Groups of this topic. Topic Viewer Groups define which Groups are authorized to View Topic Configurations, regardless of ownership and visibility. Read more: https://docs.axual.io/axual/2025.3/self-service/user-group-management.html#viewer-groups",
+				MarkdownDescription: "The Viewer Groups of this topic. Topic Viewer Groups define which Groups are authorized to View Topic Configurations, regardless of ownership and visibility. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#viewer-groups",
 				Optional:            true,
 				ElementType:         types.StringType,
 				Validators: []validator.Set{
@@ -110,7 +110,7 @@ func (r *topicResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				},
 			},
 			"retention_policy": schema.StringAttribute{
-				MarkdownDescription: "Designate the retention policy to use on old log segments. Only these values are allowed: `compact`, `delete`, `compact,delete`  Read more: https://docs.axual.io/axual/2025.3/self-service/topic-management.html#retention-policy",
+				MarkdownDescription: "Designate the retention policy to use on old log segments. Only these values are allowed: `compact`, `delete`, `compact,delete`  Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#retention-policy",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.OneOf("compact", "delete", "compact,delete"),
@@ -119,7 +119,7 @@ func (r *topicResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 			// Optional+Computed: omitting properties from config keeps the previous state (no-op).
 			// To remove all properties, set properties = {} explicitly.
 			"properties": schema.MapAttribute{
-				MarkdownDescription: "Advanced (Kafka) properties for a topic in a given environment. If no properties please leave properties empty like this: properties = { }.  Read more: https://docs.axual.io/axual/2025.3/self-service/advanced-features.html#configuring-topic-properties",
+				MarkdownDescription: "Advanced (Kafka) properties for a topic in a given environment. If no properties please leave properties empty like this: properties = { }.  Read more: https://docs.axual.io/axual/2026.1/self-service/advanced-features.html#configuring-topic-properties",
 				Optional:            true,
 				Computed:            true,
 				ElementType:         types.StringType,
