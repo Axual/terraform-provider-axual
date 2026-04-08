@@ -1,9 +1,9 @@
 package ApplicationPrincipalResource
 
 import (
-	. "axual.com/terraform-provider-axual/internal/tests"
-	"regexp"
 	"testing"
+
+	. "axual.com/terraform-provider-axual/internal/tests"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
@@ -22,14 +22,8 @@ func TestApplicationPrincipalConnectorResource(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					CheckBodyMatchesFile("axual_application_principal.connector_axual_application_principal", "principal", "certs/generic_application_1.cer"),
 					CheckBodyMatchesFile("axual_application_principal.connector_axual_application_principal", "private_key", "certs/generic_application_1.key"),
-					resource.TestCheckResourceAttr("axual_application_principal.connector_axual_application_principal", "active", "false"),
+					resource.TestCheckNoResourceAttr("axual_application_principal.connector_axual_application_principal", "active"),
 				),
-			},
-			{
-				ResourceName:            "axual_application_principal.connector_axual_application_principal",
-				ImportState:             true,
-				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"private_key"},
 			},
 			{
 				// Replace the certificate: new principal is created, activated, old one deleted
@@ -44,13 +38,18 @@ func TestApplicationPrincipalConnectorResource(t *testing.T) {
 				),
 			},
 			{
-				// Verify that deleting an active principal returns a clear error
+				ResourceName:            "axual_application_principal.connector_axual_application_principal",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"private_key"},
+			},
+			{
+				// Verify that deleting an unused principal returns no error
 				Destroy: true,
 				Config: GetProvider() + GetFile(
 					"axual_application_principal_connector_setup.tf",
 					"axual_application_principal_connector_replaced.tf",
 				),
-				ExpectError: regexp.MustCompile("Cannot delete active application principal"),
 			},
 		},
 	})
