@@ -29,13 +29,86 @@ An Application Principal is a security principal (certificate or comparable) tha
 
 ### Optional
 
-- `active` (Boolean) Whether this principal is the active one for the application in the environment. When set to `true` on create, the principal will be activated after upload. When updating a principal, the new certificate/private-key is always activated and the old one is deleted. Deleting an active principal is not allowed; activate another principal first.
+- `active` (Boolean) Activation intent for Connector application principals. `true` on create activates the principal immediately. During certificate rotation, activation is automatic for Connector applications unless explicitly set to `false`. This attribute is **not** refreshed from the API on Read — it reflects the last value set by Terraform, not live API state. Deleting an active principal is not allowed; activate another principal first.
 - `custom` (Boolean) A boolean identifying whether we are creating a custom principal. If true, the custom principal will be stored in `principal` property. Custom principal allows an application with SASL+OAUTHBEARER to produce/consume a topic. Custom Application Principal certificate is used to authenticate your application with an IAM provider using the custom ApplicationPrincipal as Client ID
 - `private_key` (String, Sensitive) The private key of a Connector Application for an Environment. Must be PEM-format. If committing terraform configuration(.tf) file in version control repository, please make sure there is a secure way of providing private key for a Connector application's Application Principal. Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/.
 
 ### Read-Only
 
 - `id` (String) Application Principal ID
+
+## Active Principal and Certificate Rotation (Connector only)
+
+This section applies only to **Connector** application principals.
+
+At any point in time, only one principal can be active per application+environment combination. Activating a new principal automatically deactivates the previously active one (atomic swap by the API).
+
+### `active` field semantics
+
+The `active` attribute expresses **write-only activation intent** — Terraform sets it on create or rotation, but never reads it back from the API:
+
+- `active = true` on **create**: the principal is uploaded and immediately activated.
+- `active = true` during **rotation** (cert or private key changes): the new principal is uploaded, activated, and the old one is deleted. This is the default behaviour for Connector applications even when `active` is not explicitly set.
+- `active = false` during rotation: suppresses automatic activation. Use this when you want to upload a new cert without immediately activating it.
+
+Because `active` is not refreshed from the API, Terraform will **not** detect drift when another principal is externally activated (which atomically deactivates this one). This avoids re-activation loops.
+
+### Switching the active principal
+
+When switching which principal is active, remove `active = true` (or set `active = false`) from the old resource in the same config change. This keeps the config accurate and avoids confusion — even though Terraform will not endlessly try to re-activate the old principal, the state would still reflect `active = true` for a principal that is no longer active in the API.
+
+**Recommended approach — explicit transition:**
+
+```hcl
+# Step 1: old principal was active
+resource "axual_application_principal" "old" {
+  environment = axual_environment.dev.id
+  application = axual_application.connector.id
+  principal   = file("certs/old.pem")
+  private_key = file("certs/old.key")
+  active      = true
+}
+
+# Step 2: switch to new principal — remove active=true from old at the same time
+resource "axual_application_principal" "old" {
+  environment = axual_environment.dev.id
+  application = axual_application.connector.id
+  principal   = file("certs/old.pem")
+  private_key = file("certs/old.key")
+  # active removed — Terraform no longer tries to keep it active
+}
+
+resource "axual_application_principal" "new" {
+  environment = axual_environment.dev.id
+  application = axual_application.connector.id
+  principal   = file("certs/new.pem")
+  private_key = file("certs/new.key")
+  active      = true
+}
+```
+
+### Deleting an active principal
+
+An active principal can be deleted if no `axual_application_deployment` exists for the same application+environment combination (i.e. the connector is not running). When a deployment is present and the connector is running, the API will reject the deletion — you must first rotate to a new active principal before removing the old one.
+
+### In-place certificate rotation (same resource, new cert)
+
+If you update `principal` or `private_key` on an existing Connector resource, the provider automatically:
+
+1. Uploads the new certificate as a new principal.
+2. Activates the new principal (deactivating the old one).
+3. Deletes the old principal.
+
+No `active = true` is needed in the config for this flow.
+
+### In-place activation toggle (no cert change)
+
+If you change only `active` on an existing Connector principal (cert and private_key unchanged), the provider does **not** rotate:
+
+- `null` / `false` → `true`: the provider calls the activate API on the existing principal. No new principal is uploaded; the old principal id is preserved.
+- `true` → `false`: state records the new value but no API call is made — there is no deactivate endpoint. To actually deactivate this principal, activate another one for the same application+environment (atomic swap).
+
+This avoids the `errmsg.duplicate.principal` error that would occur if the provider attempted to upload the same cert again.
 
 ## Example Usage
 
