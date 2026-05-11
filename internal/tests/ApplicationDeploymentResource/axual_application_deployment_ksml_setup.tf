@@ -22,8 +22,8 @@ resource "axual_environment" "tf-test-ksml-env" {
 resource "axual_application_principal" "ksml_axual_application_principal" {
   environment = axual_environment.tf-test-ksml-env.id
   application = axual_application.tf-test-ksml-app.id
-  principal   = file("certs/connector-cert.crt")
-  private_key = file("certs/connector-cert.key")
+  principal   = file("{{CERTS}}/connector-cert.crt")
+  private_key = file("{{CERTS}}/connector-cert.key")
 }
 
 resource "axual_topic" "tf-test-ksml-topic" {

@@ -20,7 +20,7 @@ func TestApplicationPrincipalResource(t *testing.T) {
 					"axual_application_principal_custom_initial.tf",
 				),
 				Check: resource.ComposeTestCheckFunc(
-					CheckBodyMatchesFile("axual_application_principal.tf-test-app-principal", "principal", "certs/generic_application_3.cer"),
+					CheckBodyMatchesFile("axual_application_principal.tf-test-app-principal", "principal", CertPath("generic_application_3.cer")),
 				),
 			},
 			{
@@ -36,7 +36,7 @@ func TestApplicationPrincipalResource(t *testing.T) {
 					"axual_application_principal_custom_replaced.tf",
 				),
 				Check: resource.ComposeTestCheckFunc(
-					CheckBodyMatchesFile("axual_application_principal.tf-test-app-principal", "principal", "certs/example_stream_processor.cer"),
+					CheckBodyMatchesFile("axual_application_principal.tf-test-app-principal", "principal", CertPath("example_stream_processor.cer")),
 					resource.TestCheckNoResourceAttr("axual_application_principal.tf-test-app-principal", "active"),
 				),
 			},
