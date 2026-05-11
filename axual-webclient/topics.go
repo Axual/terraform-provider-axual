@@ -3,7 +3,6 @@ package webclient
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/url"
 	"strings"
 )
@@ -20,7 +19,6 @@ func (c *Client) GetTopic(id string) (*TopicResponse, error) {
 func (c *Client) CreateTopic(topic TopicRequest) (*TopicResponse, error) {
 	o := TopicResponse{}
 	marshal, err := json.Marshal(topic)
-	log.Printf("Creating topic with request: %+v", marshal)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +35,6 @@ func (c *Client) UpdateTopic(id string, TopicRequest TopicRequest) (*TopicRespon
 	if err != nil {
 		return nil, err
 	}
-
 	err = c.RequestAndMap("PATCH", fmt.Sprintf("%s/streams/%v", c.ApiURL, id), strings.NewReader(string(marshal)), nil, &o)
 	if err != nil {
 		return nil, err
