@@ -199,7 +199,7 @@ func (r *topicResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	tflog.Info(ctx, "mapping the resource")
 	mapTopicResponseToData(ctx, &data, topic)
 
-	tflog.Info(ctx, "saving the resource to state")
+	tflog.Info(ctx, "Saving the resource to state")
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 }
