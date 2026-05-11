@@ -1,8 +1,8 @@
 resource "axual_application_principal" "connector_axual_application_principal" {
   environment = axual_environment.tf-test-env.id
   application = axual_application.tf-test-app.id
-  principal   = file("certs/connector-cert.crt")
-  private_key = file("certs/connector-cert.key")
+  principal   = file("{{CERTS}}/connector-cert.crt")
+  private_key = file("{{CERTS}}/connector-cert.key")
 }
 
 resource "axual_application_access_grant" "tf-test-application-access-grant" {

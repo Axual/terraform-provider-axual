@@ -317,6 +317,39 @@ When writing acceptance tests, ensure you test:
 3. **Importing** the resource
 4. **Deletion** (automatic by the acceptance test framework)
 
+### Certificate Files in Tests
+
+All test certificate and private key files live in a single shared folder: [`internal/tests/shared_certs/`](./internal/tests/shared_certs/). Tests resolve paths through helpers so the same files can be referenced from any test package.
+
+**Adding a new cert:** drop the `.cer` / `.crt` / `.key` / `.pem` file into `internal/tests/shared_certs/`.
+
+**Referencing certs in Terraform config (`.tf`) files:**
+
+Use the `{{CERTS}}` placeholder. `GetFile()` substitutes it with the absolute path to the shared folder at runtime.
+
+```hcl
+resource "axual_application_principal" "example" {
+  principal   = file("{{CERTS}}/generic_application_1.cer")
+  private_key = file("{{CERTS}}/generic_application_1.key")
+}
+```
+
+**Referencing certs in Go test code:**
+
+Use the `CertPath()` helper from the `internal/tests` package. It returns the absolute path to a named cert.
+
+```go
+import . "axual.com/terraform-provider-axual/internal/tests"
+
+CheckBodyMatchesFile(
+    "axual_application_principal.example",
+    "principal",
+    CertPath("generic_application_1.cer"),
+)
+```
+
+`CertsDir()` is also available if you need the directory itself.
+
 ### Preventing Automatic Resource Deletion
 
 To prevent a test from destroying a resource (useful for debugging):

@@ -33,8 +33,8 @@ func TestApplicationDeploymentResource(t *testing.T) {
 					resource.TestCheckResourceAttrPair("axual_application_deployment.connector_axual_application_deployment", "application", "axual_application.tf-test-app", "id"),
 					resource.TestCheckResourceAttr("axual_application_deployment.connector_axual_application_deployment", "configs.topic", "test-topic"),
 					resource.TestCheckResourceAttr("axual_application_deployment.connector_axual_application_deployment", "configs.tasks.max", "1"),
-					CheckBodyMatchesFile("axual_application_principal.connector_axual_application_principal", "principal", "certs/connector-cert.crt"),
-					CheckBodyMatchesFile("axual_application_principal.connector_axual_application_principal", "private_key", "certs/connector-cert.key"),
+					CheckBodyMatchesFile("axual_application_principal.connector_axual_application_principal", "principal", CertPath("connector-cert.crt")),
+					CheckBodyMatchesFile("axual_application_principal.connector_axual_application_principal", "private_key", CertPath("connector-cert.key")),
 				),
 			},
 			{
@@ -63,8 +63,8 @@ func TestApplicationDeploymentResource(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttrPair("axual_application_deployment.connector_axual_application_deployment", "environment", "axual_environment.tf-test-env", "id"),
 					resource.TestCheckResourceAttrPair("axual_application_deployment.connector_axual_application_deployment", "application", "axual_application.tf-test-app", "id"),
-					CheckBodyMatchesFile("axual_application_principal.connector_axual_application_principal", "principal", "certs/connector_cert_rotated.cer"),
-					CheckBodyMatchesFile("axual_application_principal.connector_axual_application_principal", "private_key", "certs/connector_cert_rotated.key"),
+					CheckBodyMatchesFile("axual_application_principal.connector_axual_application_principal", "principal", CertPath("connector_cert_rotated.cer")),
+					CheckBodyMatchesFile("axual_application_principal.connector_axual_application_principal", "private_key", CertPath("connector_cert_rotated.key")),
 				),
 			},
 			{
