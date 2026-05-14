@@ -198,7 +198,7 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 	}
 
 	// We create Application Deployment
-	ApplicationDeploymentRequest, err := createApplicationDeploymentRequestFromData(ctx, &data, r)
+	ApplicationDeploymentRequest, err := createApplicationDeploymentRequestFromData(ctx, &data)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating request struct for application deployment resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
@@ -324,7 +324,7 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 		}
 	}
 
-	ApplicationDeploymentUpdateRequest, err := createApplicationUpdateDeploymentRequestFromData(ctx, &planData, r)
+	ApplicationDeploymentUpdateRequest, err := createApplicationUpdateDeploymentRequestFromData(ctx, &planData)
 
 	_, err = r.provider.client.UpdateApplicationDeployment(planData.Id.ValueString(), ApplicationDeploymentUpdateRequest)
 	if err != nil {
@@ -424,7 +424,7 @@ func mapApplicationDeploymentByIdResponseToData(ctx context.Context, data *Appli
 	mapResponseConfigsToData(ctx, data, applicationDeploymentResponse.Embedded.Application.ApplicationType, applicationDeploymentResponse.Configs)
 }
 
-func createApplicationDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData, r *applicationDeploymentResource) (webclient.ApplicationDeploymentCreateRequest, error) {
+func createApplicationDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData) (webclient.ApplicationDeploymentCreateRequest, error) {
 	configs, err := createConfigsForDeploymentType(data)
 
 	if err != nil {
@@ -441,7 +441,7 @@ func createApplicationDeploymentRequestFromData(ctx context.Context, data *Appli
 	return ApplicationDeploymentRequest, nil
 }
 
-func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData, r *applicationDeploymentResource) (webclient.ApplicationDeploymentUpdateRequest, error) {
+func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData) (webclient.ApplicationDeploymentUpdateRequest, error) {
 	configs, err := createConfigsForDeploymentType(data)
 
 	if err != nil {
