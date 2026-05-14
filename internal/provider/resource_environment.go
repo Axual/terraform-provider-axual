@@ -348,9 +348,9 @@ func (r *environmentResource) processProperties(ctx context.Context, req resourc
 	req.State.GetAttribute(ctx, path.Root("properties"), &oldPropertiesState)
 
 	properties := make(map[string]interface{})
-	// Send `properties = nil` to API if in configuration `properties = nil`, `properties = {}` or NO properties
+	// Send `properties = {}` to API if user defines `properties = nil`, `properties = {}` or NO properties
 	if data.Properties.IsNull() || data.Properties.IsUnknown() || len(data.Properties.Elements()) == 0 {
-		return nil
+		return make(map[string]interface{})
 	}
 
 	// Mark old properties as nil
