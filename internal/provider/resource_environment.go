@@ -261,8 +261,8 @@ func (r *environmentResource) Update(ctx context.Context, req resource.UpdateReq
 		resp.Diagnostics.AddError("Error creating UPDATE request struct for environment resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
-	environmentRequest.Properties = r.processProperties(ctx, req, data)
-	environmentRequest.Settings = r.processSettings(ctx, req, data)
+	environmentRequest.Properties = processProperties(ctx, req, data)
+	environmentRequest.Settings = processSettings(ctx, req, data)
 
 	tflog.Info(ctx, fmt.Sprintf("Update environment request %q", environmentRequest))
 	environment, err := r.provider.client.UpdateEnvironment(data.Id.ValueString(), environmentRequest)
@@ -343,7 +343,7 @@ func createEnvironmentRequestFromData(ctx context.Context, data *environmentReso
 	return environmentRequest, nil
 }
 
-func (r *environmentResource) processProperties(ctx context.Context, req resource.UpdateRequest, data environmentResourceData) map[string]interface{} {
+func processProperties(ctx context.Context, req resource.UpdateRequest, data environmentResourceData) map[string]interface{} {
 	var oldPropertiesState map[string]string
 	req.State.GetAttribute(ctx, path.Root("properties"), &oldPropertiesState)
 
@@ -365,7 +365,7 @@ func (r *environmentResource) processProperties(ctx context.Context, req resourc
 	return properties
 }
 
-func (r *environmentResource) processSettings(ctx context.Context, req resource.UpdateRequest, data environmentResourceData) map[string]interface{} {
+func processSettings(ctx context.Context, req resource.UpdateRequest, data environmentResourceData) map[string]interface{} {
 	var oldSettingsState map[string]string
 	req.State.GetAttribute(ctx, path.Root("settings"), &oldSettingsState)
 
