@@ -201,9 +201,9 @@ Before running acceptance tests:
    - Tenant Admin (needed for creating Groups)
    - Application Author
    - Environment Author
+   - Topic Author
    - Schema Author
    - Schema Admin (needed for deleting Schemas not assigned to your Group)
-   - Topic Author
 
 4. **Creating Test Users:**
    Some tests (e.g., `TopicBrowsePermissionsResource`) require existing users to be referenced. Update the test files in [`internal/tests/TopicBrowsePermissionsResource/`](./internal/tests/TopicBrowsePermissionsResource/) with email addresses of users that exist in your test environment.
