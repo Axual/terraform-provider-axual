@@ -1,19 +1,9 @@
-resource "axual_topic" "tf-test-topic" {
-  name             = "test-topic"
-  key_type         = "String"
-  value_type       = "String"
-  owners           = data.axual_group.test_group.id
-  retention_policy = "delete"
-  properties       = {}
-  description      = "Demo of deploying a topic config via Terraform"
-}
-
-resource "axual_topic_config" "tf-topic-config" {
-  partitions     = 1
-  retention_time = 864000
-  topic          = axual_topic.tf-test-topic.id
-  environment    = axual_environment.tf-test-env.id
-  properties     = { "segment.ms" = "600012", "retention.bytes" = "-1" }
+resource "axual_application_principal" "connector_axual_application_principal" {
+  environment = axual_environment.tf-test-env.id
+  application = axual_application.tf-test-app.id
+  principal   = file("{{CERTS}}/connector-cert.crt")
+  private_key = file("{{CERTS}}/connector-cert.key")
+  # active intentionally omitted — exercises the deployment pre-flight check
 }
 
 resource "axual_application_access_grant" "tf-test-application-access-grant" {
@@ -21,18 +11,14 @@ resource "axual_application_access_grant" "tf-test-application-access-grant" {
   topic       = axual_topic.tf-test-topic.id
   environment = axual_environment.tf-test-env.id
   access_type = "PRODUCER"
-  depends_on  = [axual_topic_config.tf-topic-config]
+  depends_on = [
+    axual_application_principal.connector_axual_application_principal,
+    axual_topic_config.tf-topic-config
+  ]
 }
 
 resource "axual_application_access_grant_approval" "tf-test-application-access-grant-approval" {
   application_access_grant = axual_application_access_grant.tf-test-application-access-grant.id
-}
-
-# Wait for principal activation to propagate through the platform's search index before the deployment
-# pre-flight check. Anchored to the approval so it runs alongside (and just after) principal Create.
-resource "time_sleep" "wait_for_principal_activation" {
-  depends_on      = [axual_application_access_grant_approval.tf-test-application-access-grant-approval]
-  create_duration = "5s"
 }
 
 resource "axual_application_deployment" "connector_axual_application_deployment" {
@@ -58,6 +44,5 @@ resource "axual_application_deployment" "connector_axual_application_deployment"
   }
   depends_on = [
     axual_application_access_grant_approval.tf-test-application-access-grant-approval,
-    time_sleep.wait_for_principal_activation,
   ]
 }

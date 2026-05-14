@@ -15,6 +15,14 @@ func TestApplicationDeploymentResource(t *testing.T) {
 		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
 
 		Steps: []resource.TestStep{
+			// Test missing active Application Principal - should fail pre-flight check
+			{
+				Config: GetProvider() + GetFile(
+					"axual_application_deployment_setup.tf",
+					"axual_application_deployment_no_active_principal.tf",
+				),
+				ExpectError: regexp.MustCompile(`No active Application Principal`),
+			},
 			// Test missing `configs` - should fail response
 			{
 				Config: GetProvider() + GetFile(
