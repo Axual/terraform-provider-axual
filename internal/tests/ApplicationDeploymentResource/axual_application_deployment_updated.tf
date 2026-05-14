@@ -3,6 +3,7 @@ resource "axual_application_principal" "connector_axual_application_principal" {
   application = axual_application.tf-test-app.id
   principal   = file("{{CERTS}}/connector-cert.crt")
   private_key = file("{{CERTS}}/connector-cert.key")
+  active = true
 }
 
 resource "axual_application_access_grant" "tf-test-application-access-grant" {
@@ -18,6 +19,15 @@ resource "axual_application_access_grant" "tf-test-application-access-grant" {
 
 resource "axual_application_access_grant_approval" "tf-test-application-access-grant-approval" {
   application_access_grant = axual_application_access_grant.tf-test-application-access-grant.id
+}
+
+# Wait for activation propagation in the platform's search index before the deployment pre-flight check.
+resource "time_sleep" "wait_for_principal_activation" {
+  depends_on      = [axual_application_principal.connector_axual_application_principal]
+  create_duration = "3s"
+  triggers = {
+    principal_pem = axual_application_principal.connector_axual_application_principal.principal
+  }
 }
 
 resource "axual_application_deployment" "connector_axual_application_deployment" {
@@ -43,5 +53,6 @@ resource "axual_application_deployment" "connector_axual_application_deployment"
   }
   depends_on = [
     axual_application_access_grant_approval.tf-test-application-access-grant-approval,
+    time_sleep.wait_for_principal_activation,
   ]
 }

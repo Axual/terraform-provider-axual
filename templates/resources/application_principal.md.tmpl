@@ -70,6 +70,14 @@ resource "axual_application_principal" "new" {
 }
 ```
 
+### Required by `axual_application_deployment`
+
+A Connector `axual_application_deployment` cannot be created unless at least one active principal exists for the same application+environment. The deployment resource performs a pre-flight check and fails fast with a clear error otherwise.
+
+**Cross-repo setup:** when the principal is managed in a separate Terraform configuration than the deployment, ensure the principal is activated (via `active = true` or manually via UI) before running `terraform apply` on the deployment repo. The provider does not auto-activate principals.
+
+**Multiple principals per application+environment:** only one principal needs to be active. Activating a new principal automatically deactivates the previously active one (atomic swap by the API). The deployment is unaffected as long as exactly one is active.
+
 ### Deleting an active principal
 
 An active principal can be deleted if no `axual_application_deployment` exists for the same application+environment combination (i.e. the connector is not running). When a deployment is present and the connector is running, the API will reject the deletion — you must first rotate to a new active principal before removing the old one.

@@ -159,6 +159,27 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 		return
 	}
 
+	// Connector deployments require at least one active Application Principal: the deployment START
+	// will fail at the API otherwise. The API does NOT auto-activate, so we surface a clear error here
+	// instead of letting deployment creation fail with a generic platform error.
+	if !isKSML(data.Type.ValueString()) {
+		activePrincipalCount := countActivePrincipals(applicationPrincipalsResponse)
+		if activePrincipalCount == 0 {
+			resp.Diagnostics.AddError(
+				"No active Application Principal",
+				fmt.Sprintf(
+					"No active Application Principal found for application=%s environment=%s. "+
+						"Activate one by setting `active = true` on the axual_application_principal resource for this application and environment, "+
+						"or activate it manually via the Axual Self Service UI. "+
+						"For cross-repo setups (where the principal is managed in a different Terraform configuration), "+
+						"ensure activation has been applied before creating this deployment.",
+					data.Application.ValueString(), data.Environment.ValueString(),
+				),
+			)
+			return
+		}
+	}
+
 	// We check if Approved Application Access Grant exists for this environment and application
 	accessGrantRequest := webclient.ApplicationAccessGrantAttributes{
 		ApplicationId: data.Application.ValueString(),
@@ -571,6 +592,18 @@ func mapResponseConfigsToData(ctx context.Context, data *ApplicationDeploymentRe
 
 func isKSML(deploymentType string) bool {
 	return deploymentType == "Ksml"
+}
+
+// countActivePrincipals counts principals whose API-returned active flag is true.
+// A nil Active pointer means the field was absent from the response (treated as inactive).
+func countActivePrincipals(response *webclient.ApplicationPrincipalFindByApplicationAndEnvironmentResponse) int {
+	count := 0
+	for _, p := range response.Embedded.ApplicationPrincipalResponses {
+		if p.Active != nil && *p.Active {
+			count++
+		}
+	}
+	return count
 }
 
 func shouldStopDeployment(data ApplicationDeploymentResourceData, status *webclient.ApplicationDeploymentStatusResponse) bool {

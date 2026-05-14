@@ -34,6 +34,6 @@ type ApplicationPrincipalUpdateRequest struct {
 
 type ApplicationPrincipalFindByApplicationAndEnvironmentResponse struct {
 	Embedded struct {
-		ApplicationPrincipalResponses []interface{} `json:"application_principals"`
+		ApplicationPrincipalResponses []ApplicationPrincipalResponse `json:"application_principals"`
 	} `json:"_embedded"`
 }
