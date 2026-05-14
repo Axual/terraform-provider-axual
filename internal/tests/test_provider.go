@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"axual.com/terraform-provider-axual/internal/provider"
@@ -50,20 +53,31 @@ func testProviderConfig() (resource.TestCase, error) {
 		return resource.TestCase{}, err
 	}
 
+	// `time` is used by test fixtures to insert `time_sleep` between resources where the platform
+	// has propagation lag (e.g. after activating an Application Principal, the search endpoint takes
+	// a short moment to reflect the new active flag). Keeping the wait in test fixtures avoids
+	// adding sleeps to the provider itself.
+	timeProvider := map[string]resource.ExternalProvider{
+		"time": {Source: "hashicorp/time"},
+	}
+
 	if config.Provider.Version == "local" {
 		// Use local provider factories
 		return resource.TestCase{
 			ProtoV6ProviderFactories: testAccProviderFactories(),
+			ExternalProviders:        timeProvider,
 		}, nil
 	} else {
 		// Use a specific version from the registry
-		return resource.TestCase{
-			ExternalProviders: map[string]resource.ExternalProvider{
-				"axual": {
-					VersionConstraint: config.Provider.Version,
-					Source:            "Axual/axual",
-				},
+		external := map[string]resource.ExternalProvider{
+			"axual": {
+				VersionConstraint: config.Provider.Version,
+				Source:            "Axual/axual",
 			},
+			"time": {Source: "hashicorp/time"},
+		}
+		return resource.TestCase{
+			ExternalProviders: external,
 		}, nil
 	}
 }
@@ -154,7 +168,22 @@ func GetFile(paths ...string) string {
 		combinedConfig += string(data) + "\n" // Add file content and newline for separation
 	}
 
-	return combinedConfig
+	return strings.ReplaceAll(combinedConfig, "{{CERTS}}", CertsDir())
+}
+
+// CertsDir returns the absolute path to the shared certs directory.
+// Resolved relative to this source file so it works regardless of the caller's working directory.
+func CertsDir() string {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		log.Panic("unable to determine CertsDir via runtime.Caller")
+	}
+	return filepath.Join(filepath.Dir(file), "shared_certs")
+}
+
+// CertPath returns the absolute path to a named cert in the shared certs directory.
+func CertPath(name string) string {
+	return filepath.Join(CertsDir(), name)
 }
 
 // Helper function to read the file and compare its content
