@@ -21,13 +21,6 @@ resource "axual_environment" "tf-test-env" {
   owners               = data.axual_group.test_group.id
 }
 
-resource "axual_application_principal" "connector_axual_application_principal" {
-  environment = axual_environment.tf-test-env.id
-  application = axual_application.tf-test-app.id
-  principal   = file("certs/connector-cert.crt")
-  private_key = file("certs/connector-cert.key")
-}
-
 resource "axual_topic" "tf-test-topic" {
   name             = "test-topic"
   key_type         = "String"
@@ -44,20 +37,4 @@ resource "axual_topic_config" "tf-topic-config" {
   topic          = axual_topic.tf-test-topic.id
   environment    = axual_environment.tf-test-env.id
   properties     = { "segment.ms" = "600012", "retention.bytes" = "-1" }
-}
-
-
-resource "axual_application_access_grant" "tf-test-application-access-grant" {
-  application = axual_application.tf-test-app.id
-  topic       = axual_topic.tf-test-topic.id
-  environment = axual_environment.tf-test-env.id
-  access_type = "PRODUCER"
-  depends_on = [
-    axual_application_principal.connector_axual_application_principal,
-    axual_topic_config.tf-topic-config
-  ]
-}
-
-resource "axual_application_access_grant_approval" "tf-test-application-access-grant-approval" {
-  application_access_grant = axual_application_access_grant.tf-test-application-access-grant.id
 }

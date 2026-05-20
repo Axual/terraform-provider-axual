@@ -7,7 +7,7 @@ With this resource you can configure who can browse a topic's messages in a spec
 
 Either users or groups need to be specified — both can't be empty.
 
-Read more: https://docs.axual.io/axual/2025.3/self-service/topic-browse.html#controlling-permissions-to-browse-a-topic
+Read more: https://docs.axual.io/axual/2026.1/self-service/topic-browse.html#controlling-permissions-to-browse-a-topic
 
 ## Required Roles
 - Be part of the group owning the Stream

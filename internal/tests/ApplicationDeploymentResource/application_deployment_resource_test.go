@@ -15,6 +15,14 @@ func TestApplicationDeploymentResource(t *testing.T) {
 		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
 
 		Steps: []resource.TestStep{
+			// Test missing active Application Principal - should fail pre-flight check
+			{
+				Config: GetProvider() + GetFile(
+					"axual_application_deployment_setup.tf",
+					"axual_application_deployment_no_active_principal.tf",
+				),
+				ExpectError: regexp.MustCompile(`No active Application Principal`),
+			},
 			// Test missing `configs` - should fail response
 			{
 				Config: GetProvider() + GetFile(
@@ -33,6 +41,8 @@ func TestApplicationDeploymentResource(t *testing.T) {
 					resource.TestCheckResourceAttrPair("axual_application_deployment.connector_axual_application_deployment", "application", "axual_application.tf-test-app", "id"),
 					resource.TestCheckResourceAttr("axual_application_deployment.connector_axual_application_deployment", "configs.topic", "test-topic"),
 					resource.TestCheckResourceAttr("axual_application_deployment.connector_axual_application_deployment", "configs.tasks.max", "1"),
+					CheckBodyMatchesFile("axual_application_principal.connector_axual_application_principal", "principal", CertPath("connector-cert.crt")),
+					CheckBodyMatchesFile("axual_application_principal.connector_axual_application_principal", "private_key", CertPath("connector-cert.key")),
 				),
 			},
 			{
@@ -54,11 +64,23 @@ func TestApplicationDeploymentResource(t *testing.T) {
 				Config:            GetProvider() + GetFile("axual_application_deployment_updated.tf"),
 			},
 			{
+				Config: GetProvider() + GetFile(
+					"axual_application_deployment_setup.tf",
+					"axual_application_deployment_cert_rotated.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrPair("axual_application_deployment.connector_axual_application_deployment", "environment", "axual_environment.tf-test-env", "id"),
+					resource.TestCheckResourceAttrPair("axual_application_deployment.connector_axual_application_deployment", "application", "axual_application.tf-test-app", "id"),
+					CheckBodyMatchesFile("axual_application_principal.connector_axual_application_principal", "principal", CertPath("connector_cert_rotated.cer")),
+					CheckBodyMatchesFile("axual_application_principal.connector_axual_application_principal", "private_key", CertPath("connector_cert_rotated.key")),
+				),
+			},
+			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
 				Config: GetProvider() + GetFile(
 					"axual_application_deployment_setup.tf",
-					"axual_application_deployment_updated.tf",
+					"axual_application_deployment_cert_rotated.tf",
 				),
 			},
 		},

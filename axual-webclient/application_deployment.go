@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	"time"
 )
 
 func (c *Client) GetApplicationDeployment(id string) (*ApplicationDeploymentResponse, error) {
@@ -22,7 +21,6 @@ func (c *Client) DeleteApplicationDeployment(id string) error {
 	if err != nil {
 		return err
 	}
-	time.Sleep(2 * time.Second) //to give time for Connect/Kafka to propagate changes
 	return nil
 }
 
@@ -76,7 +74,6 @@ func (c *Client) OperateApplicationDeployment(id string, action string, data App
 	if err != nil {
 		return err
 	}
-	time.Sleep(2 * time.Second) //to give time for Connect/Kafka to propagate changes
 	return nil
 }
 

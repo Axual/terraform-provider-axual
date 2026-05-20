@@ -2,17 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.0.0](https://github.com/Axual/terraform-provider-axual/tree/master) - 2026-03-24
+## [master](https://github.com/Axual/terraform-provider-axual/tree/master) - TBR
+### Added
+* Allow rotating a Connector's `axual_application_principal`
+
+## [3.0.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.0.0) - 2026-03-24
+### Added
 * Import support for `axual_application_principal`
 * Import support for `axual_application_credential`
 * Import support for `axual_topic_browse_permissions`
-* Fix `axual_environment` import limitation
 * User creation via Terraform is no longer supported.
-* Removed unused API response fields across multiple data structures for improved maintainability
 * Removed `bootstrapServers` field references as the field has been removed from the `/clusters` API endpoints
+
+### Changed
 * Updated `axual_user` resource documentation to reflect the removal of user creation capability
+* Removed unused API response fields across multiple data structures for improved maintainability
+
+### Fixed
+* Fix `axual_environment` import limitation
 
 ## [2.9.1](https://github.com/Axual/terraform-provider-axual/releases/tag/v2.9.1) - 2026-01-18
+### Fixed
 * Fixed the compatibility matrix
 * Fixed documentation about grants, clarifying that terraform plan does not automatically refresh the state.
 
