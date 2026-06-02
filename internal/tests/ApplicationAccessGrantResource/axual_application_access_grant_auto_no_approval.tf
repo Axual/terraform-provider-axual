@@ -31,7 +31,7 @@ resource "axual_environment" "tf-test-env" {
 resource "axual_application_principal" "tf-test-app-principal" {
   environment = axual_environment.tf-test-env.id
   application = axual_application.tf-test-app.id
-  principal   = file("{{CERTS}}/generic-application-1.pem")
+  principal   = file("{{CERTS}}/generic_application_1.cer")
 }
 
 resource "axual_topic" "tf-test-topic" {

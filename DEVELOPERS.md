@@ -319,9 +319,9 @@ When writing acceptance tests, ensure you test:
 
 ### Certificate Files in Tests
 
-All test certificate and private key files live in a single shared folder: [`internal/tests/shared_certs/`](./internal/tests/shared_certs/). Tests resolve paths through helpers so the same files can be referenced from any test package.
+All test certificate and private key files live in a single shared folder: [`internal/tests/sharedCerts/`](./internal/tests/sharedCerts/). Tests resolve paths through helpers so the same files can be referenced from any test package.
 
-**Adding a new cert:** drop the `.cer` / `.crt` / `.key` / `.pem` file into `internal/tests/shared_certs/`.
+**Adding a new cert:** drop the `.cer` / `.crt` / `.key` / `.pem` file into `internal/tests/sharedCerts/`.
 
 **Referencing certs in Terraform config (`.tf`) files:**
 
