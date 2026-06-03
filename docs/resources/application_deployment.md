@@ -28,6 +28,12 @@ Activation options:
 
 KSML deployments are unaffected — they allow one authentication (`axual_application_credential` or `axual_application_principal`) and do not require an active principal.
 
+### Config values: `null` vs `""`
+
+- `configs` values are sent to the API **exactly as written** — no transformation is applied.
+- `null` is **not** a valid config value. Terraform does not allow `null` as a map element value, and the API rejects it; omit the key entirely if you do not want to set it.
+- An empty string `""` **is** a valid config value and is sent as an empty string (not converted to `null`). It is the right value for configs that accept "no value".
+
 ### Design Decision: Use of `depends_on`
 - Ensure the use of the `depends_on` attribute as shown in the example below. This guarantees that Terraform creates the required `axual_application_access_grant_approval` resource before creating `axual_application_deployment` resource.
 - We use the `depends_on` attribute because each connector plugin determines the topic names it should use in its own way. By explicitly specifying `depends_on`, the connector owner can protect the deployment until the necessary approvals are in place. Due to the dynamic nature of Connect, this structure is necessary to maintain flexibility and control over the resource creation process.
