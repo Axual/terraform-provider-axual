@@ -99,7 +99,7 @@ resource "axual_application_access_grant" "connector_axual_application_access_gr
   ]
 }
 
-resource "axual_application_access_grant_approval" "connector_axual_application_access_grant_approval-logsource-1"{
+resource "axual_application_access_grant_approval" "connector_axual_application_access_grant_approval-logsource-1" {
   application_access_grant = axual_application_access_grant.connector_axual_application_access_grant_logsource-1.id
 }
 
@@ -112,17 +112,13 @@ resource "axual_application_deployment" "connector_axual_application_deployment"
     "topic" = "tf-testing-source-1-2",
     "key.converter" = "StringConverter",
     "value.converter" = "StringConverter",
-    "header.converter" = "",
     "config.action.reload" = "restart",
     "tasks.max" = "1",
     "errors.log.include.messages" = "false",
     "errors.log.enable" = "false",
     "errors.retry.timeout" = "0",
     "errors.retry.delay.max.ms" = "60000",
-    "errors.tolerance" = "none",
-    "predicates" = "",
-    "topic.creation.groups" = "",
-    "transforms" = ""
+    "errors.tolerance" = "none"
   }
   depends_on = [
     axual_application_access_grant_approval.connector_axual_application_access_grant_approval-logsource-1,
