@@ -10,7 +10,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -105,25 +104,6 @@ func (m unknownWhenCertChangesString) PlanModifyString(ctx context.Context, req 
 	}
 }
 
-// unknownWhenCertChangesBool marks a bool attribute as (known after apply)
-// during certificate rotation so Terraform's plan matches what Update actually produces.
-type unknownWhenCertChangesBool struct{}
-
-func (m unknownWhenCertChangesBool) Description(_ context.Context) string {
-	return "Marks attribute as unknown when the certificate is being rotated."
-}
-func (m unknownWhenCertChangesBool) MarkdownDescription(_ context.Context) string {
-	return "Marks attribute as unknown when the certificate is being rotated."
-}
-func (m unknownWhenCertChangesBool) PlanModifyBool(ctx context.Context, req planmodifier.BoolRequest, resp *planmodifier.BoolResponse) {
-	if !req.ConfigValue.IsNull() {
-		return // user explicitly set active — respect it, don't override to unknown
-	}
-	if isCertificateChanging(ctx, req.Plan, req.State) {
-		resp.PlanValue = types.BoolUnknown()
-	}
-}
-
 func (r *applicationPrincipalResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
@@ -159,12 +139,7 @@ func (r *applicationPrincipalResource) Schema(ctx context.Context, req resource.
 			},
 			"active": schema.BoolAttribute{
 				Optional:            true,
-				Computed:            true,
-				MarkdownDescription: "Activation intent for Connector application principals. `true` on create activates the principal immediately. During certificate rotation, activation is automatic for Connector applications unless explicitly set to `false`. This attribute is **not** refreshed from the API on Read — it reflects the last value set by Terraform, not live API state. Deleting an active principal is not allowed; activate another principal first.",
-				PlanModifiers: []planmodifier.Bool{
-					boolplanmodifier.UseStateForUnknown(),
-					unknownWhenCertChangesBool{},
-				},
+				MarkdownDescription: "Activation intent for Connector application principals. On **create**, the principal is activated when `active=true`. On **certificate rotation**, the rotated principal is activated when either you turn `active` on in this apply (a transition from unset/`false` to `true`) OR the principal being replaced is currently active in the live API (activation is inherited). A stale `active=true` that was already in state (no transition) does **not** force activation on rotation — it defers to live API status; toggle off/on to force it. Omitting the attribute leaves it unset (inactive intent). This attribute is **not** refreshed from the API on Read — it reflects the last value set by Terraform, not live API state. Deleting an active principal is not allowed; activate another principal first.",
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -281,7 +256,7 @@ func (r *applicationPrincipalResource) Update(ctx context.Context, req resource.
 		strings.TrimSpace(plan.PrivateKey.ValueString()) == strings.TrimSpace(state.PrivateKey.ValueString())
 	if certUnchanged {
 		tflog.Info(ctx, fmt.Sprintf("Update application principal: cert unchanged for %s, no rotation", oldId))
-		active, err := r.resolveActivation(ctx, oldId, plan, state, application, false)
+		active, err := r.resolveActivation(ctx, oldId, plan, application)
 		if err != nil {
 			resp.Diagnostics.AddError("Client Error", err.Error())
 			return
@@ -307,12 +282,10 @@ func (r *applicationPrincipalResource) Update(ctx context.Context, req resource.
 	trimmedResponse := strings.Trim(string(newPrincipal), "\"")
 	newId := strings.ReplaceAll(trimmedResponse, fmt.Sprintf("%s/%s", r.provider.client.ApiURL, "application_principals/"), "")
 
-	active, err := r.resolveActivation(ctx, newId, plan, state, application, true)
-	if err != nil {
+	if err := r.activateRotatedPrincipal(ctx, oldId, newId, plan, state, application); err != nil {
 		resp.Diagnostics.AddError("Client Error", err.Error())
 		return
 	}
-	plan.Active = active
 
 	tflog.Info(ctx, fmt.Sprintf("Deleting old application principal %s", oldId))
 	if err := r.provider.client.DeleteApplicationPrincipal(oldId); err != nil {
@@ -351,63 +324,67 @@ func boolTrue(v types.Bool) bool {
 	return !v.IsNull() && !v.IsUnknown() && v.ValueBool()
 }
 
-// inactiveForState returns the resting `active` value when no activation occurs:
-// false if the prior state carried a value (preserve shape), null otherwise.
-func inactiveForState(prior types.Bool) types.Bool {
-	if !prior.IsNull() {
-		return types.BoolValue(false)
-	}
-	return types.BoolNull()
-}
-
-// resolveActivation decides whether to activate the principal at `id` and applies it.
-// Returns the final `active` value to persist in the state.
+// resolveActivation activates the principal at `id` when the user explicitly opted in
+// (active=true) and the application is a Connector. Used by the cert-unchanged update path
+// (in-place activation toggle): a principal is activated iff active=true is set in config.
 //
-// autoActivate=true (rotation path): Connector apps activate by default unless the user explicitly set false.
-// autoActivate=false (cert-unchanged fast path): only activate when the user explicitly sets true and the state isn't yet active.
-func (r *applicationPrincipalResource) resolveActivation(ctx context.Context, id string, plan, state applicationPrincipalResourceData, app *webclient.ApplicationResponse, autoActivate bool) (types.Bool, error) {
-	if app.ApplicationType != "Connector" {
-		tflog.Info(ctx, fmt.Sprintf("Skipping activation of application principal %s (application type: %s)", id, app.ApplicationType))
-		return inactiveForState(state.Active), nil
-	}
-	if autoActivate {
-		return r.activateRotation(ctx, id, plan, state)
-	}
-	return r.activateInPlace(ctx, id, plan, state)
-}
-
-// activateRotation: cert rotation auto-activates Connector principals unless the user explicitly set active=false.
-func (r *applicationPrincipalResource) activateRotation(ctx context.Context, id string, plan, state applicationPrincipalResourceData) (types.Bool, error) {
-	if plan.Active.Equal(types.BoolValue(false)) {
-		tflog.Info(ctx, fmt.Sprintf("Skipping activation of application principal %s (active=false)", id))
-		return inactiveForState(state.Active), nil
-	}
-	return r.activate(ctx, id, plan, state)
-}
-
-// activateInPlace: cert-unchanged path activates only on explicit true when state isn't already active.
-func (r *applicationPrincipalResource) activateInPlace(ctx context.Context, id string, plan, state applicationPrincipalResourceData) (types.Bool, error) {
-	if !boolTrue(plan.Active) || boolTrue(state.Active) {
-		tflog.Info(ctx, fmt.Sprintf("Skipping activation of application principal %s (active: %s)", id, plan.Active))
-		if plan.Active.IsUnknown() {
-			return state.Active, nil
+// `active` mirrors config (the attribute is Optional, not Computed), so the returned value is
+// always plan.Active — null stays null (non-Connector and omitted intent never gain a value).
+func (r *applicationPrincipalResource) resolveActivation(ctx context.Context, id string, plan applicationPrincipalResourceData, app *webclient.ApplicationResponse) (types.Bool, error) {
+	if app.ApplicationType == "Connector" && boolTrue(plan.Active) {
+		tflog.Info(ctx, fmt.Sprintf("Activating application principal %s", id))
+		if err := r.provider.client.ActivateApplicationPrincipal(id); err != nil {
+			return types.BoolNull(), fmt.Errorf("unable to activate application principal: %w", err)
 		}
-		return plan.Active, nil
+	} else {
+		tflog.Info(ctx, fmt.Sprintf("Skipping activation of application principal %s (active not explicitly true or non-Connector)", id))
 	}
-	return r.activate(ctx, id, plan, state)
+	return plan.Active, nil
 }
 
-// activate calls the activation API and returns the resulting `active` value.
-// IsUnknown plan values fall back to prior state value — avoids upgrading unintentional rotations to active=true.
-func (r *applicationPrincipalResource) activate(ctx context.Context, id string, plan, state applicationPrincipalResourceData) (types.Bool, error) {
-	tflog.Info(ctx, fmt.Sprintf("Activating application principal %s", id))
-	if err := r.provider.client.ActivateApplicationPrincipal(id); err != nil {
-		return types.BoolNull(), fmt.Errorf("unable to activate application principal: %w", err)
+// activateRotatedPrincipal decides activation for the cert-rotation update path. It activates the
+// newly created principal (newId) when EITHER:
+//
+//	(1) the user explicitly turned activation on this apply — a config transition active false/null
+//	    -> true (boolTrue(plan.Active) && !boolTrue(state.Active)); state.Active is the last value
+//	    Terraform wrote, so this is a reliable config-transition test (not a question about API
+//	    truth), OR
+//	(2) the principal being replaced (oldId) is currently active in the LIVE API — inherit
+//	    activation across the rotation.
+//
+// A persistent active=true that was already in state (no transition) does NOT force activation: it
+// defers to the old principal's live API status, so a stale active=true cannot wrongly reactivate
+// after an atomic swap or an external (UI / another .tf) deactivation.
+//
+// See executions/AXPD-11075-rotation-activate-variant.md for the full scenario coverage.
+func (r *applicationPrincipalResource) activateRotatedPrincipal(ctx context.Context, oldId, newId string, plan, state applicationPrincipalResourceData, app *webclient.ApplicationResponse) error {
+	if app.ApplicationType != "Connector" {
+		return nil
 	}
-	if plan.Active.IsUnknown() {
-		return state.Active, nil
+
+	shouldActivate := false
+	if boolTrue(plan.Active) && !boolTrue(state.Active) {
+		// (1) Explicit fresh intent — config transition to true this apply.
+		shouldActivate = true
+	} else {
+		// (2) Inherit the old principal's LIVE API status. Read just-before-rotation so external
+		// deactivations are seen (state.Active is unreliable as an API-status proxy here).
+		oldP, err := r.provider.client.ReadApplicationPrincipal(oldId)
+		if err != nil {
+			return fmt.Errorf("unable to read old principal status before rotation: %w", err)
+		}
+		shouldActivate = oldP.Active != nil && *oldP.Active
 	}
-	return types.BoolValue(true), nil
+
+	if shouldActivate {
+		tflog.Info(ctx, fmt.Sprintf("Activating rotated application principal %s", newId))
+		if err := r.provider.client.ActivateApplicationPrincipal(newId); err != nil {
+			return fmt.Errorf("unable to activate rotated application principal: %w", err)
+		}
+	} else {
+		tflog.Info(ctx, fmt.Sprintf("Not activating rotated application principal %s (no fresh active=true and old principal inactive)", newId))
+	}
+	return nil
 }
 
 func createApplicationPrincipalRequestFromData(ctx context.Context, data *applicationPrincipalResourceData, r *applicationPrincipalResource) ([1]webclient.ApplicationPrincipalRequest, error) {
