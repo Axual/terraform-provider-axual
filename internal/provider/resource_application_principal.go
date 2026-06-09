@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -188,7 +189,14 @@ func (r *applicationPrincipalResource) Create(ctx context.Context, req resource.
 
 	data.Id = types.StringValue(returnedUid)
 
-	if !data.Active.IsNull() && data.Active.ValueBool() {
+	application, err := r.provider.client.GetApplication(data.Application.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application to determine type, got error: %s", err))
+		return
+	}
+	warnActiveOnNonConnector(&resp.Diagnostics, application, data.Active)
+
+	if application.ApplicationType == "Connector" && boolTrue(data.Active) {
 		err = r.provider.client.ActivateApplicationPrincipal(returnedUid)
 		if err != nil {
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to activate application principal, got error: %s", err))
@@ -248,6 +256,7 @@ func (r *applicationPrincipalResource) Update(ctx context.Context, req resource.
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application to determine type, got error: %s", err))
 		return
 	}
+	warnActiveOnNonConnector(&resp.Diagnostics, application, plan.Active)
 
 	// Cert-unchanged fast path: only `active` (or other non-cert attrs) changed.
 	// Skip rotation — POST with the same fingerprint returns errmsg.duplicate.principal.
@@ -322,6 +331,22 @@ func (r *applicationPrincipalResource) ImportState(ctx context.Context, req reso
 // boolTrue reports whether v is known and true.
 func boolTrue(v types.Bool) bool {
 	return !v.IsNull() && !v.IsUnknown() && v.ValueBool()
+}
+
+// warnActiveOnNonConnector emits a non-blocking warning when active=true was set on a
+// non-Connector application. Activation is only supported for Connector applications, so the
+// attribute silently has no effect otherwise; the warning makes that explicit to the user.
+func warnActiveOnNonConnector(diags *diag.Diagnostics, app *webclient.ApplicationResponse, active types.Bool) {
+	if app.ApplicationType != "Connector" && boolTrue(active) {
+		diags.AddWarning(
+			"active attribute has no effect",
+			fmt.Sprintf(
+				"active=true was set but application type is %q. "+
+					"Principal activation is only supported for Connector applications.",
+				app.ApplicationType,
+			),
+		)
+	}
 }
 
 // resolveActivation activates the principal at `id` when the user explicitly opted in
