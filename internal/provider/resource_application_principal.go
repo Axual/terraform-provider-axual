@@ -355,8 +355,6 @@ func (r *applicationPrincipalResource) resolveActivation(ctx context.Context, id
 // A persistent active=true that was already in state (no transition) does NOT force activation: it
 // defers to the old principal's live API status, so a stale active=true cannot wrongly reactivate
 // after an atomic swap or an external (UI / another .tf) deactivation.
-//
-// See executions/AXPD-11075-rotation-activate-variant.md for the full scenario coverage.
 func (r *applicationPrincipalResource) activateRotatedPrincipal(ctx context.Context, oldId, newId string, plan, state applicationPrincipalResourceData, app *webclient.ApplicationResponse) error {
 	if app.ApplicationType != "Connector" {
 		return nil
