@@ -291,18 +291,59 @@ func (r *applicationPrincipalResource) Update(ctx context.Context, req resource.
 	trimmedResponse := strings.Trim(string(newPrincipal), "\"")
 	newId := strings.ReplaceAll(trimmedResponse, fmt.Sprintf("%s/%s", r.provider.client.ApiURL, "application_principals/"), "")
 
+	// Save newId to state immediately, before activation and deletion of the old principal.
+	// The new principal already exists in the API; if a later step fails we must still track it,
+	// otherwise it becomes an orphan (in the API but not in state) — Terraform can no longer manage
+	// it, and retrying the same cert hits errmsg.duplicate.principal forever.
+	plan.Id = types.StringValue(newId)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	if err := r.activateRotatedPrincipal(ctx, oldId, newId, plan, state, application); err != nil {
-		resp.Diagnostics.AddError("Client Error", err.Error())
+		// Activation failed, so the new principal is useless (inactive) while the old one is still
+		// active (activation is what deactivates the old). Roll back: delete newId and restore state to
+		// the old principal. The retry then re-runs a clean full rotation — and because the failed newId
+		// is gone, its fingerprint is free, so CREATE no longer hits errmsg.duplicate.principal.
+		// This works regardless of whether activation was an explicit active=true or an inherited one,
+		// because we recover by restarting the rotation rather than persisting the (unrepresentable)
+		// inherited intent.
+		if delErr := r.provider.client.DeleteApplicationPrincipal(newId); delErr != nil {
+			// Double failure: activation AND rollback both failed. Keep newId in state (the early save
+			// above) — reverting to oldId would orphan newId and, worse, make the next apply rotate the
+			// same cert into errmsg.duplicate.principal forever. With newId tracked, a retry takes the
+			// cert-unchanged fast path instead. Both principals now exist; the user must clean up.
+			resp.Diagnostics.AddError(
+				"Client Error",
+				fmt.Sprintf("New principal %s was created but activation failed (%s), and rolling it back also failed (%s). "+
+					"Old principal %s is still active. Manually delete %s, then re-run apply; or activate %s manually.",
+					newId, err, delErr, oldId, newId, newId),
+			)
+			return
+		}
+		// Rollback succeeded — restore state to the pre-update old principal so the retry rotates afresh.
+		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+		resp.Diagnostics.AddError(
+			"Client Error",
+			fmt.Sprintf("Activation of new principal failed: %s. Rolled back (deleted %s); old principal %s is unchanged and still active. "+
+				"Re-run apply to retry the rotation.", err, newId, oldId),
+		)
 		return
 	}
 
 	tflog.Info(ctx, fmt.Sprintf("Deleting old application principal %s", oldId))
 	if err := r.provider.client.DeleteApplicationPrincipal(oldId); err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete old application principal, got error: %s", err))
+		// newId is already in state, so this is not an orphan. Error (mirroring the activation-failure
+		// path) so the failure is loud; the user deletes the old principal manually, then a re-run
+		// sees no diff. State holding newId means this cannot accumulate orphans.
+		resp.Diagnostics.AddError(
+			"Client Error",
+			fmt.Sprintf("New principal %s is active, but old principal %s could not be deleted: %s. Delete it manually.", newId, oldId, err),
+		)
 		return
 	}
 
-	plan.Id = types.StringValue(newId)
 	tflog.Trace(ctx, "Updated application principal resource")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
