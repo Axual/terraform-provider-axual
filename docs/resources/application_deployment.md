@@ -11,6 +11,29 @@ An Application Deployment stores the configs for 'Connector' or 'Ksml' applicati
 - For more information about connector applications in Axual, refer to the documentation: [Starting Connectors](https://docs.axual.io/connect/Axual-Connect/developer/starting-connectors.html).
 - Currently, a data source for `axual_application_deployment` is not supported.
 
+### Prerequisite: active Application Principal (Connector only)
+
+For **Connector** applications, an active `axual_application_principal` must exist for the same application and environment before the deployment can be created. The provider performs a pre-flight check during `terraform apply` and returns a clear error if no active principal is found:
+
+```
+No active Application Principal found for application=<uid> environment=<uid>.
+Activate one by setting `active = true` on the axual_application_principal resource for this application and environment,
+or activate it manually via the Axual Self Service UI.
+```
+
+Activation options:
+
+- **Same Terraform configuration:** set `active = true` on the `axual_application_principal` resource and apply it before (or together with) the deployment. See [`axual_application_principal`](application_principal.md) for activation semantics and the multi-principal certificate rotation flow.
+- **Cross-repo setup:** when the principal is managed in a separate Terraform configuration (or activated manually via the UI), make sure activation has been applied before running `terraform apply` on the deployment. The provider does not auto-activate principals.
+
+KSML deployments are unaffected — they allow one authentication (`axual_application_credential` or `axual_application_principal`) and do not require an active principal.
+
+### Config values: `null` vs `""`
+
+- `configs` values are sent to the API **exactly as written** — no transformation is applied.
+- `null` is **not** a valid config value. Terraform does not allow `null` as a map element value, and the API rejects it; omit the key entirely if you do not want to set it.
+- An empty string `""` **is** a valid config value and is sent as an empty string (not converted to `null`). It is the right value for configs that accept "no value".
+
 ### Design Decision: Use of `depends_on`
 - Ensure the use of the `depends_on` attribute as shown in the example below. This guarantees that Terraform creates the required `axual_application_access_grant_approval` resource before creating `axual_application_deployment` resource.
 - We use the `depends_on` attribute because each connector plugin determines the topic names it should use in its own way. By explicitly specifying `depends_on`, the connector owner can protect the deployment until the necessary approvals are in place. Due to the dynamic nature of Connect, this structure is necessary to maintain flexibility and control over the resource creation process.
@@ -50,17 +73,13 @@ resource "axual_application_deployment" "connector_axual_application_deployment"
     "topic" = "tf-testing-source-1-2",
     "key.converter" = "StringConverter",
     "value.converter" = "StringConverter",
-    "header.converter" = "",
     "config.action.reload" = "restart",
     "tasks.max" = "1",
     "errors.log.include.messages" = "false",
     "errors.log.enable" = "false",
     "errors.retry.timeout" = "0",
     "errors.retry.delay.max.ms" = "60000",
-    "errors.tolerance" = "none",
-    "predicates" = "",
-    "topic.creation.groups" = "",
-    "transforms" = ""
+    "errors.tolerance" = "none"
   }
   depends_on = [
     axual_application_access_grant_approval.connector_axual_application_access_grant_approval-logsource-1,

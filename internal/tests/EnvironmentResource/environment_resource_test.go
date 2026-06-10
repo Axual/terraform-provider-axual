@@ -46,6 +46,22 @@ func TestEnvironmentResource(t *testing.T) {
 				),
 			},
 			{
+				// Update non-properties fields (description, retention_time, partitions) while leaving
+				// properties and settings unchanged. Verifies an update to other attributes does not
+				// drop or alter the existing properties/settings maps.
+				Config: GetProvider() + GetFile("axual_environment_updated_keep_properties.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "name", "tf-development1"),
+					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "description", "This is the terraform testing environment2"),
+					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "retention_time", "90000"),
+					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "partitions", "2"),
+					// properties and settings must survive the non-properties update.
+					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "properties.propertyKey1", "propertyValue1"),
+					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "properties.propertyKey2", "propertyValue2"),
+					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "settings.enforceDataMasking", "true"),
+				),
+			},
+			{
 				Config: GetProvider() + GetFile("axual_environment_removed_settings_properties.tf"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "name", "tf-development1"),

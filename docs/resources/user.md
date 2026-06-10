@@ -1,6 +1,6 @@
 # axual_user (Resource)
 
-User resource. Creating new users via Terraform is not supported. Use the axual_user data source to reference existing users, or use terraform import to manage existing users. New users are created by logging in through your organization's SSO provider. Read more: https://docs.axual.io/axual/2025.3/self-service/user-group-management.html#users
+User resource. Creating new users via Terraform is not supported. Use the axual_user data source to reference existing users, or use terraform import to manage existing users. New users are created by logging in through your organization's SSO provider. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#users
 
 ## Important: User Creation No Longer Supported
 

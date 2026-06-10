@@ -201,9 +201,9 @@ Before running acceptance tests:
    - Tenant Admin (needed for creating Groups)
    - Application Author
    - Environment Author
+   - Topic Author
    - Schema Author
    - Schema Admin (needed for deleting Schemas not assigned to your Group)
-   - Topic Author
 
 4. **Creating Test Users:**
    Some tests (e.g., `TopicBrowsePermissionsResource`) require existing users to be referenced. Update the test files in [`internal/tests/TopicBrowsePermissionsResource/`](./internal/tests/TopicBrowsePermissionsResource/) with email addresses of users that exist in your test environment.
@@ -316,6 +316,39 @@ When writing acceptance tests, ensure you test:
      - Can contain more than one element
 3. **Importing** the resource
 4. **Deletion** (automatic by the acceptance test framework)
+
+### Certificate Files in Tests
+
+All test certificate and private key files live in a single shared folder: [`internal/tests/sharedCerts/`](./internal/tests/sharedCerts/). Tests resolve paths through helpers so the same files can be referenced from any test package.
+
+**Adding a new cert:** drop the `.cer` / `.crt` / `.key` / `.pem` file into `internal/tests/sharedCerts/`.
+
+**Referencing certs in Terraform config (`.tf`) files:**
+
+Use the `{{CERTS}}` placeholder. `GetFile()` substitutes it with the absolute path to the shared folder at runtime.
+
+```hcl
+resource "axual_application_principal" "example" {
+  principal   = file("{{CERTS}}/generic_application_1.cer")
+  private_key = file("{{CERTS}}/generic_application_1.key")
+}
+```
+
+**Referencing certs in Go test code:**
+
+Use the `CertPath()` helper from the `internal/tests` package. It returns the absolute path to a named cert.
+
+```go
+import . "axual.com/terraform-provider-axual/internal/tests"
+
+CheckBodyMatchesFile(
+    "axual_application_principal.example",
+    "principal",
+    CertPath("generic_application_1.cer"),
+)
+```
+
+`CertsDir()` is also available if you need the directory itself.
 
 ### Preventing Automatic Resource Deletion
 

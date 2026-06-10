@@ -4,11 +4,12 @@ type ApplicationPrincipalCreateResponse string
 type ApplicationPrincipalUpdateResponse interface{}
 
 type ApplicationPrincipalResponse struct {
-	Uid      string `json:"uid"`
-	Principal          string      `json:"principal"`
-	ApplicationPem     string      `json:"applicationPem"`
-	Type               string      `json:"type"`
-	Embedded struct {
+	Uid            string `json:"uid"`
+	Principal      string `json:"principal"`
+	ApplicationPem string `json:"applicationPem"`
+	Type           string `json:"type"`
+	Active         *bool  `json:"active,omitempty"`
+	Embedded       struct {
 		Application struct {
 			ShortName string `json:"shortName"`
 			Uid       string `json:"uid"`
@@ -33,6 +34,6 @@ type ApplicationPrincipalUpdateRequest struct {
 
 type ApplicationPrincipalFindByApplicationAndEnvironmentResponse struct {
 	Embedded struct {
-		ApplicationPrincipalResponses []interface{} `json:"application_principals"`
+		ApplicationPrincipalResponses []ApplicationPrincipalResponse `json:"application_principals"`
 	} `json:"_embedded"`
 }

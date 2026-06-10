@@ -150,7 +150,6 @@ func main() {
 	//	Environment: "https://self-service.qa.np.westeurope.azure.axual.cloud/api/environments/3d2eb1e9c97f4cf08e310cec88de2449",
 	//	Configs: map[string]string{
 	//		"config.action.reload":     "restart",
-	//		"header.converter":         "",
 	//		"key.converter":            "",
 	//		"tasks.max":                "1",
 	//		"topics":                   "1",
@@ -199,7 +198,6 @@ func main() {
 	//		"topics":                                          "3",
 	//		"value.converter":                                 "",
 	//		"key.converter":                                   "",
-	//		"header.converter":                                "",
 	//		"topics.regex":                                    "",
 	//		"tasks.max":                                       "1",
 	//		"couchbase.bucket":                                "2",

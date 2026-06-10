@@ -1,13 +1,13 @@
 # axual_application_principal (Resource)
 
-An Application Principal is a security principal (certificate or comparable) that uniquely authenticates an Application in an Environment. Read more: https://docs.axual.io/axual/2025.3/self-service/application-management.html#configuring-application-securityauthentication
+An Application Principal is a security principal (certificate or comparable) that uniquely authenticates an Application in an Environment. Read more: https://docs.axual.io/axual/2026.1/self-service/application-management.html#configuring-application-securityauthentication
 
 ## Limitations
 - Axual Terraform Provider only support these authentication methods:
 	- SSL (MUTUAL TLS) as a Certificate(PEM). To use it please provide a string with PEM certificate as `principal` property.
-		- Read more: https://docs.axual.io/axual/2025.3/self-service/application-management.html#ssl-application-principals
+		- Read more: https://docs.axual.io/axual/2026.1/self-service/application-management.html#ssl-application-principals
 	- SASL (OAUTHBEARER) as a Custom Principal that specifies the ID referenced in URI and tokens. To use it please provide a string with PEM certificate as principal property. For example, `my-client`.
-		- Read more: https://docs.axual.io/axual/2025.3/self-service/application-management.html#application-custom-principal
+		- Read more: https://docs.axual.io/axual/2026.1/self-service/application-management.html#application-custom-principal
 
 ## Security
 - If using Application Principal for a Connector application private key is required.
@@ -29,12 +29,99 @@ An Application Principal is a security principal (certificate or comparable) tha
 
 ### Optional
 
+- `active` (Boolean) Activation intent for Connector application principals. On **create**, the principal is activated when `active=true`. On **certificate rotation**, the rotated principal is activated when either you turn `active` on in this apply (a transition from unset/`false` to `true`) OR the principal being replaced is currently active in the live API (activation is inherited). A stale `active=true` that was already in state (no transition) does **not** force activation on rotation — it defers to live API status; toggle off/on to force it. Omitting the attribute leaves it unset (inactive intent). This attribute is **not** refreshed from the API on Read — it reflects the last value set by Terraform, not live API state. Deleting an active principal is not allowed; activate another principal first.
 - `custom` (Boolean) A boolean identifying whether we are creating a custom principal. If true, the custom principal will be stored in `principal` property. Custom principal allows an application with SASL+OAUTHBEARER to produce/consume a topic. Custom Application Principal certificate is used to authenticate your application with an IAM provider using the custom ApplicationPrincipal as Client ID
 - `private_key` (String, Sensitive) The private key of a Connector Application for an Environment. Must be PEM-format. If committing terraform configuration(.tf) file in version control repository, please make sure there is a secure way of providing private key for a Connector application's Application Principal. Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/.
 
 ### Read-Only
 
 - `id` (String) Application Principal ID
+
+## Active Principal and Certificate Rotation (Connector only)
+
+This section applies only to **Connector** application principals.
+
+At any point in time, only one principal can be active per application+environment combination. Activating a new principal automatically deactivates the previously active one (atomic swap by the API).
+
+### `active` field semantics
+
+The `active` attribute is **write-only activation intent** — Terraform sets it, but never reads it back from the API. Its effect depends on the operation:
+
+- `active = true` on **create**: the principal is uploaded and immediately activated.
+- **Rotation** (cert or private key changes) preserves the activation status of the principal being replaced, and also honors an explicit opt-in. The rotated principal is activated when **either**:
+  - you turn `active` on in this apply — a config transition from unset/`false` to `true`; or
+  - the principal being replaced is **currently active in the live API** (activation is inherited across the rotation, even with `active` omitted).
+
+  A `active = true` that was already present before this apply (no transition) does **not** force activation on rotation — it defers to the live API status. So a stale `active = true` left over from an earlier apply will not reactivate a principal that has since been deactivated (by an atomic swap or externally via the UI / another `.tf`). To deliberately (re)activate during a rotation when `active` is already `true`, toggle it off and on again.
+
+Because `active` is not refreshed from the API, Terraform will **not** detect drift when another principal is externally activated (which atomically deactivates this one). This avoids re-activation loops. As a consequence, two resources can both show `active = true` in state while only one is truly active in the API — state reflects last-written intent, not live API status.
+
+### Switching the active principal
+
+When switching which principal is active, remove `active = true` (or set `active = false`) from the old resource in the same config change. This keeps the config accurate and avoids confusion — even though Terraform will not endlessly try to re-activate the old principal, the state would still reflect `active = true` for a principal that is no longer active in the API.
+
+**Recommended approach — explicit transition:**
+
+```hcl
+# Step 1: old principal was active
+resource "axual_application_principal" "old" {
+  environment = axual_environment.dev.id
+  application = axual_application.connector.id
+  principal   = file("certs/old.pem")
+  private_key = file("certs/old.key")
+  active      = true
+}
+
+# Step 2: switch to new principal — remove active=true from old at the same time
+resource "axual_application_principal" "old" {
+  environment = axual_environment.dev.id
+  application = axual_application.connector.id
+  principal   = file("certs/old.pem")
+  private_key = file("certs/old.key")
+  # active removed — Terraform no longer tries to keep it active
+}
+
+resource "axual_application_principal" "new" {
+  environment = axual_environment.dev.id
+  application = axual_application.connector.id
+  principal   = file("certs/new.pem")
+  private_key = file("certs/new.key")
+  active      = true
+}
+```
+
+### Required by `axual_application_deployment`
+
+A Connector `axual_application_deployment` cannot be created unless at least one active principal exists for the same application+environment. The deployment resource performs a pre-flight check and fails fast with a clear error otherwise.
+
+**Cross-repo setup:** when the principal is managed in a separate Terraform configuration than the deployment, ensure the principal is activated (via `active = true` or manually via UI) before running `terraform apply` on the deployment repo. The provider does not auto-activate principals.
+
+**Multiple principals per application+environment:** only one principal needs to be active. Activating a new principal automatically deactivates the previously active one (atomic swap by the API). The deployment is unaffected as long as exactly one is active.
+
+### Deleting an active principal
+
+An active principal can be deleted if no `axual_application_deployment` exists for the same application+environment combination (i.e. the connector is not running). When a deployment is present and the connector is running, the API will reject the deletion — you must first rotate to a new active principal before removing the old one.
+
+### In-place certificate rotation (same resource, new cert)
+
+If you update `principal` or `private_key` on an existing Connector resource, the provider:
+
+1. Uploads the new certificate as a new principal.
+2. Activates the new principal (deactivating the old one) if **either** of these holds:
+   - you turned `active` on in this apply (a transition from unset/`false` to `true`), or
+   - the principal being replaced was **currently active in the live API** — activation is inherited so the connector keeps running on the rotated cert.
+3. Deletes the old principal.
+
+This means a rotation never silently drops activation: if the old cert was serving, the new cert takes over automatically. It also never reactivates against the live API: a `active = true` that was already in state before this apply (no transition) does not force activation — the provider reads the old principal's live status just before rotating and inherits that. To force activation when `active` is already `true`, toggle it off and on.
+
+### In-place activation toggle (no cert change)
+
+If you change only `active` on an existing Connector principal (cert and private_key unchanged), the provider does **not** rotate:
+
+- → `true`: the provider calls the activate API on the existing principal. No new principal is uploaded; the old principal id is preserved.
+- `true` → `false` (or `active` removed): state records the new value (`false` / unset) but no API call is made — there is no deactivate endpoint. To actually deactivate this principal, activate another one for the same application+environment (atomic swap).
+
+`active` is an optional, config-driven value (it has no default): omitting it leaves it unset in state rather than recording `false`. This avoids the `errmsg.duplicate.principal` error that would occur if the provider attempted to upload the same cert again.
 
 ## Example Usage
 

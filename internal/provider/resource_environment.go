@@ -61,7 +61,7 @@ func (r *environmentResource) Metadata(ctx context.Context, req resource.Metadat
 func (r *environmentResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Environments are used typically to support the application lifecycle, as it is moving from Development to Production.  In Self Service, they also allow you to test a feature in isolation, by making the environment Private. Read more: https://docs.axual.io/axual/2025.3/self-service/environment-management.html#managing-environments",
+		MarkdownDescription: "Environments are used typically to support the application lifecycle, as it is moving from Development to Production.  In Self Service, they also allow you to test a feature in isolation, by making the environment Private. Read more: https://docs.axual.io/axual/2026.1/self-service/environment-management.html#managing-environments",
 
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
@@ -114,7 +114,7 @@ func (r *environmentResource) Schema(ctx context.Context, req resource.SchemaReq
 				Required:            true,
 			},
 			"viewers": schema.SetAttribute{
-				MarkdownDescription: "Environment Viewer Groups define which Groups are authorized to view all Topic Configurations and Application Authentications within the Environment, regardless of ownership and visibility. Read more: https://docs.axual.io/axual/2025.3/self-service/user-group-management.html#viewer-groups",
+				MarkdownDescription: "Environment Viewer Groups define which Groups are authorized to view all Topic Configurations and Application Authentications within the Environment, regardless of ownership and visibility. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#viewer-groups",
 				Optional:            true,
 				ElementType:         types.StringType,
 				Validators: []validator.Set{
@@ -261,8 +261,8 @@ func (r *environmentResource) Update(ctx context.Context, req resource.UpdateReq
 		resp.Diagnostics.AddError("Error creating UPDATE request struct for environment resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
-	environmentRequest.Properties = r.processProperties(ctx, req, data)
-	environmentRequest.Settings = r.processSettings(ctx, req, data)
+	environmentRequest.Properties = processProperties(ctx, req, data)
+	environmentRequest.Settings = processSettings(ctx, req, data)
 
 	tflog.Info(ctx, fmt.Sprintf("Update environment request %q", environmentRequest))
 	environment, err := r.provider.client.UpdateEnvironment(data.Id.ValueString(), environmentRequest)
@@ -343,14 +343,14 @@ func createEnvironmentRequestFromData(ctx context.Context, data *environmentReso
 	return environmentRequest, nil
 }
 
-func (r *environmentResource) processProperties(ctx context.Context, req resource.UpdateRequest, data environmentResourceData) map[string]interface{} {
+func processProperties(ctx context.Context, req resource.UpdateRequest, data environmentResourceData) map[string]interface{} {
 	var oldPropertiesState map[string]string
 	req.State.GetAttribute(ctx, path.Root("properties"), &oldPropertiesState)
 
 	properties := make(map[string]interface{})
-	// Send `properties = nil` to API if in configuration `properties = nil`, `properties = {}` or NO properties
+	// Send `properties = {}` to API if user defines `properties = nil`, `properties = {}` or NO properties
 	if data.Properties.IsNull() || data.Properties.IsUnknown() || len(data.Properties.Elements()) == 0 {
-		return nil
+		return make(map[string]interface{})
 	}
 
 	// Mark old properties as nil
@@ -365,7 +365,7 @@ func (r *environmentResource) processProperties(ctx context.Context, req resourc
 	return properties
 }
 
-func (r *environmentResource) processSettings(ctx context.Context, req resource.UpdateRequest, data environmentResourceData) map[string]interface{} {
+func processSettings(ctx context.Context, req resource.UpdateRequest, data environmentResourceData) map[string]interface{} {
 	var oldSettingsState map[string]string
 	req.State.GetAttribute(ctx, path.Root("settings"), &oldSettingsState)
 

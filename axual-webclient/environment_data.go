@@ -51,6 +51,6 @@ type EnvironmentRequest struct {
 	Instance            string                 `json:"instance,omitempty"`
 	Owners              string                 `json:"owners,omitempty"`
 	Viewers             []string               `json:"viewers"`
-	Properties          map[string]interface{} `json:"properties,omitempty"`
+	Properties          map[string]interface{} `json:"properties"`
 	Settings            map[string]interface{} `json:"settings"`
 }
