@@ -86,7 +86,9 @@ func isCertificateChanging(ctx context.Context, plan tfsdk.Plan, state tfsdk.Sta
 	var planPrivateKey, statePrivateKey types.String
 	plan.GetAttribute(ctx, path.Root("private_key"), &planPrivateKey)
 	state.GetAttribute(ctx, path.Root("private_key"), &statePrivateKey)
-	return !planPrivateKey.Equal(statePrivateKey)
+	// Compare like principal: ignore leading/trailing whitespace so a trailing newline in a key
+	// file does not show as a phantom rotation in the plan (apply trims too, so nothing changes).
+	return strings.TrimSpace(planPrivateKey.ValueString()) != strings.TrimSpace(statePrivateKey.ValueString())
 }
 
 // unknownWhenCertChangesString marks a string attribute as (known after apply)
@@ -123,6 +125,11 @@ func (r *applicationPrincipalResource) Schema(ctx context.Context, req resource.
 				MarkdownDescription: "The private key of a Connector Application for an Environment. Must be PEM-format. If committing terraform configuration(.tf) file in version control repository, please make sure there is a secure way of providing private key for a Connector application's Application Principal. Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/.",
 				Optional:            true,
 				Sensitive:           true,
+				PlanModifiers: []planmodifier.String{
+					// Same as principal: suppress whitespace-only diffs (e.g. a trailing newline from
+					// file()) so they don't surface as a misleading rotation in the plan.
+					trimSpaceSemanticallyEqual{},
+				},
 			},
 			"application": schema.StringAttribute{
 				MarkdownDescription: "A valid UID of an existing application",
@@ -196,15 +203,20 @@ func (r *applicationPrincipalResource) Create(ctx context.Context, req resource.
 	}
 	warnActiveOnNonConnector(&resp.Diagnostics, application, data.Active)
 
-	if application.ApplicationType == "Connector" && boolTrue(data.Active) {
-		err = r.provider.client.ActivateApplicationPrincipal(returnedUid)
-		if err != nil {
-			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to activate application principal, got error: %s", err))
-			return
+	// Only Connectors support activation. For non-Connectors, leave data.Active exactly as the user
+	// wrote it — never overwrite with false, or active=true config would mismatch active=false state
+	// and produce a perma-diff on every plan (warnActiveOnNonConnector already flags the no-op).
+	if application.ApplicationType == "Connector" {
+		if boolTrue(data.Active) {
+			err = r.provider.client.ActivateApplicationPrincipal(returnedUid)
+			if err != nil {
+				resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to activate application principal, got error: %s", err))
+				return
+			}
+			data.Active = types.BoolValue(true)
+		} else if !data.Active.IsNull() {
+			data.Active = types.BoolValue(false)
 		}
-		data.Active = types.BoolValue(true)
-	} else if !data.Active.IsNull() {
-		data.Active = types.BoolValue(false)
 	}
 
 	tflog.Trace(ctx, "Created an application principal resource")
@@ -344,8 +356,9 @@ func (r *applicationPrincipalResource) Update(ctx context.Context, req resource.
 		return
 	}
 
+	// State was already saved with newId right after the new principal was created (see above);
+	// plan has not changed since, so no second resp.State.Set is needed here.
 	tflog.Trace(ctx, "Updated application principal resource")
-	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
 func (r *applicationPrincipalResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

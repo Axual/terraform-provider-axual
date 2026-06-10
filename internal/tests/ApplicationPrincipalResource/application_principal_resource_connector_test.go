@@ -7,6 +7,7 @@ import (
 	. "axual.com/terraform-provider-axual/internal/tests"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 )
 
 func TestApplicationPrincipalConnectorResource(t *testing.T) {
@@ -363,6 +364,52 @@ func TestApplicationPrincipalConnectorRotationFreshFlipActivates(t *testing.T) {
 				Config: GetProvider() + GetFile(
 					"axual_application_principal_connector_setup.tf",
 					"axual_application_principal_connector_freshflip_rotate.tf",
+				),
+			},
+		},
+	})
+}
+
+// TestApplicationPrincipalConnectorKeyTrailingWhitespaceNoDiff guards against a misleading plan
+// when only trailing whitespace (e.g. a trailing newline that file() preserves) differs on
+// principal or private_key. principal was already protected; private_key was compared exactly, so
+// a trailing newline marked the cert as rotating and the plan showed `id -> (known after apply)`,
+// implying a rotation that apply would not actually perform. Both fields now suppress
+// whitespace-only diffs, so re-applying the same cert with extra trailing newlines is an empty plan.
+func TestApplicationPrincipalConnectorKeyTrailingWhitespaceNoDiff(t *testing.T) {
+	const name = "axual_application_principal.connector_axual_application_principal"
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+
+		Steps: []resource.TestStep{
+			{
+				// Create with the plain cert/key (as file() returns them).
+				Config: GetProvider() + GetFile(
+					"axual_application_principal_connector_setup.tf",
+					"axual_application_principal_connector_initial.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					CheckBodyMatchesFile(name, "principal", CertPath("generic_application_1.cer")),
+					CheckBodyMatchesFile(name, "private_key", CertPath("generic_application_1.key")),
+				),
+			},
+			{
+				// Same cert/key but with extra trailing newlines appended to both fields. This must NOT
+				// be seen as a rotation: the plan must be empty (no `id -> known after apply`).
+				Config: GetProvider() + GetFile(
+					"axual_application_principal_connector_setup.tf",
+					"axual_application_principal_connector_key_trailing_ws.tf",
+				),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+			},
+			{
+				Destroy: true,
+				Config: GetProvider() + GetFile(
+					"axual_application_principal_connector_setup.tf",
+					"axual_application_principal_connector_key_trailing_ws.tf",
 				),
 			},
 		},
