@@ -32,21 +32,6 @@ func (c *Client) CreateApplicationPrincipal(applicationPrincipalRequest [1]Appli
 	return o, nil
 }
 
-func (c *Client) UpdateApplicationPrincipal(id string, applicationUpdatePrincipalRequest ApplicationPrincipalUpdateRequest) (ApplicationPrincipalUpdateResponse, error) {
-	var o ApplicationPrincipalUpdateResponse
-	marshal, err := json.Marshal(applicationUpdatePrincipalRequest)
-	if err != nil {
-		return "Error creating payload for application principal", err
-	}
-	headers := map[string]string{"Content-Type": "application/json"}
-	err = c.RequestAndMap("PATCH", fmt.Sprintf("%s/application_principals/%v", c.ApiURL, id), strings.NewReader(string(marshal)), headers, &o)
-	if err != nil {
-		return "Error sending PATCH request for application principal", err
-	}
-	time.Sleep(2 * time.Second) // Principal application can take significant time to apply in Kafka cluster
-	return o, nil
-}
-
 func (c *Client) ActivateApplicationPrincipal(id string) error {
 	err := c.RequestAndMap("POST", fmt.Sprintf("%s/application_authentications/%v/activate", c.ApiURL, id), nil, nil, nil)
 	if err != nil {
