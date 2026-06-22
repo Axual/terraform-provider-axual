@@ -4,10 +4,22 @@ package webclient
 // Only fields actually used by the provider are included to reduce maintenance burden
 // and avoid breaking changes when the API evolves.
 type ApplicationAccessGrant struct {
-	Status  string `json:"status"`
-	Uid     string `json:"uid"`
-	Comment string `json:"comment"`
-	Links   struct {
+	Status     string `json:"status"`
+	Uid        string `json:"uid"`
+	Comment    string `json:"comment"`
+	AccessType string `json:"accessType"`
+	Embedded   struct {
+		Environment struct {
+			Uid string `json:"uid"`
+		} `json:"environment"`
+		Application struct {
+			Uid string `json:"uid"`
+		} `json:"application"`
+		Stream struct {
+			Uid string `json:"uid"`
+		} `json:"stream"`
+	} `json:"_embedded"`
+	Links struct {
 		Revoke struct {
 			Href string `json:"href"`
 		} `json:"revoke"`

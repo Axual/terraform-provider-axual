@@ -125,83 +125,30 @@ func (r *applicationAccessGrantResource) Read(ctx context.Context, req resource.
 		return
 	}
 
-	// TODO: Change to use GET /application_access_grants/{id} once the API returns application, topic, and access_type fields.
-	// Currently using search endpoint as a workaround because GET by ID doesn't return these fields.
-	tflog.Info(ctx, fmt.Sprintf("Reading Application Access Grant via search endpoint. Id: %s", data.Id.ValueString()))
-	applicationAccessGrant, err := r.findGrantByIdWithFilters(ctx, &data)
+	tflog.Info(ctx, fmt.Sprintf("Reading Application Access Grant. Id: %s", data.Id.ValueString()))
+	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.Id.ValueString())
 	if err != nil {
-		if errors.Is(err, errGrantNotFound) {
+		if errors.Is(err, webclient.NotFoundError) {
 			tflog.Warn(ctx, fmt.Sprintf("Application Access Grant not found. Id: %s", data.Id.ValueString()))
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("Failed to read Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
+		resp.Diagnostics.AddError("Failed to read Application Access Grant",
+			fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
 
 	tflog.Info(ctx, "mapping the resource")
 	data.Id = types.StringValue(applicationAccessGrant.Uid)
 	data.Status = types.StringValue(applicationAccessGrant.Status)
-	data.ApplicationId = types.StringValue(applicationAccessGrant.ApplicationUid)
-	data.TopicId = types.StringValue(applicationAccessGrant.StreamUid)
-	data.EnvironmentId = types.StringValue(applicationAccessGrant.EnvironmentUid)
+	data.ApplicationId = types.StringValue(applicationAccessGrant.Embedded.Application.Uid)
+	data.TopicId = types.StringValue(applicationAccessGrant.Embedded.Stream.Uid)
+	data.EnvironmentId = types.StringValue(applicationAccessGrant.Embedded.Environment.Uid)
 	data.AccessType = types.StringValue(applicationAccessGrant.AccessType)
 
 	tflog.Info(ctx, "Saving Application Access Grant resource to state")
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
-}
-
-// grantSearchResult holds the extracted grant data from search results
-type grantSearchResult struct {
-	Uid            string
-	Status         string
-	ApplicationUid string
-	StreamUid      string
-	EnvironmentUid string
-	AccessType     string
-}
-
-// errGrantNotFound is returned when a grant cannot be found
-var errGrantNotFound = errors.New("grant not found")
-
-// findGrantByIdWithFilters searches for a grant by its UID using the search endpoint with filters.
-// Uses application, topic, environment, and access_type from state to filter the search,
-// significantly reducing the response size (typically 0-2 grants instead of all grants).
-// TODO: Replace with GET /application_access_grants/{id} once the API returns application, topic, and access_type fields.
-func (r *applicationAccessGrantResource) findGrantByIdWithFilters(ctx context.Context, data *applicationAccessGrantData) (*grantSearchResult, error) {
-	searchAttrs := webclient.ApplicationAccessGrantAttributes{
-		ApplicationId: data.ApplicationId.ValueString(),
-		TopicId:       data.TopicId.ValueString(),
-		EnvironmentId: data.EnvironmentId.ValueString(),
-		AccessType:    data.AccessType.ValueString(),
-		Size:          9999,
-	}
-
-	tflog.Debug(ctx, fmt.Sprintf("Searching for grant with filters: app=%s, topic=%s, env=%s, type=%s",
-		data.ApplicationId.ValueString(), data.TopicId.ValueString(),
-		data.EnvironmentId.ValueString(), data.AccessType.ValueString()))
-
-	result, err := r.provider.client.GetApplicationAccessGrantsByAttributes(searchAttrs)
-	if err != nil {
-		return nil, err
-	}
-
-	grantId := data.Id.ValueString()
-	for _, grant := range result.Embedded.ApplicationAccessGrantResponses {
-		if grant.Uid == grantId {
-			return &grantSearchResult{
-				Uid:            grant.Uid,
-				Status:         grant.Status,
-				ApplicationUid: grant.Embedded.Application.Uid,
-				StreamUid:      grant.Embedded.Stream.Uid,
-				EnvironmentUid: grant.Embedded.Environment.Uid,
-				AccessType:     grant.AccessType,
-			}, nil
-		}
-	}
-
-	return nil, errGrantNotFound
 }
 
 func (r *applicationAccessGrantResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
