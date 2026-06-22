@@ -3,6 +3,7 @@ package provider
 import (
 	webclient "axual-webclient"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework-validators/datasourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -11,7 +12,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"net/url"
 	"regexp"
 )
 
@@ -100,51 +100,36 @@ func (d *instanceDataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 
-	attributes := url.Values{}
+	searchParam := "name"
+	var searchValue string
+	var instanceResponse *webclient.InstanceResponse
+	var err error
 
 	if data.ShortName.ValueString() == "" {
-		attributes.Set("name", data.Name.ValueString())
+		searchValue = data.Name.ValueString()
+		instanceResponse, err = d.provider.client.GetInstanceByName(searchValue)
 	} else {
-		attributes.Set("shortName", data.ShortName.ValueString())
+		searchValue = data.ShortName.ValueString()
+		searchParam = "shortName"
+		instanceResponse, err = d.provider.client.GetInstanceByShortName(searchValue)
 	}
 
-	instanceResponse, err := d.provider.client.GetInstancesByAttributes(attributes)
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read instance by name, got error: %s", err))
-		return
-	}
-
-	if len(instanceResponse.Embedded.Instances) == 0 {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Instance not found"))
-		return
-	}
-
-	// Find exact match from results, since the API may return partial/substring matches
-	exactMatchIndex := -1
-	for i, inst := range instanceResponse.Embedded.Instances {
-		if data.Name.ValueString() != "" && inst.Name == data.Name.ValueString() {
-			exactMatchIndex = i
-			break
+		if errors.Is(err, webclient.NotFoundError) {
+			resp.Diagnostics.AddError("Client Error", "Instance not found")
+			return
 		}
-		if data.ShortName.ValueString() != "" && inst.ShortName == data.ShortName.ValueString() {
-			exactMatchIndex = i
-			break
-		}
-	}
-	if exactMatchIndex == -1 {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("No instance found with exact name '%s' or short_name '%s'. The API returned %d partial matches.", data.Name.ValueString(), data.ShortName.ValueString(), len(instanceResponse.Embedded.Instances)))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read instance by %s: '%s', got error: %s", searchParam, searchValue, err))
 		return
 	}
 
-	mapInstanceDataSourceResponseToData(ctx, &data, instanceResponse, exactMatchIndex)
+	mapInstanceDataSourceResponseToData(&data, instanceResponse)
 
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 }
 
-func mapInstanceDataSourceResponseToData(ctx context.Context, data *instanceDataSourceData, instanceResponseAttributes *webclient.InstancesResponseByAttributes, index int) {
-
-	instance := instanceResponseAttributes.Embedded.Instances[index]
+func mapInstanceDataSourceResponseToData(data *instanceDataSourceData, instance *webclient.InstanceResponse) {
 
 	data.Id = types.StringValue(instance.Uid)
 	data.Name = types.StringValue(instance.Name)

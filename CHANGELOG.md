@@ -6,6 +6,9 @@ All notable changes to this project will be documented in this file.
 ### Added
 * Allow rotating a Connector's `axual_application_principal`
 
+### Fixed
+* Retrieve an **Instance** using `findByName` or `findByShortName` endpoints instead of `findByAttributes`
+
 ## [3.0.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.0.0) - 2026-03-24
 ### Added
 * Import support for `axual_application_principal`
