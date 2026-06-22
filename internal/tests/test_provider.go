@@ -8,6 +8,9 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
+
+	webclient "axual-webclient"
 
 	"axual.com/terraform-provider-axual/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
@@ -22,6 +25,8 @@ type ProviderConfig struct {
 	Provider struct {
 		Version string `yaml:"version"` // Can be "local" or a version from the registry (e.g., "2.4.1")
 	} `yaml:"provider"`
+	ApiUrl            string `yaml:"apiUrl"`
+	AuthUrl           string `yaml:"authUrl"`
 	InstanceName      string `yaml:"instanceName"`
 	InstanceShortName string `yaml:"instanceShortName"`
 	GroupName         string `yaml:"groupName"`
@@ -178,12 +183,70 @@ func CertsDir() string {
 	if !ok {
 		log.Panic("unable to determine CertsDir via runtime.Caller")
 	}
-	return filepath.Join(filepath.Dir(file), "shared_certs")
+	return filepath.Join(filepath.Dir(file), "sharedCerts")
 }
 
 // CertPath returns the absolute path to a named cert in the shared certs directory.
 func CertPath(name string) string {
 	return filepath.Join(CertsDir(), name)
+}
+
+// apiClient builds an authenticated webclient against the configured platform, mirroring the
+// provider block used by GetProvider (apiUrl/authUrl come from test_config.yaml). Used by check
+// helpers that must inspect live API state that the provider deliberately does not refresh into
+// Terraform state (e.g. a principal's activation status).
+func apiClient() (*webclient.Client, error) {
+	config, err := LoadProviderConfig()
+	if err != nil {
+		return nil, err
+	}
+	return webclient.NewClient(
+		config.ApiUrl,
+		"axual",
+		webclient.AuthStruct{
+			Username: config.Username,
+			Password: config.Password,
+			Url:      config.AuthUrl,
+			ClientId: "self-service",
+			Scopes:   []string{"openid", "profile", "email"},
+			AuthMode: "keycloak",
+		},
+	)
+}
+
+// CheckPrincipalActiveInAPI asserts the LIVE API activation status of the principal backing the
+// given resource (looked up by its state `id`). The provider treats `active` as write-only intent
+// and never refreshes it from the API, so state-based checks cannot observe activation inherited
+// across a rotation — this reads the API directly. Retries briefly to absorb activation
+// propagation lag.
+func CheckPrincipalActiveInAPI(resourceName string, wantActive bool) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		rs, ok := s.RootModule().Resources[resourceName]
+		if !ok {
+			return fmt.Errorf("no resource %q in state", resourceName)
+		}
+		id := rs.Primary.Attributes["id"]
+		if id == "" {
+			return fmt.Errorf("resource %q has empty id in state", resourceName)
+		}
+		client, err := apiClient()
+		if err != nil {
+			return fmt.Errorf("unable to build API client: %w", err)
+		}
+		var lastActive bool
+		for attempt := 0; attempt < 5; attempt++ {
+			p, err := client.ReadApplicationPrincipal(id)
+			if err != nil {
+				return fmt.Errorf("unable to read principal %s from API: %w", id, err)
+			}
+			lastActive = p.Active != nil && *p.Active
+			if lastActive == wantActive {
+				return nil
+			}
+			time.Sleep(2 * time.Second)
+		}
+		return fmt.Errorf("principal %q (%s): expected API active=%t, got %t", resourceName, id, wantActive, lastActive)
+	}
 }
 
 // Helper function to read the file and compare its content

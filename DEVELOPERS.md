@@ -182,6 +182,11 @@ Before running acceptance tests:
 2. **Configure Test Config:**
 
    In [`internal/tests/test_config.yaml`](./internal/tests/test_config.yaml), update:
+   - `apiUrl`: Base URL of the Axual API (e.g. `https://platform.local/api`). Used by both the
+     provider block and the direct API check helpers in `test_provider.go` — single source of truth.
+   - `authUrl`: OAuth2 token endpoint (e.g.
+     `https://platform.local/auth/realms/axual/protocol/openid-connect/token`). Also shared by the
+     provider block and the API check helpers.
    - `instanceName` and `instanceShortName` to point to an instance with:
      - `EnabledAuthenticationMethod` are SSL, SCRAM_SHA_512, OAUTHBEARER
        - SSL using `Axual Dummy Root CA` as the Signing Authority
@@ -286,20 +291,16 @@ go test -p 1 -count 1 ./internal/tests/...
 
 ### Connecting to Different Environments
 
-To run tests against different Axual Platform instances (e.g., Axual Cloud), modify the provider block in [`test_provider.go`](./internal/tests/test_provider.go):
+To run tests against a different Axual Platform instance (e.g., Axual Cloud), set `apiUrl` and
+`authUrl` in [`internal/tests/test_config.yaml`](./internal/tests/test_config.yaml). These two keys
+drive both the Terraform provider block and the direct API check helpers — no need to edit
+`test_provider.go`.
 
 **Example for Axual Cloud:**
 
-```terraform
-provider "axual" {
-  apiurl   = "https://axual.cloud/api"
-  realm    = "<your-realm-name>"
-  username = "<your-username>"
-  password = "<your-password>"
-  clientid = "self-service"
-  authurl  = "https://axual.cloud/auth/realms/<your-realm-name>/protocol/openid-connect/token"
-  scopes   = ["openid", "profile", "email"]
-}
+```yaml
+apiUrl: "https://axual.cloud/api"
+authUrl: "https://axual.cloud/auth/realms/<your-realm-name>/protocol/openid-connect/token"
 ```
 
 ## Writing Tests
