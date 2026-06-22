@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 * Retrieve an **Instance** using `findByName` or `findByShortName` endpoints instead of `findByAttributes`
+* Read `axual_application_access_grant` using the `GET /application_access_grants/{uid}` endpoint instead of the `findByAttributes` search
 
 ## [3.0.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.0.0) - 2026-03-24
 ### Added
