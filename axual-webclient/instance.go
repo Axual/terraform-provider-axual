@@ -5,13 +5,18 @@ import (
 	"net/url"
 )
 
-func (c *Client) GetInstanceByNameOrShortName(params url.Values) (*InstanceResponse, error) {
+func (c *Client) GetInstanceByName(name string) (*InstanceResponse, error) {
 	o := InstanceResponse{}
-	endpoint := fmt.Sprintf("findByName?name=%s", url.QueryEscape(params.Get("name")))
-	if params.Get("shortName") != "" {
-		endpoint = fmt.Sprintf("findByShortName?shortName=%s", url.QueryEscape(params.Get("shortName")))
+	err := c.RequestAndMap("GET", fmt.Sprintf("%s/instances/search/findByName?name=%s", c.ApiURL, url.QueryEscape(name)), nil, nil, &o)
+	if err != nil {
+		return nil, err
 	}
-	err := c.RequestAndMap("GET", fmt.Sprintf("%s/instances/search/%s", c.ApiURL, endpoint), nil, nil, &o)
+	return &o, nil
+}
+
+func (c *Client) GetInstanceByShortName(shortName string) (*InstanceResponse, error) {
+	o := InstanceResponse{}
+	err := c.RequestAndMap("GET", fmt.Sprintf("%s/instances/search/findByShortName?shortName=%s", c.ApiURL, url.QueryEscape(shortName)), nil, nil, &o)
 	if err != nil {
 		return nil, err
 	}

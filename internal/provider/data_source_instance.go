@@ -12,7 +12,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"net/url"
 	"regexp"
 )
 
@@ -101,20 +100,20 @@ func (d *instanceDataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 
-	params := url.Values{}
 	searchParam := "name"
 	var searchValue string
+	var instanceResponse *webclient.InstanceResponse
+	var err error
 
 	if data.ShortName.ValueString() == "" {
 		searchValue = data.Name.ValueString()
-		params.Set("name", searchValue)
+		instanceResponse, err = d.provider.client.GetInstanceByName(searchValue)
 	} else {
 		searchValue = data.ShortName.ValueString()
-		params.Set("shortName", searchValue)
 		searchParam = "shortName"
+		instanceResponse, err = d.provider.client.GetInstanceByShortName(searchValue)
 	}
 
-	instanceResponse, err := d.provider.client.GetInstanceByNameOrShortName(params)
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
 			resp.Diagnostics.AddError("Client Error", "Instance not found")
