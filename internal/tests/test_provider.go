@@ -20,13 +20,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Struct to hold provider configuration from YAML file
+// ProviderConfig Struct to hold provider configuration from the YAML file
 type ProviderConfig struct {
 	Provider struct {
 		Version string `yaml:"version"` // Can be "local" or a version from the registry (e.g., "2.4.1")
 	} `yaml:"provider"`
 	ApiUrl            string `yaml:"apiUrl"`
 	AuthUrl           string `yaml:"authUrl"`
+	Realm             string `yaml:"realm"`
 	InstanceName      string `yaml:"instanceName"`
 	InstanceShortName string `yaml:"instanceShortName"`
 	GroupName         string `yaml:"groupName"`
@@ -35,7 +36,7 @@ type ProviderConfig struct {
 	Password          string `yaml:"password"`
 }
 
-// Function to load the configuration from a YAML file
+// LoadProviderConfig Function to load the configuration from a YAML file
 func LoadProviderConfig() (ProviderConfig, error) {
 	file, err := os.ReadFile("../test_config.yaml")
 	if err != nil {
@@ -46,6 +47,9 @@ func LoadProviderConfig() (ProviderConfig, error) {
 	err = yaml.Unmarshal(file, &config)
 	if err != nil {
 		return ProviderConfig{}, err
+	}
+	if config.Realm == "" {
+		config.Realm = "axual"
 	}
 	return config, nil
 }
@@ -72,19 +76,19 @@ func testProviderConfig() (resource.TestCase, error) {
 			ProtoV6ProviderFactories: testAccProviderFactories(),
 			ExternalProviders:        timeProvider,
 		}, nil
-	} else {
-		// Use a specific version from the registry
-		external := map[string]resource.ExternalProvider{
-			"axual": {
-				VersionConstraint: config.Provider.Version,
-				Source:            "Axual/axual",
-			},
-			"time": {Source: "hashicorp/time"},
-		}
-		return resource.TestCase{
-			ExternalProviders: external,
-		}, nil
 	}
+	// Use a specific version from the registry
+	external := map[string]resource.ExternalProvider{
+		"axual": {
+			VersionConstraint: config.Provider.Version,
+			Source:            "Axual/axual",
+		},
+		"time": {Source: "hashicorp/time"},
+	}
+	return resource.TestCase{
+		ExternalProviders: external,
+	}, nil
+
 }
 
 func GetProviderConfig(t *testing.T) resource.TestCase {
@@ -102,7 +106,7 @@ func testAccProviderFactories() map[string]func() (tfprotov6.ProviderServer, err
 	}
 }
 
-// Reusable provider configuration for resource creation
+// GetProvider Reusable provider configuration for resource creation
 func GetProvider() string {
 	// Load the provider configuration from the YAML file
 	config, err := LoadProviderConfig()
@@ -110,16 +114,15 @@ func GetProvider() string {
 		panic("Error loading provider config: " + err.Error())
 	}
 
-	// Local Platform.local setup
 	providerBlock := `
-	provider "axual" {
+		provider "axual" {
 		authmode = "keycloak"
-		apiurl   = "https://platform.local/api"
-		realm    = "local"
+		apiurl   = "` + config.ApiUrl + `"
+		realm    = "` + config.Realm + `"
 		username = "` + config.Username + `"
 		password = "` + config.Password + `"
 		clientid = "self-service"
-		authurl  = "https://platform.local/auth/realms/local/protocol/openid-connect/token"
+		authurl  = "` + config.AuthUrl + `"
 		scopes   = ["openid", "profile", "email"]
 	}
 	`
@@ -202,7 +205,7 @@ func apiClient() (*webclient.Client, error) {
 	}
 	return webclient.NewClient(
 		config.ApiUrl,
-		"axual",
+		config.Realm,
 		webclient.AuthStruct{
 			Username: config.Username,
 			Password: config.Password,
@@ -249,7 +252,7 @@ func CheckPrincipalActiveInAPI(resourceName string, wantActive bool) resource.Te
 	}
 }
 
-// Helper function to read the file and compare its content
+// CheckBodyMatchesFile Helper function to read the file and compare its content
 func CheckBodyMatchesFile(resourceName, attrName, filePath string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		// Read the file

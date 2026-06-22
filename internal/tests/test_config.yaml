@@ -2,6 +2,9 @@ provider:
   # Version is "local" for local provider, the binary path is in .terraformrc under "dev_overrides"
   # Version is a specific version like "2.4.1" for a public official registry version
   version: "local"
+apiUrl: "YOUR_API_URL"
+authUrl: "YOUR_AUTH_URL"
+realm: "YOUR_REALM"
 instanceName: "YOUR_INSTANCE_NAME"
 instanceShortName: "YOUR_INSTANCE_SHORT_NAME"
 groupName: "YOUR_GROUP_NAME"
