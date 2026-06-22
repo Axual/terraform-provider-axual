@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -144,7 +145,10 @@ func (r *applicationAccessGrantResource) Read(ctx context.Context, req resource.
 	data.ApplicationId = types.StringValue(applicationAccessGrant.Embedded.Application.Uid)
 	data.TopicId = types.StringValue(applicationAccessGrant.Embedded.Stream.Uid)
 	data.EnvironmentId = types.StringValue(applicationAccessGrant.Embedded.Environment.Uid)
-	data.AccessType = types.StringValue(applicationAccessGrant.AccessType)
+	// The direct GET endpoint returns access type in title case ("Producer"/"Consumer"),
+	// while the schema and config use upper case ("PRODUCER"/"CONSUMER"). Normalize to
+	// upper case to prevent a perpetual refresh diff.
+	data.AccessType = types.StringValue(strings.ToUpper(applicationAccessGrant.AccessType))
 
 	tflog.Info(ctx, "Saving Application Access Grant resource to state")
 	diags = resp.State.Set(ctx, &data)
