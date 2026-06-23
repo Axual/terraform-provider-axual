@@ -21,12 +21,12 @@ import (
 //   - In Auto environment, the grant is auto-approved (status = "Approved")
 //   - Approved grants cannot be deleted directly - they must be REVOKED first
 //   - The approval resource's Delete function triggers revocation
-//   - Without approval resource, cleanup would fail with:
+//   - Without the approval resource, cleanup would fail with:
 //     "Application Access Grant cannot be cancelled. Please Revoke first."
 //
 // Cleanup order:
 //  1. Delete approval resource → calls RevokeOrDenyGrant() → grant status becomes "Revoked"
-//  2. Delete grant resource → calls CancelGrant() → works because grant is now "Revoked"
+//  2. Delete grant resource → calls CancelGrant() → works because the grant is now "Revoked"
 func TestApplicationAccessGrant_AutoEnvironment(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
@@ -35,7 +35,7 @@ func TestApplicationAccessGrant_AutoEnvironment(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Step 1: Create resources - grant should be auto-approved
 			// In Auto environment, grant.Create() returns status = "Approved" immediately
-			// No state sync issue here(like in Stream Owner env) because approval happens during grant creation, not after
+			// No state sync issue here (like in Stream Owner env) because approval happens during grant creation, not after
 			{
 				Config: GetProvider() + GetFile("axual_application_access_grant_auto.tf"),
 				Check: resource.ComposeTestCheckFunc(
@@ -124,12 +124,12 @@ func TestApplicationAccessGrant_TopicOwnerApproval(t *testing.T) {
 					resource.TestCheckResourceAttrSet("axual_application_access_grant_approval.tf-test-application-access-grant-approval", "application_access_grant"),
 				),
 			},
-			// Step 2: REFRESH STEP - Re-apply same config to sync state with API
+			// Step 2: REFRESH STEP - Re-apply the same config to sync state with API
 			//
 			// How this works:
-			//   1. Terraform starts "apply" with same config
+			//   1. Terraform starts "apply" with the same config
 			//   2. REFRESH PHASE runs first - calls Read() on all resources
-			//   3. grant.Read() fetches current status from API ("Approved")
+			//   3. grant.Read() fetches the current status from API ("Approved")
 			//   4. Terraform state is updated: status "Pending" → "Approved"
 			//   5. PLAN PHASE - no changes needed (config matches refreshed state)
 			//   6. APPLY PHASE - nothing to apply
@@ -146,7 +146,7 @@ func TestApplicationAccessGrant_TopicOwnerApproval(t *testing.T) {
 			// Step 3: Import verification
 			// This works without ImportStateVerifyIgnore because Step 2 synced the state.
 			// Import process:
-			//   1. Save current state (status="Approved")
+			//   1. Save the current state (status="Approved")
 			//   2. Remove resource from state
 			//   3. Import using ID - calls Read() - fetches status="Approved"
 			//   4. Compare: "Approved" == "Approved" ✓
