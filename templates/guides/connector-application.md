@@ -27,7 +27,7 @@ To create and start a connector application, we need these Axual Terraform resou
        - Updating `axual_application_deployment` stops the connector if it was running, updates the config, and starts it.
        - Deleting `axual_application_deployment` stops the connector if it was running, then deletes it.
 
-To read more about Connect Applications on Axual Platform: https://docs.axual.io/connect/Axual-Connectindex-developer.html
+To read more about Connect Applications on Axual Platform: https://docs.axual.io/connect/Axual-Connect/index-developer.html
 
 ### Example Resources:
 - When trying out this example, make sure to:

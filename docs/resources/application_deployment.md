@@ -8,7 +8,7 @@ An Application Deployment stores the configs for 'Connector' or 'Ksml' applicati
 - Creating the `axual_application_deployment` resource automatically starts the application.
 - Updating the `axual_application_deployment` resource automatically stops the application (if it is running), applies the update, and then restarts it.
 - Deleting the `axual_application_deployment` resource automatically stops the application (if it is running) before removing it.
-- For more information about connector applications in Axual, refer to the documentation: [Starting Connectors](https://docs.axual.io/connect/Axual-Connectstarting-connectors.html).
+- For more information about connector applications in Axual, refer to the documentation: [Starting Connectors](https://docs.axual.io/connect/Axual-Connect/starting-connectors.html).
 - Currently, a data source for `axual_application_deployment` is not supported.
 
 ### Prerequisite: active Application Principal (Connector only)
