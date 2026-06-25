@@ -10,7 +10,7 @@ To create and start a connector application, we need these Axual Terraform resou
   3. `axual_application` 
       - These are connector application specific properties: 
       - `application_type = "Connector"`
-        - `application_class` defined with a plugin class name. All supported plugin class names are listed here: https://docs.axual.io/connect/Axual-Connectconnect-plugins-catalog/connect-plugins-catalog.html.
+        - `application_class` defined with a plugin class name. All supported plugin class names are listed here: https://docs.axual.io/connect/Axual-Connect/connect-plugins-catalog/connect-plugins-catalog.html.
           - For example: `application_class = "com.couchbase.connect.kafka.CouchbaseSinkConnector"`.
         - `type="SINK"` or `type="SOURCE"`
   4. `axual_application_principal` 
