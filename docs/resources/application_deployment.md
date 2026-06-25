@@ -4,11 +4,11 @@ An Application Deployment stores the configs for 'Connector' or 'Ksml' applicati
 
 
 ## Usage
-- To see the required configuration parameters for each connect-plugin (`axual_application.application_class`), refer to the documentation: [Axual Connect Plugins Catalog](https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html).
+- To see the required configuration parameters for each connect-plugin (`axual_application.application_class`), refer to the documentation: [Axual Connect Plugins Catalog](https://docs.axual.io/connect/developer/connect-plugins-catalog/connect-plugins-catalog.html).
 - Creating the `axual_application_deployment` resource automatically starts the application.
 - Updating the `axual_application_deployment` resource automatically stops the application (if it is running), applies the update, and then restarts it.
 - Deleting the `axual_application_deployment` resource automatically stops the application (if it is running) before removing it.
-- For more information about connector applications in Axual, refer to the documentation: [Starting Connectors](https://docs.axual.io/connect/Axual-Connect/developer/starting-connectors.html).
+- For more information about connector applications in Axual, refer to the documentation: [Starting Connectors](https://docs.axual.io/connect/developer/starting-connectors.html).
 - Currently, a data source for `axual_application_deployment` is not supported.
 
 ### Prerequisite: active Application Principal (Connector only)
@@ -51,7 +51,7 @@ KSML deployments are unaffected — they allow one authentication (`axual_applic
 
 ### Optional
 
-- `configs` (Map of String, Sensitive) Connector config for Application Deployment. Required for Connector deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. All available application plugin class names, plugin types and plugin configs are listed here in API- `GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass` and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html
+- `configs` (Map of String, Sensitive) Connector config for Application Deployment. Required for Connector deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. All available application plugin class names, plugin types and plugin configs are listed here in API- `GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass` and in Axual Connect Docs: https://docs.axual.io/connect/developer/connect-plugins-catalog/connect-plugins-catalog.html
 - `definition` (String, Sensitive) KSML definition for Application Deployment. Required for KSML deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.
 - `deployment_size` (String) The deployment size for KSML applications. Optional for KSML deployments. If not specified, the Platform Manager will assign a default value.
 - `restart_policy` (String) The restart policy for KSML applications. Valid values are 'on_exit' and 'never'. Required for KSML deployments.

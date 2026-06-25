@@ -2,10 +2,12 @@ package provider
 
 import (
 	webclient "axual-webclient"
-	custom_validator "axual.com/terraform-provider-axual/internal/custom-validator"
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
+
+	custom_validator "axual.com/terraform-provider-axual/internal/custom-validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -16,7 +18,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"regexp"
 )
 
 var _ resource.Resource = &applicationResource{}
@@ -103,7 +104,7 @@ func (r *applicationResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"application_class": schema.StringAttribute{
-				MarkdownDescription: "The application's plugin class. Required if application_type is Connector. For example com.couchbase.connect.kafka.CouchbaseSinkConnector. All available application plugin class names, pluginTypes and pluginConfigs listed here- GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html",
+				MarkdownDescription: "The application's plugin class. Required if application_type is Connector. For example com.couchbase.connect.kafka.CouchbaseSinkConnector. All available application plugin class names, pluginTypes and pluginConfigs listed here- GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass and in Axual Connect Docs: https://docs.axual.io/connect/developer/connect-plugins-catalog/connect-plugins-catalog.html",
 				Optional:            true,
 			},
 			"visibility": schema.StringAttribute{
