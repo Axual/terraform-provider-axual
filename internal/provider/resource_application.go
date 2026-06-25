@@ -104,7 +104,7 @@ func (r *applicationResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"application_class": schema.StringAttribute{
-				MarkdownDescription: "The application's plugin class. Required if application_type is Connector. For example com.couchbase.connect.kafka.CouchbaseSinkConnector. All available application plugin class names, pluginTypes and pluginConfigs listed here- GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass and in Axual Connect Docs: https://docs.axual.io/connect/developer/connect-plugins-catalog/connect-plugins-catalog.html",
+				MarkdownDescription: "The application's plugin class. Required if application_type is Connector. For example com.couchbase.connect.kafka.CouchbaseSinkConnector. All available application plugin class names, pluginTypes and pluginConfigs listed here- GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connectconnect-plugins-catalog/connect-plugins-catalog.html",
 				Optional:            true,
 			},
 			"visibility": schema.StringAttribute{
