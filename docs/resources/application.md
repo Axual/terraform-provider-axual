@@ -22,7 +22,7 @@ Axual Terraform Provider supports both Custom and Connector Application Types. R
 
 ### Optional
 
-- `application_class` (String) The application's plugin class. Required if application_type is Connector. For example com.couchbase.connect.kafka.CouchbaseSinkConnector. All available application plugin class names, pluginTypes and pluginConfigs listed here- GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/developer/connect-plugins-catalog/connect-plugins-catalog.html
+- `application_class` (String) The application's plugin class. Required if application_type is Connector. For example com.couchbase.connect.kafka.CouchbaseSinkConnector. All available application plugin class names, pluginTypes and pluginConfigs listed here- GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/connect-plugins-catalog/connect-plugins-catalog.html
 - `description` (String) Application Description. A short summary describing the application
 - `type` (String) If application_type is Custom, type can be: Java, Kafka Streams, Pega, SAP, DotNet, Bridge, Python, KSML, Other. If application_type is Connector, type can be: SINK, SOURCE. If application_type is Ksml, this field must be null/omitted. Use 'Other' when the desired application type is not available in the predefined list.
 - `viewers` (Set of String) Application Viewer Groups define which Groups are authorized to View Application Configuration, regardless of ownership and visibility. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#viewer-groups

@@ -100,7 +100,7 @@ func TestSchemaVersionAvroWithOwnersResource(t *testing.T) {
 
 					resource.TestCheckResourceAttr("axual_schema_version.test_v2_with_owner", "description", "Gitops test schema version"),
 					resource.TestCheckResourceAttr("axual_schema_version.test_v2_with_owner", "version", "1.0.0"),
-					resource.TestCheckResourceAttr("axual_schema_version.test_v2_with_owner", "full_name", "io.axual.general.GitOpsTest2"),
+					resource.TestCheckResourceAttr("axual_schema_version.test_v2_with_owner", "full_name", "io.axual.qa.general.GitOpsTest2"),
 					resource.TestCheckResourceAttrSet("axual_schema_version.test_v2_with_owner", "schema_id"),
 					resource.TestCheckResourceAttrSet("axual_schema_version.test_v2_with_owner", "id"),
 					resource.TestCheckResourceAttrSet("axual_schema_version.test_v2_with_owner", "owners"),
@@ -131,7 +131,7 @@ func TestSchemaVersionAvroWithExplicitTypeResource(t *testing.T) {
 				Config: GetProvider() + GetFile("axual_schema_version_avro_with_type.tf"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("axual_schema_version.test_avro_explicit_type_v1", "version", "1.0.0"),
-					resource.TestCheckResourceAttr("axual_schema_version.test_avro_explicit_type_v1", "full_name", "io.axual.general.GitOpsTest2"),
+					resource.TestCheckResourceAttr("axual_schema_version.test_avro_explicit_type_v1", "full_name", "io.axual.qa.general.GitOpsTest2"),
 					resource.TestCheckResourceAttr("axual_schema_version.test_avro_explicit_type_v1", "description", "Gitops test schema version with explicit AVRO type"),
 					resource.TestCheckResourceAttr("axual_schema_version.test_avro_explicit_type_v1", "type", "AVRO"),
 					CheckBodyMatchesFile("axual_schema_version.test_avro_explicit_type_v1", "body", "avro-schemas/gitops_test_2_v1.avsc"),
