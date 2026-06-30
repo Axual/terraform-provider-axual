@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [master](https://github.com/Axual/terraform-provider-axual/tree/master) - TBR
+## [3.1.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.1.0) - 2026-06-30
 ### Added
 * Allow rotating a Connector's `axual_application_principal`
 
