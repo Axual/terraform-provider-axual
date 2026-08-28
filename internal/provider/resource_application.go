@@ -57,10 +57,10 @@ func (r *applicationResource) Schema(ctx context.Context, req resource.SchemaReq
 		MarkdownDescription: "An application is responsible for producing and/or consuming data on a topic, whether it is a Java or .NET app or a connector.",
 		Attributes: map[string]schema.Attribute{
 			"application_type": schema.StringAttribute{
-				MarkdownDescription: "Axual Application type. Possible values are Custom, Connector, or Ksml.",
+				MarkdownDescription: "Axual Application type. Possible values are Custom, Connector, Ksml, or FLINK_SQL.",
 				Required:            true,
 				Validators: []validator.String{
-					stringvalidator.OneOf("Custom", "Connector", "Ksml"),
+					stringvalidator.OneOf("Custom", "Connector", "Ksml", "FLINK_SQL"),
 				},
 			},
 			"application_id": schema.StringAttribute{

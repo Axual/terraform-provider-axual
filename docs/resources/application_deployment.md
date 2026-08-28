@@ -54,7 +54,11 @@ KSML deployments are unaffected — they allow one authentication (`axual_applic
 - `configs` (Map of String, Sensitive) Connector config for Application Deployment. Required for Connector deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. All available application plugin class names, plugin types and plugin configs are listed here in API- `GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass` and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/connect-plugins-catalog/connect-plugins-catalog.html
 - `definition` (String, Sensitive) KSML definition for Application Deployment. Required for KSML deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.
 - `deployment_size` (String) The deployment size for KSML applications. Optional for KSML deployments. If not specified, the Platform Manager will assign a default value.
+- `generate_tables_sql` (Boolean) For FLINK_SQL deployments, whether to auto-generate the `CREATE TABLE` statements for the topics referenced by `sql_script`. Optional for FLINK_SQL deployments.
 - `restart_policy` (String) The restart policy for KSML applications. Valid values are 'on_exit' and 'never'. Required for KSML deployments.
+- `sql_script` (String, Sensitive) The transformation SQL for a FLINK_SQL deployment (an `INSERT INTO ... SELECT ...` statement, without credentials or fully-qualified topic names). Required for FLINK_SQL deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.
+- `target_id` (String) The id of the deployment target to deploy to. Required for FLINK_SQL deployments, where it must be the id of an `axual_flink_cluster` registered for the environment. Available targets can be listed via `GET /applications/{applicationId}/deployment-targets`.
+- `task_size` (String) The t-shirt size (e.g. XS, S, M, L, XL) used to size the Flink TaskManager for a FLINK_SQL deployment. Optional for FLINK_SQL deployments; if not specified, the Platform Manager will assign a default value.
 
 ### Read-Only
 

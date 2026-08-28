@@ -52,6 +52,23 @@ func (c *Client) UpdateApplicationDeployment(id string, data ApplicationDeployme
 	return o, nil
 }
 
+// PatchApplicationDeployment updates a FLINK_SQL deployment's configs. The API rejects PUT for
+// FLINK_SQL deployments ("PUT is not supported for Flink SQL deployments; use PATCH") - Connector
+// and KSML deployments keep using UpdateApplicationDeployment's PUT.
+func (c *Client) PatchApplicationDeployment(id string, data ApplicationDeploymentUpdateRequest) (ApplicationDeploymentUpdateResponse, error) {
+	var o ApplicationDeploymentUpdateResponse
+	marshal, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	headers := map[string]string{"Content-Type": "application/json"}
+	err = c.RequestAndMap("PATCH", fmt.Sprintf("%s/application_deployments/%v", c.ApiURL, id), strings.NewReader(string(marshal)), headers, &o)
+	if err != nil {
+		return nil, err
+	}
+	return o, nil
+}
+
 func (c *Client) FindApplicationDeploymentByApplicationAndEnvironment(application string, environment string) (*ApplicationDeploymentFindByApplicationAndEnvironmentResponse, error) {
 	o := ApplicationDeploymentFindByApplicationAndEnvironmentResponse{}
 

@@ -11,6 +11,7 @@ type ApplicationDeploymentResponse struct {
 	Configs  []Config `json:"configs"`
 	State    string   `json:"state"`
 	Uid      string   `json:"uid"`
+	TargetId string   `json:"targetId,omitempty"`
 	Embedded struct {
 		Application struct {
 			ShortName       string `json:"shortName"`
@@ -28,10 +29,12 @@ type ApplicationDeploymentCreateRequest struct {
 	Application string            `json:"application"`
 	Environment string            `json:"environment"`
 	Configs     map[string]string `json:"configs"`
+	TargetId    string            `json:"targetId,omitempty"`
 }
 
 type ApplicationDeploymentUpdateRequest struct {
-	Configs map[string]string `json:"configs"`
+	Configs  map[string]string `json:"configs"`
+	TargetId string            `json:"targetId,omitempty"`
 }
 
 type ApplicationDeploymentOperationRequest struct {
@@ -51,4 +54,7 @@ type ApplicationDeploymentStatusResponse struct {
 	KsmlStatus struct {
 		Status string `json:"status"`
 	} `json:"ksmlStatus"`
+	FlinkStatus struct {
+		Status string `json:"status"`
+	} `json:"flinkStatus"`
 }

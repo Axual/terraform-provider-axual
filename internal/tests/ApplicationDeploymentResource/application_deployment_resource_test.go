@@ -154,3 +154,67 @@ func TestApplicationDeploymentKSMLResource(t *testing.T) {
 		},
 	})
 }
+
+func TestApplicationDeploymentFlinkResource(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+
+		Steps: []resource.TestStep{
+			// Test missing `sql_script` - should fail response
+			{
+				Config: GetProvider() + GetFile(
+					"axual_application_deployment_flink_setup.tf",
+					"axual_application_deployment_flink_missing_sql_script.tf",
+				),
+				ExpectError: regexp.MustCompile(`flink_sql|sql_script|Invalid config uploaded`),
+			},
+			{
+				Config: GetProvider() + GetFile(
+					"axual_application_deployment_flink_setup.tf",
+					"axual_application_deployment_flink_initial.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrPair("axual_application_deployment.flink_axual_application_deployment", "environment", "axual_environment.tf-test-flink-env", "id"),
+					resource.TestCheckResourceAttrPair("axual_application_deployment.flink_axual_application_deployment", "application", "axual_application.tf-test-flink-app", "id"),
+					resource.TestCheckResourceAttrPair("axual_application_deployment.flink_axual_application_deployment", "target_id", "axual_flink_cluster.tf-test-flink-cluster", "id"),
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "type", "FLINK_SQL"),
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "task_size", "S"),
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "generate_tables_sql", "true"),
+					resource.TestCheckResourceAttrSet("axual_application_deployment.flink_axual_application_deployment", "sql_script"),
+				),
+			},
+			{
+				// Update SQL script - should trigger a redeployment
+				Config: GetProvider() + GetFile(
+					"axual_application_deployment_flink_setup.tf",
+					"axual_application_deployment_flink_updated.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrPair("axual_application_deployment.flink_axual_application_deployment", "environment", "axual_environment.tf-test-flink-env", "id"),
+					resource.TestCheckResourceAttrPair("axual_application_deployment.flink_axual_application_deployment", "application", "axual_application.tf-test-flink-app", "id"),
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "type", "FLINK_SQL"),
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "task_size", "M"),
+					resource.TestCheckResourceAttrSet("axual_application_deployment.flink_axual_application_deployment", "sql_script"),
+				),
+			},
+			{
+				ResourceName:      "axual_application_deployment.flink_axual_application_deployment",
+				ImportState:       true,
+				ImportStateVerify: true,
+				// sql_script is Sensitive and not returned in a form the provider can diff against
+				// the config-supplied value on import; the configs-derived value is still asserted above.
+				ImportStateVerifyIgnore: []string{"sql_script"},
+				Config:                  GetProvider() + GetFile("axual_application_deployment_flink_updated.tf"),
+			},
+			{
+				// To ensure cleanup if one of the test cases had an error
+				Destroy: true,
+				Config: GetProvider() + GetFile(
+					"axual_application_deployment_flink_setup.tf",
+					"axual_application_deployment_flink_updated.tf",
+				),
+			},
+		},
+	})
+}

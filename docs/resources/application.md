@@ -14,7 +14,7 @@ Axual Terraform Provider supports both Custom and Connector Application Types. R
 ### Required
 
 - `application_id` (String) The Application ID of the Application, usually a fully qualified class name. Must be unique. The application ID, used in logging and to determine the consumer group (if applicable). Read more: https://docs.axual.io/axual/2026.1/self-service/application-management.html#app-id
-- `application_type` (String) Axual Application type. Possible values are Custom, Connector, or Ksml.
+- `application_type` (String) Axual Application type. Possible values are Custom, Connector, Ksml, or FLINK_SQL.
 - `name` (String) The name of the Application. Must be unique. Only the special characters `_`, `-`, `.` and ` ` are valid as part of an application name.
 - `owners` (String) Application Owner
 - `short_name` (String) Application short name. Unique human-readable name for the application. Only Alphanumeric and underscore allowed. Must be unique
