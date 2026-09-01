@@ -1,455 +1,186 @@
-# Full test bed for the AXPD-11717 Flink SQL implementation.
-# Separate directory = separate terraform.tfstate, so this cannot touch
-# resources managed by examples/axual/*.tf.
+# Minimal Flink SQL example: read an Avro topic, write to a String topic.
 #
-# Scope: everything below is created and destroyed by THIS Terraform config only.
-# The "dev" instance and its "jupiter" Kafka cluster are pre-existing, shared
-# infrastructure - referenced read-only via data sources, never created or
-# destroyed here. (There is no axual_instance *resource* in this provider, only a
-# data source - a brand-new instance cannot be managed by Terraform at all.)
-#
-# The Flink Cluster (axual_flink_cluster.test_cluster below) IS managed by this
-# config, since none currently exists on this instance-cluster.
-#
-# IMPORTANT: never `terraform state rm` any resource here. Let `terraform destroy`
-# handle dependency order on its own - a FLINK_SQL deployment's target cannot be
-# changed after creation, and DELETE requires its original target Flink Cluster to
-# still exist. Manually removing a resource from state before destroying its
-# dependents can permanently strand a deployment (undeletable, unretargetable,
-# only fixable via DB-level cleanup - this happened once during testing, see
-# TESTING.md).
+# Replace every YOUR_* placeholder below with values for your own environment.
+# This example uses its own directory, and therefore its own terraform.tfstate,
+# so it never touches resources managed by examples/axual/*.tf.
 
 variable "instance_short_name" {
-  type    = string
-  default = "dev"
+  description = "Short name of the existing Axual instance"
+  type        = string
+  default     = "YOUR_INSTANCE_SHORT_NAME"
 }
 
 variable "group_name" {
-  type    = string
-  default = "Admins"
-}
-
-variable "your_email" {
-  type    = string
-  default = "admin@axual.com"
+  description = "Name of the existing group that will own the created resources"
+  type        = string
+  default     = "YOUR_GROUP_NAME"
 }
 
 variable "instance_cluster_id" {
   description = "Uid of the existing Instance-Cluster to register the Flink Cluster on"
   type        = string
-  default     = "f076e00035ab49a1be62916b5691b569" # "jupiter" cluster on the "dev" instance
+  default     = "YOUR_CLUSTER_ID"
+}
+
+variable "flink_url" {
+  description = "URL of the Ververica deployment"
+  type        = string
+  default     = "https://vvp.example.com/api"
 }
 
 variable "flink_api_token" {
-  description = "Ververica namespace-scoped API token"
+  description = "Ververica namespace-scoped API token, best passed via TF_VAR_flink_api_token"
   type        = string
   sensitive   = true
-  default     = "5849d1bd-915e-432f-8995-a7f173a657d7" # pass via TF_VAR_flink_api_token instead
+  default     = "YOUR_VERVERICA_API_TOKEN"
 }
 
-# Read-only references to pre-existing, shared infrastructure - never created or destroyed here.
-data "axual_instance" "test_instance" {
+# Pre-existing, shared infrastructure: referenced read-only, never created here.
+data "axual_instance" "example" {
   short_name = var.instance_short_name
 }
 
-data "axual_group" "test_group" {
+data "axual_group" "example" {
   name = var.group_name
 }
 
-data "axual_user" "me" {
-  email = var.your_email
-}
-
-############################
-# 1) Environment
-############################
-resource "axual_environment" "flink_test" {
-  name                 = "tf-flink-sql-full-test"
-  short_name           = "tfflinkfull"
-  description          = "Isolated environment for testing the Flink SQL provider changes"
+resource "axual_environment" "example" {
+  name                 = "tf-flink-sql-example"
+  short_name           = "tfflinksql"
+  description          = "Environment for the minimal Flink SQL example"
   color                = "#19b9be"
   visibility           = "Public"
   authorization_issuer = "Stream owner"
-  instance             = data.axual_instance.test_instance.id
-  owners               = data.axual_group.test_group.id
+  instance             = data.axual_instance.example.id
+  owners               = data.axual_group.example.id
 }
 
-############################
-# 2) Flink Cluster
-############################
-resource "axual_flink_cluster" "test_cluster" {
-  instance_id       = data.axual_instance.test_instance.id
+resource "axual_flink_cluster" "example" {
+  instance_id       = data.axual_instance.example.id
   cluster_id        = var.instance_cluster_id
-  name              = "tf-flink-sql-full-test-cluster"
-  description       = "Flink Cluster for the AXPD-11717 full example"
-  url               = "https://ververica.qa.np.westeurope.azure.axual.cloud"
-  workspace         = "defaultworkspace"
-  namespace         = "default"
-  deployment_target = "default-target"
+  name              = "tf-flink-sql-example-cluster"
+  description       = "Flink Cluster for the minimal Flink SQL example"
+  url               = var.flink_url
+  workspace         = "YOUR_VERVERICA_WORKSPACE"
+  namespace         = "YOUR_VERVERICA_NAMESPACE"
+  deployment_target = "YOUR_VERVERICA_DEPLOYMENT_TARGET"
   api_token         = var.flink_api_token
 }
 
-############################
-# 3) Flink SQL Application
-############################
-resource "axual_application" "flink_app" {
-  name             = "tf-flink-sql-full-test-app"
+resource "axual_application" "example" {
+  name             = "tf-flink-sql-example-app"
   application_type = "FLINK_SQL"
-  short_name       = "tf_flink_sql_full_test_app"
-  application_id   = "io.axual.terraform.flinksqlfulltest"
-  owners           = data.axual_group.test_group.id
+  short_name       = "tf_flink_sql_example_app"
+  application_id   = "io.axual.terraform.flinksqlexample"
+  owners           = data.axual_group.example.id
   visibility       = "Public"
-  description      = "Full FLINK_SQL example: 2 consume + 2 produce topics (String, Avro, Protobuf)"
+  description      = "Minimal FLINK_SQL application"
 }
 
-# FLINK_SQL apps need an axual_application_credential before an access grant can be
-# created (AXPD-11717 claims otherwise - not true against the real backend).
-resource "axual_application_credential" "flink_app_credential" {
-  application = axual_application.flink_app.id
-  environment = axual_environment.flink_test.id
+# A FLINK_SQL application needs credentials in the environment before an access
+# grant can be created for it.
+resource "axual_application_credential" "example" {
+  application = axual_application.example.id
+  environment = axual_environment.example.id
   target      = "KAFKA"
 }
 
-############################
-# 4) Schemas for the Avro/Protobuf topics
-############################
-resource "axual_schema_version" "avro_value_schema" {
-  # chomp() strips the trailing newline file() reads - the API trims it server-side on
-  # save, so leaving it in causes a permanent diff (and schema versions are immutable,
-  # so that diff becomes a hard error: "API does not allow update of schema version").
+# chomp() strips the trailing newline file() reads: the API trims it server-side,
+# and schema versions are immutable, so leaving it in causes a permanent diff.
+resource "axual_schema_version" "avro_in" {
   body        = chomp(file("avro-schemas/simple_avro_value.avsc"))
   version     = "1.0.0"
-  description = "Simple Avro value schema for the Flink SQL consume topic"
+  description = "Simple Avro value schema for the source topic"
   type        = "AVRO"
-}
-
-resource "axual_schema_version" "protobuf_value_schema" {
-  body        = chomp(file("protobuf-schemas/simple_protobuf_value.proto"))
-  version     = "1.0.0"
-  description = "Simple Protobuf value schema for the Flink SQL produce topic"
-  type        = "PROTOBUF"
-}
-
-############################
-# 5) Four topics: 2 consume (String, Avro), 2 produce (String, Protobuf)
-############################
-resource "axual_topic" "string_in" {
-  name             = "tf-flink-string-in"
-  key_type         = "String"
-  value_type       = "String"
-  owners           = data.axual_group.test_group.id
-  retention_policy = "delete"
-  properties       = {}
-  description      = "Consume topic: plain String key/value"
 }
 
 resource "axual_topic" "avro_in" {
   name             = "tf-flink-avro-in"
   key_type         = "String"
   value_type       = "AVRO"
-  value_schema     = axual_schema_version.avro_value_schema.schema_id
-  owners           = data.axual_group.test_group.id
+  value_schema     = axual_schema_version.avro_in.schema_id
+  owners           = data.axual_group.example.id
   retention_policy = "delete"
   properties       = {}
-  description      = "Consume topic: String key, Avro value"
+  description      = "Source topic: String key, Avro value"
+}
+
+resource "axual_topic_config" "avro_in" {
+  partitions           = 1
+  retention_time       = 864000
+  topic                = axual_topic.avro_in.id
+  environment          = axual_environment.example.id
+  properties           = {}
+  value_schema_version = axual_schema_version.avro_in.id
 }
 
 resource "axual_topic" "string_out" {
   name             = "tf-flink-string-out"
   key_type         = "String"
   value_type       = "String"
-  owners           = data.axual_group.test_group.id
+  owners           = data.axual_group.example.id
   retention_policy = "delete"
   properties       = {}
-  description      = "Produce topic: plain String key/value"
+  description      = "Target topic: plain String key/value"
 }
 
-resource "axual_topic" "protobuf_out" {
-  name             = "tf-flink-protobuf-out"
-  key_type         = "String"
-  value_type       = "PROTOBUF"
-  value_schema     = axual_schema_version.protobuf_value_schema.schema_id
-  owners           = data.axual_group.test_group.id
-  retention_policy = "delete"
-  properties       = {}
-  description      = "Produce topic: String key, Protobuf value"
-}
-
-############################
-# 6) Topic configs (all 4, in the new environment)
-############################
-resource "axual_topic_config" "string_in_config" {
-  partitions     = 1
-  retention_time = 864000 # 10 days
-  topic          = axual_topic.string_in.id
-  environment    = axual_environment.flink_test.id
-  properties     = { "segment.ms" = "600012", "retention.bytes" = "-1" }
-}
-
-resource "axual_topic_config" "avro_in_config" {
-  partitions           = 1
-  retention_time       = 864000
-  topic                = axual_topic.avro_in.id
-  environment          = axual_environment.flink_test.id
-  properties           = { "segment.ms" = "600012", "retention.bytes" = "-1" }
-  value_schema_version = axual_schema_version.avro_value_schema.id
-}
-
-resource "axual_topic_config" "string_out_config" {
+resource "axual_topic_config" "string_out" {
   partitions     = 1
   retention_time = 864000
   topic          = axual_topic.string_out.id
-  environment    = axual_environment.flink_test.id
-  properties     = { "segment.ms" = "600012", "retention.bytes" = "-1" }
-}
-
-resource "axual_topic_config" "protobuf_out_config" {
-  partitions           = 1
-  retention_time       = 864000
-  topic                = axual_topic.protobuf_out.id
-  environment          = axual_environment.flink_test.id
-  properties           = { "segment.ms" = "600012", "retention.bytes" = "-1" }
-  value_schema_version = axual_schema_version.protobuf_value_schema.id
-}
-
-############################
-# 7) Access grants: 2 CONSUMER (string_in, avro_in), 2 PRODUCER (string_out, protobuf_out)
-############################
-resource "axual_application_access_grant" "consume_string_in" {
-  application = axual_application.flink_app.id
-  topic       = axual_topic.string_in.id
-  environment = axual_environment.flink_test.id
-  access_type = "CONSUMER"
-  depends_on = [
-    axual_topic_config.string_in_config,
-    axual_application_credential.flink_app_credential,
-  ]
-}
-
-resource "axual_application_access_grant_approval" "consume_string_in_approval" {
-  application_access_grant = axual_application_access_grant.consume_string_in.id
+  environment    = axual_environment.example.id
+  properties     = {}
 }
 
 resource "axual_application_access_grant" "consume_avro_in" {
-  application = axual_application.flink_app.id
+  application = axual_application.example.id
   topic       = axual_topic.avro_in.id
-  environment = axual_environment.flink_test.id
+  environment = axual_environment.example.id
   access_type = "CONSUMER"
+
   depends_on = [
-    axual_topic_config.avro_in_config,
-    axual_application_credential.flink_app_credential,
+    axual_application_credential.example,
+    axual_topic_config.avro_in,
   ]
 }
 
-resource "axual_application_access_grant_approval" "consume_avro_in_approval" {
+resource "axual_application_access_grant_approval" "consume_avro_in" {
   application_access_grant = axual_application_access_grant.consume_avro_in.id
 }
 
 resource "axual_application_access_grant" "produce_string_out" {
-  application = axual_application.flink_app.id
+  application = axual_application.example.id
   topic       = axual_topic.string_out.id
-  environment = axual_environment.flink_test.id
+  environment = axual_environment.example.id
   access_type = "PRODUCER"
+
   depends_on = [
-    axual_topic_config.string_out_config,
-    axual_application_credential.flink_app_credential,
+    axual_application_credential.example,
+    axual_topic_config.string_out,
   ]
 }
 
-resource "axual_application_access_grant_approval" "produce_string_out_approval" {
+resource "axual_application_access_grant_approval" "produce_string_out" {
   application_access_grant = axual_application_access_grant.produce_string_out.id
 }
 
-resource "axual_application_access_grant" "produce_protobuf_out" {
-  application = axual_application.flink_app.id
-  topic       = axual_topic.protobuf_out.id
-  environment = axual_environment.flink_test.id
-  access_type = "PRODUCER"
-  depends_on = [
-    axual_topic_config.protobuf_out_config,
-    axual_application_credential.flink_app_credential,
-  ]
-}
-
-resource "axual_application_access_grant_approval" "produce_protobuf_out_approval" {
-  application_access_grant = axual_application_access_grant.produce_protobuf_out.id
-}
-
-############################
-# 8) Flink SQL Deployment - reads both consume topics, writes to both produce topics.
-#    generate_tables_sql = true auto-generates the CREATE TABLE DDL from the topics'
-#    schemas, so the script only needs the transformation logic. SELECT * avoids
-#    guessing the auto-generated column names for the Avro/Protobuf value fields.
-############################
-resource "axual_application_deployment" "flink_deployment" {
-  environment = axual_environment.flink_test.id
-  application = axual_application.flink_app.id
-  target_id   = axual_flink_cluster.test_cluster.id
-  # Single INSERT INTO ... SELECT only. Ververica's SQL Gateway rejects multiple bare
-  # INSERT INTO statements unless wrapped in a BEGIN STATEMENT SET ... END; block (its
-  # multi-sink mode) - but Axual's own SQL validator rejects that exact wrapper as a
-  # FORBIDDEN_STATEMENT_TYPE ("Statements other than CREATE TEMPORARY TABLE / INSERT
-  # INTO ... SELECT are not allowed"). The two validators contradict each other, so
-  # writing to two topics from one deployment is not currently possible - confirmed
-  # against the real backend, worth raising with the platform team.
-  #
-  # Also confirmed: the auto-generated table for a PROTOBUF-value topic exposes the
-  # value as a single opaque `value BYTES` column, not per-field columns like Avro
-  # does - Ververica rejected `SELECT * FROM tf_flink_avro_in` into
-  # tf_flink_protobuf_out with "Column types of query result and sink ... do not
-  # match. Query schema: [key, id, payload], Sink schema: [key, value: BYTES]".
-  # Producing a real protobuf-encoded byte value needs a format-aware function this
-  # plain SQL doesn't have, so this deployment transforms avro_in -> string_out
-  # instead (String sinks use simple [key, value] STRING columns). tf_flink_string_in
-  # and tf_flink_protobuf_out are still fully created, configured, and
-  # access-granted (per the 2 consume + 2 produce requirement) even though this
-  # single statement doesn't use them.
-  sql_script          = <<-SQL
-    BEGIN STATEMENT SET;
-    INSERT INTO tf_flink_string_out (key, `value`)
-    SELECT key, payload FROM tf_flink_avro_in;
-    INSERT INTO tf_flink_string_out (key, `value`)
-    SELECT key, `value` FROM tf_flink_string_in;
-    END;
-  SQL
+# generate_tables_sql = true auto-generates the CREATE TABLE DDL for the granted
+# topics, so sql_script only carries the transformation. Table names are the topic
+# names with dashes replaced by underscores.
+resource "axual_application_deployment" "example" {
+  environment         = axual_environment.example.id
+  application         = axual_application.example.id
+  target_id           = axual_flink_cluster.example.id
   generate_tables_sql = true
-  task_size           = "S"
-
-  depends_on = [
-    axual_application_access_grant_approval.consume_string_in_approval,
-    axual_application_access_grant_approval.consume_avro_in_approval,
-    axual_application_access_grant_approval.produce_string_out_approval,
-    axual_application_access_grant_approval.produce_protobuf_out_approval,
-  ]
-}
-
-output "flink_cluster_id" {
-  value = axual_flink_cluster.test_cluster.id
-}
-
-output "flink_application_id" {
-  value = axual_application.flink_app.id
-}
-
-output "flink_deployment_id" {
-  value = axual_application_deployment.flink_deployment.id
-}
-
-############################
-# Simple String Key-Value Example
-############################
-
-resource "axual_environment" "string_test" {
-  name                 = "tf-flink-string-test"
-  short_name           = "tfflinkstring"
-  description          = "Simple Flink SQL example with string topics only"
-  color                = "#19b9be"
-  visibility           = "Public"
-  authorization_issuer = "Stream owner"
-  instance             = data.axual_instance.test_instance.id
-  owners               = data.axual_group.test_group.id
-}
-
-resource "axual_application" "string_app" {
-  name             = "tf-flink-string-app"
-  application_type = "FLINK_SQL"
-  short_name       = "tf_flink_string_app"
-  application_id   = "io.axual.terraform.flinksqlstring"
-  owners           = data.axual_group.test_group.id
-  visibility       = "Public"
-  description      = "Simple Flink SQL app with string topics"
-}
-
-resource "axual_application_credential" "string_app_cred" {
-  application = axual_application.string_app.id
-  environment = axual_environment.string_test.id
-  target      = "KAFKA"
-}
-
-resource "axual_topic" "string_input" {
-  name             = "tf-flink-string-input"
-  key_type         = "String"
-  value_type       = "String"
-  owners           = data.axual_group.test_group.id
-  retention_policy = "delete"
-  properties       = {}
-  description      = "Input topic for string transformation"
-}
-
-resource "axual_topic_config" "string_input_config" {
-  partitions     = 1
-  retention_time = 864000
-  topic          = axual_topic.string_input.id
-  environment    = axual_environment.string_test.id
-  properties     = {}
-}
-
-resource "axual_topic" "string_output" {
-  name             = "tf-flink-string-output"
-  key_type         = "String"
-  value_type       = "String"
-  owners           = data.axual_group.test_group.id
-  retention_policy = "delete"
-  properties       = {}
-  description      = "Output topic for string transformation"
-}
-
-resource "axual_topic_config" "string_output_config" {
-  partitions     = 1
-  retention_time = 864000
-  topic          = axual_topic.string_output.id
-  environment    = axual_environment.string_test.id
-  properties     = {}
-}
-
-resource "axual_application_access_grant" "string_input_consume" {
-  application = axual_application.string_app.id
-  topic       = axual_topic.string_input.id
-  environment = axual_environment.string_test.id
-  access_type = "CONSUMER"
-
-  depends_on = [
-    axual_application_credential.string_app_cred,
-    axual_topic_config.string_input_config
-  ]
-}
-
-resource "axual_application_access_grant_approval" "string_input_consume_approval" {
-  application_access_grant = axual_application_access_grant.string_input_consume.id
-}
-
-resource "axual_application_access_grant" "string_output_produce" {
-  application = axual_application.string_app.id
-  topic       = axual_topic.string_output.id
-  environment = axual_environment.string_test.id
-  access_type = "PRODUCER"
-
-  depends_on = [
-    axual_application_credential.string_app_cred,
-    axual_topic_config.string_output_config
-  ]
-}
-
-resource "axual_application_access_grant_approval" "string_output_produce_approval" {
-  application_access_grant = axual_application_access_grant.string_output_produce.id
-}
-
-resource "axual_application_deployment" "string_deployment" {
-  environment         = axual_environment.string_test.id
-  application         = axual_application.string_app.id
-  target_id           = axual_flink_cluster.test_cluster.id
-  generate_tables_sql = true
-  task_size           = "S"
+  deployment_size     = "S"
 
   sql_script = <<-SQL
-    BEGIN STATEMENT SET;
-    INSERT INTO tf_flink_string_output (`key`, `value`)
-    SELECT CONCAT(`key`, '_processed'), CONCAT(`value`, '_processed') FROM tf_flink_string_input;
-    END;
+    INSERT INTO tf_flink_string_out (`key`, `value`)
+    SELECT `key`, payload FROM tf_flink_avro_in;
   SQL
 
   depends_on = [
-    axual_application_access_grant_approval.string_input_consume_approval,
-    axual_application_access_grant_approval.string_output_produce_approval,
+    axual_application_access_grant_approval.consume_avro_in,
+    axual_application_access_grant_approval.produce_string_out,
   ]
 }
