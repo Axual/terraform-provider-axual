@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.2.0) - TBR
+### Added
+* Support for Flink Cluster as `axual_flink_cluster`
+* Support for Axual-managed `FLINK_SQL` Application
+
 ## [3.1.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.1.0) - 2026-06-30
 ### Added
 * Allow rotating a Connector's `axual_application_principal`
