@@ -25,21 +25,18 @@ type ProviderConfig struct {
 	Provider struct {
 		Version string `yaml:"version"` // Can be "local" or a version from the registry (e.g., "2.4.1")
 	} `yaml:"provider"`
-	ApiUrl                string `yaml:"apiUrl"`
-	AuthUrl               string `yaml:"authUrl"`
-	Realm                 string `yaml:"realm"`
-	InstanceName          string `yaml:"instanceName"`
-	InstanceShortName     string `yaml:"instanceShortName"`
-	InstanceClusterId     string `yaml:"instanceClusterId"`
-	GroupName             string `yaml:"groupName"`
-	UserEmail             string `yaml:"userEmail"`
-	Username              string `yaml:"username"`
-	Password              string `yaml:"password"`
-	FlinkUrl              string `yaml:"flinkUrl"`
-	FlinkWorkspace        string `yaml:"flinkWorkspace"`
-	FlinkNamespace        string `yaml:"flinkNamespace"`
-	FlinkDeploymentTarget string `yaml:"flinkDeploymentTarget"`
-	FlinkApiToken         string `yaml:"flinkApiToken"`
+	ApiUrl            string `yaml:"apiUrl"`
+	AuthUrl           string `yaml:"authUrl"`
+	Realm             string `yaml:"realm"`
+	InstanceName      string `yaml:"instanceName"`
+	InstanceShortName string `yaml:"instanceShortName"`
+	GroupName         string `yaml:"groupName"`
+	UserEmail         string `yaml:"userEmail"`
+	Username          string `yaml:"username"`
+	Password          string `yaml:"password"`
+	VervericaUrl      string `yaml:"ververicaUrl"`
+	VervericaApiToken string `yaml:"ververicaApiToken"`
+	ClusterId         string `yaml:"clusterId"`
 }
 
 // LoadProviderConfig Function to load the configuration from a YAML file
@@ -151,12 +148,9 @@ func GetProvider() string {
 	  email = "` + config.UserEmail + `"
 	}
 	locals {
-	  instance_cluster_id = "` + config.InstanceClusterId + `"
-	  flink_url = "` + config.FlinkUrl + `"
-	  flink_workspace = "` + config.FlinkWorkspace + `"
-	  flink_namespace = "` + config.FlinkNamespace + `"
-	  flink_deployment_target = "` + config.FlinkDeploymentTarget + `"
-	  flink_api_token = "` + config.FlinkApiToken + `"
+	  cluster_id = "` + config.ClusterId + `"
+	  ververica_url = "` + config.VervericaUrl + `"
+	  ververica_api_token = "` + config.VervericaApiToken + `"
 	}
 	`
 

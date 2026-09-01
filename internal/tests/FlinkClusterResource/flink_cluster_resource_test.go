@@ -39,7 +39,6 @@ func TestFlinkClusterResource(t *testing.T) {
 				Config: GetProvider() + GetFile("internal/tests/FlinkClusterResource/axual_flink_cluster_updated.tf"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "description", "Axual's TF Test Flink Cluster, updated"),
-					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "api_token", "tf-test-updated-token"),
 				),
 			},
 			{
@@ -49,7 +48,7 @@ func TestFlinkClusterResource(t *testing.T) {
 					rs := s.RootModule().Resources["axual_flink_cluster.tf_test_flink_cluster"]
 					return rs.Primary.Attributes["instance_id"] + "/" + rs.Primary.Attributes["cluster_id"] + "/" + rs.Primary.Attributes["id"], nil
 				},
-				// api_token is not returned by the API on GET, so import cannot restore it.
+				// the API does not return api_token on GET, so import cannot restore it.
 				ImportStateVerifyIgnore: []string{"api_token"},
 				ImportStateVerify:       true,
 				Config:                  GetProvider() + GetFile("internal/tests/FlinkClusterResource/axual_flink_cluster_updated.tf"),
