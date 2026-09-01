@@ -58,7 +58,7 @@ func (r *flinkClusterResource) Schema(ctx context.Context, req resource.SchemaRe
 				},
 			},
 			"cluster_id": schema.StringAttribute{
-				MarkdownDescription: "The Uid of the Instance-Cluster this Flink Cluster belongs to.",
+				MarkdownDescription: "The Uid of the Cluster this Flink Cluster belongs to.",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
@@ -73,15 +73,15 @@ func (r *flinkClusterResource) Schema(ctx context.Context, req resource.SchemaRe
 				Optional:            true,
 			},
 			"url": schema.StringAttribute{
-				MarkdownDescription: "Ververica Platform base URL, e.g. `https://vvp.internal/api`.",
+				MarkdownDescription: "Ververica Platform base URL, e.g. `https://vvp.internal`.",
 				Required:            true,
 			},
 			"workspace": schema.StringAttribute{
-				MarkdownDescription: "Ververica workspace name.",
+				MarkdownDescription: "Ververica workspace name, e.g. `defaultworkspace`.",
 				Required:            true,
 			},
 			"namespace": schema.StringAttribute{
-				MarkdownDescription: "Ververica namespace name.",
+				MarkdownDescription: "Ververica namespace name, e.g. `default`.",
 				Required:            true,
 			},
 			"deployment_target": schema.StringAttribute{
