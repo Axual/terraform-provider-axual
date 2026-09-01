@@ -202,6 +202,21 @@ Before running acceptance tests:
    - `username`: Your username
    - `password`: Your password
 
+   The following values are only needed by the Flink cluster tests
+   (`internal/tests/FlinkClusterResource`) and the Flink parts of the Application Deployment tests.
+   They are **not** shipped with the repository: you must supply them yourself from a Ververica
+   Platform namespace you have access to. The committed `YOUR_...` placeholders are not working
+   values.
+   - `ververicaUrl`: Base URL of **your own** Ververica Platform API — there is no fixed URL to copy
+     here, use the one of the Ververica Platform your instance talks to. Exposed to the test
+     fixtures as `local.ververica_url` and used as the `url` of `axual_flink_cluster`.
+   - `ververicaApiToken`: A Ververica Platform API token scoped to that namespace, with permission
+     to manage deployments. Exposed as `local.ververica_api_token` and used as the `api_token` of
+     `axual_flink_cluster`. Treat it as a secret — never commit a real token.
+   - `clusterId`: The Uid of the Instance-Cluster in your Axual instance that the Flink cluster is
+     registered against. Exposed as `local.cluster_id` and used as the `cluster_id` of
+     `axual_flink_cluster`.
+
 3. **Verify Test User Permissions:**
 
    Ensure your test user has these roles:

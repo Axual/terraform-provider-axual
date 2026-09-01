@@ -48,7 +48,6 @@ type ApplicationDeploymentResourceData struct {
 	TargetId          types.String `tfsdk:"target_id"`
 	SqlScript         types.String `tfsdk:"sql_script"`
 	GenerateTablesSql types.Bool   `tfsdk:"generate_tables_sql"`
-	TaskSize          types.String `tfsdk:"task_size"`
 }
 
 func (r *applicationDeploymentResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -93,7 +92,7 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				Sensitive:           true,
 			},
 			"deployment_size": schema.StringAttribute{
-				MarkdownDescription: "The deployment size for KSML applications. Optional for KSML deployments. If not specified, the Platform Manager will assign a default value.",
+				MarkdownDescription: "The t-shirt size (e.g. XS, S, M, L, XL) of the deployment. Optional for KSML and FLINK_SQL deployments; for FLINK_SQL it sizes the Flink TaskManager. If not specified, the Platform Manager will assign a default value.",
 				Optional:            true,
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
@@ -119,14 +118,6 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 			"generate_tables_sql": schema.BoolAttribute{
 				MarkdownDescription: "For FLINK_SQL deployments, whether to auto-generate the `CREATE TABLE` statements for the topics referenced by `sql_script`. Optional for FLINK_SQL deployments.",
 				Optional:            true,
-			},
-			"task_size": schema.StringAttribute{
-				MarkdownDescription: "The t-shirt size (e.g. XS, S, M, L, XL) used to size the Flink TaskManager for a FLINK_SQL deployment. Optional for FLINK_SQL deployments; if not specified, the Platform Manager will assign a default value.",
-				Optional:            true,
-				Computed:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
 			},
 			"id": schema.StringAttribute{
 				Computed: true,
@@ -188,26 +179,25 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 			resp.Diagnostics.AddError("Error from Terraform Provider validation", "Please first create an Application Principal or Application Credential for this application and environment")
 			return
 		}
+	}
 
-		// Connector deployments require at least one active Application Principal: the deployment START
-		// will fail at the API otherwise. The API does NOT auto-activate, so we surface a clear error here
-		// instead of letting deployment creation fail with a generic platform error.
-		if !isKSML(data.Type.ValueString()) {
-			activePrincipalCount := countActivePrincipals(applicationPrincipalsResponse)
-			if activePrincipalCount == 0 {
-				resp.Diagnostics.AddError(
-					"No active Application Principal",
-					fmt.Sprintf(
-						"No active Application Principal found for application=%s environment=%s. "+
-							"Activate one by setting `active = true` on the axual_application_principal resource for this application and environment, "+
-							"or activate it manually via the Axual Self Service UI. "+
-							"For cross-repo setups (where the principal is managed in a different Terraform configuration), "+
-							"ensure activation has been applied before creating this deployment.",
-						data.Application.ValueString(), data.Environment.ValueString(),
-					),
-				)
-				return
-			}
+	// Connector deployments require at least one active Application Principal: the deployment START
+	// will fail at the API otherwise. The API does NOT auto-activate, so we surface a clear error here
+	// instead of letting deployment creation fail with a generic platform error.
+	if isConnector(data.Type.ValueString()) {
+		if countActivePrincipals(applicationPrincipalsResponse) == 0 {
+			resp.Diagnostics.AddError(
+				"No active Application Principal",
+				fmt.Sprintf(
+					"No active Application Principal found for application=%s environment=%s. "+
+						"Activate one by setting `active = true` on the axual_application_principal resource for this application and environment, "+
+						"or activate it manually via the Axual Self Service UI. "+
+						"For cross-repo setups (where the principal is managed in a different Terraform configuration), "+
+						"ensure activation has been applied before creating this deployment.",
+					data.Application.ValueString(), data.Environment.ValueString(),
+				),
+			)
+			return
 		}
 	}
 
@@ -234,21 +224,14 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 		resp.Diagnostics.AddError("Error creating request struct for application deployment resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
-	_, err = r.provider.client.CreateApplicationDeployment(ApplicationDeploymentRequest)
+	createResponse, err := r.provider.client.CreateApplicationDeployment(ApplicationDeploymentRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("CREATE request error for application deployment resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
 
-	// We search for the Application Deployment we just created because we need to save its UID, because creating it did not respond with UID.
-	ApplicationDeploymentFindByApplicationAndEnvironmentResponse, err := r.provider.client.FindApplicationDeploymentByApplicationAndEnvironment(applicationURL, environmentURL)
-	if err != nil {
-		resp.Diagnostics.AddError("Error finding application deployment", fmt.Sprintf("Error message: %s", err.Error()))
-		return
-	}
-
 	// Build the Flink SQL config PATCH from the plan-supplied values BEFORE mapping the (target-only,
-	// configs-less) create response into data - that mapping nulls out SqlScript/TaskSize/
+	// configs-less) create response into data - that mapping nulls out SqlScript/DeploymentSize/
 	// GenerateTablesSql to reflect what the API actually has, which would leave nothing to PATCH.
 	var flinkConfigs map[string]string
 	if isFlinkSQL(data.Type.ValueString()) {
@@ -259,12 +242,21 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 		}
 	}
 
-	// Map response to data
-	err = mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx, &data, ApplicationDeploymentFindByApplicationAndEnvironmentResponse)
-	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to map Application Deployment, got error: %s", err))
+	// The POST response has no body: the Uid of the created deployment comes from the Location
+	// header of the response, which the API returns for every application type.
+	if createResponse.Uid == "" {
+		resp.Diagnostics.AddError(
+			"Error reading the created application deployment",
+			"The API did not return a Location header with the Uid of the created Application Deployment.",
+		)
 		return
 	}
+	createdDeployment, err := r.provider.client.GetApplicationDeployment(createResponse.Uid)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading the created application deployment", fmt.Sprintf("Error message: %s", err.Error()))
+		return
+	}
+	mapApplicationDeploymentByIdResponseToData(ctx, &data, createdDeployment)
 
 	// Save state as soon as the deployment's Id is known, BEFORE the FLINK_SQL config PATCH or
 	// START - a failure past this point still leaves the deployment trackable, so a retried apply
@@ -280,7 +272,7 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 	// createApplicationDeploymentRequestFromData); its SQL config is set here via a follow-up PATCH.
 	if isFlinkSQL(data.Type.ValueString()) {
 		flinkUpdate := webclient.ApplicationDeploymentUpdateRequest{Configs: flinkConfigs}
-		_, err = r.provider.client.PatchApplicationDeployment(data.Id.ValueString(), flinkUpdate)
+		_, err = r.provider.client.UpdateApplicationDeployment(data.Id.ValueString(), data.Type.ValueString(), flinkUpdate)
 		if err != nil {
 			resp.Diagnostics.AddError("Error setting Flink SQL config for application deployment resource", fmt.Sprintf("Error message: %s", err.Error()))
 			return
@@ -393,13 +385,9 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 
 	ApplicationDeploymentUpdateRequest, err := createApplicationUpdateDeploymentRequestFromData(ctx, &planData)
 
-	// FLINK_SQL deployments reject PUT ("PUT is not supported for Flink SQL deployments; use
-	// PATCH"); Connector and KSML deployments keep using PUT.
-	if isFlinkSQL(planData.Type.ValueString()) {
-		_, err = r.provider.client.PatchApplicationDeployment(planData.Id.ValueString(), ApplicationDeploymentUpdateRequest)
-	} else {
-		_, err = r.provider.client.UpdateApplicationDeployment(planData.Id.ValueString(), ApplicationDeploymentUpdateRequest)
-	}
+	// UpdateApplicationDeployment picks PUT or PATCH based on the application type: FLINK_SQL
+	// deployments reject PUT ("PUT is not supported for Flink SQL deployments; use PATCH").
+	_, err = r.provider.client.UpdateApplicationDeployment(planData.Id.ValueString(), planData.Type.ValueString(), ApplicationDeploymentUpdateRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update Application Deployment, got error: %s", err))
 		return
@@ -464,7 +452,14 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 			return
 		}
 
-		// Poll until deployment reaches terminal state before attempting DELETE
+		// Poll until the deployment reaches a terminal state before attempting DELETE.
+		// STOP is asynchronous: the platform only acknowledges the request, and a Flink job in
+		// particular keeps draining for a while before it reports Undeployed/Failed. A DELETE
+		// issued before that is rejected by the API, which would fail the destroy.
+		//
+		// TODO: the attempt count and delay below are not configurable. If this wait turns out to
+		// be too short (or too long) in practice, expose it as a Terraform `timeouts` block on the
+		// resource (timeouts.Block() + a context deadline) instead of hardcoding it here.
 		maxRetries := 30
 		retryDelay := 2 * time.Second
 		for i := 0; i < maxRetries; i++ {
@@ -656,8 +651,9 @@ func createConfigsForDeploymentType(data *ApplicationDeploymentResourceData) (ma
 		if !data.GenerateTablesSql.IsNull() && !data.GenerateTablesSql.IsUnknown() {
 			configs["flink_generate_tables_sql"] = fmt.Sprintf("%t", data.GenerateTablesSql.ValueBool())
 		}
-		if !data.TaskSize.IsNull() && !data.TaskSize.IsUnknown() {
-			configs["flink_task_size"] = data.TaskSize.ValueString()
+		// The size attribute is shared with KSML, only the config key differs per application type.
+		if !data.DeploymentSize.IsNull() && !data.DeploymentSize.IsUnknown() {
+			configs["flink_task_size"] = data.DeploymentSize.ValueString()
 		}
 	} else {
 		// For Connector deployments, use the configs map
@@ -720,7 +716,6 @@ func mapResponseConfigsToData(ctx context.Context, data *ApplicationDeploymentRe
 		data.Configs = types.MapNull(types.StringType)
 		data.SqlScript = types.StringNull()
 		data.GenerateTablesSql = types.BoolNull()
-		data.TaskSize = types.StringNull()
 	} else if isFlinkSQL(deploymentType) {
 		data.Type = types.StringValue("FLINK_SQL")
 		if flinkSql != "" {
@@ -729,9 +724,9 @@ func mapResponseConfigsToData(ctx context.Context, data *ApplicationDeploymentRe
 			data.SqlScript = types.StringNull()
 		}
 		if flinkTaskSize != "" {
-			data.TaskSize = types.StringValue(flinkTaskSize)
+			data.DeploymentSize = types.StringValue(flinkTaskSize)
 		} else {
-			data.TaskSize = types.StringNull()
+			data.DeploymentSize = types.StringNull()
 		}
 		if flinkGenerateTablesSql != nil {
 			data.GenerateTablesSql = types.BoolValue(*flinkGenerateTablesSql)
@@ -741,7 +736,6 @@ func mapResponseConfigsToData(ctx context.Context, data *ApplicationDeploymentRe
 		// For FLINK_SQL, the configs map and KSML-specific fields should be null
 		data.Configs = types.MapNull(types.StringType)
 		data.Definition = types.StringNull()
-		data.DeploymentSize = types.StringNull()
 		data.RestartPolicy = types.StringNull()
 	} else {
 		if data.Type.IsNull() || data.Type.IsUnknown() {
@@ -758,7 +752,6 @@ func mapResponseConfigsToData(ctx context.Context, data *ApplicationDeploymentRe
 		data.RestartPolicy = types.StringNull()
 		data.SqlScript = types.StringNull()
 		data.GenerateTablesSql = types.BoolNull()
-		data.TaskSize = types.StringNull()
 	}
 }
 
@@ -767,7 +760,13 @@ func isKSML(deploymentType string) bool {
 }
 
 func isFlinkSQL(deploymentType string) bool {
-	return deploymentType == "FLINK_SQL"
+	return deploymentType == webclient.FlinkSQLApplicationType
+}
+
+// isConnector reports whether the deployment is a Connector deployment: anything that is neither
+// a KSML nor a Flink SQL deployment.
+func isConnector(deploymentType string) bool {
+	return !isKSML(deploymentType) && !isFlinkSQL(deploymentType)
 }
 
 // countActivePrincipals counts principals whose API-returned active flag is true.

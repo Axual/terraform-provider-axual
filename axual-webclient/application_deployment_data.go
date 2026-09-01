@@ -1,6 +1,11 @@
 package webclient
 
-type ApplicationDeploymentCreateResponse string
+// ApplicationDeploymentCreateResponse holds what the POST /application_deployments response
+// exposes about the created deployment. The API returns no body, so the Uid comes from the
+// response's Location header and is empty when that header is absent.
+type ApplicationDeploymentCreateResponse struct {
+	Uid string
+}
 
 type ApplicationDeploymentUpdateResponse interface{}
 type Config struct {

@@ -21,14 +21,14 @@ resource "axual_environment" "tf-test-flink-env" {
 
 resource "axual_flink_cluster" "tf-test-flink-cluster" {
   instance_id       = data.axual_instance.test_instance.id
-  cluster_id        = local.instance_cluster_id
+  cluster_id        = local.cluster_id
   name              = "tf-test-flink-deployment-cluster"
   description       = "Axual's TF Test Flink Cluster for deployments"
-  url               = "https://vvp.example.internal/api"
+  url               = local.ververica_url
   workspace         = "defaultworkspace"
   namespace         = "default"
   deployment_target = "default-target"
-  api_token         = "tf-test-flink-deployment-token"
+  api_token         = local.ververica_api_token
 }
 
 resource "axual_topic" "tf-test-flink-topic" {
