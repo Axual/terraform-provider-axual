@@ -11,6 +11,13 @@ import (
 )
 
 func TestFlinkClusterResource(t *testing.T) {
+	// The Ververica connection details come from test_config.yaml and are injected into the test
+	// configuration as locals by GetProvider(), so the expected values are read from the same source.
+	config, err := LoadProviderConfig()
+	if err != nil {
+		t.Fatalf("Error loading provider config: %v", err)
+	}
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
 		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
@@ -18,30 +25,35 @@ func TestFlinkClusterResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Test missing required attributes - should fail validation
 			{
-				Config:      GetProvider() + GetFile("internal/tests/FlinkClusterResource/axual_flink_cluster_missing_required.tf"),
+				Config:      GetProvider() + GetFile("axual_flink_cluster_missing_required.tf"),
 				ExpectError: regexp.MustCompile(`is required`),
 			},
 			{
-				Config: GetProvider() + GetFile("internal/tests/FlinkClusterResource/axual_flink_cluster_initial.tf"),
+				Config: GetProvider() + GetFile("axual_flink_cluster_initial.tf"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttrPair("axual_flink_cluster.tf_test_flink_cluster", "instance_id", "data.axual_instance.test_instance", "id"),
+					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "cluster_id", config.ClusterId),
 					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "name", "tf-test-flink-cluster"),
 					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "description", "Axual's TF Test Flink Cluster"),
-					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "url", "https://vvp.example.internal/api"),
+					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "url", config.VervericaUrl),
 					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "workspace", "defaultworkspace"),
 					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "namespace", "default"),
 					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "deployment_target", "default-target"),
-					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "api_token", "tf-test-initial-token"),
+					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "api_token", config.VervericaApiToken),
 					resource.TestCheckResourceAttrSet("axual_flink_cluster.tf_test_flink_cluster", "id"),
 				),
 			},
 			{
-				Config: GetProvider() + GetFile("internal/tests/FlinkClusterResource/axual_flink_cluster_updated.tf"),
+				Config: GetProvider() + GetFile("axual_flink_cluster_updated.tf"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "description", "Axual's TF Test Flink Cluster, updated"),
 				),
 			},
 			{
+				// Unlike most resources, importing a Flink Cluster needs more than its own id: the uid is
+				// only unique within the instance and cluster it lives on, so ImportState expects a
+				// composite "instance_id/cluster_id/flink_cluster_id" identifier which ImportStateIdFunc
+				// assembles from state.
 				ResourceName: "axual_flink_cluster.tf_test_flink_cluster",
 				ImportState:  true,
 				ImportStateIdFunc: func(s *terraform.State) (string, error) {
@@ -51,12 +63,12 @@ func TestFlinkClusterResource(t *testing.T) {
 				// the API does not return api_token on GET, so import cannot restore it.
 				ImportStateVerifyIgnore: []string{"api_token"},
 				ImportStateVerify:       true,
-				Config:                  GetProvider() + GetFile("internal/tests/FlinkClusterResource/axual_flink_cluster_updated.tf"),
+				Config:                  GetProvider() + GetFile("axual_flink_cluster_updated.tf"),
 			},
 			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
-				Config:  GetProvider() + GetFile("internal/tests/FlinkClusterResource/axual_flink_cluster_updated.tf"),
+				Config:  GetProvider() + GetFile("axual_flink_cluster_updated.tf"),
 			},
 		},
 	})
