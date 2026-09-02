@@ -31,6 +31,17 @@ resource "axual_flink_cluster" "tf-test-flink-cluster" {
   api_token         = local.ververica_api_token
 }
 
+# A FLINK_SQL application needs SASL/SCRAM Kafka credentials, not an mTLS principal: the platform
+# rejects the deployment with "a Flink SQL application requires SASL/SCRAM Kafka credentials. Only
+# an mTLS principal is configured, which Flink SQL cannot use". The credential also satisfies the
+# Application Access Grant endpoint, which refuses a grant for an application without any
+# authentication information.
+resource "axual_application_credential" "flink_axual_application_credential" {
+  environment = axual_environment.tf-test-flink-env.id
+  application = axual_application.tf-test-flink-app.id
+  target      = "KAFKA"
+}
+
 resource "axual_topic" "tf-test-flink-topic" {
   name             = "flink-test-topic"
   key_type         = "String"
@@ -55,6 +66,7 @@ resource "axual_application_access_grant" "tf-test-flink-application-access-gran
   environment = axual_environment.tf-test-flink-env.id
   access_type = "CONSUMER"
   depends_on = [
+    axual_application_credential.flink_axual_application_credential,
     axual_topic_config.tf-flink-topic-config
   ]
 }

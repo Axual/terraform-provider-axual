@@ -40,8 +40,19 @@ type applicationDeploymentResource struct {
 // startAttempts is how often a START is retried before the apply is failed.
 const startAttempts = 3
 
-// stopGracePeriod is how long a delete waits after STOP before issuing the DELETE.
-const stopGracePeriod = 3 * time.Second
+// stopWaitAttempts and stopWaitDelay bound how long a delete waits for a stopped deployment to
+// stop running before issuing the DELETE.
+const (
+	stopWaitAttempts = 30
+	stopWaitDelay    = 2 * time.Second
+)
+
+// startWaitAttempts and startWaitDelay bound how long a START waits for a deployment that is
+// still stopping to become startable.
+const (
+	startWaitAttempts = 30
+	startWaitDelay    = 2 * time.Second
+)
 
 type ApplicationDeploymentResourceData struct {
 	Id                types.String `tfsdk:"id"`
@@ -84,6 +95,12 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				MarkdownDescription: "The type of application deployment. This is automatically set based on the application's type.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
+					// UseStateForUnknown is what keeps an update an update: without it the framework
+					// marks this Computed attribute unknown on every plan, and RequiresReplace then
+					// sees unknown != the state value and plans a destroy-and-create for changes
+					// that are a plain PATCH. The type of an existing deployment never changes on
+					// its own - it follows the application, and `application` requires replacement.
+					stringplanmodifier.UseStateForUnknown(),
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
@@ -215,6 +232,25 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 		}
 	}
 
+	// A deployment the platform cannot start is rejected here rather than created: the API accepts
+	// a Connector deployment without `configs` and a FLINK_SQL deployment without `flink_sql`, and
+	// then simply never offers a START action for it, which would leave a created-but-unstartable
+	// deployment behind.
+	if isConnector(data.Type.ValueString()) && countConfigs(data.Configs) == 0 {
+		resp.Diagnostics.AddError(
+			"Missing Connector configs",
+			"A Connector Application Deployment requires at least one entry in `configs`. ",
+		)
+		return
+	}
+	if isFlinkSQL(data.Type.ValueString()) && data.SqlScript.ValueString() == "" {
+		resp.Diagnostics.AddError(
+			"Missing Flink SQL script",
+			"A FLINK_SQL Application Deployment requires a `sql_script`.",
+		)
+		return
+	}
+
 	// We check if Approved Application Access Grant exists for this environment and application
 	accessGrantRequest := webclient.ApplicationAccessGrantAttributes{
 		ApplicationId: data.Application.ValueString(),
@@ -308,7 +344,7 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 	// A START failure is reported as a warning, not an error: the deployment is already saved to
 	// state above, and failing Create with state set would taint the resource, turning the next
 	// apply into a destroy-and-create instead of the Update() that retries the START.
-	if err := r.startApplicationDeployment(ctx, data.Id.ValueString(), 10*time.Second); err != nil {
+	if err := r.startApplicationDeployment(ctx, data.Id.ValueString(), data.Type.ValueString(), 10*time.Second); err != nil {
 		resp.Diagnostics.AddWarning(
 			"Deployment created but START failed",
 			fmt.Sprintf("The deployment was created and saved to state, but it is not running: %s. "+
@@ -385,7 +421,19 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 		}
 	}
 
-	ApplicationDeploymentUpdateRequest, err := createApplicationUpdateDeploymentRequestFromData(ctx, &planData)
+	// The API does not support moving a FLINK_SQL deployment to another deployment target, so say
+	// so here instead of sending a PATCH the API rejects.
+	if isFlinkSQL(planData.Type.ValueString()) && !planData.TargetId.Equal(stateData.TargetId) {
+		resp.Diagnostics.AddError(
+			"Deployment target cannot be changed",
+			fmt.Sprintf("Changing the deployment target of a FLINK_SQL Application Deployment is not supported by the API "+
+				"(current target %s, requested target %s). Destroy and recreate the deployment to deploy it to another target.",
+				stateData.TargetId.ValueString(), planData.TargetId.ValueString()),
+		)
+		return
+	}
+
+	ApplicationDeploymentUpdateRequest, err := createApplicationUpdateDeploymentRequestFromData(ctx, &planData, !planData.TargetId.Equal(stateData.TargetId))
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating request struct for application deployment resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
@@ -405,7 +453,7 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 
 	// Unlike Create, Update fails the apply when the deployment cannot be started: the resource
 	// is already tracked, so an error here does not taint it and the next apply retries Update.
-	if err := r.startApplicationDeployment(ctx, planData.Id.ValueString(), 5*time.Second); err != nil {
+	if err := r.startApplicationDeployment(ctx, planData.Id.ValueString(), planData.Type.ValueString(), 5*time.Second); err != nil {
 		resp.Diagnostics.AddError(
 			"Application Deployment START failed",
 			fmt.Sprintf("The deployment was updated but it is not running: %s. "+
@@ -446,12 +494,28 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 		}
 
 		// STOP is asynchronous: the platform only acknowledges the request, and a Flink job in
-		// particular keeps draining for a while before it reports a terminal state. Give it a
-		// short grace period rather than polling - a DELETE the API still rejects is reported
-		// below, and by the time the destroy is retried the deployment has reached a terminal
-		// state and the DELETE goes through.
-		tflog.Info(ctx, fmt.Sprintf("Stopped Application Deployment %s, waiting %s before deleting it", data.Id.ValueString(), stopGracePeriod))
-		time.Sleep(stopGracePeriod)
+		// particular keeps draining for a while afterwards. Wait for the deployment to report a
+		// terminal state before deleting it.
+		//
+		// This is the one decision the `_links` cannot make. Both rels turn up too early while a
+		// Flink job is shutting down: `stop` is already gone at `flinkStatus=Stopping` (STOP is no
+		// longer a valid action), and the entity's `delete` rel is offered at `Stopping` as well.
+		// Ververica still rejects the DELETE at that point with "Deleting a deployment which has
+		// job is not terminal status is not allowed", so the per-type status is what has to be
+		// read here.
+		tflog.Info(ctx, fmt.Sprintf("Stopped Application Deployment %s, waiting for it to stop running", data.Id.ValueString()))
+		for i := 0; i < stopWaitAttempts; i++ {
+			time.Sleep(stopWaitDelay)
+			status, err := r.provider.client.GetApplicationDeploymentStatus(data.Id.ValueString())
+			if err != nil {
+				resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get Application Deployment status while waiting for it to stop, got error: %s", err))
+				return
+			}
+			if isDeploymentStopped(data.Type.ValueString(), status) {
+				tflog.Info(ctx, fmt.Sprintf("Application Deployment %s stopped (%s)", data.Id.ValueString(), describeDeploymentStatus(status)))
+				break
+			}
+		}
 	}
 
 	// The deployment advertises a `delete` link only once it is in a state the API accepts a
@@ -540,7 +604,11 @@ func createApplicationDeploymentRequestFromData(ctx context.Context, data *Appli
 	return ApplicationDeploymentRequest, nil
 }
 
-func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData) (webclient.ApplicationDeploymentUpdateRequest, error) {
+// createApplicationUpdateDeploymentRequestFromData builds the update request. targetChanged says
+// whether the configuration asks for a different deployment target than the one in state: the
+// target is only sent when it does, because the API rejects a resend of the target it assigned
+// itself ("No Kafka Connect cluster matching the deployment `targetId` axualconnect-<env>").
+func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData, targetChanged bool) (webclient.ApplicationDeploymentUpdateRequest, error) {
 	configs, err := createConfigsForDeploymentType(data)
 
 	if err != nil {
@@ -550,7 +618,10 @@ func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data 
 	ApplicationDeploymentUpdateRequest := webclient.ApplicationDeploymentUpdateRequest{
 		Configs: configs,
 	}
-	if !data.TargetId.IsNull() && !data.TargetId.IsUnknown() {
+	// A FLINK_SQL deployment rejects `targetId` on PATCH even when it is changed ("Changing the
+	// deployment target of a FLINK_SQL deployment is not yet supported"), so the target is never
+	// sent for it; Update() rejects an actual change up front.
+	if targetChanged && !isFlinkSQL(data.Type.ValueString()) && !data.TargetId.IsNull() && !data.TargetId.IsUnknown() {
 		ApplicationDeploymentUpdateRequest.TargetId = data.TargetId.ValueString()
 	}
 
@@ -726,11 +797,18 @@ func mapResponseConfigsToData(ctx context.Context, data *ApplicationDeploymentRe
 		if data.Type.IsNull() || data.Type.IsUnknown() {
 			data.Type = types.StringValue("Connector")
 		}
-		mapValue, diags := types.MapValue(types.StringType, configs)
-		if diags.HasError() {
-			tflog.Error(ctx, "Error creating configs map when mapping application deployment response")
+		if len(configs) == 0 {
+			// `configs` is Optional and not Computed, so a deployment the API reports no configs
+			// for has to map back to null: an empty map would not match the null config value and
+			// Terraform would reject the apply with "inconsistent values for sensitive attribute".
+			data.Configs = types.MapNull(types.StringType)
+		} else {
+			mapValue, diags := types.MapValue(types.StringType, configs)
+			if diags.HasError() {
+				tflog.Error(ctx, "Error creating configs map when mapping application deployment response")
+			}
+			data.Configs = mapValue
 		}
-		data.Configs = mapValue
 		// For Connector deployments, KSML- and Flink-specific fields should be null
 		data.Definition = types.StringNull()
 		data.DeploymentSize = types.StringNull()
@@ -754,6 +832,14 @@ func isConnector(deploymentType string) bool {
 	return !isKSML(deploymentType) && !isFlinkSQL(deploymentType)
 }
 
+// countConfigs counts the entries in a `configs` map, treating null and unknown as empty.
+func countConfigs(configs types.Map) int {
+	if configs.IsNull() || configs.IsUnknown() {
+		return 0
+	}
+	return len(configs.Elements())
+}
+
 // countActivePrincipals counts principals whose API-returned active flag is true.
 // A nil Active pointer means the field was absent from the response (treated as inactive).
 func countActivePrincipals(response *webclient.ApplicationPrincipalFindByApplicationAndEnvironmentResponse) int {
@@ -774,16 +860,31 @@ func countActivePrincipals(response *webclient.ApplicationPrincipalFindByApplica
 // deployment's current state, so that link - not a per-type state name - decides whether the
 // deployment can be started here. A FLINK_SQL deployment, for example, only offers `start`
 // once its SQL config has been PATCHed onto it.
-func (r *applicationDeploymentResource) startApplicationDeployment(ctx context.Context, id string, retryDelay time.Duration) error {
+func (r *applicationDeploymentResource) startApplicationDeployment(ctx context.Context, id string, deploymentType string, retryDelay time.Duration) error {
 	status, err := r.provider.client.GetApplicationDeploymentStatus(id)
 	if err != nil {
 		return fmt.Errorf("unable to get Application Deployment status before starting it: %s", err)
 	}
 
+	// Wait for the deployment to become startable. Update() stops a running deployment before
+	// patching it, and the stop is asynchronous: the deployment reports `Stopping` for a while,
+	// offering neither `start` (it is not stopped yet) nor a running status, and only advertises
+	// `start` once it has come to a halt.
+	for i := 0; i < startWaitAttempts && !status.Links.Has(webclient.RelStart); i++ {
+		// A deployment that is already running needs no START: a previous one succeeded, possibly
+		// one whose response timed out on an earlier apply.
+		if isDeploymentRunning(deploymentType, status) {
+			tflog.Info(ctx, "Application Deployment is already running, skipping START")
+			return nil
+		}
+		time.Sleep(startWaitDelay)
+		if status, err = r.provider.client.GetApplicationDeploymentStatus(id); err != nil {
+			return fmt.Errorf("unable to get Application Deployment status while waiting for it to become startable: %s", err)
+		}
+	}
+
 	if !status.Links.Has(webclient.RelStart) {
-		// A deployment that offers `stop` instead of `start` is already running: a previous START
-		// succeeded, possibly one whose response timed out on an earlier apply.
-		if shouldStopDeployment(status) {
+		if isDeploymentRunning(deploymentType, status) {
 			tflog.Info(ctx, "Application Deployment is already running, skipping START")
 			return nil
 		}
@@ -800,9 +901,9 @@ func (r *applicationDeploymentResource) startApplicationDeployment(ctx context.C
 		return nil
 	}
 
-	// The START may still have gone through on a request whose response was lost: a deployment
-	// that now offers `stop` is running, so treat that as success rather than reporting a failure.
-	if currentStatus, statusErr := r.provider.client.GetApplicationDeploymentStatus(id); statusErr == nil && shouldStopDeployment(currentStatus) {
+	// The START may still have gone through on a request whose response was lost, so a deployment
+	// that reports itself running counts as success rather than a failure.
+	if currentStatus, statusErr := r.provider.client.GetApplicationDeploymentStatus(id); statusErr == nil && isDeploymentRunning(deploymentType, currentStatus) {
 		tflog.Info(ctx, "START reported an error but the Application Deployment is running")
 		return nil
 	}
@@ -832,6 +933,34 @@ func describeDeploymentStatus(status *webclient.ApplicationDeploymentStatusRespo
 
 	return fmt.Sprintf("reported status: %s; available actions: %s",
 		strings.Join(reported, ", "), strings.Join(actions, ", "))
+}
+
+// isDeploymentStopped reports whether the deployment has reached a state it can be deleted from.
+// Unlike the stop-before-update/delete decision, this cannot be read from the `_links`: the rels
+// stop advertising STOP - and start advertising DELETE - while a Flink job is still shutting down,
+// which is exactly the window in which Ververica rejects the DELETE.
+func isDeploymentStopped(deploymentType string, status *webclient.ApplicationDeploymentStatusResponse) bool {
+	if isFlinkSQL(deploymentType) {
+		return status.FlinkStatus.Status == "Undeployed" || status.FlinkStatus.Status == "Failed"
+	}
+	if isKSML(deploymentType) {
+		return status.KsmlStatus.Status == "Undeployed"
+	}
+	// A Connector that never ran reports `Undefined` rather than `Stopped`.
+	return status.ConnectorState.State == "Stopped" || status.ConnectorState.State == "Undefined"
+}
+
+// isDeploymentRunning reports whether the deployment reports itself as running. Like
+// isDeploymentStopped this reads the per-type status: the `_links` cannot answer it, because a
+// deployment that is still shutting down offers no `start` either.
+func isDeploymentRunning(deploymentType string, status *webclient.ApplicationDeploymentStatusResponse) bool {
+	if isFlinkSQL(deploymentType) {
+		return status.FlinkStatus.Status == "Running"
+	}
+	if isKSML(deploymentType) {
+		return status.KsmlStatus.Status == "Running"
+	}
+	return status.ConnectorState.State == "Running"
 }
 
 // shouldStopDeployment reports whether the deployment has to be stopped before it can be

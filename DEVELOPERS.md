@@ -217,6 +217,14 @@ Before running acceptance tests:
      registered against. Exposed as `local.cluster_id` and used as the `cluster_id` of
      `axual_flink_cluster`.
 
+   **The Instance-Cluster must not have a Flink Cluster configured yet.** The Platform Manager
+   allows only one Flink Cluster per Instance-Cluster (`"Only one Flink Cluster per Instance Cluster
+   is allowed"`), and both `internal/tests/FlinkClusterResource` and the Flink parts of the
+   Application Deployment tests create their own. Delete any existing Flink Cluster on the
+   Instance-Cluster named by `clusterId` before running the tests — including one left behind by a
+   test run that failed part-way through, which is a common cause of a Flink test failing during its
+   setup step.
+
 3. **Verify Test User Permissions:**
 
    Ensure your test user has these roles:

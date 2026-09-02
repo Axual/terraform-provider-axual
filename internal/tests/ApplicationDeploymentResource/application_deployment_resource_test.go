@@ -23,13 +23,13 @@ func TestApplicationDeploymentResource(t *testing.T) {
 				),
 				ExpectError: regexp.MustCompile(`No active Application Principal`),
 			},
-			// Test missing `configs` - should fail response
+			// Test missing `configs` - should fail the pre-flight check
 			{
 				Config: GetProvider() + GetFile(
 					"axual_application_deployment_setup.tf",
 					"axual_application_deployment_missing_configs.tf",
 				),
-				ExpectError: regexp.MustCompile(`Invalid config uploaded`),
+				ExpectError: regexp.MustCompile(`requires at least one entry in .configs.`),
 			},
 			{
 				Config: GetProvider() + GetFile(
