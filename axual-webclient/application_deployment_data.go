@@ -63,9 +63,11 @@ type ApplicationDeploymentCreateRequest struct {
 	TargetId    string            `json:"targetId,omitempty"`
 }
 
+// ApplicationDeploymentUpdateRequest carries no targetId on purpose: the deployment target is a
+// create-only field, guarded by the Platform Manager, and is only sent by
+// ApplicationDeploymentCreateRequest.
 type ApplicationDeploymentUpdateRequest struct {
-	Configs  map[string]string `json:"configs"`
-	TargetId string            `json:"targetId,omitempty"`
+	Configs map[string]string `json:"configs"`
 }
 
 type ApplicationDeploymentOperationRequest struct {

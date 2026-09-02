@@ -95,13 +95,7 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				MarkdownDescription: "The type of application deployment. This is automatically set based on the application's type.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
-					// UseStateForUnknown is what keeps an update an update: without it the framework
-					// marks this Computed attribute unknown on every plan, and RequiresReplace then
-					// sees unknown != the state value and plans a destroy-and-create for changes
-					// that are a plain PATCH. The type of an existing deployment never changes on
-					// its own - it follows the application, and `application` requires replacement.
-					stringplanmodifier.UseStateForUnknown(),
-					stringplanmodifier.RequiresReplace(),
+					deploymentTypePlanModifier{},
 				},
 			},
 			"configs": schema.MapAttribute{
@@ -134,11 +128,17 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				// Computed as well as Optional: the Platform Manager assigns a default deployment
 				// target when none is configured (for example `axualconnect-<env>` for Connector
 				// applications), so a null config value is filled in from the API response.
-				MarkdownDescription: "The id of the deployment target to deploy to. Required for FLINK_SQL deployments, where it must be the id of an `axual_flink_cluster` registered for the environment. For other deployment types the Platform Manager assigns a default target if not specified. Available targets can be listed via `GET /applications/{applicationId}/deployment-targets`.",
+				//
+				// The target is create-only - it is sent on POST and never on PUT/PATCH - so a
+				// change to it requires replacing the deployment. UseStateForUnknown keeps an
+				// omitted `target_id` on the value the platform assigned, so leaving it out of the
+				// configuration does not trigger a replacement.
+				MarkdownDescription: "The id of the deployment target to deploy to. Required for FLINK_SQL deployments, where it must be the id of an `axual_flink_cluster` registered for the environment. For other deployment types the Platform Manager assigns a default target if not specified. Changing this value replaces the Application Deployment, as the deployment target can only be set when the deployment is created. Available targets can be listed via `GET /applications/{applicationId}/deployment-targets`.",
 				Optional:            true,
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"sql_script": schema.StringAttribute{
@@ -157,6 +157,49 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				},
 			},
 		},
+	}
+}
+
+// deploymentTypePlanModifier decides, per application type, whether a change to an existing
+// Application Deployment is applied in place or by replacing the deployment.
+//
+//   - KSML and FLINK_SQL deployments are updated in place. The planned type is taken from state
+//     (what UseStateForUnknown does), so it stays equal to the state value and nothing requests a
+//     replacement.
+//   - Connector deployments are replaced. Updating one through PUT is currently rejected by the
+//     Platform Manager, which resolves the deployment target it assigned at create time and answers
+//     "No Kafka Connect cluster matching the deployment `targetId` axualconnect-<env>" - regardless
+//     of the request body, which carries no target at all. Until that is fixed platform-side, a
+//     changed Connector deployment is destroyed and recreated.
+//
+// The two cases cannot be expressed with the built-in modifiers: UseStateForUnknown plus
+// RequiresReplaceIf never replaces, because RequiresReplaceIf returns early once the planned and
+// state values are equal - which is exactly what UseStateForUnknown makes them. Leaving the planned
+// type unknown is what drives the replacement, so this modifier only copies the state value for the
+// types that are updated in place.
+type deploymentTypePlanModifier struct{}
+
+func (m deploymentTypePlanModifier) Description(_ context.Context) string {
+	return "Connector Application Deployments are replaced rather than updated in place; KSML and FLINK_SQL deployments are updated in place."
+}
+
+func (m deploymentTypePlanModifier) MarkdownDescription(ctx context.Context) string {
+	return m.Description(ctx)
+}
+
+func (m deploymentTypePlanModifier) PlanModifyString(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+	// Nothing to decide when the deployment is being created or destroyed.
+	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
+		return
+	}
+
+	if isConnector(req.StateValue.ValueString()) {
+		resp.RequiresReplace = true
+		return
+	}
+
+	if req.PlanValue.IsUnknown() {
+		resp.PlanValue = req.StateValue
 	}
 }
 
@@ -388,15 +431,10 @@ func (r *applicationDeploymentResource) Read(ctx context.Context, req resource.R
 }
 
 func (r *applicationDeploymentResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var stateData ApplicationDeploymentResourceData
-	var configData ApplicationDeploymentResourceData
 	var planData ApplicationDeploymentResourceData
 
-	diags := req.State.Get(ctx, &stateData)
+	diags := req.Plan.Get(ctx, &planData)
 	resp.Diagnostics.Append(diags...)
-	diags = req.Config.Get(ctx, &configData)
-	resp.Diagnostics.Append(diags...)
-	diags = req.Plan.Get(ctx, &planData)
 
 	if resp.Diagnostics.HasError() {
 		return
@@ -421,19 +459,7 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 		}
 	}
 
-	// The API does not support moving a FLINK_SQL deployment to another deployment target, so say
-	// so here instead of sending a PATCH the API rejects.
-	if isFlinkSQL(planData.Type.ValueString()) && !planData.TargetId.Equal(stateData.TargetId) {
-		resp.Diagnostics.AddError(
-			"Deployment target cannot be changed",
-			fmt.Sprintf("Changing the deployment target of a FLINK_SQL Application Deployment is not supported by the API "+
-				"(current target %s, requested target %s). Destroy and recreate the deployment to deploy it to another target.",
-				stateData.TargetId.ValueString(), planData.TargetId.ValueString()),
-		)
-		return
-	}
-
-	ApplicationDeploymentUpdateRequest, err := createApplicationUpdateDeploymentRequestFromData(ctx, &planData, !planData.TargetId.Equal(stateData.TargetId))
+	ApplicationDeploymentUpdateRequest, err := createApplicationUpdateDeploymentRequestFromData(ctx, &planData)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating request struct for application deployment resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
@@ -604,11 +630,10 @@ func createApplicationDeploymentRequestFromData(ctx context.Context, data *Appli
 	return ApplicationDeploymentRequest, nil
 }
 
-// createApplicationUpdateDeploymentRequestFromData builds the update request. targetChanged says
-// whether the configuration asks for a different deployment target than the one in state: the
-// target is only sent when it does, because the API rejects a resend of the target it assigned
-// itself ("No Kafka Connect cluster matching the deployment `targetId` axualconnect-<env>").
-func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData, targetChanged bool) (webclient.ApplicationDeploymentUpdateRequest, error) {
+// createApplicationUpdateDeploymentRequestFromData builds the update request. The deployment target
+// is deliberately absent: it is a create-only field that the Platform Manager guards itself, and
+// `target_id` requires replacement so a change never reaches this path.
+func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData) (webclient.ApplicationDeploymentUpdateRequest, error) {
 	configs, err := createConfigsForDeploymentType(data)
 
 	if err != nil {
@@ -617,12 +642,6 @@ func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data 
 
 	ApplicationDeploymentUpdateRequest := webclient.ApplicationDeploymentUpdateRequest{
 		Configs: configs,
-	}
-	// A FLINK_SQL deployment rejects `targetId` on PATCH even when it is changed ("Changing the
-	// deployment target of a FLINK_SQL deployment is not yet supported"), so the target is never
-	// sent for it; Update() rejects an actual change up front.
-	if targetChanged && !isFlinkSQL(data.Type.ValueString()) && !data.TargetId.IsNull() && !data.TargetId.IsUnknown() {
-		ApplicationDeploymentUpdateRequest.TargetId = data.TargetId.ValueString()
 	}
 
 	tflog.Info(ctx, fmt.Sprintf("Application update request completed: %q", ApplicationDeploymentUpdateRequest))
