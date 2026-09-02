@@ -8,11 +8,37 @@ type ApplicationDeploymentCreateResponse struct {
 }
 
 type ApplicationDeploymentUpdateResponse interface{}
+
+// Link is one HAL `_links` entry.
+type Link struct {
+	Href      string `json:"href"`
+	Title     string `json:"title,omitempty"`
+	Templated bool   `json:"templated,omitempty"`
+}
+
+// Links are the HAL `_links` of a response. The API advertises the actions that are valid for
+// a deployment's current state as links, so the presence of a rel is the authority on whether
+// that action can be taken - the same rel names are used for every application type.
+type Links map[string]Link
+
+// Link relations advertised by the Application Deployment endpoints.
+const (
+	RelStop   = "stop"
+	RelStart  = "start"
+	RelDelete = "delete"
+)
+
+func (l Links) Has(rel string) bool {
+	_, ok := l[rel]
+	return ok
+}
+
 type Config struct {
 	ConfigKey   string `json:"configKey"`
 	ConfigValue string `json:"configValue"`
 }
 type ApplicationDeploymentResponse struct {
+	Links    Links    `json:"_links"`
 	Configs  []Config `json:"configs"`
 	State    string   `json:"state"`
 	Uid      string   `json:"uid"`
@@ -62,4 +88,5 @@ type ApplicationDeploymentStatusResponse struct {
 	FlinkStatus struct {
 		Status string `json:"status"`
 	} `json:"flinkStatus"`
+	Links Links `json:"_links"`
 }

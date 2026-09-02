@@ -1,0 +1,23 @@
+{
+  "_links" : {
+    "status" : {
+      "href" : "https://platform.local/api/application_deployments/b527e9a608db4cc995c7b6809306f492/operation?action=VIEW_STATUS"
+    },
+    "logs" : {
+      "href" : "https://platform.local/api/application_deployments/b527e9a608db4cc995c7b6809306f492/operation?action=VIEW_LOGS"
+    },
+    "edit" : {
+      "href" : "https://platform.local/api/application_deployments/b527e9a608db4cc995c7b6809306f492",
+      "title" : "Indication that this entity can be edited"
+    },
+    "self" : {
+      "href" : "https://platform.local/api/b527e9a608db4cc995c7b6809306f492/status",
+      "title" : "URI pointing to current request"
+    }
+  },
+  "flinkStatus" : {
+    "status" : "Undeployed",
+    "restarts" : null,
+    "observedFlinkJobStatus" : null
+  }
+}

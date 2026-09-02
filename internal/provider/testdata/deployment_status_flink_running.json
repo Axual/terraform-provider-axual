@@ -1,0 +1,22 @@
+{
+  "_links" : {
+    "status" : {
+      "href" : "https://platform.local/api/application_deployments/b527e9a608db4cc995c7b6809306f492/operation?action=VIEW_STATUS"
+    },
+    "logs" : {
+      "href" : "https://platform.local/api/application_deployments/b527e9a608db4cc995c7b6809306f492/operation?action=VIEW_LOGS"
+    },
+    "stop" : {
+      "href" : "https://platform.local/api/application_deployments/b527e9a608db4cc995c7b6809306f492/operation?action=STOP"
+    },
+    "self" : {
+      "href" : "https://platform.local/api/b527e9a608db4cc995c7b6809306f492/status",
+      "title" : "URI pointing to current request"
+    }
+  },
+  "flinkStatus" : {
+    "status" : "Starting",
+    "restarts" : null,
+    "observedFlinkJobStatus" : null
+  }
+}

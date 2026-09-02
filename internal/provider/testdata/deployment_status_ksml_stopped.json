@@ -1,0 +1,30 @@
+{
+  "_links" : {
+    "status" : {
+      "href" : "https://platform.local/api/application_deployments/c3741bc7ea3e418bbad2e142bb05b98b/operation?action=VIEW_STATUS"
+    },
+    "logs" : {
+      "href" : "https://platform.local/api/application_deployments/c3741bc7ea3e418bbad2e142bb05b98b/operation?action=VIEW_LOGS"
+    },
+    "start" : {
+      "href" : "https://platform.local/api/application_deployments/c3741bc7ea3e418bbad2e142bb05b98b/operation?action=START"
+    },
+    "edit" : {
+      "href" : "https://platform.local/api/application_deployments/c3741bc7ea3e418bbad2e142bb05b98b",
+      "title" : "Indication that this entity can be edited"
+    },
+    "self" : {
+      "href" : "https://platform.local/api/c3741bc7ea3e418bbad2e142bb05b98b/status",
+      "title" : "URI pointing to current request"
+    }
+  },
+  "ksmlStatus" : {
+    "status" : "Undeployed",
+    "replicas" : null,
+    "readyReplicas" : null,
+    "appVersion" : null,
+    "deployedAt" : null,
+    "restartsCount" : null,
+    "lastRestart" : null
+  }
+}
