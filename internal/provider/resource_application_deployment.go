@@ -43,8 +43,8 @@ const startAttempts = 3
 // stopWaitAttempts and stopWaitDelay bound how long a delete waits for a stopped deployment to
 // stop running before issuing the DELETE.
 const (
-	stopWaitAttempts = 30
-	stopWaitDelay    = 2 * time.Second
+	stopWaitAttempts = 10
+	stopWaitDelay    = 3 * time.Second
 )
 
 // startWaitAttempts and startWaitDelay bound how long a START waits for a deployment that is
@@ -447,7 +447,7 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 		return
 	}
 
-	if shouldStopDeployment(applicationDeploymentStatus) {
+	if ShouldStopDeployment(applicationDeploymentStatus) {
 		// If running, then stop the application deployment first
 		var applicationStopRequest = webclient.ApplicationDeploymentOperationRequest{
 			Action: "STOP",
@@ -508,7 +508,7 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 		return
 	}
 
-	if shouldStopDeployment(applicationDeploymentStatus) {
+	if ShouldStopDeployment(applicationDeploymentStatus) {
 		// If running, then stop the application deployment first
 		var applicationStopRequest = webclient.ApplicationDeploymentOperationRequest{
 			Action: "STOP",
@@ -982,11 +982,11 @@ func isDeploymentRunning(deploymentType string, status *webclient.ApplicationDep
 	return status.ConnectorState.State == "Running"
 }
 
-// shouldStopDeployment reports whether the deployment has to be stopped before it can be
+// ShouldStopDeployment reports whether the deployment has to be stopped before it can be
 // updated or deleted. The status endpoint advertises a `stop` link exactly when STOP is a valid
 // action for the deployment's current state, for every application type - so the provider does
 // not have to mirror the per-type state machines (Connector states, KSML statuses, Flink job
 // states), nor be released again when the platform adds a state.
-func shouldStopDeployment(status *webclient.ApplicationDeploymentStatusResponse) bool {
+func ShouldStopDeployment(status *webclient.ApplicationDeploymentStatusResponse) bool {
 	return status.Links.Has(webclient.RelStop)
 }

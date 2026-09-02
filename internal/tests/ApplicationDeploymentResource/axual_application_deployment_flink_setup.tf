@@ -50,6 +50,13 @@ resource "axual_topic" "tf-test-flink-topic" {
   retention_policy = "delete"
   properties       = {}
   description      = "Demo of Flink SQL topic via Terraform"
+
+  # A topic holds no reference to an environment, so without this edge Terraform destroys the topic
+  # and the environment in parallel - and both cascade server-side over the same `application_access`
+  # row of the access grant, which fails the environment DELETE with
+  # "ObjectOptimisticLockingFailureException: Unexpected row count (expected row count 1 but was 0)".
+  # Depending on the environment serialises the two: the topic is destroyed before it.
+  depends_on = [axual_environment.tf-test-flink-env]
 }
 
 resource "axual_topic_config" "tf-flink-topic-config" {

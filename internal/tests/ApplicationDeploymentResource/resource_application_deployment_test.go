@@ -1,4 +1,4 @@
-package provider
+package ApplicationDeploymentResource
 
 import (
 	webclient "axual-webclient"
@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"axual.com/terraform-provider-axual/internal/provider"
 )
 
 // TestShouldStopDeployment asserts that the decision to stop a deployment follows the `stop`
@@ -28,8 +30,8 @@ func TestShouldStopDeployment(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			status := readStatusFixture(t, test.fixture)
-			if got := shouldStopDeployment(status); got != test.expected {
-				t.Errorf("shouldStopDeployment() = %t, expected %t", got, test.expected)
+			if got := provider.ShouldStopDeployment(status); got != test.expected {
+				t.Errorf("ShouldStopDeployment() = %t, expected %t", got, test.expected)
 			}
 		})
 	}
@@ -43,8 +45,8 @@ func TestShouldStopDeploymentWithoutLinks(t *testing.T) {
 		if err := json.Unmarshal([]byte(body), &status); err != nil {
 			t.Fatalf("unable to unmarshal %s: %s", body, err)
 		}
-		if shouldStopDeployment(&status) {
-			t.Errorf("shouldStopDeployment() = true for %s, expected false", body)
+		if provider.ShouldStopDeployment(&status) {
+			t.Errorf("ShouldStopDeployment() = true for %s, expected false", body)
 		}
 	}
 }
