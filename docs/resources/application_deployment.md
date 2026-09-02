@@ -57,7 +57,7 @@ KSML deployments are unaffected — they allow one authentication (`axual_applic
 - `generate_tables_sql` (Boolean) For FLINK_SQL deployments, whether to auto-generate the `CREATE TABLE` statements for the topics referenced by `sql_script`. Optional for FLINK_SQL deployments.
 - `restart_policy` (String) The restart policy for KSML applications. Valid values are 'on_exit' and 'never'. Required for KSML deployments.
 - `sql_script` (String, Sensitive) The transformation SQL for a FLINK_SQL deployment (an `INSERT INTO ... SELECT ...` statement, without credentials or fully-qualified topic names). Required for FLINK_SQL deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.
-- `target_id` (String) The id of the deployment target to deploy to. Required for FLINK_SQL deployments, where it must be the id of an `axual_flink_cluster` registered for the environment. Available targets can be listed via `GET /applications/{applicationId}/deployment-targets`.
+- `target_id` (String) The id of the deployment target to deploy to. Required for FLINK_SQL deployments, where it must be the id of an `axual_flink_cluster` registered for the environment. For other deployment types the Platform Manager assigns a default target if not specified. Available targets can be listed via `GET /applications/{applicationId}/deployment-targets`.
 
 ### Read-Only
 
