@@ -190,7 +190,8 @@ func TestApplicationDeploymentFlinkResource(t *testing.T) {
 				),
 			},
 			{
-				// Update SQL script - should trigger a redeployment
+				// Update the SQL script only: stops the job, PATCHes the SQL and starts it again.
+				// The size is unchanged so a failure here names the SQL.
 				Config: GetProvider() + GetFile(
 					"axual_application_deployment_flink_setup.tf",
 					"axual_application_deployment_flink_updated.tf",
@@ -199,7 +200,21 @@ func TestApplicationDeploymentFlinkResource(t *testing.T) {
 					resource.TestCheckResourceAttrPair("axual_application_deployment.flink_axual_application_deployment", "environment", "axual_environment.tf-test-flink-env", "id"),
 					resource.TestCheckResourceAttrPair("axual_application_deployment.flink_axual_application_deployment", "application", "axual_application.tf-test-flink-app", "id"),
 					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "type", "FLINK_SQL"),
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "deployment_size", "S"),
+					resource.TestCheckResourceAttrSet("axual_application_deployment.flink_axual_application_deployment", "sql_script"),
+				),
+			},
+			{
+				// Change the size only: the provider sends a `flink_task_size`-only patch, which the
+				// API applies through `saveTaskSizeOnly` - no stop, no Ververica call, no restart.
+				Config: GetProvider() + GetFile(
+					"axual_application_deployment_flink_setup.tf",
+					"axual_application_deployment_flink_resize.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "type", "FLINK_SQL"),
 					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "deployment_size", "M"),
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "generate_tables_sql", "true"),
 					resource.TestCheckResourceAttrSet("axual_application_deployment.flink_axual_application_deployment", "sql_script"),
 				),
 			},

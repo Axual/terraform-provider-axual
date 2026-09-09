@@ -475,7 +475,27 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 	diags := req.Plan.Get(ctx, &planData)
 	resp.Diagnostics.Append(diags...)
 
+	var stateData ApplicationDeploymentResourceData
+	resp.Diagnostics.Append(req.State.Get(ctx, &stateData)...)
+
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Resizing a Flink job is the API's cheap path: a `flink_task_size`-only patch reaches
+	// `saveTaskSizeOnly`, which upserts that one config key without calling Ververica and without
+	// checking the job's live state, so the deployment neither has to be stopped nor restarted.
+	if isFlinkTaskSizeOnlyChange(&stateData, &planData) {
+		sizeOnlyRequest := webclient.ApplicationDeploymentUpdateRequest{
+			Configs: map[string]string{"flink_task_size": planData.DeploymentSize.ValueString()},
+		}
+		if _, err := r.provider.client.UpdateApplicationDeployment(planData.Id.ValueString(), sizeOnlyRequest); err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to resize Application Deployment, got error: %s", err))
+			return
+		}
+		tflog.Info(ctx, fmt.Sprintf("Resized Application Deployment %s to %s without redeploying", planData.Id.ValueString(), planData.DeploymentSize.ValueString()))
+
+		resp.Diagnostics.Append(resp.State.Set(ctx, &planData)...)
 		return
 	}
 
@@ -863,6 +883,23 @@ func countScramCredentials(credentials []webclient.ApplicationCredentialFindByAp
 		}
 	}
 	return count
+}
+
+// isFlinkTaskSizeOnlyChange reports whether the only difference between state and plan is a
+// FLINK_SQL deployment's size. Such a change is sent as a `flink_task_size`-only patch, which the
+// API applies through `saveTaskSizeOnly` instead of pushing the SQL to Ververica again.
+func isFlinkTaskSizeOnlyChange(state *ApplicationDeploymentResourceData, plan *ApplicationDeploymentResourceData) bool {
+	if !isFlinkSQL(plan.Type.ValueString()) {
+		return false
+	}
+	// An unknown value is not comparable, so it cannot be ruled out as a change.
+	if plan.DeploymentSize.IsUnknown() || plan.SqlScript.IsUnknown() || plan.GenerateTablesSql.IsUnknown() {
+		return false
+	}
+	if plan.DeploymentSize.Equal(state.DeploymentSize) {
+		return false
+	}
+	return plan.SqlScript.Equal(state.SqlScript) && plan.GenerateTablesSql.Equal(state.GenerateTablesSql)
 }
 
 // stopDeploymentAndWait stops the deployment when the API still offers a `stop` action and waits
