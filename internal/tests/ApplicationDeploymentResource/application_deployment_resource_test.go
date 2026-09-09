@@ -160,6 +160,48 @@ func TestApplicationDeploymentKSMLResource(t *testing.T) {
 	})
 }
 
+// TestApplicationDeploymentFlinkManualTablesResource creates a FLINK_SQL deployment from scratch
+// with `generate_tables_sql` left unset, i.e. with the `CREATE TEMPORARY TABLE` DDL written by hand.
+// It needs the instance's resolved topic prefix, because the DDL names the real Kafka topic.
+func TestApplicationDeploymentFlinkManualTablesResource(t *testing.T) {
+	config, err := LoadProviderConfig()
+	if err != nil {
+		t.Fatalf("Error loading provider config: %v", err)
+	}
+	if config.ResolvedTopicPrefix == "" {
+		t.Skip("resolvedTopicPrefix is not set in test_config.yaml, so the Kafka topic names in the hand-written DDL cannot be built")
+	}
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+
+		Steps: []resource.TestStep{
+			{
+				Config: GetProvider() + GetFile(
+					"axual_application_deployment_flink_setup.tf",
+					"axual_application_deployment_flink_manual_tables.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "type", "FLINK_SQL"),
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "deployment_size", "S"),
+					// Unset in the configuration, so the API's own default comes back.
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "generate_tables_sql", "false"),
+					resource.TestCheckResourceAttrSet("axual_application_deployment.flink_axual_application_deployment", "sql_script"),
+				),
+			},
+			{
+				// To ensure cleanup if one of the test cases had an error
+				Destroy: true,
+				Config: GetProvider() + GetFile(
+					"axual_application_deployment_flink_setup.tf",
+					"axual_application_deployment_flink_manual_tables.tf",
+				),
+			},
+		},
+	})
+}
+
 func TestApplicationDeploymentFlinkResource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,

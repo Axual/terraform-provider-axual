@@ -35,8 +35,12 @@ type ProviderConfig struct {
 	Username          string `yaml:"username"`
 	Password          string `yaml:"password"`
 	VervericaUrl      string `yaml:"ververicaUrl"`
-	VervericaApiToken string `yaml:"ververicaApiToken"`
-	ClusterId         string `yaml:"clusterId"`
+	// ResolvedTopicPrefix is the instance's topic pattern with everything but the topic name filled
+	// in (e.g. "axual-dta-tfflinkdev-"). Only the hand-written Flink table DDL needs it, because a
+	// `CREATE TEMPORARY TABLE` names the real Kafka topic; tests that need it skip when it is empty.
+	ResolvedTopicPrefix string `yaml:"resolvedTopicPrefix"`
+	VervericaApiToken   string `yaml:"ververicaApiToken"`
+	ClusterId           string `yaml:"clusterId"`
 }
 
 // LoadProviderConfig Function to load the configuration from a YAML file
@@ -151,6 +155,7 @@ func GetProvider() string {
 	  cluster_id = "` + config.ClusterId + `"
 	  ververica_url = "` + config.VervericaUrl + `"
 	  ververica_api_token = "` + config.VervericaApiToken + `"
+	  resolved_topic_prefix = "` + config.ResolvedTopicPrefix + `"
 	}
 	`
 
