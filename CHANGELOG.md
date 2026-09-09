@@ -4,8 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [3.2.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.2.0) - TBR
 ### Added
-* Support for Flink Cluster as `axual_flink_cluster`
+* Support for Flink Cluster as `axual_flink_cluster`, including its `schema_registries`
 * Support for Axual-managed `FLINK_SQL` Application
+* A size-only change of a `FLINK_SQL` Application Deployment is applied without redeploying the job
+
+### Fixed
+* Resume a stopped `FLINK_SQL` Application Deployment instead of waiting for a START it is never offered
+* Clear the `description` of an `axual_flink_cluster` by removing it from the configuration
+* Create a `FLINK_SQL` Application Deployment without `generate_tables_sql`
+* Create a Connector Application Deployment without `configs`
+* Destroy a failed `FLINK_SQL` Application Deployment
+* Wait for a deployment to stop before updating it
+* Validate `axual_flink_cluster` attribute lengths in the schema
 
 ## [3.1.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.1.0) - 2026-06-30
 ### Added

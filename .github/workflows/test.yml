@@ -1,0 +1,44 @@
+# Build, vet and the unit tests of both Go modules. The acceptance tests under ./internal/tests/...
+# are deliberately absent: they need a reachable Axual instance and credentials in test_config.yaml.
+name: Test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Unit tests
+        run: go test -count 1 ./internal/provider/
+
+      # axual-webclient is a separate module, so its tests are not part of the run above.
+      - name: Unit tests (axual-webclient)
+        run: go test -count 1 ./...
+        working-directory: axual-webclient
+
+      - name: Documentation is up to date
+        run: |
+          go generate
+          git diff --exit-code -- docs/ || {
+            echo "::error::docs/ is out of date - run 'go generate' and commit the result"
+            exit 1
+          }
