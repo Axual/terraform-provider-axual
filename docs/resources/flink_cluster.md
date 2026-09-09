@@ -7,7 +7,14 @@ A Flink Cluster registers a Ververica Platform namespace on an Instance-Cluster,
 - Once registered, the Flink Cluster can be referenced from an `axual_application_deployment` of a `FLINK_SQL` application through its `target_id`.
 - `instance_id` and `cluster_id` identify where the Flink Cluster is registered. Changing either one forces the resource to be replaced.
 - `api_token` is a namespace-scoped Ververica API token. It is marked sensitive, is never shown in plan output or logs, and is not returned by the API, so it is kept as written in the Terraform state and configuration.
+- `schema_registries` lists the registries a Flink SQL job reads schemas from. It is required for jobs over AVRO topics: the platform injects the registry url into the generated table DDL, and a job using `'value.format' = 'avro-confluent'` takes the first `CONFLUENT`-type entry in the list. Removing the block again clears the stored list.
 - Currently, a data source for `axual_flink_cluster` is not supported.
+
+## Prerequisites
+
+- The instance must have Flink enabled, or the API refuses the create with "Flink is not enabled for this instance".
+- An instance is currently limited to one Flink Cluster per Instance-Cluster combination.
+- Both create and update validate the connection live against Ververica Platform, so a wrong `namespace`, `workspace` or `deployment_target` fails the apply rather than the first deployment: expect "The provided namespace is invalid" or "The provided deployment-target: `<name>` was not found". An unreachable `url` or a rejected `api_token` fails the same way.
 
 ## Required Roles
 - TENANT_ADMIN
@@ -56,6 +63,13 @@ resource "axual_flink_cluster" "example_flink_cluster" {
   namespace         = "default"
   deployment_target = "default-target"
   api_token         = "<VERVERICA API TOKEN>"
+
+  schema_registries = [
+    {
+      type = "CONFLUENT"
+      url  = "https://apicurio.example.com/apis/ccompat/v7"
+    },
+  ]
 }
 ```
 
