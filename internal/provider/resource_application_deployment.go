@@ -47,8 +47,8 @@ const legacyAxualConnectTargetPrefix = "axualconnect-"
 // startAttempts is how often a START is retried before the apply is failed.
 const startAttempts = 3
 
-// stopWaitAttempts and stopWaitDelay bound how long a delete waits for a stopped deployment to
-// stop running before issuing the DELETE.
+// stopWaitAttempts and stopWaitDelay bound how long an update or a delete waits for a stopped
+// deployment to stop running before it PATCHes or DELETEs it.
 const (
 	stopWaitAttempts = 10
 	stopWaitDelay    = 3 * time.Second
@@ -479,23 +479,12 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 		return
 	}
 
-	// Get the current status of the application deployment
-	applicationDeploymentStatus, err := r.provider.client.GetApplicationDeploymentStatus(planData.Id.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get Application Deployment status, got error: %s", err))
+	// A running deployment cannot be updated: `beforeUpdateImpl` rejects a save while the desired
+	// state is RUNNING, and `saveFlinkSql` rejects one while a Flink job actually is. Stop it and
+	// wait, exactly as Delete does.
+	if err := r.stopDeploymentAndWait(ctx, planData.Id.ValueString(), planData.Type.ValueString()); err != nil {
+		resp.Diagnostics.AddError("Client Error", err.Error())
 		return
-	}
-
-	if ShouldStopDeployment(applicationDeploymentStatus) {
-		// If running, then stop the application deployment first
-		var applicationStopRequest = webclient.ApplicationDeploymentOperationRequest{
-			Action: "STOP",
-		}
-		err := r.provider.client.OperateApplicationDeployment(planData.Id.ValueString(), "STOP", applicationStopRequest)
-		if err != nil {
-			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to stop Application, got error: %s", err))
-			return
-		}
 	}
 
 	ApplicationDeploymentUpdateRequest, err := createApplicationUpdateDeploymentRequestFromData(ctx, &planData)
@@ -538,55 +527,16 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 		return
 	}
 
-	// Get the current status of the application deployment
-	applicationDeploymentStatus, err := r.provider.client.GetApplicationDeploymentStatus(data.Id.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get Application Deployment status, got error: %s", err))
+	if err := r.stopDeploymentAndWait(ctx, data.Id.ValueString(), data.Type.ValueString()); err != nil {
+		resp.Diagnostics.AddError("Client Error", err.Error())
 		return
-	}
-
-	if ShouldStopDeployment(applicationDeploymentStatus) {
-		// If running, then stop the application deployment first
-		var applicationStopRequest = webclient.ApplicationDeploymentOperationRequest{
-			Action: "STOP",
-		}
-		err := r.provider.client.OperateApplicationDeployment(data.Id.ValueString(), "STOP", applicationStopRequest)
-		if err != nil {
-			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to stop Application, got error: %s", err))
-			return
-		}
-
-		// STOP is asynchronous: the platform only acknowledges the request, and a Flink job in
-		// particular keeps draining for a while afterwards. Wait for the deployment to report a
-		// terminal state before deleting it.
-		//
-		// This is the one decision the `_links` cannot make. Both rels turn up too early while a
-		// Flink job is shutting down: `stop` is already gone at `flinkStatus=Stopping` (STOP is no
-		// longer a valid action), and the entity's `delete` rel is offered at `Stopping` as well.
-		// Ververica still rejects the DELETE at that point with "Deleting a deployment which has
-		// job is not terminal status is not allowed", so the per-type status is what has to be
-		// read here.
-		tflog.Info(ctx, fmt.Sprintf("Stopped Application Deployment %s, waiting for it to stop running", data.Id.ValueString()))
-		for i := 0; i < stopWaitAttempts; i++ {
-			time.Sleep(stopWaitDelay)
-			status, err := r.provider.client.GetApplicationDeploymentStatus(data.Id.ValueString())
-			if err != nil {
-				resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get Application Deployment status while waiting for it to stop, got error: %s", err))
-				return
-			}
-			if isDeploymentStopped(data.Type.ValueString(), status) {
-				tflog.Info(ctx, fmt.Sprintf("Application Deployment %s stopped (%s)", data.Id.ValueString(), describeDeploymentStatus(status)))
-				break
-			}
-		}
 	}
 
 	// No `delete` rel pre-check: the rel follows the deployment's desired state, which STOP changes
 	// at once, so it is offered while a Flink job is still draining and never offered for a failed
 	// FLINK_SQL job that was never stopped - a DELETE the API does accept (AXPD-11714). The API's
 	// own error is the better one to report.
-	err = r.provider.client.DeleteApplicationDeployment(data.Id.ValueString())
-	if err != nil {
+	if err := r.provider.client.DeleteApplicationDeployment(data.Id.ValueString()); err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete Application Deployment, got error: %s", err))
 		return
 	}
@@ -913,6 +863,48 @@ func countScramCredentials(credentials []webclient.ApplicationCredentialFindByAp
 		}
 	}
 	return count
+}
+
+// stopDeploymentAndWait stops the deployment when the API still offers a `stop` action and waits
+// until the per-type status reports a terminal state. It is a no-op for a deployment that is not
+// running.
+//
+// The wait is the one decision the `_links` cannot make. Both rels turn up too early while a Flink
+// job is shutting down: `stop` is already gone at `flinkStatus=Stopping` (STOP is no longer a valid
+// action), and the entity's `delete` rel is offered at `Stopping` as well - yet Ververica rejects a
+// DELETE there with "Deleting a deployment which has job is not terminal status is not allowed",
+// and `saveFlinkSql` rejects a PATCH while the job is RUNNING. So the per-type status is read here.
+//
+// Running out of attempts is not an error: the caller goes ahead and lets the API decide, which is
+// the behaviour a delete had before this wait was shared with the update path.
+func (r *applicationDeploymentResource) stopDeploymentAndWait(ctx context.Context, id string, deploymentType string) error {
+	status, err := r.provider.client.GetApplicationDeploymentStatus(id)
+	if err != nil {
+		return fmt.Errorf("unable to get Application Deployment status, got error: %s", err)
+	}
+	if !ShouldStopDeployment(status) {
+		return nil
+	}
+
+	stopRequest := webclient.ApplicationDeploymentOperationRequest{Action: "STOP"}
+	if err := r.provider.client.OperateApplicationDeployment(id, "STOP", stopRequest); err != nil {
+		return fmt.Errorf("unable to stop Application Deployment, got error: %s", err)
+	}
+
+	tflog.Info(ctx, fmt.Sprintf("Stopped Application Deployment %s, waiting for it to stop running", id))
+	for i := 0; i < stopWaitAttempts; i++ {
+		time.Sleep(stopWaitDelay)
+		status, err := r.provider.client.GetApplicationDeploymentStatus(id)
+		if err != nil {
+			return fmt.Errorf("unable to get Application Deployment status while waiting for it to stop, got error: %s", err)
+		}
+		if isDeploymentStopped(deploymentType, status) {
+			tflog.Info(ctx, fmt.Sprintf("Application Deployment %s stopped (%s)", id, describeDeploymentStatus(status)))
+			return nil
+		}
+	}
+	tflog.Warn(ctx, fmt.Sprintf("Application Deployment %s did not report a stopped state within %s, continuing", id, time.Duration(stopWaitAttempts)*stopWaitDelay))
+	return nil
 }
 
 // startApplicationDeployment starts or resumes the deployment. It returns nil once the deployment
