@@ -7,13 +7,26 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+)
+
+// Lengths the API enforces on a Flink Cluster, from FlinkClusterConstants and CoreConstants:
+// name, workspace, namespace and deployment target share DEFAULT_ENTITY_NAME_MAX_LENGTH, the url
+// uses DEFAULT_ENTITY_URL_MAX_LENGTH, and the description is capped at 255 on both the entity and
+// the request DTO.
+const (
+	flinkClusterNameMinLength        = 3
+	flinkClusterNameMaxLength        = 50
+	flinkClusterDescriptionMaxLength = 255
+	flinkClusterUrlMaxLength         = 255
 )
 
 var _ resource.Resource = &flinkClusterResource{}
@@ -67,26 +80,44 @@ func (r *flinkClusterResource) Schema(ctx context.Context, req resource.SchemaRe
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Human-readable name of the Flink Cluster.",
 				Required:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(flinkClusterNameMinLength, flinkClusterNameMaxLength),
+				},
 			},
 			"description": schema.StringAttribute{
 				MarkdownDescription: "A short description of the Flink Cluster.",
 				Optional:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthAtMost(flinkClusterDescriptionMaxLength),
+				},
 			},
 			"url": schema.StringAttribute{
 				MarkdownDescription: "Ververica Platform base URL, e.g. `https://vvp.internal`.",
 				Required:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthAtMost(flinkClusterUrlMaxLength),
+				},
 			},
 			"workspace": schema.StringAttribute{
 				MarkdownDescription: "Ververica workspace name, e.g. `defaultworkspace`.",
 				Required:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthAtMost(flinkClusterNameMaxLength),
+				},
 			},
 			"namespace": schema.StringAttribute{
 				MarkdownDescription: "Ververica namespace name, e.g. `default`.",
 				Required:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthAtMost(flinkClusterNameMaxLength),
+				},
 			},
 			"deployment_target": schema.StringAttribute{
 				MarkdownDescription: "Ververica deployment target name, e.g. `default-target`.",
 				Required:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthAtMost(flinkClusterNameMaxLength),
+				},
 			},
 			"api_token": schema.StringAttribute{
 				MarkdownDescription: "Ververica namespace-scoped API token. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.",
