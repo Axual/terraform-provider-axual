@@ -9,8 +9,3 @@ terraform.tfstate*
 
 #Debug
 __debug_bin
-
-#Local scratch
-dario/
-dario-test-connector/
-notes/
