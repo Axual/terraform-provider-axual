@@ -81,3 +81,42 @@ resource "axual_application_access_grant" "tf-test-flink-application-access-gran
 resource "axual_application_access_grant_approval" "tf-test-flink-application-access-grant-approval" {
   application_access_grant = axual_application_access_grant.tf-test-flink-application-access-grant.id
 }
+
+resource "axual_topic" "tf-test-flink-topic-out" {
+  name             = "flink-test-topic-out"
+  key_type         = "String"
+  value_type       = "String"
+  owners           = data.axual_group.test_group.id
+  retention_policy = "delete"
+  properties       = {}
+  description      = "Target topic of the Flink SQL job created via Terraform"
+
+  # Same reason as the source topic above: destroy the topic before the environment.
+  depends_on = [axual_environment.tf-test-flink-env]
+}
+
+resource "axual_topic_config" "tf-flink-topic-out-config" {
+  partitions     = 1
+  retention_time = 864000
+  topic          = axual_topic.tf-test-flink-topic-out.id
+  environment    = axual_environment.tf-test-flink-env.id
+  properties     = { "segment.ms" = "600012", "retention.bytes" = "-1" }
+}
+
+# The job reads from the source topic and writes to this one, so it needs both a CONSUMER and a
+# PRODUCER grant: with generate_tables_sql = true the platform generates the table DDL from the
+# approved grants, so a topic without a grant has no table to select from or insert into.
+resource "axual_application_access_grant" "tf-test-flink-application-access-grant-out" {
+  application = axual_application.tf-test-flink-app.id
+  topic       = axual_topic.tf-test-flink-topic-out.id
+  environment = axual_environment.tf-test-flink-env.id
+  access_type = "PRODUCER"
+  depends_on = [
+    axual_application_credential.flink_axual_application_credential,
+    axual_topic_config.tf-flink-topic-out-config
+  ]
+}
+
+resource "axual_application_access_grant_approval" "tf-test-flink-application-access-grant-approval-out" {
+  application_access_grant = axual_application_access_grant.tf-test-flink-application-access-grant-out.id
+}

@@ -61,21 +61,16 @@ func (c *Client) FindApplicationDeploymentByApplicationAndEnvironment(applicatio
 	return &o, nil
 }
 
-// UpdateApplicationDeployment updates an existing deployment. FLINK_SQL deployments are updated
-// with PATCH - the API rejects PUT for them ("PUT is not supported for Flink SQL deployments; use
-// PATCH") - while Connector and KSML deployments are updated with PUT.
-func (c *Client) UpdateApplicationDeployment(id string, applicationType string, data ApplicationDeploymentUpdateRequest) (ApplicationDeploymentUpdateResponse, error) {
+// UpdateApplicationDeployment updates an existing deployment. PATCH serves every application type;
+// the PUT endpoint it replaces is deprecated for removal and rejects FLINK_SQL deployments.
+func (c *Client) UpdateApplicationDeployment(id string, data ApplicationDeploymentUpdateRequest) (ApplicationDeploymentUpdateResponse, error) {
 	var o ApplicationDeploymentUpdateResponse
 	marshal, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
-	method := "PUT"
-	if applicationType == FlinkSQLApplicationType {
-		method = "PATCH"
-	}
 	headers := map[string]string{"Content-Type": "application/json"}
-	err = c.RequestAndMap(method, fmt.Sprintf("%s/application_deployments/%v", c.ApiURL, id), strings.NewReader(string(marshal)), headers, &o)
+	err = c.RequestAndMap("PATCH", fmt.Sprintf("%s/application_deployments/%v", c.ApiURL, id), strings.NewReader(string(marshal)), headers, &o)
 	if err != nil {
 		return nil, err
 	}

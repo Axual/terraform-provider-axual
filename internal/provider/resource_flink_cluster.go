@@ -215,9 +215,16 @@ func (r *flinkClusterResource) ImportState(ctx context.Context, req resource.Imp
 }
 
 func createFlinkClusterRequestFromData(data *FlinkClusterResourceData) webclient.FlinkClusterRequest {
+	// A removed description is sent as an explicit null, which is what the PATCH needs to clear it.
+	var description *string
+	if !data.Description.IsNull() && !data.Description.IsUnknown() {
+		value := data.Description.ValueString()
+		description = &value
+	}
+
 	return webclient.FlinkClusterRequest{
 		Name:             data.Name.ValueString(),
-		Description:      data.Description.ValueString(),
+		Description:      description,
 		Url:              data.Url.ValueString(),
 		Workspace:        data.Workspace.ValueString(),
 		Namespace:        data.Namespace.ValueString(),

@@ -301,6 +301,12 @@ When running tests for the first time, try them in this order to verify your set
    go test -p 1 -count 1 ./internal/tests/...
    ```
 
+   `axual-webclient` is a separate Go module, so its unit tests are not part of that run. Run them
+   from inside the module:
+   ```bash
+   (cd axual-webclient && go test -count 1 ./...)
+   ```
+
 #### Option 2: Inline Environment Variables
 
 Run tests with environment variables set inline:

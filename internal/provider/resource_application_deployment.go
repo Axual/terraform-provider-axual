@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -36,6 +37,12 @@ func NewApplicationDeploymentResource(provider AxualProvider) resource.Resource 
 type applicationDeploymentResource struct {
 	provider AxualProvider
 }
+
+// legacyAxualConnectTargetPrefix prefixes the deployment target id the API synthesizes for a
+// Connector deployment that has none stored, standing for the legacy Axual Connect runtime
+// (ConnectorDeploymentTargetResolver.AXUAL_CONNECT_ID_PREFIX). It is not a registered Kafka
+// Connect cluster and is rejected when sent back as a `targetId`.
+const legacyAxualConnectTargetPrefix = "axualconnect-"
 
 // startAttempts is how often a START is retried before the apply is failed.
 const startAttempts = 3
@@ -129,10 +136,11 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				// target when none is configured (for example `axualconnect-<env>` for Connector
 				// applications), so a null config value is filled in from the API response.
 				//
-				// The target is create-only - it is sent on POST and never on PUT/PATCH - so a
-				// change to it requires replacing the deployment. UseStateForUnknown keeps an
-				// omitted `target_id` on the value the platform assigned, so leaving it out of the
-				// configuration does not trigger a replacement.
+				// A changed target replaces the deployment. FLINK_SQL has no choice - the PATCH
+				// rejects a target change outright (AXPD-11759) - and a Connector deployment is
+				// replaced on any change anyway (see deploymentTypePlanModifier), so the target is
+				// never sent on an update. UseStateForUnknown keeps an omitted `target_id` on the
+				// value the platform assigned, so leaving it out does not trigger a replacement.
 				MarkdownDescription: "The id of the deployment target to deploy to. Required for FLINK_SQL deployments, where it must be the id of an `axual_flink_cluster` registered for the environment. For other deployment types the Platform Manager assigns a default target if not specified. Changing this value replaces the Application Deployment, as the deployment target can only be set when the deployment is created. Available targets can be listed via `GET /applications/{applicationId}/deployment-targets`.",
 				Optional:            true,
 				Computed:            true,
@@ -147,8 +155,15 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				Sensitive:           true,
 			},
 			"generate_tables_sql": schema.BoolAttribute{
-				MarkdownDescription: "For FLINK_SQL deployments, whether to auto-generate the `CREATE TABLE` statements for the topics referenced by `sql_script`. Optional for FLINK_SQL deployments.",
+				// Computed as well as Optional: the API defaults an absent value to `false` and
+				// always stores the config key, so a null plan value would not match what the
+				// deployment reports back.
+				MarkdownDescription: "For FLINK_SQL deployments, whether to auto-generate the `CREATE TABLE` statements for the topics referenced by `sql_script`. Optional for FLINK_SQL deployments; defaults to `false`.",
 				Optional:            true,
+				Computed:            true,
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed: true,
@@ -225,11 +240,28 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 	applicationURL := fmt.Sprintf("%s/applications/%v", r.provider.client.ApiURL, data.Application.ValueString())
 	environmentURL := fmt.Sprintf("%s/environments/%v", r.provider.client.ApiURL, data.Environment.ValueString())
 
-	// FLINK_SQL applications have their Kafka credentials injected automatically by the
-	// platform at deploy time, so there is no Application Principal or Application Credential
-	// to check for and no active-principal precondition to enforce.
+	// A FLINK_SQL job runs on the application's SASL/SCRAM Kafka credential, which the platform
+	// injects into the generated SQL at deploy time. An mTLS Application Principal cannot be used,
+	// so the principal/credential count check below does not apply to FLINK_SQL.
 	var applicationPrincipalsResponse *webclient.ApplicationPrincipalFindByApplicationAndEnvironmentResponse
-	if !isFlinkSQL(data.Type.ValueString()) {
+	if isFlinkSQL(data.Type.ValueString()) {
+		// The credential search endpoint takes plain ids (`applicationId=`/`environmentId=`), unlike the
+		// principal search below, which takes resource URLs (`application=`/`environment=`).
+		credentials, err := r.provider.client.FindApplicationCredentialByApplicationAndEnvironment(data.Application.ValueString(), data.Environment.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Error querying for Application Credential for this application and environment", fmt.Sprintf("Error message: %s", err.Error()))
+			return
+		}
+		if countScramCredentials(credentials) == 0 {
+			resp.Diagnostics.AddError(
+				"Missing SASL/SCRAM Application Credential",
+				"A FLINK_SQL Application Deployment requires an axual_application_credential supporting SCRAM_SHA_512 for this application and environment. "+
+					"An axual_application_principal cannot be used: the platform rejects the deployment with "+
+					"\"a Flink SQL application requires SASL/SCRAM Kafka credentials\".",
+			)
+			return
+		}
+	} else {
 		// we count if there is at least one authentication defined for these application and environment
 		authenticationCount := 0
 		// We check if Application Principal exists for this environment and application
@@ -241,7 +273,7 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 		authenticationCount += len(applicationPrincipalsResponse.Embedded.ApplicationPrincipalResponses)
 		if isKSML(data.Type.ValueString()) {
 			// For KSML applications, we check if Application Credential exists for this environment and application
-			applicationCredentialsResponse, err := r.provider.client.FindApplicationCredentialByApplicationAndEnvironment(applicationURL, environmentURL)
+			applicationCredentialsResponse, err := r.provider.client.FindApplicationCredentialByApplicationAndEnvironment(data.Application.ValueString(), data.Environment.ValueString())
 			if err != nil {
 				resp.Diagnostics.AddError("Error querying for Application Credential for this application and environment", fmt.Sprintf("Error message: %s", err.Error()))
 				return
@@ -275,17 +307,17 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 		}
 	}
 
-	// A deployment the platform cannot start is rejected here rather than created: the API accepts
-	// a Connector deployment without `configs` and a FLINK_SQL deployment without `flink_sql`, and
-	// then simply never offers a START action for it, which would leave a created-but-unstartable
-	// deployment behind.
-	if isConnector(data.Type.ValueString()) && countConfigs(data.Configs) == 0 {
-		resp.Diagnostics.AddError(
-			"Missing Connector configs",
-			"A Connector Application Deployment requires at least one entry in `configs`. ",
+	// Registering a Connector deployment target and adding the configs later is a supported flow
+	// (ConnectorDeploymentManager.validateConfig returns early on empty configs), so this only
+	// warns: the deployment is created but offers no START action until `configs` are set.
+	if data.Type.ValueString() == "Connector" && countConfigs(data.Configs) == 0 {
+		resp.Diagnostics.AddWarning(
+			"Connector Application Deployment has no configs",
+			"The deployment is created but cannot be started until `configs` are set.",
 		)
-		return
 	}
+	// A FLINK_SQL deployment without SQL is rejected here rather than created: the API accepts it
+	// and then never offers a START action, leaving a created-but-unstartable deployment behind.
 	if isFlinkSQL(data.Type.ValueString()) && data.SqlScript.ValueString() == "" {
 		resp.Diagnostics.AddError(
 			"Missing Flink SQL script",
@@ -365,9 +397,16 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 	// createApplicationDeploymentRequestFromData); its SQL config is set here via a follow-up PATCH.
 	if isFlinkSQL(data.Type.ValueString()) {
 		flinkUpdate := webclient.ApplicationDeploymentUpdateRequest{Configs: flinkConfigs}
-		_, err = r.provider.client.UpdateApplicationDeployment(data.Id.ValueString(), data.Type.ValueString(), flinkUpdate)
+		_, err = r.provider.client.UpdateApplicationDeployment(data.Id.ValueString(), flinkUpdate)
 		if err != nil {
-			resp.Diagnostics.AddError("Error setting Flink SQL config for application deployment resource", fmt.Sprintf("Error message: %s", err.Error()))
+			// A warning, not an error: the deployment is already in state, and failing Create with
+			// state set taints the resource, turning every retry into a destroy-and-create that
+			// fails the same way instead of the Update() that applies the config.
+			resp.Diagnostics.AddWarning(
+				"Deployment created but the Flink SQL config was not applied",
+				fmt.Sprintf("The deployment was created and saved to state, but its SQL config is not set: %s. "+
+					"Run 'terraform apply' again to apply it.", err),
+			)
 			return
 		}
 		updatedDeployment, err := r.provider.client.GetApplicationDeployment(data.Id.ValueString())
@@ -465,9 +504,7 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 		return
 	}
 
-	// UpdateApplicationDeployment picks PUT or PATCH based on the application type: FLINK_SQL
-	// deployments reject PUT ("PUT is not supported for Flink SQL deployments; use PATCH").
-	_, err = r.provider.client.UpdateApplicationDeployment(planData.Id.ValueString(), planData.Type.ValueString(), ApplicationDeploymentUpdateRequest)
+	_, err = r.provider.client.UpdateApplicationDeployment(planData.Id.ValueString(), ApplicationDeploymentUpdateRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update Application Deployment, got error: %s", err))
 		return
@@ -544,24 +581,10 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 		}
 	}
 
-	// The deployment advertises a `delete` link only once it is in a state the API accepts a
-	// DELETE from, so check for it instead of sending a DELETE that would be rejected: this
-	// fails fast with the state the deployment is actually in.
-	deployment, err := r.provider.client.GetApplicationDeployment(data.Id.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read Application Deployment before deleting it, got error: %s", err))
-		return
-	}
-	if !deployment.Links.Has(webclient.RelDelete) {
-		resp.Diagnostics.AddError(
-			"Application Deployment cannot be deleted yet",
-			fmt.Sprintf("The API does not offer a DELETE action for Application Deployment %s, which is in state %q. "+
-				"A deployment that is still stopping reaches a terminal state shortly after - "+
-				"run 'terraform destroy' again to delete it.", data.Id.ValueString(), deployment.State),
-		)
-		return
-	}
-
+	// No `delete` rel pre-check: the rel follows the deployment's desired state, which STOP changes
+	// at once, so it is offered while a Flink job is still draining and never offered for a failed
+	// FLINK_SQL job that was never stopped - a DELETE the API does accept (AXPD-11714). The API's
+	// own error is the better one to report.
 	err = r.provider.client.DeleteApplicationDeployment(data.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete Application Deployment, got error: %s", err))
@@ -622,7 +645,13 @@ func createApplicationDeploymentRequestFromData(ctx context.Context, data *Appli
 		Environment: data.Environment.ValueString(),
 		Configs:     configs,
 	}
-	if !data.TargetId.IsNull() && !data.TargetId.IsUnknown() {
+	// A Connector deployment with no stored target reads back with a synthesized
+	// `axualconnect-<instance>` id standing for legacy Axual Connect. That id is not a registered
+	// Kafka Connect cluster, so sending it back on a create fails with "No Kafka Connect cluster
+	// matching the deployment `targetId`" - leave it out and let the platform resolve the target,
+	// which is what an unset target means.
+	if !data.TargetId.IsNull() && !data.TargetId.IsUnknown() &&
+		!strings.HasPrefix(data.TargetId.ValueString(), legacyAxualConnectTargetPrefix) {
 		ApplicationDeploymentRequest.TargetId = data.TargetId.ValueString()
 	}
 
@@ -871,14 +900,29 @@ func countActivePrincipals(response *webclient.ApplicationPrincipalFindByApplica
 	return count
 }
 
-// startApplicationDeployment starts the deployment. It returns nil once the deployment is
-// running (or once START has been accepted), and an error describing why it is not - the caller
-// decides whether that error fails the apply.
+// countScramCredentials counts the Application Credentials that support SCRAM-SHA-512, the only
+// mechanism a Flink SQL job can authenticate with (FlinkKafkaConnectionOptionsProvider).
+func countScramCredentials(credentials []webclient.ApplicationCredentialFindByApplicationAndEnvironmentResponse) int {
+	count := 0
+	for _, credential := range credentials {
+		for _, authType := range credential.Types {
+			if authType.Type == "SCRAM_SHA_512" {
+				count++
+				break
+			}
+		}
+	}
+	return count
+}
+
+// startApplicationDeployment starts or resumes the deployment. It returns nil once the deployment
+// is running (or once the action has been accepted), and an error describing why it is not - the
+// caller decides whether that error fails the apply.
 //
-// The status endpoint advertises a `start` link exactly when START is a valid action for the
-// deployment's current state, so that link - not a per-type state name - decides whether the
-// deployment can be started here. A FLINK_SQL deployment, for example, only offers `start`
-// once its SQL config has been PATCHed onto it.
+// The status endpoint advertises the action rels that are valid for the deployment's current
+// state, so a rel - not a per-type state name - decides what is sent here. A FLINK_SQL deployment
+// that was stopped offers `resume` (it restarts from its last checkpoint) and never `start` again
+// until it is reset; Connector and KSML deployments always offer `start`.
 func (r *applicationDeploymentResource) startApplicationDeployment(ctx context.Context, id string, deploymentType string, retryDelay time.Duration) error {
 	status, err := r.provider.client.GetApplicationDeploymentStatus(id)
 	if err != nil {
@@ -887,10 +931,11 @@ func (r *applicationDeploymentResource) startApplicationDeployment(ctx context.C
 
 	// Wait for the deployment to become startable. Update() stops a running deployment before
 	// patching it, and the stop is asynchronous: the deployment reports `Stopping` for a while,
-	// offering neither `start` (it is not stopped yet) nor a running status, and only advertises
-	// `start` once it has come to a halt.
-	for i := 0; i < startWaitAttempts && !status.Links.Has(webclient.RelStart); i++ {
-		// A deployment that is already running needs no START: a previous one succeeded, possibly
+	// offering neither a start action (it is not stopped yet) nor a running status, and only
+	// advertises one once it has come to a halt.
+	action := startActionFor(status)
+	for i := 0; i < startWaitAttempts && action == ""; i++ {
+		// A deployment that is already running needs no start: a previous one succeeded, possibly
 		// one whose response timed out on an earlier apply.
 		if isDeploymentRunning(deploymentType, status) {
 			tflog.Info(ctx, "Application Deployment is already running, skipping START")
@@ -900,21 +945,22 @@ func (r *applicationDeploymentResource) startApplicationDeployment(ctx context.C
 		if status, err = r.provider.client.GetApplicationDeploymentStatus(id); err != nil {
 			return fmt.Errorf("unable to get Application Deployment status while waiting for it to become startable: %s", err)
 		}
+		action = startActionFor(status)
 	}
 
-	if !status.Links.Has(webclient.RelStart) {
+	if action == "" {
 		if isDeploymentRunning(deploymentType, status) {
 			tflog.Info(ctx, "Application Deployment is already running, skipping START")
 			return nil
 		}
-		return fmt.Errorf("the API does not offer a START action for this deployment (%s)", describeDeploymentStatus(status))
+		return fmt.Errorf("the API does not offer a START or RESUME action for this deployment (%s)", describeDeploymentStatus(status))
 	}
 
 	var applicationStartRequest = webclient.ApplicationDeploymentOperationRequest{
-		Action: "START",
+		Action: action,
 	}
 	err = Retry(startAttempts, retryDelay, func() error {
-		return r.provider.client.OperateApplicationDeployment(id, "START", applicationStartRequest)
+		return r.provider.client.OperateApplicationDeployment(id, action, applicationStartRequest)
 	})
 	if err == nil {
 		return nil
@@ -928,6 +974,20 @@ func (r *applicationDeploymentResource) startApplicationDeployment(ctx context.C
 	}
 
 	return fmt.Errorf("could not start the deployment after %d attempts: %s", startAttempts, err)
+}
+
+// startActionFor is the action that brings the deployment up, or an empty string when the API
+// offers neither. A stopped FLINK_SQL deployment resumes from its last checkpoint and is only
+// startable again after a reset, so `resume` is what it advertises; every other type advertises
+// `start`. START is preferred when both are offered.
+func startActionFor(status *webclient.ApplicationDeploymentStatusResponse) string {
+	switch {
+	case status.Links.Has(webclient.RelStart):
+		return "START"
+	case status.Links.Has(webclient.RelResume):
+		return "RESUME"
+	}
+	return ""
 }
 
 // describeDeploymentStatus renders the per-type status the API reported plus the actions it

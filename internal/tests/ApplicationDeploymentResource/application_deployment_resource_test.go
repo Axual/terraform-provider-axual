@@ -23,13 +23,18 @@ func TestApplicationDeploymentResource(t *testing.T) {
 				),
 				ExpectError: regexp.MustCompile(`No active Application Principal`),
 			},
-			// Test missing `configs` - should fail the pre-flight check
+			// A Connector deployment can be created with no `configs` at all: the API registers the
+			// deployment target and takes the configs later, so the provider only warns that the
+			// deployment cannot be started yet.
 			{
 				Config: GetProvider() + GetFile(
 					"axual_application_deployment_setup.tf",
 					"axual_application_deployment_missing_configs.tf",
 				),
-				ExpectError: regexp.MustCompile(`requires at least one entry in .configs.`),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrPair("axual_application_deployment.connector_axual_application_deployment", "environment", "axual_environment.tf-test-env", "id"),
+					resource.TestCheckNoResourceAttr("axual_application_deployment.connector_axual_application_deployment", "configs.%"),
+				),
 			},
 			{
 				Config: GetProvider() + GetFile(
@@ -167,7 +172,7 @@ func TestApplicationDeploymentFlinkResource(t *testing.T) {
 					"axual_application_deployment_flink_setup.tf",
 					"axual_application_deployment_flink_missing_sql_script.tf",
 				),
-				ExpectError: regexp.MustCompile(`flink_sql|sql_script|Invalid config uploaded`),
+				ExpectError: regexp.MustCompile(`requires a .sql_script.`),
 			},
 			{
 				Config: GetProvider() + GetFile(
@@ -199,20 +204,41 @@ func TestApplicationDeploymentFlinkResource(t *testing.T) {
 				),
 			},
 			{
+				// A second update in a row: the deployment was stopped by the previous one, so the
+				// API now offers `resume` instead of `start` (AXPD-11906).
+				Config: GetProvider() + GetFile(
+					"axual_application_deployment_flink_setup.tf",
+					"axual_application_deployment_flink_updated_again.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "type", "FLINK_SQL"),
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "deployment_size", "M"),
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "generate_tables_sql", "true"),
+				),
+			},
+			{
+				// generate_tables_sql left out of the configuration: it is Optional and Computed, so
+				// the value the API reports is kept and the plan stays empty.
+				Config: GetProvider() + GetFile(
+					"axual_application_deployment_flink_setup.tf",
+					"axual_application_deployment_flink_generate_tables_unset.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "generate_tables_sql", "true"),
+				),
+			},
+			{
 				ResourceName:      "axual_application_deployment.flink_axual_application_deployment",
 				ImportState:       true,
 				ImportStateVerify: true,
-				// sql_script is Sensitive and not returned in a form the provider can diff against
-				// the config-supplied value on import; the configs-derived value is still asserted above.
-				ImportStateVerifyIgnore: []string{"sql_script"},
-				Config:                  GetProvider() + GetFile("axual_application_deployment_flink_updated.tf"),
+				Config:            GetProvider() + GetFile("axual_application_deployment_flink_generate_tables_unset.tf"),
 			},
 			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
 				Config: GetProvider() + GetFile(
 					"axual_application_deployment_flink_setup.tf",
-					"axual_application_deployment_flink_updated.tf",
+					"axual_application_deployment_flink_generate_tables_unset.tf",
 				),
 			},
 		},

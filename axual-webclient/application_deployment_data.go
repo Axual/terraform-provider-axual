@@ -25,6 +25,8 @@ type Links map[string]Link
 const (
 	RelStop   = "stop"
 	RelStart  = "start"
+	RelResume = "resume"
+	RelReset  = "reset"
 	RelDelete = "delete"
 )
 
@@ -63,9 +65,9 @@ type ApplicationDeploymentCreateRequest struct {
 	TargetId    string            `json:"targetId,omitempty"`
 }
 
-// ApplicationDeploymentUpdateRequest carries no targetId on purpose: the deployment target is a
-// create-only field, guarded by the Platform Manager, and is only sent by
-// ApplicationDeploymentCreateRequest.
+// ApplicationDeploymentUpdateRequest carries no targetId: the PATCH accepts a target change for
+// Connector, KSML and Custom deployments, but `target_id` requires replacement in the schema, so a
+// change never reaches this path. FLINK_SQL rejects a target change outright (AXPD-11759).
 type ApplicationDeploymentUpdateRequest struct {
 	Configs map[string]string `json:"configs"`
 }
