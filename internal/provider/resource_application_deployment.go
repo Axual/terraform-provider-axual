@@ -902,7 +902,7 @@ func (r *applicationDeploymentResource) stopDeploymentAndWait(ctx context.Contex
 	if err != nil {
 		return fmt.Errorf("unable to get Application Deployment status, got error: %s", err)
 	}
-	if !ShouldStopDeployment(status) {
+	if !shouldStopDeployment(status) {
 		return nil
 	}
 
@@ -1049,11 +1049,11 @@ func isDeploymentRunning(deploymentType string, status *webclient.ApplicationDep
 	return status.ConnectorState.State == "Running"
 }
 
-// ShouldStopDeployment reports whether the deployment has to be stopped before it can be
+// shouldStopDeployment reports whether the deployment has to be stopped before it can be
 // updated or deleted. The status endpoint advertises a `stop` link exactly when STOP is a valid
 // action for the deployment's current state, for every application type - so the provider does
 // not have to mirror the per-type state machines (Connector states, KSML statuses, Flink job
 // states), nor be released again when the platform adds a state.
-func ShouldStopDeployment(status *webclient.ApplicationDeploymentStatusResponse) bool {
+func shouldStopDeployment(status *webclient.ApplicationDeploymentStatusResponse) bool {
 	return status.Links.Has(webclient.RelStop)
 }

@@ -164,7 +164,7 @@ func (r *topicConfigResource) Create(ctx context.Context, req resource.CreateReq
 		properties[key] = strings.Trim(value.String(), "\"")
 	}
 	topicConfigRequest.Properties = properties
-	tflog.Info(ctx, fmt.Sprintf("Create topic config request %q", topicConfigRequest))
+	tflog.Info(ctx, fmt.Sprintf("Create topic config request %+v", topicConfigRequest))
 
 	var topicConfig *webclient.TopicConfigResponse
 	// We retry to give time to Kafka to propagate changes
@@ -295,7 +295,7 @@ func (r *topicConfigResource) Update(ctx context.Context, req resource.UpdateReq
 
 	topicConfigRequest.Properties = properties
 
-	tflog.Info(ctx, fmt.Sprintf("Update topic config request %q", topicConfigRequest))
+	tflog.Info(ctx, fmt.Sprintf("Update topic config request %+v", topicConfigRequest))
 
 	// Retry logic for updating the topic config
 	var topicConfig *webclient.TopicConfigResponse

@@ -61,6 +61,12 @@ func TestFlinkClusterResource(t *testing.T) {
 				),
 			},
 			{
+				// A target Ververica does not know is refused by the API, which is what covers the
+				// `deployment_target` update path: only one real target exists on the test Ververica.
+				Config:      GetProvider() + GetFile("axual_flink_cluster_invalid_deployment_target.tf"),
+				ExpectError: regexp.MustCompile(`deployment-target: tf-test-target-does-not-exist was not found`),
+			},
+			{
 				// Unlike most resources, importing a Flink Cluster needs more than its own id: the uid is
 				// only unique within the instance and cluster it lives on, so ImportState expects a
 				// composite "instance_id/cluster_id/flink_cluster_id" identifier which ImportStateIdFunc

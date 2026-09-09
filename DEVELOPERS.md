@@ -301,11 +301,17 @@ When running tests for the first time, try them in this order to verify your set
    go test -p 1 -count 1 ./internal/tests/...
    ```
 
-   `axual-webclient` is a separate Go module, so its unit tests are not part of that run. Run them
-   from inside the module:
+   That runs the acceptance tests, which need a reachable instance. The unit tests live in two other
+   places and need nothing: `internal/provider` (provider helpers) and the separate `axual-webclient`
+   module.
    ```bash
+   go test -count 1 ./internal/provider/
    (cd axual-webclient && go test -count 1 ./...)
    ```
+
+   Note that everything under `./internal/tests/...` is an acceptance test: the test provider reads
+   its credentials from `test_config.yaml`, so nothing skips for a missing `TF_ACC`. Always narrow a
+   run with `-run '<TestName>'`.
 
 #### Option 2: Inline Environment Variables
 
