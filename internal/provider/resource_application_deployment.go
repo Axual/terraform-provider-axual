@@ -132,15 +132,10 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				},
 			},
 			"target_id": schema.StringAttribute{
-				// Computed as well as Optional: the Platform Manager assigns a default deployment
-				// target when none is configured (for example `axualconnect-<env>` for Connector
-				// applications), so a null config value is filled in from the API response.
-				//
-				// A changed target replaces the deployment. FLINK_SQL has no choice - the PATCH
-				// rejects a target change outright (AXPD-11759) - and a Connector deployment is
-				// replaced on any change anyway (see deploymentTypePlanModifier), so the target is
-				// never sent on an update. UseStateForUnknown keeps an omitted `target_id` on the
-				// value the platform assigned, so leaving it out does not trigger a replacement.
+				// Optional and Computed: the Platform Manager assigns a default target when none is
+				// set, and UseStateForUnknown keeps an omitted `target_id` on that value.
+				// A changed target replaces the deployment: FLINK_SQL rejects a target change
+				// outright (AXPD-11759), and Connector deployments are replaced anyway.
 				MarkdownDescription: "The id of the deployment target to deploy to. Required for FLINK_SQL deployments, where it must be the id of an `axual_flink_cluster` registered for the environment. For other deployment types the Platform Manager assigns a default target if not specified. Changing this value replaces the Application Deployment, as the deployment target can only be set when the deployment is created. Available targets can be listed via `GET /applications/{applicationId}/deployment-targets`.",
 				Optional:            true,
 				Computed:            true,
@@ -175,23 +170,12 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 	}
 }
 
-// deploymentTypePlanModifier decides, per application type, whether a change to an existing
-// Application Deployment is applied in place or by replacing the deployment.
-//
-//   - KSML and FLINK_SQL deployments are updated in place. The planned type is taken from state
-//     (what UseStateForUnknown does), so it stays equal to the state value and nothing requests a
-//     replacement.
-//   - Connector deployments are replaced. Updating one through PUT is currently rejected by the
-//     Platform Manager, which resolves the deployment target it assigned at create time and answers
-//     "No Kafka Connect cluster matching the deployment `targetId` axualconnect-<env>" - regardless
-//     of the request body, which carries no target at all. Until that is fixed platform-side, a
-//     changed Connector deployment is destroyed and recreated.
-//
-// The two cases cannot be expressed with the built-in modifiers: UseStateForUnknown plus
-// RequiresReplaceIf never replaces, because RequiresReplaceIf returns early once the planned and
-// state values are equal - which is exactly what UseStateForUnknown makes them. Leaving the planned
-// type unknown is what drives the replacement, so this modifier only copies the state value for the
-// types that are updated in place.
+// deploymentTypePlanModifier keeps KSML and FLINK_SQL deployments on an in-place update and replaces
+// Connector deployments, whose update the Platform Manager currently rejects with "No Kafka Connect
+// cluster matching the deployment `targetId` axualconnect-<env>". Leaving the planned type unknown is
+// what makes Terraform replace it, so the state value is only copied for the types updated in place
+// (UseStateForUnknown plus RequiresReplaceIf cannot express that: making the values equal is exactly
+// what stops RequiresReplaceIf from firing).
 type deploymentTypePlanModifier struct{}
 
 func (m deploymentTypePlanModifier) Description(_ context.Context) string {
@@ -322,6 +306,15 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 		resp.Diagnostics.AddError(
 			"Missing Flink SQL script",
 			"A FLINK_SQL Application Deployment requires a `sql_script`.",
+		)
+		return
+	}
+
+	// The target is not optional for FLINK_SQL: it names the axual_flink_cluster to deploy to.
+	if isFlinkSQL(data.Type.ValueString()) && data.TargetId.IsNull() {
+		resp.Diagnostics.AddError(
+			"Missing deployment target",
+			"A FLINK_SQL Application Deployment requires a `target_id` referring to an `axual_flink_cluster` registered for this environment.",
 		)
 		return
 	}
@@ -598,9 +591,8 @@ func mapTargetIdToData(data *ApplicationDeploymentResourceData, targetId string)
 }
 
 func createApplicationDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData) (webclient.ApplicationDeploymentCreateRequest, error) {
-	// A FLINK_SQL application deployment must be created with a deployment target only - the API
-	// rejects `configs` on POST /application_deployments and requires the SQL config to be set via
-	// a follow-up PATCH on the created deployment (see createFlinkConfigsUpdateRequest / Create()).
+	// A FLINK_SQL deployment is created with a deployment target only: `validateEmptyConfigs`
+	// refuses a non-empty `configs` on POST, so the SQL is set by the follow-up PATCH in Create().
 	var configs map[string]string
 	if !isFlinkSQL(data.Type.ValueString()) {
 		var err error
@@ -629,9 +621,8 @@ func createApplicationDeploymentRequestFromData(ctx context.Context, data *Appli
 	return ApplicationDeploymentRequest, nil
 }
 
-// createApplicationUpdateDeploymentRequestFromData builds the update request. The deployment target
-// is deliberately absent: it is a create-only field that the Platform Manager guards itself, and
-// `target_id` requires replacement so a change never reaches this path.
+// createApplicationUpdateDeploymentRequestFromData builds the update request. The target is absent
+// because `target_id` requires replacement in the schema, so a change never reaches this path.
 func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData) (webclient.ApplicationDeploymentUpdateRequest, error) {
 	configs, err := createConfigsForDeploymentType(data)
 
@@ -902,18 +893,10 @@ func isFlinkTaskSizeOnlyChange(state *ApplicationDeploymentResourceData, plan *A
 	return plan.SqlScript.Equal(state.SqlScript) && plan.GenerateTablesSql.Equal(state.GenerateTablesSql)
 }
 
-// stopDeploymentAndWait stops the deployment when the API still offers a `stop` action and waits
-// until the per-type status reports a terminal state. It is a no-op for a deployment that is not
-// running.
-//
-// The wait is the one decision the `_links` cannot make. Both rels turn up too early while a Flink
-// job is shutting down: `stop` is already gone at `flinkStatus=Stopping` (STOP is no longer a valid
-// action), and the entity's `delete` rel is offered at `Stopping` as well - yet Ververica rejects a
-// DELETE there with "Deleting a deployment which has job is not terminal status is not allowed",
-// and `saveFlinkSql` rejects a PATCH while the job is RUNNING. So the per-type status is read here.
-//
-// Running out of attempts is not an error: the caller goes ahead and lets the API decide, which is
-// the behaviour a delete had before this wait was shared with the update path.
+// stopDeploymentAndWait stops the deployment when the API still offers a `stop` action, then waits
+// for the per-type status to report a terminal state - the rels cannot answer that, because both
+// `stop` and `delete` are already gone or offered while a Flink job is still draining.
+// Running out of attempts is not an error: the caller lets the API decide, as Delete always did.
 func (r *applicationDeploymentResource) stopDeploymentAndWait(ctx context.Context, id string, deploymentType string) error {
 	status, err := r.provider.client.GetApplicationDeploymentStatus(id)
 	if err != nil {
@@ -944,14 +927,9 @@ func (r *applicationDeploymentResource) stopDeploymentAndWait(ctx context.Contex
 	return nil
 }
 
-// startApplicationDeployment starts or resumes the deployment. It returns nil once the deployment
-// is running (or once the action has been accepted), and an error describing why it is not - the
-// caller decides whether that error fails the apply.
-//
-// The status endpoint advertises the action rels that are valid for the deployment's current
-// state, so a rel - not a per-type state name - decides what is sent here. A FLINK_SQL deployment
-// that was stopped offers `resume` (it restarts from its last checkpoint) and never `start` again
-// until it is reset; Connector and KSML deployments always offer `start`.
+// startApplicationDeployment starts or resumes the deployment and returns nil once it is running or
+// once the action was accepted; the caller decides whether the error fails the apply. A stopped
+// FLINK_SQL deployment offers `resume`, not `start`, so the rel decides which action is sent.
 func (r *applicationDeploymentResource) startApplicationDeployment(ctx context.Context, id string, deploymentType string, retryDelay time.Duration) error {
 	status, err := r.provider.client.GetApplicationDeploymentStatus(id)
 	if err != nil {

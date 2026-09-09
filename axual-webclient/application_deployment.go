@@ -9,7 +9,9 @@ import (
 	"strings"
 )
 
-// FlinkSQLApplicationType is the application type the API uses for Flink SQL applications.
+// FlinkSQLApplicationType is the application type the API uses for Flink SQL applications. The
+// upper-case spelling is deliberate: Spring Data REST would render the enum as `Flink sql` (the way
+// `KSML` becomes `Ksml`) were it not overridden in the API's rest-messages_en.properties.
 const FlinkSQLApplicationType = "FLINK_SQL"
 
 // CreateApplicationDeployment creates the deployment and returns the Uid of the created

@@ -58,10 +58,12 @@ type ApplicationDeploymentResponse struct {
 	} `json:"_embedded"`
 }
 
+// ApplicationDeploymentCreateRequest is the POST body. Configs is omitted when empty: a FLINK_SQL
+// deployment is created with a target only and gets its SQL from a follow-up PATCH.
 type ApplicationDeploymentCreateRequest struct {
 	Application string            `json:"application"`
 	Environment string            `json:"environment"`
-	Configs     map[string]string `json:"configs"`
+	Configs     map[string]string `json:"configs,omitempty"`
 	TargetId    string            `json:"targetId,omitempty"`
 }
 
