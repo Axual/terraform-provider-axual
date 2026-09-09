@@ -47,12 +47,16 @@ func TestFlinkClusterResource(t *testing.T) {
 				Config: GetProvider() + GetFile("axual_flink_cluster_updated.tf"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "description", "Axual's TF Test Flink Cluster, updated"),
+					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "schema_registries.#", "1"),
+					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "schema_registries.0.type", "CONFLUENT"),
+					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "schema_registries.0.url", "https://schema-registry.example.com/apis/ccompat/v7"),
 				),
 			},
 			{
 				Config: GetProvider() + GetFile("axual_flink_cluster_no_description.tf"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "name", "tf-test-flink-cluster-renamed"),
+					resource.TestCheckNoResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "schema_registries.#"),
 					resource.TestCheckNoResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "description"),
 				),
 			},

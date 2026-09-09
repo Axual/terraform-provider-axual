@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -53,6 +54,7 @@ type FlinkClusterResourceData struct {
 	Namespace        types.String `tfsdk:"namespace"`
 	DeploymentTarget types.String `tfsdk:"deployment_target"`
 	ApiToken         types.String `tfsdk:"api_token"`
+	SchemaRegistries types.List   `tfsdk:"schema_registries"`
 }
 
 func (r *flinkClusterResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -117,6 +119,28 @@ func (r *flinkClusterResource) Schema(ctx context.Context, req resource.SchemaRe
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthAtMost(flinkClusterNameMaxLength),
+				},
+			},
+			"schema_registries": schema.ListNestedAttribute{
+				MarkdownDescription: "Schema registries the Flink Cluster reads schemas from. Required for Flink SQL jobs over AVRO topics: the platform injects the url into the generated table DDL. When more than one is configured, a job using `'value.format' = 'avro-confluent'` uses the first Confluent-type registry in the list.",
+				Optional:            true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"type": schema.StringAttribute{
+							MarkdownDescription: "Schema registry type: `CONFLUENT` or `APICURIO`.",
+							Required:            true,
+							Validators: []validator.String{
+								stringvalidator.OneOf("CONFLUENT", "APICURIO"),
+							},
+						},
+						"url": schema.StringAttribute{
+							MarkdownDescription: "Base URL of the schema registry API, e.g. `https://apicurio.example.com/apis/ccompat/v7` for Confluent compatibility.",
+							Required:            true,
+							Validators: []validator.String{
+								stringvalidator.LengthAtMost(flinkClusterUrlMaxLength),
+							},
+						},
+					},
 				},
 			},
 			"api_token": schema.StringAttribute{
@@ -253,6 +277,29 @@ func createFlinkClusterRequestFromData(data *FlinkClusterResourceData) webclient
 		description = &value
 	}
 
+	// The same holds for the schema registries: an omitted key leaves the stored list in place,
+	// so a removed block is sent as an explicit null.
+	var schemaRegistries *[]webclient.SchemaRegistryConfig
+	if !data.SchemaRegistries.IsNull() && !data.SchemaRegistries.IsUnknown() {
+		registries := make([]webclient.SchemaRegistryConfig, 0, len(data.SchemaRegistries.Elements()))
+		for _, element := range data.SchemaRegistries.Elements() {
+			object, ok := element.(types.Object)
+			if !ok {
+				continue
+			}
+			attributes := object.Attributes()
+			registry := webclient.SchemaRegistryConfig{}
+			if value, ok := attributes["type"].(types.String); ok {
+				registry.Type = value.ValueString()
+			}
+			if value, ok := attributes["url"].(types.String); ok {
+				registry.Url = value.ValueString()
+			}
+			registries = append(registries, registry)
+		}
+		schemaRegistries = &registries
+	}
+
 	return webclient.FlinkClusterRequest{
 		Name:             data.Name.ValueString(),
 		Description:      description,
@@ -261,7 +308,45 @@ func createFlinkClusterRequestFromData(data *FlinkClusterResourceData) webclient
 		Namespace:        data.Namespace.ValueString(),
 		DeploymentTarget: data.DeploymentTarget.ValueString(),
 		ApiToken:         data.ApiToken.ValueString(),
+		SchemaRegistries: schemaRegistries,
 	}
+}
+
+// schemaRegistryObjectType mirrors the nested object of the `schema_registries` attribute.
+func schemaRegistryObjectType() attr.TypeWithAttributeTypes {
+	return types.ObjectType{AttrTypes: map[string]attr.Type{
+		"type": types.StringType,
+		"url":  types.StringType,
+	}}
+}
+
+// mapSchemaRegistriesToData writes the API's list into state, keeping an unset attribute null: the
+// API answers with an empty list for a cluster that has none, which is not the same as `[]`.
+func mapSchemaRegistriesToData(data *FlinkClusterResourceData, registries []webclient.SchemaRegistryConfig) {
+	objectType := schemaRegistryObjectType()
+	if len(registries) == 0 {
+		data.SchemaRegistries = types.ListNull(objectType)
+		return
+	}
+
+	elements := make([]attr.Value, 0, len(registries))
+	for _, registry := range registries {
+		object, diags := types.ObjectValue(objectType.AttributeTypes(), map[string]attr.Value{
+			"type": types.StringValue(registry.Type),
+			"url":  types.StringValue(registry.Url),
+		})
+		if diags.HasError() {
+			continue
+		}
+		elements = append(elements, object)
+	}
+
+	list, diags := types.ListValue(objectType, elements)
+	if diags.HasError() {
+		data.SchemaRegistries = types.ListNull(objectType)
+		return
+	}
+	data.SchemaRegistries = list
 }
 
 func mapFlinkClusterResponseToData(data *FlinkClusterResourceData, flinkCluster *webclient.FlinkClusterResponse) {
@@ -271,6 +356,7 @@ func mapFlinkClusterResponseToData(data *FlinkClusterResourceData, flinkCluster 
 	data.Workspace = types.StringValue(flinkCluster.Workspace)
 	data.Namespace = types.StringValue(flinkCluster.Namespace)
 	data.DeploymentTarget = types.StringValue(flinkCluster.DeploymentTarget)
+	mapSchemaRegistriesToData(data, flinkCluster.SchemaRegistries)
 
 	if flinkCluster.Description == "" {
 		data.Description = types.StringNull()

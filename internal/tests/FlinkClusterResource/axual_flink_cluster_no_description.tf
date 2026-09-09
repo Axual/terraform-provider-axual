@@ -1,4 +1,4 @@
-# `description` is left out and `name` is changed: the PATCH has to carry an explicit
+# `description` and `schema_registries` are left out and `name` is changed: the PATCH has to carry an explicit
 # "description": null to clear the stored text, or the API keeps it and the apply fails with
 # "Provider produced inconsistent result after apply".
 resource "axual_flink_cluster" "tf_test_flink_cluster" {

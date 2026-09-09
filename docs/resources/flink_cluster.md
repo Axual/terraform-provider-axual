@@ -29,10 +29,19 @@ A Flink Cluster registers a Ververica Platform namespace on an Instance-Cluster,
 ### Optional
 
 - `description` (String) A short description of the Flink Cluster.
+- `schema_registries` (Attributes List) Schema registries the Flink Cluster reads schemas from. Required for Flink SQL jobs over AVRO topics: the platform injects the url into the generated table DDL. When more than one is configured, a job using `'value.format' = 'avro-confluent'` uses the first Confluent-type registry in the list. (see [below for nested schema](#nestedatt--schema_registries))
 
 ### Read-Only
 
 - `id` (String) Flink Cluster unique identifier
+
+<a id="nestedatt--schema_registries"></a>
+### Nested Schema for `schema_registries`
+
+Required:
+
+- `type` (String) Schema registry type: `CONFLUENT` or `APICURIO`.
+- `url` (String) Base URL of the schema registry API, e.g. `https://apicurio.example.com/apis/ccompat/v7` for Confluent compatibility.
 
 ## Example Usage
 
