@@ -7,20 +7,23 @@ terraform {
   }
 }
 
+variable "axual_client_secret" {
+  description = "Client secret of the service account. Set it with TF_VAR_axual_client_secret, or omit client_secret below and set AXUAL_CLIENT_SECRET instead."
+  type        = string
+  sensitive   = true
+}
+
 provider "axual" {
   # Configuration options
   # (String) URL that will be used by the client for all resource requests
-  apiurl   = "https://platform.local/api"
-  # (String) Axual realm used for the requests
-  realm    = "axual"
-  # (String) Username for all requests. Will be used to acquire a token. It can be omitted if the environment variable AXUAL_AUTH_USERNAME is used.
-  username = "kubernetes@axual.com"
-  # (String, Sensitive) Password belonging to the user. It can be omitted if the environment variable AXUAL_AUTH_PASSWORD is used.
-  password = "PLEASE_CHANGE_PASSWORD"
-  # (String) Client ID to be used for OAUTH
-  clientid = "self-service"
+  apiurl        = "https://platform.local/api"
+  # (String) Axual realm used for the requests. This is your tenant's short name.
+  realm         = "axual"
   # (String) Token url
-  authurl  = "https://platform.local/auth/realms/axual/protocol/openid-connect/token"
-  # (List of String) OAuth authorization server scopes
-  scopes   = ["openid", "profile", "email"]
+  authurl       = "https://platform.local/auth/realms/axual/protocol/openid-connect/token"
+
+  # (String) Client ID of the service account. It can be omitted if the environment variable AXUAL_CLIENT_ID is set.
+  client_id     = "PLEASE_CHANGE_SERVICE_ACCOUNT_CLIENT_ID"
+  # (String, Sensitive) Client secret of the service account. It can be omitted if the environment variable AXUAL_CLIENT_SECRET is set.
+  client_secret = var.axual_client_secret
 }

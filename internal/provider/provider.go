@@ -3,12 +3,13 @@ package provider
 import (
 	webclient "axual-webclient"
 	"context"
+	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/function"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"os"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -36,87 +37,93 @@ type AxualProvider struct {
 
 // providerData can be used to store data from the Terraform configuration.
 type providerData struct {
-	ApiUrl   types.String `tfsdk:"apiurl"`
-	Realm    types.String `tfsdk:"realm"`
-	Username types.String `tfsdk:"username"`
-	Password types.String `tfsdk:"password"`
-	ClientID types.String `tfsdk:"clientid"`
-	AuthUrl  types.String `tfsdk:"authurl"`
-	Scopes   types.List   `tfsdk:"scopes"`
-	Audience types.String `tfsdk:"audience"`
-	AuthMode types.String `tfsdk:"authmode"`
+	ApiUrl types.String `tfsdk:"apiurl"`
+	Realm  types.String `tfsdk:"realm"`
+
+	ClientID      types.String `tfsdk:"client_id"`
+	ClientSecret  types.String `tfsdk:"client_secret"`
+	OIDCToken     types.String `tfsdk:"oidc_token"`
+	OIDCTokenFile types.String `tfsdk:"oidc_token_file"`
+
+	Username       types.String `tfsdk:"username"`
+	Password       types.String `tfsdk:"password"`
+	LegacyClientID types.String `tfsdk:"clientid"`
+	AuthUrl        types.String `tfsdk:"authurl"`
+	Scopes         types.List   `tfsdk:"scopes"`
+	Audience       types.String `tfsdk:"audience"`
+	AuthMode       types.String `tfsdk:"authmode"`
 }
 
 func (p *AxualProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
 	var data providerData
-	diags := req.Config.Get(ctx, &data)
-	resp.Diagnostics.Append(diags...)
-
+	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	apiurl := data.ApiUrl.ValueString()
-	realm := data.Realm.ValueString()
-
-	var username string
-	if data.Username.IsNull() {
-		username = os.Getenv("AXUAL_AUTH_USERNAME")
-		if username == "" {
+	// A credential that is still unknown at configure time cannot be used to sign in,
+	// and the resulting failure would point at the wrong thing.
+	// A slice, not a map: with more than one unknown the reported attribute must be the
+	// same on every run.
+	credentialAttributes := []struct {
+		name  string
+		value types.String
+	}{
+		{"client_id", data.ClientID},
+		{"client_secret", data.ClientSecret},
+		{"oidc_token", data.OIDCToken},
+		{"oidc_token_file", data.OIDCTokenFile},
+		{"username", data.Username},
+		{"password", data.Password},
+		{"clientid", data.LegacyClientID},
+	}
+	for _, attribute := range credentialAttributes {
+		if attribute.value.IsUnknown() {
 			resp.Diagnostics.AddError(
-				"Missing Username",
-				"Username is not provided in configuration and the AXUAL_AUTH_USERNAME environment variable is not set.",
+				"Credential is not known yet",
+				fmt.Sprintf("The value of %q is not known until after apply, so the provider "+
+					"cannot authenticate with it. Supply it from a variable or an environment "+
+					"variable instead of from another resource's output.", attribute.name),
 			)
 			return
 		}
-	} else {
-		username = data.Username.ValueString()
 	}
 
-	var password string
-	if data.Password.IsUnknown() {
-		// Cannot connect to client with an unknown value
-		resp.Diagnostics.AddError(
-			"Unable to create client",
-			"Cannot use unknown value as host",
-		)
+	var scopes []string
+	if !data.Scopes.IsNull() {
+		resp.Diagnostics.Append(data.Scopes.ElementsAs(ctx, &scopes, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	credentials, warnings, err := webclient.Resolve(webclient.ProviderConfig{
+		AuthURL:        data.AuthUrl.ValueString(),
+		ClientID:       data.ClientID.ValueString(),
+		LegacyClientID: data.LegacyClientID.ValueString(),
+		ClientSecret:   data.ClientSecret.ValueString(),
+		OIDCToken:      data.OIDCToken.ValueString(),
+		OIDCTokenFile:  data.OIDCTokenFile.ValueString(),
+		Username:       data.Username.ValueString(),
+		Password:       data.Password.ValueString(),
+		AuthMode:       data.AuthMode.ValueString(),
+		Scopes:         scopes,
+	}, os.Getenv)
+
+	for _, warning := range warnings {
+		resp.Diagnostics.AddWarning(warning.Summary, warning.Detail)
+	}
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to determine how to authenticate", err.Error())
 		return
 	}
-	if data.Password.IsNull() {
-		password = os.Getenv("AXUAL_AUTH_PASSWORD")
-		if password == "" {
-			resp.Diagnostics.AddError(
-				"Missing Password",
-				"Password is not provided in configuration and the AXUAL_AUTH_PASSWORD environment variable is not set.",
-			)
-			return
-		}
-	} else {
-		password = data.Password.ValueString()
-	}
 
-	auth := webclient.AuthStruct{
-		Username: username,
-		Password: password,
-		Url:      data.AuthUrl.ValueString(),
-		ClientId: data.ClientID.ValueString(),
-		Audience: data.Audience.ValueString(),
-		AuthMode: data.AuthMode.ValueString(),
-	}
-	// Default to keycloak if authmode is not set.
-	if auth.AuthMode == "" {
-		auth.AuthMode = "keycloak"
-	}
+	tflog.Info(ctx, "Resolved Axual provider authentication", map[string]interface{}{
+		"mode":    string(credentials.Mode),
+		"sources": credentials.Sources,
+	})
 
-	if !data.Scopes.IsNull() {
-		var scopes []string
-		for _, s := range data.Scopes.Elements() {
-			scopes = append(scopes, strings.Trim(s.String(), "\""))
-		}
-		auth.Scopes = scopes
-	}
-
-	c, err := webclient.NewClient(apiurl, realm, auth)
+	client, err := webclient.NewClient(data.ApiUrl.ValueString(), data.Realm.ValueString(), credentials)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to create client",
@@ -125,7 +132,7 @@ func (p *AxualProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		return
 	}
 
-	p.client = c
+	p.client = client
 }
 
 func (p *AxualProvider) Resources(ctx context.Context) []func() resource.Resource {
@@ -178,38 +185,76 @@ func (p *AxualProvider) Schema(ctx context.Context, req provider.SchemaRequest, 
 				Required:            true,
 			},
 			"realm": schema.StringAttribute{
-				MarkdownDescription: "Axual realm used for the requests (only used with keycloak auth mode)",
+				MarkdownDescription: "Axual realm used for the requests. This is your tenant's short name.",
 				Optional:            true,
-			},
-			"username": schema.StringAttribute{
-				MarkdownDescription: "Username for all requests. Will be used to acquire a token",
-				Optional:            true,
-			},
-			"password": schema.StringAttribute{
-				MarkdownDescription: "Password belonging to the user",
-				Optional:            true,
-				Sensitive:           true,
-			},
-			"clientid": schema.StringAttribute{
-				MarkdownDescription: "Client ID to be used for oauth",
-				Required:            true,
 			},
 			"authurl": schema.StringAttribute{
 				MarkdownDescription: "Token URL",
 				Required:            true,
 			},
-			"scopes": schema.ListAttribute{
-				MarkdownDescription: "OAuth authorization server scopes",
+
+			"client_id": schema.StringAttribute{
+				MarkdownDescription: "Client ID of the service account. Not used by federated service accounts, " +
+					"which Keycloak identifies from the assertion. Can be omitted if the environment " +
+					"variable `AXUAL_CLIENT_ID` is set.",
+				Optional: true,
+			},
+			"client_secret": schema.StringAttribute{
+				MarkdownDescription: "Client secret of the service account. Setting it selects service account " +
+					"authentication with a secret. Can be omitted if the environment variable " +
+					"`AXUAL_CLIENT_SECRET` is set.",
+				Optional:  true,
+				Sensitive: true,
+			},
+			"oidc_token": schema.StringAttribute{
+				MarkdownDescription: "The assertion a federated service account authenticates with: a token " +
+					"issued by your own identity provider, not an Axual token. Setting it selects " +
+					"federated authentication, which sends no client secret at all. Can be omitted if " +
+					"the environment variable `AXUAL_OIDC_TOKEN` is set, which is the usual way to " +
+					"supply it from a CI pipeline.",
+				Optional:  true,
+				Sensitive: true,
+			},
+			"oidc_token_file": schema.StringAttribute{
+				MarkdownDescription: "Path to a file holding the assertion a federated service account " +
+					"authenticates with. The file is read again every time the access token is renewed, " +
+					"so use this rather than `oidc_token` when something rewrites the assertion as it " +
+					"rotates. Can be omitted if the environment variable `AXUAL_OIDC_TOKEN_FILE` is set.",
+				Optional: true,
+			},
+
+			"username": schema.StringAttribute{
+				MarkdownDescription: "Username for all requests. Will be used to acquire a token. " +
+					"Deprecated: use a service account instead.",
+				Optional: true,
+			},
+			"password": schema.StringAttribute{
+				MarkdownDescription: "Password belonging to the user. Deprecated: use a service account instead.",
 				Optional:            true,
-				ElementType:         types.StringType,
+				Sensitive:           true,
+			},
+			"scopes": schema.ListAttribute{
+				MarkdownDescription: "OAuth authorization server scopes. Only applies to username and password " +
+					"authentication; service account authentication does not send a scope.",
+				Optional:    true,
+				ElementType: types.StringType,
+			},
+			"clientid": schema.StringAttribute{
+				MarkdownDescription: "Client ID to be used for oauth.",
+				Optional:            true,
+				DeprecationMessage:  "Use client_id instead.",
 			},
 			"audience": schema.StringAttribute{
-				MarkdownDescription: "Audience for OAUTH (required for auth0 auth mode)",
+				MarkdownDescription: "Audience for OAUTH.",
 				Optional:            true,
+				DeprecationMessage: "No longer has any effect. Will be removed in a future major release; " +
+					"remove it from your configuration.",
 			},
 			"authmode": schema.StringAttribute{
-				MarkdownDescription: "Authentication mode to use: keycloak or auth0 (defaults to keycloak)",
+				MarkdownDescription: "Authentication mode.",
 				Optional:            true,
+				DeprecationMessage: "No longer has any effect. The authentication method is determined by " +
+					"which credentials are supplied. Remove it from your configuration.",
 			},
 		},
 	}

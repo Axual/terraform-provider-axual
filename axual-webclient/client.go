@@ -1,14 +1,12 @@
 package webclient
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"time"
 )
 
 // Client represents an HTTP client configured to communicate with the API.
@@ -16,37 +14,21 @@ type Client struct {
 	HTTPClient *http.Client
 	ApiURL     string
 	Realm      string
-	AuthMode   string
-}
-
-// AuthStruct holds the authentication configuration.
-type AuthStruct struct {
-	Username string
-	Password string
-	Url      string
-	ClientId string
-	Scopes   []string
-	Audience string
-	AuthMode string // "keycloak" or "auth0"
 }
 
 var NotFoundError = errors.New("resource not found")
 var UnprocessableEntityError = errors.New("unprocessable entity")
 
-// NewClient creates a new Client using the provided API URL, realm, and authentication settings.
-func NewClient(apiUrl string, realm string, auth AuthStruct) (*Client, error) {
-	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	// SignIn will choose the appropriate token flow (Keycloak or Auth0) based on auth.AuthMode.
-	client, err := SignIn(auth)
+// NewClient creates a new Client using the provided API URL, realm, and resolved credentials.
+func NewClient(apiUrl string, realm string, credentials Credentials) (*Client, error) {
+	client, err := SignIn(credentials)
 	if err != nil {
 		return nil, err
 	}
-	client.Timeout = 30 * time.Second
 	c := Client{
 		HTTPClient: client,
 		ApiURL:     apiUrl,
 		Realm:      realm,
-		AuthMode:   auth.AuthMode,
 	}
 	return &c, nil
 }
@@ -60,10 +42,8 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 
 func (c *Client) doRequestWithHeaders(req *http.Request) ([]byte, http.Header, error) {
 	log.Println("Executing HTTP request...")
-	// Only set Realm header if AuthMode is keycloak.
-	if c.AuthMode == "keycloak" {
-		req.Header.Set("Realm", c.Realm)
-	}
+	// The gateway reads this to pick the tenant realm, in every authentication mode.
+	req.Header.Set("Realm", c.Realm)
 	if req.Header.Get("Accept") == "" {
 		req.Header.Set("Accept", "application/hal+json")
 	}

@@ -9,6 +9,9 @@ terraform {
 
 # Provider Configuration for local Axual platform installation
 
+# Username and password authentication is deprecated. This guide still uses it so that
+# each team is visibly a separate identity. For production, give each team its own
+# service account instead - see the "Service account authentication" guide.
 provider "axual" {
   # (String) URL that will be used by the client for all resource requests
   apiurl   = "https://platform.local/api"

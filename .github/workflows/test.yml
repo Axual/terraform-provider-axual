@@ -4,7 +4,8 @@ name: Test
 
 on:
   push:
-    branches: [master]
+    branches:
+      - master
   pull_request:
 
 permissions:
@@ -27,6 +28,9 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      - name: Test
+        run: go test ./...
+
       - name: Unit tests
         run: go test -count 1 ./internal/provider/
 
@@ -34,6 +38,16 @@ jobs:
       - name: Unit tests (axual-webclient)
         run: go test -count 1 ./...
         working-directory: axual-webclient
+
+      - name: Documentation is up to date
+        run: |
+          go generate
+          git diff --exit-code -- docs/ || {
+            echo "::error::docs/ is out of date - run 'go generate' and commit the result"
+            exit 1
+          }
+        working-directory: axual-webclient
+        run: go test ./...
 
       - name: Documentation is up to date
         run: |

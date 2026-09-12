@@ -153,7 +153,6 @@ func GetProvider() string {
 
 	providerBlock := `
 		provider "axual" {
-		authmode = "keycloak"
 		apiurl   = "` + config.ApiUrl + `"
 		realm    = "` + config.Realm + `"
 		username = "` + config.Username + `"
@@ -265,13 +264,13 @@ func apiClient() (*webclient.Client, error) {
 	return webclient.NewClient(
 		config.ApiUrl,
 		config.Realm,
-		webclient.AuthStruct{
+		webclient.Credentials{
+			Mode:     webclient.ModeROPC,
+			TokenURL: config.AuthUrl,
+			ClientID: "self-service",
 			Username: config.Username,
 			Password: config.Password,
-			Url:      config.AuthUrl,
-			ClientId: "self-service",
 			Scopes:   []string{"openid", "profile", "email"},
-			AuthMode: "keycloak",
 		},
 	)
 }

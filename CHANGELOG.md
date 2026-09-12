@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+### Added
+* Service account authentication with a client ID and secret: `client_id` and `client_secret`, or the `AXUAL_CLIENT_ID` and `AXUAL_CLIENT_SECRET` environment variables
+* Federated service account authentication, which sends no secret at all: `oidc_token` and `oidc_token_file`, or the `AXUAL_OIDC_TOKEN` and `AXUAL_OIDC_TOKEN_FILE` environment variables. `oidc_token_file` is read again on every token renewal, so a rotated assertion is picked up automatically
+* Guide: `Service account authentication`, covering both modes and migrating off username and password
+* The provider now verifies its credentials while configuring, so bad credentials fail at the start of a plan instead of partway through an apply
+
+### Changed
+* The authentication method is determined by which credentials are supplied. Supplying a service account credential takes precedence over `username` and `password`, which are ignored with a warning naming them - a leftover `AXUAL_AUTH_PASSWORD` will not break a pipeline that has moved to a service account
+* The provider no longer disables TLS certificate verification process-wide. It now uses its own HTTP transport, leaving `http.DefaultTransport` untouched. Certificate verification behaviour for the provider's own requests is unchanged
+
+### Deprecated
+* `username` and `password` authentication. Use a service account instead
+* `clientid`, replaced by `client_id`. Both are accepted; setting them to different values is an error
+* `authmode` and `audience`. Neither has any effect
+
+### Removed
+* The `auth0` authentication mode. `authmode = "auth0"` now reports a clear error
+
 ## [3.2.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.2.0) - TBR
 ### Added
 * Support for Flink Cluster as `axual_flink_cluster`, including its `schema_registries`
@@ -27,7 +46,6 @@ All notable changes to this project will be documented in this file.
 * Update the deployment target of a KSML Application Deployment in place instead of replacing it
 * Fix five `go vet` findings in `resource_schema_version.go`, `resource_topic_config.go` and
   `resource_user.go`, so `go test ./internal/provider/` runs with vet enabled
-
 ## [3.1.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.1.0) - 2026-06-30
 ### Added
 * Allow rotating a Connector's `axual_application_principal`

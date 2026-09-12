@@ -60,9 +60,33 @@ provider "axual" {
 
 ### Authentication
 
-The provider supports authentication via:
-- Direct credentials in the provider block
-- Environment variables: `AXUAL_AUTH_USERNAME` and `AXUAL_AUTH_PASSWORD`
+Authenticate as a **service account** - a machine identity that holds roles and group
+memberships like a person does, but belongs to no individual. A tenant admin creates one
+for you.
+
+```terraform
+provider "axual" {
+  apiurl        = "https://platform.local/api"
+  realm         = "axual"
+  authurl       = "https://platform.local/auth/realms/axual/protocol/openid-connect/token"
+
+  client_id     = "sa-orders-producer-a1b2c3"   # or set using env: AXUAL_CLIENT_ID
+  client_secret = var.axual_client_secret       # or set using env: AXUAL_CLIENT_SECRET
+}
+```
+
+A service account can also authenticate with no secret at all, presenting a token from
+your own identity provider instead - set `oidc_token` or `oidc_token_file` (or
+`AXUAL_OIDC_TOKEN` / `AXUAL_OIDC_TOKEN_FILE`). See the
+[Service account authentication](docs/guides/service-account-authentication.md) guide.
+
+Every credential can come from the environment rather than the provider block:
+`AXUAL_CLIENT_ID`, `AXUAL_CLIENT_SECRET`, `AXUAL_OIDC_TOKEN`, `AXUAL_OIDC_TOKEN_FILE`.
+
+> **Deprecated:** authenticating as a person with `username` and `password` (or
+> `AXUAL_AUTH_USERNAME` / `AXUAL_AUTH_PASSWORD`) still works and emits a warning, but it
+> puts a real password into automation and will be removed in a future release. The guide
+> above covers migrating.
 
 ### Example Usage
 
