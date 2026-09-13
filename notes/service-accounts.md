@@ -413,24 +413,46 @@ Options, none obviously right — this is what to grill next time:
 | | Approach | Cost |
 |---|---|---|
 | a | Widen the read model to keep each member's `type`, and use it on update | Does nothing for create, where there is no prior state |
-| b | Look each uid up before writing | An extra call per member; and see the gap below — there may be no endpoint that resolves an SA uid |
+| b | Look each uid up before writing | An extra call per member. Now plausible: the SA search is open to any tenant user (see below), where a tenant-admin-only endpoint would have been unusable — the provider does not run as tenant admin |
 | c | Take typed references in HCL (`axual_service_account.x.id` vs `axual_user.y.id`) | Needs **B** to exist for the SA side; changes the schema |
 | d | Try `/users/`, retry as `/service-accounts/` on 400 | Works without B and without a lookup, but it is a guess-and-retry |
 
-(c) is the honest model and (d) is the lazy one that ships today. Worth pricing both.
+(c) is the honest model, (d) is the lazy one that ships today, and (b) became
+viable on 2026-09-14 when the SA search opened up to all tenant users. Price all
+three; (a) alone is not sufficient because create has no prior state.
 
-## A gap PM has not closed
+## The lookup gap — mostly closed (design is out of date here)
 
-The design flags this itself, under *Gap — no member search returns SAs*:
+The design flags a gap under *Gap — no member search returns SAs* (line 323),
+saying `/service-accounts/search/findByAttributes` is "scoped to the SA admin
+screens" and calling the fix "an API story of its own, and a prerequisite".
 
-> `/users/search/findByAttributes` is human-only by the rule above, and
-> `/service-accounts/search/findByAttributes` is scoped to the SA admin screens...
-> there is no lookup a group-member picker can call to *find* one.
+**That is out of date.** Confirmed 2026-09-14: `/service-accounts/search/findByAttributes`
+is now open to **any user of the tenant**, not just tenant admins.
 
-It calls this "an API story of its own, and a prerequisite". **Confirm whether that
-story has landed before choosing option (b) or (c)** — both depend on being able to
-resolve or discover an SA uid from the group side. If it has not, (d) may be the only
-thing that works.
+This matters more than it sounds, and it is the reason option (b) moves from
+impossible to plausible. The provider authenticates as whatever identity the
+customer configured — a service account with topic and environment roles, say.
+It is **not** normally a tenant admin. So an endpoint gated on tenant-admin is
+unusable to us for resolving a member's type, no matter how convenient: the
+customer's own credentials would get a 403 doing routine group management.
+With the search open to any tenant user, we can actually call it.
+
+**Two things still to confirm before building on it:**
+
+1. **Can it resolve by uid?** The name says *findByAttributes*, and the design says
+   it mirrors `/users/search/findByAttributes`. If the attributes are name/email
+   only, it does not answer "what type is uid X", which is the question
+   `axual_group` actually has. Check the controller
+   (`ServiceAccountDynamicSearchController.java:37`) for the parameters it accepts.
+2. **Does it emit the `/service-accounts/{uid}` self href?** The design is emphatic
+   that a lookup returning a `/users/` href satisfies a picker and still fails the
+   write. Since this is the SA resource's own search, it almost certainly does — but
+   it is a one-line check and the failure mode is a 400 at apply time.
+
+Note that `GET /api/service-accounts/{uid}` — the detail route — is a different
+question and is likely still tenant-admin gated under the `SERVICE_ACCOUNT_*` ABAC
+rules. Do not assume the search being open means the detail route is.
 
 ## Also in scope for C
 
