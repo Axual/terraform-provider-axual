@@ -19,6 +19,9 @@ and the `authmode` field; `auth0` is dropped.
 
 ## C — The provider stops breaking when PM ships SAs
 
+**Start here for the next session.** Full brief at the end of this file, under
+"C — brief for a fresh session".
+
 PM changes that break us on arrival:
 
 - Group membership is written by **typed URI**. `resource_group.go:271` hardcodes
@@ -342,3 +345,133 @@ for now.
   on-prem self-signed certs; needs its own deprecation cycle.
 - **Report to the design author** — the `oidc_token = "${AXUAL_TOKEN}"` example
   in the upstream design is not valid HCL.
+
+
+---
+
+# C — brief for a fresh session
+
+Written 2026-09-13, at the end of the session that delivered **A1**. A1 is
+committed on branch `feat/service-account-authentication` (unpushed at the time
+of writing). Everything above this line is A1; everything below is C.
+
+## Why this one has a deadline
+
+Every other piece of work here is on our schedule. C is on Platform Manager's.
+The day their MR lands and ships, existing customer configurations start failing
+with no change from us. Check whether `axual/platform/mgmt-api!1911` has merged
+before planning anything else.
+
+## What PM changes, precisely
+
+From the upstream design's *REST surface (tenant-admin)* section:
+
+1. **`/users` stops serving service accounts.** All three of `GET /api/users/{uid}`
+   (**404** for an SA uid), the `/users` collection, and
+   `/users/search/findByAttributes` exclude `type = SA`. `/api/service-accounts/{uid}`
+   becomes the only detail resource for an SA.
+
+2. **Group membership is written by typed URI.** `members`, `managers` and
+   `resourceManagers` carry `/service-accounts/{uid}` for a service account row and
+   `/users/{uid}` for a human. **A URI that disagrees with the referenced row's type
+   is rejected with 400.**
+
+3. `type` is exposed on any *user* representation that names an actor or a member —
+   group member and manager rows, and the attribution surfaces saying who created or
+   edited something.
+
+## Where we break
+
+`internal/provider/resource_group.go:271`:
+
+```go
+for _, member := range memberUIDs {
+    fullURL := fmt.Sprintf("%s/users/%v", apiUrl, member)   // <- 400 for an SA
+    members = append(members, fullURL)
+}
+```
+
+`managers` on the line below builds `%s/groups/%v` and is unaffected — managers are
+groups, not users. `resourceManagers` does not appear anywhere in the provider
+(checked: no match repo-wide), so it is out of scope. **`members` is the only
+breakage.** That is the whole blast radius: one loop, one format string.
+
+## The actual design problem
+
+The design says a client is "correct by construction" if it echoes back the `self`
+href PM gave it. **We cannot do that**, and this is the crux of C:
+
+- `axual_group.members` is a `types.Set` of **bare uids** (`resource_group.go:42`).
+- Reads discard everything but the uid — `groups_data.go` decodes members as
+  `[]struct{ Uid string }`, and `resource_group.go:218-228` rebuilds a set of uids.
+- So on **create** there is no prior read to echo. The user writes
+  `members = [axual_user.foo.id]` and the provider must decide, from a bare uid
+  alone, whether to emit `/users/` or `/service-accounts/`.
+
+Options, none obviously right — this is what to grill next time:
+
+| | Approach | Cost |
+|---|---|---|
+| a | Widen the read model to keep each member's `type`, and use it on update | Does nothing for create, where there is no prior state |
+| b | Look each uid up before writing | An extra call per member; and see the gap below — there may be no endpoint that resolves an SA uid |
+| c | Take typed references in HCL (`axual_service_account.x.id` vs `axual_user.y.id`) | Needs **B** to exist for the SA side; changes the schema |
+| d | Try `/users/`, retry as `/service-accounts/` on 400 | Works without B and without a lookup, but it is a guess-and-retry |
+
+(c) is the honest model and (d) is the lazy one that ships today. Worth pricing both.
+
+## A gap PM has not closed
+
+The design flags this itself, under *Gap — no member search returns SAs*:
+
+> `/users/search/findByAttributes` is human-only by the rule above, and
+> `/service-accounts/search/findByAttributes` is scoped to the SA admin screens...
+> there is no lookup a group-member picker can call to *find* one.
+
+It calls this "an API story of its own, and a prerequisite". **Confirm whether that
+story has landed before choosing option (b) or (c)** — both depend on being able to
+resolve or discover an SA uid from the group side. If it has not, (d) may be the only
+thing that works.
+
+## Also in scope for C
+
+Move the acceptance harness off password authentication onto a service account.
+A1 deliberately left this behind because PM had not merged. It touches three places
+that each emit credentials independently:
+
+- `internal/tests/test_provider.go:117-128` — the HCL provider block (now without
+  `authmode`, which A1 removed from the harness)
+- `internal/tests/test_provider.go:201-218` — `apiClient()`, a second path that
+  bypasses the provider entirely
+- `internal/tests/test_config.yaml` — has no client-id field; `"self-service"` is
+  hardcoded at both sites above
+
+## What A1 already verified, so C need not re-check it
+
+Against a live e2e stack on 2026-09-13:
+
+- legacy password-grant configs still authenticate (the `AuthStyleInParams` risk)
+- a secret-mode service account authenticates and does real work — created an
+  environment, a topic and a topic config, and re-planned clean
+- credentials resolve from the environment; a stale `AXUAL_AUTH_PASSWORD` is ignored
+  with a warning naming it
+- every error path, including a federated exchange reaching real Keycloak
+
+Still unverified anywhere: **federated mode with a valid assertion.** PM's e2e suite
+carries a stand-in IdP realm called `e2eidp` that could close it.
+
+## Bringing up a stack to test against
+
+In `~/IdeaProjects/gitlab/axual-flux`, on the service-accounts branch:
+
+```bash
+cd e2e && ./run.sh up      # ~13 containers; down / down -v to stop
+```
+
+Gives `http://localhost:8080/api`, Keycloak at `http://localhost:8070/auth`, tenant
+realm `e2e`. Seeded users have password == username (`tenant-admin`, `tina`, ...) and
+the OAuth client for the password grant is `self-service`.
+
+**Note:** an instance created through the API without bootstrap servers is not wired
+to the running Kafka broker, and every test that touches a topic then fails with a
+`500`. Use an instance that is actually wired to a cluster, or expect 11 of the 19
+acceptance packages to fail for reasons unrelated to the change under test.
