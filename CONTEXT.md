@@ -66,3 +66,20 @@ this run: secret, federated, or ROPC. Inferred from which credentials are
 present, never configured directly. Not to be confused with the deprecated
 `authmode` attribute, which only ever meant "Keycloak or Auth0" and carried no
 information once Auth0 was dropped.
+
+## Group membership
+
+**Member** — a person or a service account belonging to a group. **Manager** —
+confusingly, not a person at all: a group's managers are other *groups*. Only
+the member list can name a service account.
+
+**Typed member URI** — how a group's member list names each member. The
+collection segment declares what kind of row the uid points at: `/users/{uid}`
+for a person, `/service-accounts/{uid}` for a service account. Platform Manager
+rejects a URI whose collection disagrees with the row, so the segment is a claim
+the writer has to get right, not decoration. A bare uid with no collection at all
+means a person.
+
+The distinction exists because a service account and a person are the same kind
+of row underneath (see **Service account**), so nothing but the URI separates
+them.

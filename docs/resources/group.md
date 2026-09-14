@@ -16,7 +16,7 @@ Group resource. Read more: https://docs.axual.io/axual/2026.1/self-service/user-
 
 - `email_address` (String) Group's email address
 - `managers` (Set of String) A Group Manager can edit this group, including adding or removing users and other group managers. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#making-a-group-member-manager-of-the-group
-- `members` (Set of String) Group's members
+- `members` (Set of String) Group's members. Each entry is the uid of a user or of a service account.
 - `phone_number` (String) Group's phone number
 
 ### Read-Only

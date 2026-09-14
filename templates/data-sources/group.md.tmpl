@@ -23,4 +23,4 @@ This data source exports the following attributes in addition to the one listed 
 - id group unique identifier.
 - email_address The group email address.
 - phone_number The group phone number.
-- members The group members.
+- members The group members. Each entry is the uid of a user or of a service account.

@@ -74,7 +74,7 @@ func (r *groupResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				},
 			},
 			"members": schema.SetAttribute{
-				MarkdownDescription: "Group's members",
+				MarkdownDescription: "Group's members. Each entry is the uid of a user or of a service account.",
 				Optional:            true,
 				ElementType:         types.StringType,
 			},
@@ -107,7 +107,7 @@ func (r *groupResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	groupRequest, err := createGroupRequestFromData(ctx, &data, r.provider.client.ApiURL)
+	groupRequest, err := createGroupRequestFromData(ctx, &data, r.provider.client)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating CREATE request struct for group resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
@@ -164,7 +164,7 @@ func (r *groupResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
-	groupRequest, err := createGroupRequestFromData(ctx, &data, r.provider.client.ApiURL)
+	groupRequest, err := createGroupRequestFromData(ctx, &data, r.provider.client)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating UPDATE request struct for group resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
@@ -257,7 +257,7 @@ func mapGroupResponseToData(ctx context.Context, data *groupResourceData, group 
 	}
 }
 
-func createGroupRequestFromData(ctx context.Context, data *groupResourceData, apiUrl string) (webclient.GroupRequest, error) {
+func createGroupRequestFromData(ctx context.Context, data *groupResourceData, client *webclient.Client) (webclient.GroupRequest, error) {
 	// Create members list
 	members := []string{}
 	if !data.Members.IsNull() {
@@ -267,8 +267,13 @@ func createGroupRequestFromData(ctx context.Context, data *groupResourceData, ap
 			return webclient.GroupRequest{}, fmt.Errorf("failed to extract members: %v", diags)
 		}
 
+		// A member may be a person or a service account, and Platform Manager rejects the
+		// write when the URI names the wrong one. The uid alone does not say which.
 		for _, member := range memberUIDs {
-			fullURL := fmt.Sprintf("%s/users/%v", apiUrl, member)
+			fullURL, err := client.GroupMemberURI(member)
+			if err != nil {
+				return webclient.GroupRequest{}, err
+			}
 			members = append(members, fullURL)
 		}
 	}
@@ -286,7 +291,7 @@ func createGroupRequestFromData(ctx context.Context, data *groupResourceData, ap
 		}
 
 		for _, manager := range managerUIDs {
-			fullURL := fmt.Sprintf("%s/groups/%v", apiUrl, manager)
+			fullURL := fmt.Sprintf("%s/groups/%v", client.ApiURL, manager)
 			managers = append(managers, fullURL)
 		}
 	}

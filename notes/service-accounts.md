@@ -497,3 +497,150 @@ the OAuth client for the password grant is `self-service`.
 to the running Kafka broker, and every test that touches a topic then fails with a
 `500`. Use an instance that is actually wired to a cluster, or expect 11 of the 19
 acceptance packages to fail for reasons unrelated to the change under test.
+
+---
+
+# C — decisions
+
+Written 2026-09-14. The brief above is what we believed going in; this section is
+what we found and what we built. Where the two disagree, this section is right.
+
+## What the brief got wrong
+
+Two rounds of questions to Platform Manager (`axual-flux`, branch
+`feat/axpd-11914-create-service-account`) moved four of the brief's assumptions:
+
+| The brief assumed | Actually true |
+|---|---|
+| The SA search can resolve a uid | **No.** `findByAttributes` takes `name`, `clientId`, `roles` only (`ServiceAccountDynamicSearch.java:22-26`) |
+| There is no cheap type oracle | **There is.** `GET /service-accounts/{uid}` is open to *any* tenant user — the ABAC condition is literally `"true"` (`SimplePolicyDefinition.java:888-889`), proven for a non-admin at `ServiceAccountIT.java:196-211` |
+| Reads discard everything but the uid | PM now sends `type` (`"regular"` / `"SA"`) **and** a typed `self` href per member (`GroupUserDTO.java:45-51`, `:98-116`) |
+| A 400 identifies a type mismatch | **It does not.** Wrong collection and unknown uid throw the same `InvalidRequestException` with the same text, `"URI does not represent a valid resource"` (`GroupMembershipService.java:48-51`) |
+
+Two the brief did not mention at all:
+
+- **A bare uid still works, and means "a person"** (`GroupMembershipService.java:36`,
+  test `mapUsers_should_treatABareUidAsAHuman`). Kept for older fixtures.
+- **`/users/search/findByEmailAddress` does *not* exclude service accounts.** It is
+  the one query in `UserRepository.java` missing the `type <> SA` clause that every
+  sibling has (lines 101-103). Service accounts do have a real, synthesised email,
+  `<clientId>@sa.axual.io` (`ServiceAccountIdentity.java:15-16`). So the brief's fear
+  that `axual_user` and the user data source would "silently lose" service accounts is
+  backwards: the data source silently *includes* them.
+
+## The decision: probe each member (option b), via the detail route
+
+The four options in the brief, repriced:
+
+| | Approach | Verdict |
+|---|---|---|
+| a | Keep each member's `type` from reads, use it on update | **Insufficient alone.** Create has no prior read to echo |
+| **b** | **Ask the API what each uid is, before writing** | **Chosen.** Works identically on create and update |
+| c | Typed references in HCL | **Deferred.** Needs **B** to exist, and changes the schema |
+| d | Try `/users/`, retry on 400 | **Dead.** The 400 is indistinguishable from an unknown uid, so a typo would trigger a pointless retry and then report the wrong cause |
+
+(b) is not the option the brief described. The brief expected it to run through
+`/service-accounts/search/findByAttributes`, which cannot take a uid. It runs through
+the **detail route** `GET /service-accounts/{uid}` instead — one call, and open to any
+tenant user, which is what matters: the provider authenticates as whatever identity the
+customer configured and is **not** normally a tenant admin.
+
+Deliberately **not** done:
+
+- **No caching** of probe results across members or across groups within a run.
+  Groups hold a handful of members. Add it when a real configuration makes it hurt.
+- **Not combined with (a).** Storing `type` in state would save probes on update only,
+  never on create, in exchange for widening the state shape. The probe already behaves
+  the same on both paths.
+- **No better error on a 400.** After the probe, a 400 on members can only mean the uid
+  does not exist — but PM returns the same status for unrelated group validation, so
+  explaining it would be a guess. A1's `invalid_client` message worked because the eager
+  fetch gave a genuinely free discriminator; there is no equivalent here.
+
+## Would asking PM for a uid parameter have helped?
+
+Only marginally, and only if it took a *list* of uids — that is the one thing the detail
+route cannot do, turning N calls into 1. N is small. The ambiguity would not improve:
+a uid that is not an SA and a uid that does not exist both come back empty, exactly like
+the 404.
+
+It was rejected on scheduling, not on merit. C is the only work item on **Platform
+Manager's** clock rather than ours; adding a PM dependency would put it behind a second
+merge. If PM later adds batch uid search, swapping the helper's body is a ten-line
+change and no call site cares.
+
+The higher-value ask, if one is ever made, is different: **let PM resolve the type from a
+bare uid itself.** PM already knows every row's type; the typed-URI design pushes a
+lookup onto every client that only PM can answer for free, and bare uid is already
+accepted and already means "a person". That reverses a documented decision
+(`GroupMembershipService.java:29-36`), so it is a design conversation, not a patch.
+
+## Why the read side needed nothing
+
+Verified against the branch: `GroupUserDTO` still serialises `uid`
+(`GroupUserDTO.java:41-43`, asserted at `GroupIT.java:977`), the collection keys are still
+`_embedded.members` / `_embedded.managers` (`GroupRepresentations.java:23-24,44-45`), and
+a group **write** returns the same representation as a read
+(`CustomGroupController.java:94,102,115`). So `mapGroupResponseToData` and the group data
+source are untouched.
+
+`resourceManagers` is present but feature-flagged and additive
+(`GroupRepresentations.java:25,47-53`), and still appears nowhere in this provider.
+Out of scope, as the brief said.
+
+## Blast radius, confirmed
+
+One loop. `managers` builds `%s/groups/%v` and is unaffected — a group's managers are
+groups, not people.
+
+## What shipped
+
+- `axual-webclient/groups.go` — `GroupMemberURI(uid)`. 404 means "write this as a
+  person", which covers a person, an unknown uid, **and a Platform Manager old enough to
+  have no `/service-accounts` route at all**. Any other failure aborts the write rather
+  than guessing: falling back to `/users/` would send a person's URI for a service
+  account and turn an outage into a 400 naming the member.
+- `internal/provider/resource_group.go` — the loop calls it; `createGroupRequestFromData`
+  takes the client instead of the API URL (a *smaller* diff, since both call sites were
+  already passing `client.ApiURL`).
+- `axual-webclient/groups_test.go` — table tests against `httptest`: each kind alone, a
+  mixed member list, non-404 failures aborting, and a Platform Manager without service
+  accounts.
+- `members` description on both the resource and the data source, plus regenerated docs.
+
+Old Platform Manager compatibility is not incidental — it is why no acceptance test
+needed changing. A human uid 404s on `/service-accounts/{uid}` against old *and* new
+Platform Manager, so every existing group test keeps passing, on ROPC, unchanged.
+
+## Deferred out of C, deliberately
+
+- **The acceptance harness stays on ROPC.** Moving it onto a service account is real work
+  in three places (`test_provider.go:117-128`, `apiClient()` at `:201-218`,
+  `test_config.yaml`, which also hardcodes `"self-service"` at both sites) and it is not
+  what breaks when PM ships. It moves when ROPC is removed.
+
+  When it does move: A1 left the seam for it. `webclient.Resolve` is pure and exported,
+  so `apiClient()` can stop hand-building `Credentials{Mode: ModeROPC, …}` and share the
+  provider's own resolution instead of duplicating it. There is **no pre-seeded service
+  account to reuse** — the e2e baseline accounts never capture their secrets
+  (`e2e/tests/service-accounts/conftest.py:37-60`) and PM returns a secret exactly once,
+  on create and rotate (`ServiceAccountResult.java:9-13`). A developer creates one by
+  hand and pastes the secret in. A service account may hold `TENANT_ADMIN`; only
+  `SUPER_ADMIN` and `BILLING_INTERNAL` are refused (`ServiceAccountService.java:480-489`).
+
+- **No acceptance test for a service account member.** It would need the harness on a
+  service account, per above. The unit tests cover the URI selection; what they cannot
+  cover is PM actually accepting the URI.
+
+## To raise with Platform Manager
+
+1. **`findByEmailAddress` is missing its `type <> SA` filter** (`UserRepository.java:101-103`).
+   Every sibling query has it. Looks like an oversight rather than a decision, and it means
+   `data "axual_user"` returns a service account for anyone who knows the synthetic email.
+   Deliberately **not** worked around client-side: the response carries no `type`, so
+   filtering would cost a probe per read to reject a result the user asked for by name.
+2. **`type` is serialised as `"regular"` and `"SA"`** — raw DB codes, inconsistently cased
+   (`UserType.java:15-16`). Cosmetic, but it is in a public representation.
+3. `CLAUDE.md` in this repo tells contributors the test user needs "Topic Author".
+   No such role exists — it is `STREAM_AUTHOR` (`Role.java:19-30`), because topics are
+   Streams internally. Ours to fix, noted here so it is not lost.
