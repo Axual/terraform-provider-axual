@@ -639,8 +639,26 @@ Platform Manager, so every existing group test keeps passing, on ROPC, unchanged
    `data "axual_user"` returns a service account for anyone who knows the synthetic email.
    Deliberately **not** worked around client-side: the response carries no `type`, so
    filtering would cost a probe per read to reject a result the user asked for by name.
-2. **`type` is serialised as `"regular"` and `"SA"`** — raw DB codes, inconsistently cased
-   (`UserType.java:15-16`). Cosmetic, but it is in a public representation.
+2. **`type` should probably not be on a public representation at all.**
+   `GroupUserDTO.getType()` (`GroupUserDTO.java:49-51`) serialises on every member,
+   manager and resourceManager row of every group response, and its value is
+   `user.getType().getDbValue()` — the raw database column, `"regular"` or `"SA"`
+   (`UserType.java:15-16`).
+
+   It is redundant: the typed `self` href already says the same thing, and the design's
+   own "correct by construction" principle makes the href the value clients are meant to
+   echo back. And it leaks storage into the contract — that a person and a service
+   account share one table with a discriminator column is exactly the detail the separate
+   `/users` and `/service-accounts` routes exist to hide.
+
+   There is a real need behind it — the design says nothing may render a service account
+   as a person, so the UI must distinguish — but the `self` href answers that. If PM
+   wants an explicit field anyway, it should not be `getDbValue()`.
+
+   **This provider does not depend on it either way.** `GroupMemberURI` probes
+   `/service-accounts/{uid}` rather than reading `type`, and the field is decoded
+   nowhere: group members are still `struct{ Uid string }`, and no resource or data
+   source exposes a user type. PM can drop the field without touching us.
 3. `CLAUDE.md` in this repo tells contributors the test user needs "Topic Author".
    No such role exists — it is `STREAM_AUTHOR` (`Role.java:19-30`), because topics are
    Streams internally. Ours to fix, noted here so it is not lost.
