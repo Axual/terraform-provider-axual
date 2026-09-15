@@ -23,9 +23,19 @@ func TestApplicationDeploymentResource(t *testing.T) {
 				),
 				ExpectError: regexp.MustCompile(`No active Application Principal`),
 			},
+			// A config the connect plugin does not accept: the provider must report the API's own
+			// message rather than swallow it.
+			{
+				Config: GetProvider() + GetFile(
+					"axual_application_deployment_setup.tf",
+					"axual_application_deployment_invalid_config.tf",
+				),
+				ExpectError: regexp.MustCompile(`Invalid config uploaded`),
+			},
 			// A Connector deployment can be created with no `configs` at all: the API registers the
 			// deployment target and takes the configs later, so the provider only warns that the
-			// deployment cannot be started yet.
+			// deployment cannot be started yet. The deployment it leaves behind is replaced by the
+			// next step, which adds the configs.
 			{
 				Config: GetProvider() + GetFile(
 					"axual_application_deployment_setup.tf",
@@ -168,6 +178,7 @@ func TestApplicationDeploymentFlinkManualTablesResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error loading provider config: %v", err)
 	}
+	SkipWithoutVerverica(t, config)
 	if config.ResolvedTopicPrefix == "" {
 		t.Skip("resolvedTopicPrefix is not set in test_config.yaml, so the Kafka topic names in the hand-written DDL cannot be built")
 	}
@@ -178,7 +189,7 @@ func TestApplicationDeploymentFlinkManualTablesResource(t *testing.T) {
 
 		Steps: []resource.TestStep{
 			{
-				Config: GetProvider() + GetFile(
+				Config: GetFlinkProvider() + GetFile(
 					"axual_application_deployment_flink_setup.tf",
 					"axual_application_deployment_flink_manual_tables.tf",
 				),
@@ -193,7 +204,7 @@ func TestApplicationDeploymentFlinkManualTablesResource(t *testing.T) {
 			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
-				Config: GetProvider() + GetFile(
+				Config: GetFlinkProvider() + GetFile(
 					"axual_application_deployment_flink_setup.tf",
 					"axual_application_deployment_flink_manual_tables.tf",
 				),
@@ -203,6 +214,12 @@ func TestApplicationDeploymentFlinkManualTablesResource(t *testing.T) {
 }
 
 func TestApplicationDeploymentFlinkResource(t *testing.T) {
+	config, err := LoadProviderConfig()
+	if err != nil {
+		t.Fatalf("Error loading provider config: %v", err)
+	}
+	SkipWithoutVerverica(t, config)
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
 		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
@@ -210,14 +227,14 @@ func TestApplicationDeploymentFlinkResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Test missing `sql_script` - should fail response
 			{
-				Config: GetProvider() + GetFile(
+				Config: GetFlinkProvider() + GetFile(
 					"axual_application_deployment_flink_setup.tf",
 					"axual_application_deployment_flink_missing_sql_script.tf",
 				),
 				ExpectError: regexp.MustCompile(`requires a .sql_script.`),
 			},
 			{
-				Config: GetProvider() + GetFile(
+				Config: GetFlinkProvider() + GetFile(
 					"axual_application_deployment_flink_setup.tf",
 					"axual_application_deployment_flink_initial.tf",
 				),
@@ -234,7 +251,7 @@ func TestApplicationDeploymentFlinkResource(t *testing.T) {
 			{
 				// Update the SQL script only: stops the job, PATCHes the SQL and starts it again.
 				// The size is unchanged so a failure here names the SQL.
-				Config: GetProvider() + GetFile(
+				Config: GetFlinkProvider() + GetFile(
 					"axual_application_deployment_flink_setup.tf",
 					"axual_application_deployment_flink_updated.tf",
 				),
@@ -249,7 +266,7 @@ func TestApplicationDeploymentFlinkResource(t *testing.T) {
 			{
 				// Change the size only: the provider sends a `flink_task_size`-only patch, which the
 				// API applies through `saveTaskSizeOnly` - no stop, no Ververica call, no restart.
-				Config: GetProvider() + GetFile(
+				Config: GetFlinkProvider() + GetFile(
 					"axual_application_deployment_flink_setup.tf",
 					"axual_application_deployment_flink_resize.tf",
 				),
@@ -263,7 +280,7 @@ func TestApplicationDeploymentFlinkResource(t *testing.T) {
 			{
 				// A second update in a row: the deployment was stopped by the previous one, so the
 				// API now offers `resume` instead of `start` (AXPD-11906).
-				Config: GetProvider() + GetFile(
+				Config: GetFlinkProvider() + GetFile(
 					"axual_application_deployment_flink_setup.tf",
 					"axual_application_deployment_flink_updated_again.tf",
 				),
@@ -276,7 +293,7 @@ func TestApplicationDeploymentFlinkResource(t *testing.T) {
 			{
 				// generate_tables_sql left out of the configuration: it is Optional and Computed, so
 				// the value the API reports is kept and the plan stays empty.
-				Config: GetProvider() + GetFile(
+				Config: GetFlinkProvider() + GetFile(
 					"axual_application_deployment_flink_setup.tf",
 					"axual_application_deployment_flink_generate_tables_unset.tf",
 				),
@@ -293,7 +310,7 @@ func TestApplicationDeploymentFlinkResource(t *testing.T) {
 			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
-				Config: GetProvider() + GetFile(
+				Config: GetFlinkProvider() + GetFile(
 					"axual_application_deployment_flink_setup.tf",
 					"axual_application_deployment_flink_generate_tables_unset.tf",
 				),

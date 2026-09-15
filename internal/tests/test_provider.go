@@ -34,13 +34,18 @@ type ProviderConfig struct {
 	UserEmail         string `yaml:"userEmail"`
 	Username          string `yaml:"username"`
 	Password          string `yaml:"password"`
-	VervericaUrl      string `yaml:"ververicaUrl"`
-	// ResolvedTopicPrefix is the instance's topic pattern with everything but the topic name filled
-	// in (e.g. "axual-dta-tfflinkdev-"). Only the hand-written Flink table DDL needs it, because a
-	// `CREATE TEMPORARY TABLE` names the real Kafka topic; tests that need it skip when it is empty.
+	// The Ververica values the Flink suites need. The API validates the workspace, namespace and
+	// deployment target live, so a developer whose namespace differs sets them here rather than
+	// editing the fixtures; they default to defaultworkspace / default / default-target.
+	VervericaUrl              string `yaml:"ververicaUrl"`
+	VervericaApiToken         string `yaml:"ververicaApiToken"`
+	ClusterId                 string `yaml:"clusterId"`
+	VervericaWorkspace        string `yaml:"ververicaWorkspace"`
+	VervericaNamespace        string `yaml:"ververicaNamespace"`
+	VervericaDeploymentTarget string `yaml:"ververicaDeploymentTarget"`
+	// ResolvedTopicPrefix is only needed by the hand-written Flink table DDL, whose
+	// `CREATE TEMPORARY TABLE` names the real Kafka topic. That test skips when it is empty.
 	ResolvedTopicPrefix string `yaml:"resolvedTopicPrefix"`
-	VervericaApiToken   string `yaml:"ververicaApiToken"`
-	ClusterId           string `yaml:"clusterId"`
 }
 
 // LoadProviderConfig Function to load the configuration from a YAML file
@@ -58,7 +63,32 @@ func LoadProviderConfig() (ProviderConfig, error) {
 	if config.Realm == "" {
 		config.Realm = "axual"
 	}
+	if config.VervericaWorkspace == "" {
+		config.VervericaWorkspace = "defaultworkspace"
+	}
+	if config.VervericaNamespace == "" {
+		config.VervericaNamespace = "default"
+	}
+	if config.VervericaDeploymentTarget == "" {
+		config.VervericaDeploymentTarget = "default-target"
+	}
 	return config, nil
+}
+
+// SkipWithoutVerverica skips a Flink test unless test_config.yaml carries real Ververica values.
+// The committed file ships `YOUR_...` placeholders, so without this the Flink suites fail rather
+// than skip for every developer who has no Ververica namespace.
+func SkipWithoutVerverica(t *testing.T, config ProviderConfig) {
+	t.Helper()
+	for _, field := range []struct{ key, value string }{
+		{"ververicaUrl", config.VervericaUrl},
+		{"ververicaApiToken", config.VervericaApiToken},
+		{"clusterId", config.ClusterId},
+	} {
+		if field.value == "" || strings.HasPrefix(field.value, "YOUR_") {
+			t.Skipf("%s is not set in test_config.yaml, so no Flink Cluster can be registered", field.key)
+		}
+	}
 }
 
 // This function helps select the appropriate provider configuration for tests.
@@ -151,12 +181,6 @@ func GetProvider() string {
 	data "axual_user" "test_user" {
 	  email = "` + config.UserEmail + `"
 	}
-	locals {
-	  cluster_id = "` + config.ClusterId + `"
-	  ververica_url = "` + config.VervericaUrl + `"
-	  ververica_api_token = "` + config.VervericaApiToken + `"
-	  resolved_topic_prefix = "` + config.ResolvedTopicPrefix + `"
-	}
 	`
 
 	// If the version is not "local", include the required_providers block with the version from the configuration file
@@ -176,6 +200,28 @@ terraform {
 
 	// Return only the provider block if using the local provider
 	return providerBlock + dataBlock
+}
+
+// GetFlinkProvider returns GetProvider() plus the locals the Flink fixtures read. Only the Flink
+// suites call it, so the Ververica API token is not written into the generated HCL of every other
+// suite, where it would show up in saved plans and TF_LOG output.
+func GetFlinkProvider() string {
+	config, err := LoadProviderConfig()
+	if err != nil {
+		log.Panicf("Error loading provider configuration: %s", err)
+	}
+
+	return GetProvider() + `
+	locals {
+	  cluster_id = "` + config.ClusterId + `"
+	  ververica_url = "` + config.VervericaUrl + `"
+	  ververica_api_token = "` + config.VervericaApiToken + `"
+	  resolved_topic_prefix = "` + config.ResolvedTopicPrefix + `"
+	  ververica_workspace = "` + config.VervericaWorkspace + `"
+	  ververica_namespace = "` + config.VervericaNamespace + `"
+	  ververica_deployment_target = "` + config.VervericaDeploymentTarget + `"
+	}
+	`
 }
 
 func GetFile(paths ...string) string {

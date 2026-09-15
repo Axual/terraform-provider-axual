@@ -1,12 +1,6 @@
-# `generate_tables_sql` is left at its default (false), so the script declares the tables itself.
-# The DDL mirrors what the platform generates from a topic (FlinkTableDdlGenerator): the table name
-# is the topic name with dashes replaced, a String key/value maps to a nullable STRING column read
-# with the `raw` format, and a `delete` retention policy maps to the `kafka` connector. The Kafka
-# connection options (bootstrap.servers, security protocol, SASL/SSL) are injected by the platform
-# and must not appear here.
-#
-# `topic` is the resolved Kafka topic name, which depends on the instance's topic pattern, so it is
-# built from `resolvedTopicPrefix` in test_config.yaml. The step is skipped when that is not set.
+# `generate_tables_sql` is left at its default (false), so the script declares the tables itself,
+# mirroring what FlinkTableDdlGenerator produces. The Kafka connection options are injected by the
+# platform and must not appear here; `topic` is the resolved name, built from `resolvedTopicPrefix`.
 resource "axual_application_deployment" "flink_axual_application_deployment" {
   environment     = axual_environment.tf-test-flink-env.id
   application     = axual_application.tf-test-flink-app.id

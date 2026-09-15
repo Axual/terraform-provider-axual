@@ -7,7 +7,7 @@ resource "axual_flink_cluster" "tf_test_flink_cluster" {
   url               = local.ververica_url
   api_token         = local.ververica_api_token
   name              = "tf-test-flink-cluster-renamed"
-  workspace         = "defaultworkspace"
-  namespace         = "default"
+  workspace         = local.ververica_workspace
+  namespace         = local.ververica_namespace
   deployment_target = "tf-test-target-does-not-exist"
 }

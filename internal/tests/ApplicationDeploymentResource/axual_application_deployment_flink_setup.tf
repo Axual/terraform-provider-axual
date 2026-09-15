@@ -25,9 +25,9 @@ resource "axual_flink_cluster" "tf-test-flink-cluster" {
   name              = "tf-test-flink-deployment-cluster"
   description       = "Axual's TF Test Flink Cluster for deployments"
   url               = local.ververica_url
-  workspace         = "defaultworkspace"
-  namespace         = "default"
-  deployment_target = "default-target"
+  workspace         = local.ververica_workspace
+  namespace         = local.ververica_namespace
+  deployment_target = local.ververica_deployment_target
   api_token         = local.ververica_api_token
 }
 
@@ -51,11 +51,8 @@ resource "axual_topic" "tf-test-flink-topic" {
   properties       = {}
   description      = "Demo of Flink SQL topic via Terraform"
 
-  # A topic holds no reference to an environment, so without this edge Terraform destroys the topic
-  # and the environment in parallel - and both cascade server-side over the same `application_access`
-  # row of the access grant, which fails the environment DELETE with
-  # "ObjectOptimisticLockingFailureException: Unexpected row count (expected row count 1 but was 0)".
-  # Depending on the environment serialises the two: the topic is destroyed before it.
+  # A topic has no reference to an environment, so Terraform destroys both in parallel and their
+  # server-side cascades collide on the same access-grant row. This edge serialises them.
   depends_on = [axual_environment.tf-test-flink-env]
 }
 
