@@ -6,7 +6,9 @@
 ## Usage
 - To see the required configuration parameters for each connect-plugin (`axual_application.application_class`), refer to the documentation: [Axual Connect Plugins Catalog](https://docs.axual.io/connect/Axual-Connect/connect-plugins-catalog/connect-plugins-catalog.html).
 - Creating the `axual_application_deployment` resource automatically starts the application.
-- Updating the `axual_application_deployment` resource automatically stops the application (if it is running), applies the update, and then restarts it.
+- Updating the resource stops the application first (if it is running), applies the update, and starts it again — with two exceptions:
+  - a **Connector** deployment is destroyed and recreated instead. The API itself accepts an update, so this is a provider-side restriction that stays until the Connector support of AXPD-11929 verifies the in-place update; note that recreating a connector loses its offsets;
+  - a **FLINK_SQL** deployment is *resumed* rather than started, so it continues from its last checkpoint, and a change of `deployment_size` alone is stored without stopping the job at all - the running job keeps its current size, and the new one takes effect the next time the job is deployed.
 - Deleting the `axual_application_deployment` resource automatically stops the application (if it is running) before removing it.
 - For more information about connector applications in Axual, refer to the documentation: [Starting Connectors](https://docs.axual.io/connect/Axual-Connect/starting-connectors.html).
 - Currently, a data source for `axual_application_deployment` is not supported.
@@ -27,6 +29,15 @@ Activation options:
 - **Cross-repo setup:** when the principal is managed in a separate Terraform configuration (or activated manually via the UI), make sure activation has been applied before running `terraform apply` on the deployment. The provider does not auto-activate principals.
 
 KSML deployments are unaffected — they allow one authentication (`axual_application_credential` or `axual_application_principal`) and do not require an active principal.
+
+### Prerequisites: FLINK_SQL
+
+A `FLINK_SQL` deployment needs all of the following before it can be created. The provider checks the first two during `terraform apply` and reports which one is missing.
+
+- An `axual_application_credential` with `target = "KAFKA"` for the same application and environment. A Flink SQL job authenticates with SASL/SCRAM; an `axual_application_principal` cannot be used, and the platform refuses the deployment with "a Flink SQL application requires SASL/SCRAM Kafka credentials".
+- A `target_id` naming an [`axual_flink_cluster`](flink_cluster.md) registered for the environment.
+- An approved `axual_application_access_grant` for every topic the script reads or writes. With `generate_tables_sql = true` the table DDL is generated from those grants, so a topic without a grant has no table to select from or insert into — a job that writes needs a `PRODUCER` grant, not only a `CONSUMER` one.
+- The instance must have Flink enabled, and the Flink Cluster's schema registries must be configured for a job over AVRO topics.
 
 ### Config values: `null` vs `""`
 

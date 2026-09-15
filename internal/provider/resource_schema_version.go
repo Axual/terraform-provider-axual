@@ -220,7 +220,7 @@ func createValidateSchemaVersionRequestFromData(ctx context.Context, data *schem
 		r.Type = &schemaType
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("validating schema version request %q", r))
+	tflog.Info(ctx, fmt.Sprintf("validating schema version request %+v", r))
 	return r
 }
 
@@ -260,7 +260,7 @@ func createSchemaVersionRequestFromData(ctx context.Context, parsedSchema *webcl
 		schemaVersionRequest.Type = &schemaType
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("schema version request %q", schemaVersionRequest))
+	tflog.Info(ctx, fmt.Sprintf("schema version request %+v", schemaVersionRequest))
 	return schemaVersionRequest, nil
 }
 

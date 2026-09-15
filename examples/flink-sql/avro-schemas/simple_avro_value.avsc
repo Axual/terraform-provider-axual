@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "SimpleAvroValue",
+  "namespace": "io.axual.terraform.flinksqltest",
+  "doc": "Simple two-field Avro value schema for the Flink SQL consume topic.",
+  "fields": [
+    { "name": "id", "type": "string", "doc": "Record identifier" },
+    { "name": "payload", "type": "string", "doc": "Record payload" }
+  ]
+}

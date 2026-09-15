@@ -11,3 +11,13 @@ groupName: "YOUR_GROUP_NAME"
 userEmail: "YOUR_USER_EMAIL"
 username: "YOUR_USERNAME"
 password: "YOUR_PASSWORD"
+
+# Ververica cluster test values
+ververicaUrl: "YOUR_VERVERICA_URL"
+ververicaApiToken: "YOUR_VERVERICA_API_TOKEN"
+clusterId: "YOUR_CLUSTER_ID"
+
+# The instance's topic pattern with everything but the topic name filled in, e.g.
+# "axual-dta-tfflinkdev-". Only TestApplicationDeploymentFlinkManualTablesResource needs it, because
+# a hand-written `CREATE TEMPORARY TABLE` names the real Kafka topic. Leave empty to skip that test.
+resolvedTopicPrefix: ""

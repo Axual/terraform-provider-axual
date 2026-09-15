@@ -211,7 +211,7 @@ func createUserRequestFromData(ctx context.Context, data *userResourceData) webc
 	var roles []webclient.UserRole
 
 	for _, raw := range data.Roles {
-		roles = append(roles, webclient.UserRole{raw.Name.ValueString()})
+		roles = append(roles, webclient.UserRole{Name: raw.Name.ValueString()})
 	}
 	tflog.Info(ctx, fmt.Sprintf("Desired roles list size %d", len(data.Roles)))
 	tflog.Info(ctx, fmt.Sprintf("Creating new roles list of size %d", len(roles)))

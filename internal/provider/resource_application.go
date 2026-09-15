@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
+	"time"
 
 	custom_validator "axual.com/terraform-provider-axual/internal/custom-validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -19,6 +21,20 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
+
+// A delete that loses the cascade's optimistic lock is retried this many times before the error is
+// reported. The revocation of the access grants it collides with settles in a few seconds.
+const (
+	applicationDeleteAttempts = 5
+	applicationDeleteDelay    = 3 * time.Second
+)
+
+// isDeleteConflict reports whether the error is the platform's transient commit conflict: the delete
+// cascade can lose an optimistic lock on a just-revoked access grant (AXPD-12049). Matched on the
+// status alone - the message text and even the status vary by platform version.
+func isDeleteConflict(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "status: 409")
+}
 
 var _ resource.Resource = &applicationResource{}
 var _ resource.ResourceWithImportState = &applicationResource{}
@@ -57,10 +73,10 @@ func (r *applicationResource) Schema(ctx context.Context, req resource.SchemaReq
 		MarkdownDescription: "An application is responsible for producing and/or consuming data on a topic, whether it is a Java or .NET app or a connector.",
 		Attributes: map[string]schema.Attribute{
 			"application_type": schema.StringAttribute{
-				MarkdownDescription: "Axual Application type. Possible values are Custom, Connector, or Ksml.",
+				MarkdownDescription: "Axual Application type. Possible values are Custom, Connector, Ksml, or FLINK_SQL.",
 				Required:            true,
 				Validators: []validator.String{
-					stringvalidator.OneOf("Custom", "Connector", "Ksml"),
+					stringvalidator.OneOf("Custom", "Connector", "Ksml", "FLINK_SQL"),
 				},
 			},
 			"application_id": schema.StringAttribute{
@@ -227,7 +243,20 @@ func (r *applicationResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	err := r.provider.client.DeleteApplication(data.Id.ValueString())
+	// Deleting an Application cascades over its deployments, principals, credentials and access
+	// grants (ApplicationEventHandler.deleteCascade). When Terraform has just revoked the grants,
+	// the platform is often still writing those `application_access` rows, so the cascade loses the
+	// optimistic lock and the whole delete is rejected with a 409 "Could not commit changes!".
+	// That conflict is transient, so it - and only it - is retried.
+	var err error
+	for attempt := 0; attempt < applicationDeleteAttempts; attempt++ {
+		err = r.provider.client.DeleteApplication(data.Id.ValueString())
+		if err == nil || !isDeleteConflict(err) {
+			break
+		}
+		tflog.Info(ctx, fmt.Sprintf("Application %s could not be deleted yet (%s), retrying in %s", data.Id.ValueString(), err, applicationDeleteDelay))
+		time.Sleep(applicationDeleteDelay)
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete Application, got error: %s", err))
 		return

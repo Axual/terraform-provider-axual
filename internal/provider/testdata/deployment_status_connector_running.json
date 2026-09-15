@@ -1,0 +1,44 @@
+{
+  "_links" : {
+    "status" : {
+      "href" : "https://platform.local/api/application_deployments/10a65b11db084806b227b29936022fcd/operation?action=VIEW_STATUS"
+    },
+    "logs" : {
+      "href" : "https://platform.local/api/application_deployments/10a65b11db084806b227b29936022fcd/operation?action=VIEW_LOGS"
+    },
+    "stop" : {
+      "href" : "https://platform.local/api/application_deployments/10a65b11db084806b227b29936022fcd/operation?action=STOP"
+    },
+    "restart" : {
+      "href" : "https://platform.local/api/application_deployments/10a65b11db084806b227b29936022fcd/operation?action=RESTART"
+    },
+    "restartTask" : {
+      "href" : "https://platform.local/api/application_deployments/10a65b11db084806b227b29936022fcd/operation?action=RESTART_TASK"
+    },
+    "self" : {
+      "href" : "https://platform.local/api/10a65b11db084806b227b29936022fcd/status",
+      "title" : "URI pointing to current request"
+    }
+  },
+  "connectorState" : {
+    "state" : "Running",
+    "trace" : null,
+    "workerId" : "192.168.194.117:11000"
+  },
+  "taskStates" : [ {
+    "id" : 0,
+    "status" : "Running",
+    "trace" : null,
+    "workerId" : "192.168.194.117:11000"
+  }, {
+    "id" : 1,
+    "status" : "Running",
+    "trace" : null,
+    "workerId" : "192.168.194.117:11000"
+  }, {
+    "id" : 2,
+    "status" : "Running",
+    "trace" : null,
+    "workerId" : "192.168.194.117:11000"
+  } ]
+}

@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.2.0) - TBR
+### Added
+* Support for Flink Cluster as `axual_flink_cluster`, including its `schema_registries`
+* Support for Axual-managed `FLINK_SQL` Application
+* A size-only change of a `FLINK_SQL` Application Deployment is stored without redeploying the job.
+  The new size takes effect the next time the job is deployed
+
+### Fixed
+* Resume a stopped `FLINK_SQL` Application Deployment instead of waiting for a START it is never offered
+* Clear the `description` of an `axual_flink_cluster` by removing it from the configuration
+* Create a `FLINK_SQL` Application Deployment without `generate_tables_sql`
+* Create a Connector Application Deployment without `configs`
+* Destroy a failed `FLINK_SQL` Application Deployment
+* Wait for a deployment to stop before updating it
+* Validate `axual_flink_cluster` attribute lengths in the schema
+* Retry the delete of an `axual_application` that the API rejects with a transient commit conflict
+  after an access grant was revoked moments earlier (AXPD-12049)
+* Treat a failed Connector or KSML Application Deployment as stopped, so a destroy no longer waits
+  out the full stop budget first
+* Stop a deployment the status endpoint reports as running even when it advertises no actions
+* Update the deployment target of a KSML Application Deployment in place instead of replacing it
+* Fix five `go vet` findings in `resource_schema_version.go`, `resource_topic_config.go` and
+  `resource_user.go`, so `go test ./internal/provider/` runs with vet enabled
+
 ## [3.1.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.1.0) - 2026-06-30
 ### Added
 * Allow rotating a Connector's `axual_application_principal`

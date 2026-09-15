@@ -1,12 +1,14 @@
 # axual_application_deployment (Resource)
 
-An Application Deployment stores the configs for 'Connector' or 'Ksml' application type that is saved for an Application on an Environment.
+An Application Deployment stores the configuration an Application runs with on an Environment. Supported application types are `Connector`, `Ksml` and `FLINK_SQL`.
 
 
 ## Usage
 - To see the required configuration parameters for each connect-plugin (`axual_application.application_class`), refer to the documentation: [Axual Connect Plugins Catalog](https://docs.axual.io/connect/Axual-Connect/connect-plugins-catalog/connect-plugins-catalog.html).
 - Creating the `axual_application_deployment` resource automatically starts the application.
-- Updating the `axual_application_deployment` resource automatically stops the application (if it is running), applies the update, and then restarts it.
+- Updating the resource stops the application first (if it is running), applies the update, and starts it again — with two exceptions:
+  - a **Connector** deployment is destroyed and recreated instead. The API itself accepts an update, so this is a provider-side restriction that stays until the Connector support of AXPD-11929 verifies the in-place update; note that recreating a connector loses its offsets;
+  - a **FLINK_SQL** deployment is *resumed* rather than started, so it continues from its last checkpoint, and a change of `deployment_size` alone is stored without stopping the job at all - the running job keeps its current size, and the new one takes effect the next time the job is deployed.
 - Deleting the `axual_application_deployment` resource automatically stops the application (if it is running) before removing it.
 - For more information about connector applications in Axual, refer to the documentation: [Starting Connectors](https://docs.axual.io/connect/Axual-Connect/starting-connectors.html).
 - Currently, a data source for `axual_application_deployment` is not supported.
@@ -27,6 +29,15 @@ Activation options:
 - **Cross-repo setup:** when the principal is managed in a separate Terraform configuration (or activated manually via the UI), make sure activation has been applied before running `terraform apply` on the deployment. The provider does not auto-activate principals.
 
 KSML deployments are unaffected — they allow one authentication (`axual_application_credential` or `axual_application_principal`) and do not require an active principal.
+
+### Prerequisites: FLINK_SQL
+
+A `FLINK_SQL` deployment needs all of the following before it can be created. The provider checks the first two during `terraform apply` and reports which one is missing.
+
+- An `axual_application_credential` with `target = "KAFKA"` for the same application and environment. A Flink SQL job authenticates with SASL/SCRAM; an `axual_application_principal` cannot be used, and the platform refuses the deployment with "a Flink SQL application requires SASL/SCRAM Kafka credentials".
+- A `target_id` naming an [`axual_flink_cluster`](flink_cluster.md) registered for the environment.
+- An approved `axual_application_access_grant` for every topic the script reads or writes. With `generate_tables_sql = true` the table DDL is generated from those grants, so a topic without a grant has no table to select from or insert into — a job that writes needs a `PRODUCER` grant, not only a `CONSUMER` one.
+- The instance must have Flink enabled, and the Flink Cluster's schema registries must be configured for a job over AVRO topics.
 
 ### Config values: `null` vs `""`
 
@@ -53,8 +64,11 @@ KSML deployments are unaffected — they allow one authentication (`axual_applic
 
 - `configs` (Map of String, Sensitive) Connector config for Application Deployment. Required for Connector deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. All available application plugin class names, plugin types and plugin configs are listed here in API- `GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass` and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/connect-plugins-catalog/connect-plugins-catalog.html
 - `definition` (String, Sensitive) KSML definition for Application Deployment. Required for KSML deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.
-- `deployment_size` (String) The deployment size for KSML applications. Optional for KSML deployments. If not specified, the Platform Manager will assign a default value.
+- `deployment_size` (String) The t-shirt size of the deployment. Optional for KSML and FLINK_SQL deployments; for FLINK_SQL it sizes the Flink TaskManager. The accepted sizes are configured per Platform Manager install (`axual.application-deployment.flink.deployment-sizes`, `...ksml.deployment-sizes`) and default to `XS`, `S`, `M`, `L` and `XL`, so your instance may accept a different set; the match is case-insensitive. No endpoint lists them, so an unknown size is only rejected once the apply reaches the API. If not specified, the Platform Manager will assign a default value.
+- `generate_tables_sql` (Boolean) For FLINK_SQL deployments, whether to auto-generate the `CREATE TABLE` statements for the topics referenced by `sql_script`. Optional for FLINK_SQL deployments; defaults to `false`.
 - `restart_policy` (String) The restart policy for KSML applications. Valid values are 'on_exit' and 'never'. Required for KSML deployments.
+- `sql_script` (String, Sensitive) The user-authored Flink SQL script. Required for FLINK_SQL deployments. Each statement must be a `CREATE TEMPORARY TABLE` or an `INSERT INTO ... SELECT`; two or more top-level `INSERT INTO` statements must be wrapped in `BEGIN STATEMENT SET; ... END;`. With `generate_tables_sql = true` the platform generates the `CREATE TEMPORARY TABLE` statements from the application's approved topic access and the script carries only the `INSERT INTO ... SELECT`; with `false` you write the table DDL yourself. Kafka and schema registry connection options (`bootstrap.servers`, `properties.security.protocol`, `properties.sasl.*`, `ssl.*`, and the `avro-confluent` `url`/`basic-auth.*`/`bearer-auth.*` options) are injected by the platform and are rejected here, `connector` must stay `kafka` or `upsert-kafka`, and each side is declared with `key.format`/`value.format` rather than Flink's `format` shorthand. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.
+- `target_id` (String) The id of the deployment target to deploy to. Required for FLINK_SQL deployments, where it must be the id of an `axual_flink_cluster` registered for the environment. For other deployment types the Platform Manager assigns a default target if not specified. Changing this value replaces a FLINK_SQL Application Deployment, whose deployment target can only be set when the deployment is created; for the other types the target is updated in place. Available targets can be listed via `GET /applications/{applicationId}/deployment-targets?environmentId={environmentId}`.
 
 ### Read-Only
 

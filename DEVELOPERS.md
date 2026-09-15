@@ -202,6 +202,34 @@ Before running acceptance tests:
    - `username`: Your username
    - `password`: Your password
 
+   The following values are only needed by the Flink cluster tests
+   (`internal/tests/FlinkClusterResource`) and the Flink parts of the Application Deployment tests.
+   They are **not** shipped with the repository: you must supply them yourself from a Ververica
+   Platform namespace you have access to. The committed `YOUR_...` placeholders are not working
+   values, and the Flink suites skip themselves while any of the three is still a placeholder.
+   - `ververicaUrl`: Base URL of **your own** Ververica Platform API — there is no fixed URL to copy
+     here, use the one of the Ververica Platform your instance talks to. Exposed to the test
+     fixtures as `local.ververica_url` and used as the `url` of `axual_flink_cluster`.
+   - `ververicaApiToken`: A Ververica Platform API token scoped to that namespace, with permission
+     to manage deployments. Exposed as `local.ververica_api_token` and used as the `api_token` of
+     `axual_flink_cluster`. Treat it as a secret — never commit a real token.
+   - `clusterId`: The Uid of the Instance-Cluster in your Axual instance that the Flink cluster is
+     registered against. Exposed as `local.cluster_id` and used as the `cluster_id` of
+     `axual_flink_cluster`.
+   - `ververicaWorkspace`, `ververicaNamespace`, `ververicaDeploymentTarget`: the Ververica
+     workspace, namespace and deployment target the Flink Cluster is registered in. Optional; they
+     default to `defaultworkspace`, `default` and `default-target`. The API validates all three
+     against Ververica on create, so set them if your namespace differs — the fixtures read them as
+     `local.ververica_workspace`, `local.ververica_namespace` and `local.ververica_deployment_target`.
+
+   **The Instance-Cluster must not have a Flink Cluster configured yet.** The Platform Manager
+   allows only one Flink Cluster per Instance-Cluster (`"Only one Flink Cluster per Instance Cluster
+   is allowed"`), and both `internal/tests/FlinkClusterResource` and the Flink parts of the
+   Application Deployment tests create their own. Delete any existing Flink Cluster on the
+   Instance-Cluster named by `clusterId` before running the tests — including one left behind by a
+   test run that failed part-way through, which is a common cause of a Flink test failing during its
+   setup step.
+
 3. **Verify Test User Permissions:**
 
    Ensure your test user has these roles:
@@ -277,6 +305,20 @@ When running tests for the first time, try them in this order to verify your set
    ```bash
    go test -p 1 -count 1 ./internal/tests/...
    ```
+
+   That runs the acceptance tests, which need a reachable instance. The unit tests live in two other
+   places and need nothing: `internal/provider` (provider helpers) and the separate `axual-webclient`
+   module.
+   ```bash
+   go test -count 1 ./internal/provider/
+   (cd axual-webclient && go test -count 1 ./...)
+   ```
+
+   Note that everything under `./internal/tests/...` is an acceptance test: the test provider reads
+   its credentials from `test_config.yaml`, so nothing skips for a missing `TF_ACC`. The Flink suites
+   are the exception: they skip while the `YOUR_...` Ververica placeholders are still in place.
+   Narrow a run with `-run '<TestName>'` while working on one suite — a full run creates and destroys
+   every fixture, and an interrupted one leaves resources behind that have to be cleaned by hand.
 
 #### Option 2: Inline Environment Variables
 

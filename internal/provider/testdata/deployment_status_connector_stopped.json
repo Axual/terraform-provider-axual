@@ -1,0 +1,23 @@
+{
+  "_links" : {
+    "status" : {
+      "href" : "https://platform.local/api/application_deployments/10a65b11db084806b227b29936022fcd/operation?action=VIEW_STATUS"
+    },
+    "logs" : {
+      "href" : "https://platform.local/api/application_deployments/10a65b11db084806b227b29936022fcd/operation?action=VIEW_LOGS"
+    },
+    "start" : {
+      "href" : "https://platform.local/api/application_deployments/10a65b11db084806b227b29936022fcd/operation?action=START"
+    },
+    "self" : {
+      "href" : "https://platform.local/api/10a65b11db084806b227b29936022fcd/status",
+      "title" : "URI pointing to current request"
+    }
+  },
+  "connectorState" : {
+    "state" : "Undefined",
+    "trace" : null,
+    "workerId" : null
+  },
+  "taskStates" : [ ]
+}

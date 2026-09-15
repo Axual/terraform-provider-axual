@@ -169,6 +169,19 @@ func TestApplicationResourceAllTypes(t *testing.T) {
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
+			// Test FLINK_SQL type - no `type` field applies to this application_type
+			{
+				Config: GetProvider() + GetFile("axual_application_type_flinksql.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckNoResourceAttr("axual_application.tf_test_app_type_flinksql", "type"),
+					resource.TestCheckResourceAttr("axual_application.tf_test_app_type_flinksql", "application_type", "FLINK_SQL"),
+				),
+			},
+			{
+				ResourceName:      "axual_application.tf_test_app_type_flinksql",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 			// Test Other type
 			{
 				Config: GetProvider() + GetFile("axual_application_type_other.tf"),
@@ -224,6 +237,7 @@ func TestApplicationResourceAllTypes(t *testing.T) {
 					"axual_application_type_bridge.tf",
 					"axual_application_type_python.tf",
 					"axual_application_type_ksml.tf",
+					"axual_application_type_flinksql.tf",
 					"axual_application_type_other.tf",
 					"axual_application_type_sink.tf",
 					"axual_application_type_source.tf",

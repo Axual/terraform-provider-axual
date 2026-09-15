@@ -23,13 +23,28 @@ func TestApplicationDeploymentResource(t *testing.T) {
 				),
 				ExpectError: regexp.MustCompile(`No active Application Principal`),
 			},
-			// Test missing `configs` - should fail response
+			// A config the connect plugin does not accept: the provider must report the API's own
+			// message rather than swallow it.
+			{
+				Config: GetProvider() + GetFile(
+					"axual_application_deployment_setup.tf",
+					"axual_application_deployment_invalid_config.tf",
+				),
+				ExpectError: regexp.MustCompile(`Invalid config uploaded`),
+			},
+			// A Connector deployment can be created with no `configs` at all: the API registers the
+			// deployment target and takes the configs later, so the provider only warns that the
+			// deployment cannot be started yet. The deployment it leaves behind is replaced by the
+			// next step, which adds the configs.
 			{
 				Config: GetProvider() + GetFile(
 					"axual_application_deployment_setup.tf",
 					"axual_application_deployment_missing_configs.tf",
 				),
-				ExpectError: regexp.MustCompile(`Invalid config uploaded`),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrPair("axual_application_deployment.connector_axual_application_deployment", "environment", "axual_environment.tf-test-env", "id"),
+					resource.TestCheckNoResourceAttr("axual_application_deployment.connector_axual_application_deployment", "configs.%"),
+				),
 			},
 			{
 				Config: GetProvider() + GetFile(
@@ -149,6 +164,155 @@ func TestApplicationDeploymentKSMLResource(t *testing.T) {
 				Config: GetProvider() + GetFile(
 					"axual_application_deployment_ksml_setup.tf",
 					"axual_application_deployment_ksml_updated.tf",
+				),
+			},
+		},
+	})
+}
+
+// TestApplicationDeploymentFlinkManualTablesResource creates a FLINK_SQL deployment from scratch
+// with `generate_tables_sql` left unset, i.e. with the `CREATE TEMPORARY TABLE` DDL written by hand.
+// It needs the instance's resolved topic prefix, because the DDL names the real Kafka topic.
+func TestApplicationDeploymentFlinkManualTablesResource(t *testing.T) {
+	config, err := LoadProviderConfig()
+	if err != nil {
+		t.Fatalf("Error loading provider config: %v", err)
+	}
+	SkipWithoutVerverica(t, config)
+	if config.ResolvedTopicPrefix == "" {
+		t.Skip("resolvedTopicPrefix is not set in test_config.yaml, so the Kafka topic names in the hand-written DDL cannot be built")
+	}
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+
+		Steps: []resource.TestStep{
+			{
+				Config: GetFlinkProvider() + GetFile(
+					"axual_application_deployment_flink_setup.tf",
+					"axual_application_deployment_flink_manual_tables.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "type", "FLINK_SQL"),
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "deployment_size", "S"),
+					// Unset in the configuration, so the API's own default comes back.
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "generate_tables_sql", "false"),
+					resource.TestCheckResourceAttrSet("axual_application_deployment.flink_axual_application_deployment", "sql_script"),
+				),
+			},
+			{
+				// To ensure cleanup if one of the test cases had an error
+				Destroy: true,
+				Config: GetFlinkProvider() + GetFile(
+					"axual_application_deployment_flink_setup.tf",
+					"axual_application_deployment_flink_manual_tables.tf",
+				),
+			},
+		},
+	})
+}
+
+func TestApplicationDeploymentFlinkResource(t *testing.T) {
+	config, err := LoadProviderConfig()
+	if err != nil {
+		t.Fatalf("Error loading provider config: %v", err)
+	}
+	SkipWithoutVerverica(t, config)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+
+		Steps: []resource.TestStep{
+			// Test missing `sql_script` - should fail response
+			{
+				Config: GetFlinkProvider() + GetFile(
+					"axual_application_deployment_flink_setup.tf",
+					"axual_application_deployment_flink_missing_sql_script.tf",
+				),
+				ExpectError: regexp.MustCompile(`requires a .sql_script.`),
+			},
+			{
+				Config: GetFlinkProvider() + GetFile(
+					"axual_application_deployment_flink_setup.tf",
+					"axual_application_deployment_flink_initial.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrPair("axual_application_deployment.flink_axual_application_deployment", "environment", "axual_environment.tf-test-flink-env", "id"),
+					resource.TestCheckResourceAttrPair("axual_application_deployment.flink_axual_application_deployment", "application", "axual_application.tf-test-flink-app", "id"),
+					resource.TestCheckResourceAttrPair("axual_application_deployment.flink_axual_application_deployment", "target_id", "axual_flink_cluster.tf-test-flink-cluster", "id"),
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "type", "FLINK_SQL"),
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "deployment_size", "S"),
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "generate_tables_sql", "true"),
+					resource.TestCheckResourceAttrSet("axual_application_deployment.flink_axual_application_deployment", "sql_script"),
+				),
+			},
+			{
+				// Update the SQL script only: stops the job, PATCHes the SQL and starts it again.
+				// The size is unchanged so a failure here names the SQL.
+				Config: GetFlinkProvider() + GetFile(
+					"axual_application_deployment_flink_setup.tf",
+					"axual_application_deployment_flink_updated.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrPair("axual_application_deployment.flink_axual_application_deployment", "environment", "axual_environment.tf-test-flink-env", "id"),
+					resource.TestCheckResourceAttrPair("axual_application_deployment.flink_axual_application_deployment", "application", "axual_application.tf-test-flink-app", "id"),
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "type", "FLINK_SQL"),
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "deployment_size", "S"),
+					resource.TestCheckResourceAttrSet("axual_application_deployment.flink_axual_application_deployment", "sql_script"),
+				),
+			},
+			{
+				// Change the size only: the provider sends a `flink_task_size`-only patch, which the
+				// API applies through `saveTaskSizeOnly` - no stop, no Ververica call, no restart.
+				Config: GetFlinkProvider() + GetFile(
+					"axual_application_deployment_flink_setup.tf",
+					"axual_application_deployment_flink_resize.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "type", "FLINK_SQL"),
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "deployment_size", "M"),
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "generate_tables_sql", "true"),
+					resource.TestCheckResourceAttrSet("axual_application_deployment.flink_axual_application_deployment", "sql_script"),
+				),
+			},
+			{
+				// A second update in a row: the deployment was stopped by the previous one, so the
+				// API now offers `resume` instead of `start` (AXPD-11906).
+				Config: GetFlinkProvider() + GetFile(
+					"axual_application_deployment_flink_setup.tf",
+					"axual_application_deployment_flink_updated_again.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "type", "FLINK_SQL"),
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "deployment_size", "M"),
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "generate_tables_sql", "true"),
+				),
+			},
+			{
+				// generate_tables_sql left out of the configuration: it is Optional and Computed, so
+				// the value the API reports is kept and the plan stays empty.
+				Config: GetFlinkProvider() + GetFile(
+					"axual_application_deployment_flink_setup.tf",
+					"axual_application_deployment_flink_generate_tables_unset.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_application_deployment.flink_axual_application_deployment", "generate_tables_sql", "true"),
+				),
+			},
+			{
+				ResourceName:      "axual_application_deployment.flink_axual_application_deployment",
+				ImportState:       true,
+				ImportStateVerify: true,
+				Config:            GetProvider() + GetFile("axual_application_deployment_flink_generate_tables_unset.tf"),
+			},
+			{
+				// To ensure cleanup if one of the test cases had an error
+				Destroy: true,
+				Config: GetFlinkProvider() + GetFile(
+					"axual_application_deployment_flink_setup.tf",
+					"axual_application_deployment_flink_generate_tables_unset.tf",
 				),
 			},
 		},
