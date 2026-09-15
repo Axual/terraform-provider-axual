@@ -26,16 +26,16 @@ A Flink Cluster registers a Ververica Platform namespace on an Instance-Cluster,
 
 - `api_token` (String, Sensitive) Ververica namespace-scoped API token. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.
 - `cluster_id` (String) The Uid of the Cluster this Flink Cluster belongs to.
-- `deployment_target` (String) Ververica deployment target name, e.g. `default-target`.
+- `deployment_target` (String) Ververica deployment target name, e.g. `default-target`. Must be at most 50 characters.
 - `instance_id` (String) The Uid of the Instance this Flink Cluster belongs to.
-- `name` (String) Human-readable name of the Flink Cluster.
-- `namespace` (String) Ververica namespace name, e.g. `default`.
-- `url` (String) Ververica Platform base URL, e.g. `https://vvp.internal`.
-- `workspace` (String) Ververica workspace name, e.g. `defaultworkspace`.
+- `name` (String) Human-readable name of the Flink Cluster. Must be between 3 and 50 characters.
+- `namespace` (String) Ververica namespace name, e.g. `default`. Must be at most 50 characters.
+- `url` (String) Ververica Platform base URL, e.g. `https://vvp.internal`. Must be at most 255 characters.
+- `workspace` (String) Ververica workspace name, e.g. `defaultworkspace`. Must be at most 50 characters.
 
 ### Optional
 
-- `description` (String) A short description of the Flink Cluster.
+- `description` (String) A short description of the Flink Cluster. Must be at most 255 characters.
 - `schema_registries` (Attributes List) Schema registries the Flink Cluster reads schemas from. Required for Flink SQL jobs over AVRO topics: the platform injects the url into the generated table DDL. When more than one is configured, a job using `'value.format' = 'avro-confluent'` uses the first Confluent-type registry in the list. (see [below for nested schema](#nestedatt--schema_registries))
 
 ### Read-Only
@@ -73,7 +73,7 @@ resource "axual_flink_cluster" "example_flink_cluster" {
 }
 ```
 
-For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
+For a full example of a Flink SQL setup, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/flink-sql.
 
 ## Import
 

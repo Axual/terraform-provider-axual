@@ -206,7 +206,7 @@ Before running acceptance tests:
    (`internal/tests/FlinkClusterResource`) and the Flink parts of the Application Deployment tests.
    They are **not** shipped with the repository: you must supply them yourself from a Ververica
    Platform namespace you have access to. The committed `YOUR_...` placeholders are not working
-   values.
+   values, and the Flink suites skip themselves while any of the three is still a placeholder.
    - `ververicaUrl`: Base URL of **your own** Ververica Platform API — there is no fixed URL to copy
      here, use the one of the Ververica Platform your instance talks to. Exposed to the test
      fixtures as `local.ververica_url` and used as the `url` of `axual_flink_cluster`.
@@ -216,6 +216,11 @@ Before running acceptance tests:
    - `clusterId`: The Uid of the Instance-Cluster in your Axual instance that the Flink cluster is
      registered against. Exposed as `local.cluster_id` and used as the `cluster_id` of
      `axual_flink_cluster`.
+   - `ververicaWorkspace`, `ververicaNamespace`, `ververicaDeploymentTarget`: the Ververica
+     workspace, namespace and deployment target the Flink Cluster is registered in. Optional; they
+     default to `defaultworkspace`, `default` and `default-target`. The API validates all three
+     against Ververica on create, so set them if your namespace differs — the fixtures read them as
+     `local.ververica_workspace`, `local.ververica_namespace` and `local.ververica_deployment_target`.
 
    **The Instance-Cluster must not have a Flink Cluster configured yet.** The Platform Manager
    allows only one Flink Cluster per Instance-Cluster (`"Only one Flink Cluster per Instance Cluster
@@ -310,8 +315,10 @@ When running tests for the first time, try them in this order to verify your set
    ```
 
    Note that everything under `./internal/tests/...` is an acceptance test: the test provider reads
-   its credentials from `test_config.yaml`, so nothing skips for a missing `TF_ACC`. Always narrow a
-   run with `-run '<TestName>'`.
+   its credentials from `test_config.yaml`, so nothing skips for a missing `TF_ACC`. The Flink suites
+   are the exception: they skip while the `YOUR_...` Ververica placeholders are still in place.
+   Narrow a run with `-run '<TestName>'` while working on one suite — a full run creates and destroys
+   every fixture, and an interrupted one leaves resources behind that have to be cleaned by hand.
 
 #### Option 2: Inline Environment Variables
 

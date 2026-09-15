@@ -23,9 +23,9 @@ variable "instance_cluster_id" {
 }
 
 variable "flink_url" {
-  description = "URL of the Ververica deployment"
+  description = "Base URL of the Ververica Platform, without a path - the platform appends /api/v2 itself"
   type        = string
-  default     = "https://vvp.example.com/api"
+  default     = "https://vvp.example.com"
 }
 
 variable "flink_api_token" {
@@ -65,6 +65,15 @@ resource "axual_flink_cluster" "example" {
   namespace         = "YOUR_VERVERICA_NAMESPACE"
   deployment_target = "YOUR_VERVERICA_DEPLOYMENT_TARGET"
   api_token         = var.flink_api_token
+
+  # Required because the source topic below is AVRO: the platform injects this url into the
+  # generated table DDL.
+  schema_registries = [
+    {
+      type = "CONFLUENT"
+      url  = "YOUR_SCHEMA_REGISTRY_URL"
+    },
+  ]
 }
 
 resource "axual_application" "example" {

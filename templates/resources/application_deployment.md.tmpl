@@ -7,8 +7,8 @@
 - To see the required configuration parameters for each connect-plugin (`axual_application.application_class`), refer to the documentation: [Axual Connect Plugins Catalog](https://docs.axual.io/connect/Axual-Connect/connect-plugins-catalog/connect-plugins-catalog.html).
 - Creating the `axual_application_deployment` resource automatically starts the application.
 - Updating the resource stops the application first (if it is running), applies the update, and starts it again — with two exceptions:
-  - a **Connector** deployment is destroyed and recreated instead, because the Platform Manager currently rejects an update of one;
-  - a **FLINK_SQL** deployment is *resumed* rather than started, so it continues from its last checkpoint, and a change of `deployment_size` alone is applied in place without stopping the job at all.
+  - a **Connector** deployment is destroyed and recreated instead. The API itself accepts an update, so this is a provider-side restriction that stays until the Connector support of AXPD-11929 verifies the in-place update; note that recreating a connector loses its offsets;
+  - a **FLINK_SQL** deployment is *resumed* rather than started, so it continues from its last checkpoint, and a change of `deployment_size` alone is stored without stopping the job at all - the running job keeps its current size, and the new one takes effect the next time the job is deployed.
 - Deleting the `axual_application_deployment` resource automatically stops the application (if it is running) before removing it.
 - For more information about connector applications in Axual, refer to the documentation: [Starting Connectors](https://docs.axual.io/connect/Axual-Connect/starting-connectors.html).
 - Currently, a data source for `axual_application_deployment` is not supported.
