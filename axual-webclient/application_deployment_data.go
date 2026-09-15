@@ -1,8 +1,8 @@
 package webclient
 
 // ApplicationDeploymentCreateResponse holds what the POST /application_deployments response
-// exposes about the created deployment. The API returns no body, so the Uid comes from the
-// response's Location header and is empty when that header is absent.
+// exposes about the created deployment. The Uid is read from the response's Location header and is
+// empty when that header is absent.
 type ApplicationDeploymentCreateResponse struct {
 	Uid string
 }
@@ -67,11 +67,12 @@ type ApplicationDeploymentCreateRequest struct {
 	TargetId    string            `json:"targetId,omitempty"`
 }
 
-// ApplicationDeploymentUpdateRequest carries no targetId: the PATCH accepts a target change for
-// Connector, KSML and Custom deployments, but `target_id` requires replacement in the schema, so a
-// change never reaches this path. FLINK_SQL rejects a target change outright (AXPD-11759).
+// ApplicationDeploymentUpdateRequest is the PATCH body. TargetId is omitted when empty: the PATCH
+// accepts a target change for Connector, KSML and Custom deployments, while FLINK_SQL rejects one
+// outright (AXPD-11759) and is replaced instead, so its target never reaches this path.
 type ApplicationDeploymentUpdateRequest struct {
-	Configs map[string]string `json:"configs"`
+	Configs  map[string]string `json:"configs"`
+	TargetId string            `json:"targetId,omitempty"`
 }
 
 type ApplicationDeploymentOperationRequest struct {

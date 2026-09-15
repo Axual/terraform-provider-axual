@@ -15,8 +15,8 @@ import (
 const FlinkSQLApplicationType = "FLINK_SQL"
 
 // CreateApplicationDeployment creates the deployment and returns the Uid of the created
-// deployment, read from the Location header of the POST response. The POST has no response body,
-// so the header is the only source for the Uid; the Uid is empty when the header is absent.
+// deployment, read from the Location header of the POST response, which is a cleaner source than
+// the body. The Uid is empty when the header is absent.
 func (c *Client) CreateApplicationDeployment(applicationDeploymentRequest ApplicationDeploymentCreateRequest) (ApplicationDeploymentCreateResponse, error) {
 	var o ApplicationDeploymentCreateResponse
 	marshal, err := json.Marshal(applicationDeploymentRequest)

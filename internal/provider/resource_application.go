@@ -29,8 +29,9 @@ const (
 	applicationDeleteDelay    = 3 * time.Second
 )
 
-// isDeleteConflict reports whether the error is the platform's transient commit conflict: the API
-// answers 409 "Could not commit changes!" when the delete cascade hits a stale optimistic lock.
+// isDeleteConflict reports whether the error is the platform's transient commit conflict: the delete
+// cascade can lose an optimistic lock on a just-revoked access grant (AXPD-12049). Matched on the
+// status alone - the message text and even the status vary by platform version.
 func isDeleteConflict(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "status: 409")
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
@@ -39,9 +40,9 @@ type applicationDeploymentResource struct {
 }
 
 // legacyAxualConnectTargetPrefix prefixes the deployment target id the API synthesizes for a
-// Connector deployment that has none stored, standing for the legacy Axual Connect runtime
-// (ConnectorDeploymentTargetResolver.AXUAL_CONNECT_ID_PREFIX). It is not a registered Kafka
-// Connect cluster and is rejected when sent back as a `targetId`.
+// Connector deployment that has none stored (AXPD-12050), standing for the legacy Axual Connect
+// runtime (ConnectorDeploymentTargetResolver.AXUAL_CONNECT_ID_PREFIX). It is not a registered Kafka
+// Connect cluster and is rejected when sent back as a `targetId`, so it is left out of the create.
 const legacyAxualConnectTargetPrefix = "axualconnect-"
 
 // startAttempts is how often a START is retried before the apply is failed.
@@ -117,7 +118,7 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				Sensitive:           true,
 			},
 			"deployment_size": schema.StringAttribute{
-				MarkdownDescription: "The t-shirt size (e.g. XS, S, M, L, XL) of the deployment. Optional for KSML and FLINK_SQL deployments; for FLINK_SQL it sizes the Flink TaskManager. If not specified, the Platform Manager will assign a default value.",
+				MarkdownDescription: "The t-shirt size of the deployment. Optional for KSML and FLINK_SQL deployments; for FLINK_SQL it sizes the Flink TaskManager. The accepted sizes are configured per Platform Manager install (`axual.application-deployment.flink.deployment-sizes`, `...ksml.deployment-sizes`) and default to `XS`, `S`, `M`, `L` and `XL`, so your instance may accept a different set; the match is case-insensitive. No endpoint lists them, so an unknown size is only rejected once the apply reaches the API. If not specified, the Platform Manager will assign a default value.",
 				Optional:            true,
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
@@ -134,14 +135,22 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 			"target_id": schema.StringAttribute{
 				// Optional and Computed: the Platform Manager assigns a default target when none is
 				// set, and UseStateForUnknown keeps an omitted `target_id` on that value.
-				// A changed target replaces the deployment: FLINK_SQL rejects a target change
-				// outright (AXPD-11759), and Connector deployments are replaced anyway.
-				MarkdownDescription: "The id of the deployment target to deploy to. Required for FLINK_SQL deployments, where it must be the id of an `axual_flink_cluster` registered for the environment. For other deployment types the Platform Manager assigns a default target if not specified. Changing this value replaces the Application Deployment, as the deployment target can only be set when the deployment is created. Available targets can be listed via `GET /applications/{applicationId}/deployment-targets?environmentId={environmentId}`.",
+				// Only FLINK_SQL has to be replaced for a changed target: it rejects the change
+				// outright (AXPD-11759), while the API patches the target of the other types.
+				MarkdownDescription: "The id of the deployment target to deploy to. Required for FLINK_SQL deployments, where it must be the id of an `axual_flink_cluster` registered for the environment. For other deployment types the Platform Manager assigns a default target if not specified. Changing this value replaces a FLINK_SQL Application Deployment, whose deployment target can only be set when the deployment is created; for the other types the target is updated in place. Available targets can be listed via `GET /applications/{applicationId}/deployment-targets?environmentId={environmentId}`.",
 				Optional:            true,
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
-					stringplanmodifier.RequiresReplace(),
+					stringplanmodifier.RequiresReplaceIf(
+						func(ctx context.Context, req planmodifier.StringRequest, resp *stringplanmodifier.RequiresReplaceIfFuncResponse) {
+							var deploymentType types.String
+							resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("type"), &deploymentType)...)
+							resp.RequiresReplace = isFlinkSQL(deploymentType.ValueString())
+						},
+						"A FLINK_SQL Application Deployment must be replaced to change its deployment target.",
+						"A FLINK_SQL Application Deployment must be replaced to change its deployment target.",
+					),
 				},
 			},
 			"sql_script": schema.StringAttribute{
@@ -171,11 +180,11 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 }
 
 // deploymentTypePlanModifier keeps KSML and FLINK_SQL deployments on an in-place update and replaces
-// Connector deployments, whose update the Platform Manager currently rejects with "No Kafka Connect
-// cluster matching the deployment `targetId` axualconnect-<env>". Leaving the planned type unknown is
-// what makes Terraform replace it, so the state value is only copied for the types updated in place
-// (UseStateForUnknown plus RequiresReplaceIf cannot express that: making the values equal is exactly
-// what stops RequiresReplaceIf from firing).
+// Connector deployments. The API does accept a `configs` PATCH for a Connector, so the replace is
+// kept only until the Connector support of AXPD-11929 verifies the in-place update against a real
+// Connect cluster. Leaving the planned type unknown is what makes Terraform replace it, so the state
+// value is only copied for the types updated in place (UseStateForUnknown plus RequiresReplaceIf
+// cannot express that: making the values equal is exactly what stops RequiresReplaceIf from firing).
 type deploymentTypePlanModifier struct{}
 
 func (m deploymentTypePlanModifier) Description(_ context.Context) string {
@@ -294,11 +303,13 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 	// Registering a Connector deployment target and adding the configs later is a supported flow
 	// (ConnectorDeploymentManager.validateConfig returns early on empty configs), so this only
 	// warns: the deployment is created but offers no START action until `configs` are set.
+	canStart := true
 	if data.Type.ValueString() == "Connector" && countConfigs(data.Configs) == 0 {
 		resp.Diagnostics.AddWarning(
 			"Connector Application Deployment has no configs",
 			"The deployment is created but cannot be started until `configs` are set.",
 		)
+		canStart = false
 	}
 	// A FLINK_SQL deployment without SQL is rejected here rather than created: the API accepts it
 	// and then never offers a START action, leaving a created-but-unstartable deployment behind.
@@ -360,8 +371,8 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 		}
 	}
 
-	// The POST response has no body: the Uid of the created deployment comes from the Location
-	// header of the response, which the API returns for every application type.
+	// The Uid of the created deployment comes from the Location header of the response, which the
+	// API returns for every application type.
 	if createResponse.Uid == "" {
 		resp.Diagnostics.AddError(
 			"Error reading the created application deployment",
@@ -374,12 +385,25 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 		resp.Diagnostics.AddError("Error reading the created application deployment", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
+	// A FLINK_SQL deployment is created with a target only, so the response carries no configs yet
+	// and mapping it would null the planned Flink values. Keep them - the follow-up PATCH is what
+	// stores them - or an apply that does not reach the re-read below fails the consistency check.
+	plannedSqlScript, plannedDeploymentSize, plannedGenerateTablesSql := data.SqlScript, data.DeploymentSize, data.GenerateTablesSql
 	mapApplicationDeploymentByIdResponseToData(ctx, &data, createdDeployment)
+	if isFlinkSQL(data.Type.ValueString()) {
+		// `deployment_size` and `generate_tables_sql` are Computed, so an unset one is unknown in the
+		// plan; only a known value may be carried over, the rest stays as the response mapped it.
+		data.SqlScript = plannedSqlScript
+		if !plannedDeploymentSize.IsUnknown() {
+			data.DeploymentSize = plannedDeploymentSize
+		}
+		if !plannedGenerateTablesSql.IsUnknown() {
+			data.GenerateTablesSql = plannedGenerateTablesSql
+		}
+	}
 
-	// Save state as soon as the deployment's Id is known, BEFORE the FLINK_SQL config PATCH or
-	// START - a failure past this point still leaves the deployment trackable, so a retried apply
-	// goes through Update() (which knows to PATCH FLINK_SQL configs) instead of Create() orphaning
-	// an untracked deployment the API won't let a fresh Create() replace.
+	// Save state as soon as the Id is known: a failure after this leaves the deployment trackable,
+	// so a retried apply goes through Update() instead of orphaning it.
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -419,16 +443,22 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 	// A START failure is reported as a warning, not an error: the deployment is already saved to
 	// state above, and failing Create with state set would taint the resource, turning the next
 	// apply into a destroy-and-create instead of the Update() that retries the START.
-	if err := r.startApplicationDeployment(ctx, data.Id.ValueString(), data.Type.ValueString(), 10*time.Second); err != nil {
-		resp.Diagnostics.AddWarning(
-			"Deployment created but START failed",
-			fmt.Sprintf("The deployment was created and saved to state, but it is not running: %s. "+
-				"Run 'terraform apply' again to retry starting the deployment.", err),
-		)
+	// A deployment that cannot start yet is not asked to: the START only waits out its full budget
+	// for a `start` rel the API will not offer, and then repeats the warning above.
+	if canStart {
+		if err := r.startApplicationDeployment(ctx, data.Id.ValueString(), data.Type.ValueString(), 10*time.Second); err != nil {
+			resp.Diagnostics.AddWarning(
+				"Deployment created but START failed",
+				fmt.Sprintf("The deployment was created and saved to state, but it is not running: %s. "+
+					"Run 'terraform apply' again to retry starting the deployment.", err),
+			)
+			return
+		}
+		tflog.Info(ctx, "Successfully created and started Application Deployment")
 		return
 	}
 
-	tflog.Info(ctx, "Successfully created and started Application Deployment")
+	tflog.Info(ctx, "Successfully created Application Deployment, which cannot be started yet")
 }
 
 func (r *applicationDeploymentResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -545,10 +575,8 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 		return
 	}
 
-	// No `delete` rel pre-check: the rel follows the deployment's desired state, which STOP changes
-	// at once, so it is offered while a Flink job is still draining and never offered for a failed
-	// FLINK_SQL job that was never stopped - a DELETE the API does accept (AXPD-11714). The API's
-	// own error is the better one to report.
+	// No `delete` rel pre-check: the rel follows the desired state, so it is offered while a Flink
+	// job still drains and missing for a failed one the API would delete (AXPD-11714).
 	if err := r.provider.client.DeleteApplicationDeployment(data.Id.ValueString()); err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete Application Deployment, got error: %s", err))
 		return
@@ -607,11 +635,8 @@ func createApplicationDeploymentRequestFromData(ctx context.Context, data *Appli
 		Environment: data.Environment.ValueString(),
 		Configs:     configs,
 	}
-	// A Connector deployment with no stored target reads back with a synthesized
-	// `axualconnect-<instance>` id standing for legacy Axual Connect. That id is not a registered
-	// Kafka Connect cluster, so sending it back on a create fails with "No Kafka Connect cluster
-	// matching the deployment `targetId`" - leave it out and let the platform resolve the target,
-	// which is what an unset target means.
+	// A Connector deployment with no stored target reads back as `axualconnect-<instance>`, which
+	// is not a registered Connect cluster. Leave it out and let the platform resolve the target.
 	if !data.TargetId.IsNull() && !data.TargetId.IsUnknown() &&
 		!strings.HasPrefix(data.TargetId.ValueString(), legacyAxualConnectTargetPrefix) {
 		ApplicationDeploymentRequest.TargetId = data.TargetId.ValueString()
@@ -621,8 +646,9 @@ func createApplicationDeploymentRequestFromData(ctx context.Context, data *Appli
 	return ApplicationDeploymentRequest, nil
 }
 
-// createApplicationUpdateDeploymentRequestFromData builds the update request. The target is absent
-// because `target_id` requires replacement in the schema, so a change never reaches this path.
+// createApplicationUpdateDeploymentRequestFromData builds the update request. The target is sent for
+// the types that can change it in place; a FLINK_SQL deployment is replaced instead (AXPD-11759),
+// and the synthesized `axualconnect-` target is left out for the same reason as on the create.
 func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData) (webclient.ApplicationDeploymentUpdateRequest, error) {
 	configs, err := createConfigsForDeploymentType(data)
 
@@ -632,6 +658,10 @@ func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data 
 
 	ApplicationDeploymentUpdateRequest := webclient.ApplicationDeploymentUpdateRequest{
 		Configs: configs,
+	}
+	if !isFlinkSQL(data.Type.ValueString()) && !data.TargetId.IsNull() && !data.TargetId.IsUnknown() &&
+		!strings.HasPrefix(data.TargetId.ValueString(), legacyAxualConnectTargetPrefix) {
+		ApplicationDeploymentUpdateRequest.TargetId = data.TargetId.ValueString()
 	}
 
 	tflog.Info(ctx, fmt.Sprintf("Application update request completed: %q", ApplicationDeploymentUpdateRequest))
@@ -902,7 +932,7 @@ func (r *applicationDeploymentResource) stopDeploymentAndWait(ctx context.Contex
 	if err != nil {
 		return fmt.Errorf("unable to get Application Deployment status, got error: %s", err)
 	}
-	if !shouldStopDeployment(status) {
+	if !shouldStopDeployment(deploymentType, status) {
 		return nil
 	}
 
@@ -1030,10 +1060,15 @@ func isDeploymentStopped(deploymentType string, status *webclient.ApplicationDep
 		return status.FlinkStatus.Status == "Undeployed" || status.FlinkStatus.Status == "Failed"
 	}
 	if isKSML(deploymentType) {
-		return status.KsmlStatus.Status == "Undeployed"
+		// KSML never reports `Stopped`: a stopped app reads as `Undeployed`. `Failed` and `Completed`
+		// are end states with nothing running, so waiting for them to change wastes the full budget.
+		return status.KsmlStatus.Status == "Undeployed" || status.KsmlStatus.Status == "Failed" ||
+			status.KsmlStatus.Status == "Completed"
 	}
-	// A Connector that never ran reports `Undefined` rather than `Stopped`.
-	return status.ConnectorState.State == "Stopped" || status.ConnectorState.State == "Undefined"
+	// A Connector that never ran reports `Undefined` rather than `Stopped`, and a failed one stays
+	// `Failed` (ManagedApplicationStatus is STARTING, RUNNING, STOPPED, FAILED, UNDEFINED).
+	return status.ConnectorState.State == "Stopped" || status.ConnectorState.State == "Undefined" ||
+		status.ConnectorState.State == "Failed"
 }
 
 // isDeploymentRunning reports whether the deployment reports itself as running. Like
@@ -1054,6 +1089,13 @@ func isDeploymentRunning(deploymentType string, status *webclient.ApplicationDep
 // action for the deployment's current state, for every application type - so the provider does
 // not have to mirror the per-type state machines (Connector states, KSML statuses, Flink job
 // states), nor be released again when the platform adds a state.
-func shouldStopDeployment(status *webclient.ApplicationDeploymentStatusResponse) bool {
-	return status.Links.Has(webclient.RelStop)
+func shouldStopDeployment(deploymentType string, status *webclient.ApplicationDeploymentStatusResponse) bool {
+	if len(status.Links) > 0 {
+		return status.Links.Has(webclient.RelStop)
+	}
+	// No rels at all is not the same as "already stopped": the caller may lack
+	// APPLICATION_DEPLOYMENT_UPDATE, the KSML provisioner may be unavailable, or Ververica may report
+	// a state Axual does not know. Fall back on what the deployment says it is doing, so a running
+	// deployment is still stopped rather than left for the API to refuse the PATCH or DELETE.
+	return isDeploymentRunning(deploymentType, status)
 }

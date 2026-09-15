@@ -80,42 +80,42 @@ func (r *flinkClusterResource) Schema(ctx context.Context, req resource.SchemaRe
 				},
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Human-readable name of the Flink Cluster.",
+				MarkdownDescription: "Human-readable name of the Flink Cluster. Must be between 3 and 50 characters.",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(flinkClusterNameMinLength, flinkClusterNameMaxLength),
 				},
 			},
 			"description": schema.StringAttribute{
-				MarkdownDescription: "A short description of the Flink Cluster.",
+				MarkdownDescription: "A short description of the Flink Cluster. Must be at most 255 characters.",
 				Optional:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthAtMost(flinkClusterDescriptionMaxLength),
 				},
 			},
 			"url": schema.StringAttribute{
-				MarkdownDescription: "Ververica Platform base URL, e.g. `https://vvp.internal`.",
+				MarkdownDescription: "Ververica Platform base URL, e.g. `https://vvp.internal`. Must be at most 255 characters.",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthAtMost(flinkClusterUrlMaxLength),
 				},
 			},
 			"workspace": schema.StringAttribute{
-				MarkdownDescription: "Ververica workspace name, e.g. `defaultworkspace`.",
+				MarkdownDescription: "Ververica workspace name, e.g. `defaultworkspace`. Must be at most 50 characters.",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthAtMost(flinkClusterNameMaxLength),
 				},
 			},
 			"namespace": schema.StringAttribute{
-				MarkdownDescription: "Ververica namespace name, e.g. `default`.",
+				MarkdownDescription: "Ververica namespace name, e.g. `default`. Must be at most 50 characters.",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthAtMost(flinkClusterNameMaxLength),
 				},
 			},
 			"deployment_target": schema.StringAttribute{
-				MarkdownDescription: "Ververica deployment target name, e.g. `default-target`.",
+				MarkdownDescription: "Ververica deployment target name, e.g. `default-target`. Must be at most 50 characters.",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthAtMost(flinkClusterNameMaxLength),
