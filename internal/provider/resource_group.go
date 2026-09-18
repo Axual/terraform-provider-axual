@@ -290,8 +290,12 @@ func createGroupRequestFromData(ctx context.Context, data *groupResourceData, cl
 			return webclient.GroupRequest{}, fmt.Errorf("failed to extract managers: %v", diags)
 		}
 
+		// A manager is a member with an extra role, not a group - same ambiguity as members above.
 		for _, manager := range managerUIDs {
-			fullURL := fmt.Sprintf("%s/groups/%v", client.ApiURL, manager)
+			fullURL, err := client.GroupMemberURI(manager)
+			if err != nil {
+				return webclient.GroupRequest{}, err
+			}
 			managers = append(managers, fullURL)
 		}
 	}
