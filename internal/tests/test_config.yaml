@@ -22,7 +22,9 @@ clusterId: "YOUR_CLUSTER_ID"
 # a hand-written `CREATE TEMPORARY TABLE` names the real Kafka topic. Leave empty to skip that test.
 resolvedTopicPrefix: ""
 
-# The uid of an existing service account, used by TestGroupResourceServiceAccountMember to check
-# that Platform Manager accepts a service account in a group's member list. Nothing in the provider
-# creates service accounts yet, so this is seeded by hand. Leave empty to skip that test.
+# The uid of an existing service account, used by TestGroupResourceServiceAccountMemberAndManager to check
+# that Platform Manager resolves a bare uid to a service account in a group's member and manager
+# lists. Nothing in the provider creates service accounts yet, so this is seeded by hand, and the
+# credentials above must belong to a Tenant Admin: only a Tenant Admin may add a service account to
+# a group. Leave empty to skip that test.
 serviceAccountUid: ""
