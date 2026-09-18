@@ -21,3 +21,8 @@ clusterId: "YOUR_CLUSTER_ID"
 # "axual-dta-tfflinkdev-". Only TestApplicationDeploymentFlinkManualTablesResource needs it, because
 # a hand-written `CREATE TEMPORARY TABLE` names the real Kafka topic. Leave empty to skip that test.
 resolvedTopicPrefix: ""
+
+# The uid of an existing service account, used by TestGroupResourceServiceAccountMember to check
+# that Platform Manager accepts a service account in a group's member list. Nothing in the provider
+# creates service accounts yet, so this is seeded by hand. Leave empty to skip that test.
+serviceAccountUid: ""

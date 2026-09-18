@@ -34,6 +34,8 @@ type ProviderConfig struct {
 	UserEmail         string `yaml:"userEmail"`
 	Username          string `yaml:"username"`
 	Password          string `yaml:"password"`
+	// A service account uid to use as a group member.
+	ServiceAccountUid string `yaml:"serviceAccountUid"`
 	// The Ververica values the Flink suites need. The API validates the workspace, namespace and
 	// deployment target live, so a developer whose namespace differs sets them here rather than
 	// editing the fixtures; they default to defaultworkspace / default / default-target.
