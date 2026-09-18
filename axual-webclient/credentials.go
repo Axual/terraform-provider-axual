@@ -162,7 +162,7 @@ func Resolve(cfg ProviderConfig, getenv func(string) string) (Credentials, []War
 		return Credentials{}, nil, fmt.Errorf(
 			"conflicting service account credentials: %s selects secret authentication, "+
 				"but %s selects federated authentication. Supply exactly one",
-			describe(sources, "client_secret"), describeAssertion(sources, oidcToken, oidcTokenFile))
+			describe(sources, "client_secret"), describeAssertion(sources, oidcToken))
 	}
 	if oidcToken != "" && oidcTokenFile != "" {
 		return Credentials{}, nil, fmt.Errorf(
@@ -271,11 +271,10 @@ func describe(sources map[string]string, attr string) string {
 	}
 }
 
-func describeAssertion(sources map[string]string, oidcToken, oidcTokenFile string) string {
+func describeAssertion(sources map[string]string, oidcToken string) string {
 	if oidcToken != "" {
 		return describe(sources, "oidc_token")
 	}
-	_ = oidcTokenFile
 	return describe(sources, "oidc_token_file")
 }
 
