@@ -55,6 +55,22 @@ const (
 	stopWaitDelay    = 3 * time.Second
 )
 
+// flinkStopWaitAttempts and flinkStopWaitDelay are the same bound for a FLINK_SQL deployment.
+// Ververica cancels the job asynchronously and keeps reporting `Stopping` well past the 30s the
+// other types need; deleting before it is terminal is refused with "Deleting a deployment which
+// has job is not terminal status is not allowed".
+const (
+	flinkStopWaitAttempts = 150
+	flinkStopWaitDelay    = 2 * time.Second
+)
+
+// flinkDeleteAttempts and flinkDeleteDelay retry a FLINK_SQL DELETE that Ververica refuses because
+// its job has not reached a terminal state yet.
+const (
+	flinkDeleteAttempts = 6
+	flinkDeleteDelay    = 10 * time.Second
+)
+
 // startWaitAttempts and startWaitDelay bound how long a START waits for a deployment that is
 // still stopping to become startable.
 const (
@@ -575,9 +591,11 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 		return
 	}
 
-	// No `delete` rel pre-check: the rel follows the desired state, so it is offered while a Flink
-	// job still drains and missing for a failed one the API would delete (AXPD-11714).
-	if err := r.provider.client.DeleteApplicationDeployment(data.Id.ValueString()); err != nil {
+	// No `delete` rel pre-check (AXPD-11714): a draining Flink job still offers it, a failed
+	// deployment does not.
+	if err := deleteWithRetry(data.Type.ValueString(), flinkDeleteDelay, func() error {
+		return r.provider.client.DeleteApplicationDeployment(data.Id.ValueString())
+	}); err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete Application Deployment, got error: %s", err))
 		return
 	}
@@ -941,20 +959,40 @@ func (r *applicationDeploymentResource) stopDeploymentAndWait(ctx context.Contex
 		return fmt.Errorf("unable to stop Application Deployment, got error: %s", err)
 	}
 
+	attempts, delay := stopWaitBudget(deploymentType)
 	tflog.Info(ctx, fmt.Sprintf("Stopped Application Deployment %s, waiting for it to stop running", id))
-	for i := 0; i < stopWaitAttempts; i++ {
-		time.Sleep(stopWaitDelay)
+	started := time.Now()
+	for i := 0; i < attempts; i++ {
+		time.Sleep(delay)
 		status, err := r.provider.client.GetApplicationDeploymentStatus(id)
 		if err != nil {
 			return fmt.Errorf("unable to get Application Deployment status while waiting for it to stop, got error: %s", err)
 		}
 		if isDeploymentStopped(deploymentType, status) {
-			tflog.Info(ctx, fmt.Sprintf("Application Deployment %s stopped (%s)", id, describeDeploymentStatus(status)))
+			tflog.Info(ctx, fmt.Sprintf("Application Deployment %s stopped after %s (%s)", id, time.Since(started).Round(time.Second), describeDeploymentStatus(status)))
 			return nil
 		}
 	}
-	tflog.Warn(ctx, fmt.Sprintf("Application Deployment %s did not report a stopped state within %s, continuing", id, time.Duration(stopWaitAttempts)*stopWaitDelay))
+	tflog.Warn(ctx, fmt.Sprintf("Application Deployment %s did not report a stopped state within %s, continuing", id, time.Duration(attempts)*delay))
 	return nil
+}
+
+// stopWaitBudget is how long stopDeploymentAndWait waits for the given type to come to a halt.
+func stopWaitBudget(deploymentType string) (int, time.Duration) {
+	if isFlinkSQL(deploymentType) {
+		return flinkStopWaitAttempts, flinkStopWaitDelay
+	}
+	return stopWaitAttempts, stopWaitDelay
+}
+
+// deleteWithRetry retries only a FLINK_SQL delete: the stop wait gives up rather than failing, and
+// Ververica refuses the DELETE for as long as its job is not in a terminal state. Every other type
+// is deleted once and its error returned unchanged.
+func deleteWithRetry(deploymentType string, delay time.Duration, deleteDeployment func() error) error {
+	if isFlinkSQL(deploymentType) {
+		return Retry(flinkDeleteAttempts, delay, deleteDeployment)
+	}
+	return deleteDeployment()
 }
 
 // startApplicationDeployment starts or resumes the deployment and returns nil once it is running or

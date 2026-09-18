@@ -3,9 +3,11 @@ package provider
 import (
 	webclient "axual-webclient"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -233,4 +235,77 @@ func TestIsFlinkTaskSizeOnlyChange(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestStopWaitBudget asserts that a FLINK_SQL deployment gets the long Ververica budget and every
+// other type the short one.
+func TestStopWaitBudget(t *testing.T) {
+	tests := []struct {
+		name           string
+		deploymentType string
+		attempts       int
+		delay          time.Duration
+	}{
+		{name: "flink", deploymentType: webclient.FlinkSQLApplicationType, attempts: flinkStopWaitAttempts, delay: flinkStopWaitDelay},
+		{name: "connector", deploymentType: "Connector", attempts: stopWaitAttempts, delay: stopWaitDelay},
+		{name: "ksml", deploymentType: "Ksml", attempts: stopWaitAttempts, delay: stopWaitDelay},
+		{name: "empty", deploymentType: "", attempts: stopWaitAttempts, delay: stopWaitDelay},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			attempts, delay := stopWaitBudget(test.deploymentType)
+			if attempts != test.attempts || delay != test.delay {
+				t.Errorf("stopWaitBudget(%q) = (%d, %s), expected (%d, %s)", test.deploymentType, attempts, delay, test.attempts, test.delay)
+			}
+		})
+	}
+}
+
+// TestDeleteWithRetry asserts that only a FLINK_SQL delete is retried, and that every other type's
+// error reaches the caller unwrapped, exactly as the client returned it.
+func TestDeleteWithRetry(t *testing.T) {
+	apiErr := errors.New("403 Forbidden")
+
+	t.Run("connector failure is not retried or wrapped", func(t *testing.T) {
+		calls := 0
+		err := deleteWithRetry("Connector", 0, func() error {
+			calls++
+			return apiErr
+		})
+		if calls != 1 {
+			t.Errorf("delete called %d times, expected 1", calls)
+		}
+		if !errors.Is(err, apiErr) || err.Error() != apiErr.Error() {
+			t.Errorf("error = %v, expected the original %v", err, apiErr)
+		}
+	})
+
+	t.Run("flink failure is retried", func(t *testing.T) {
+		calls := 0
+		err := deleteWithRetry(webclient.FlinkSQLApplicationType, 0, func() error {
+			calls++
+			return apiErr
+		})
+		if calls != flinkDeleteAttempts {
+			t.Errorf("delete called %d times, expected %d", calls, flinkDeleteAttempts)
+		}
+		if err == nil {
+			t.Error("expected an error after all attempts failed")
+		}
+	})
+
+	t.Run("flink succeeds on a later attempt", func(t *testing.T) {
+		calls := 0
+		err := deleteWithRetry(webclient.FlinkSQLApplicationType, 0, func() error {
+			calls++
+			if calls < 3 {
+				return apiErr
+			}
+			return nil
+		})
+		if err != nil || calls != 3 {
+			t.Errorf("got (%v, %d calls), expected (nil, 3 calls)", err, calls)
+		}
+	})
 }

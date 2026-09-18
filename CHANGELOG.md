@@ -16,6 +16,8 @@ All notable changes to this project will be documented in this file.
 * Create a Connector Application Deployment without `configs`
 * Destroy a failed `FLINK_SQL` Application Deployment
 * Wait for a deployment to stop before updating it
+* Wait up to 5 minutes for a `FLINK_SQL` job to reach a terminal state before updating or deleting it,
+  and retry a DELETE that Ververica refuses while the job is still draining (AXPD-11714)
 * Validate `axual_flink_cluster` attribute lengths in the schema
 * Retry the delete of an `axual_application` that the API rejects with a transient commit conflict
   after an access grant was revoked moments earlier (AXPD-12049)
