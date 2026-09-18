@@ -591,15 +591,9 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 		return
 	}
 
-	// No `delete` rel pre-check: the rel follows the desired state, so it is offered while a Flink
-	// job still drains and missing for a failed one the API would delete (AXPD-11714).
-	// A FLINK_SQL delete is retried: the wait above gives up rather than failing, and Ververica
-	// refuses the DELETE for as long as its job is not in a terminal state.
-	deleteAttempts, deleteDelay := 1, time.Duration(0)
-	if isFlinkSQL(data.Type.ValueString()) {
-		deleteAttempts, deleteDelay = flinkDeleteAttempts, flinkDeleteDelay
-	}
-	if err := Retry(deleteAttempts, deleteDelay, func() error {
+	// No `delete` rel pre-check (AXPD-11714): a draining Flink job still offers it, a failed
+	// deployment does not.
+	if err := deleteWithRetry(data.Type.ValueString(), flinkDeleteDelay, func() error {
 		return r.provider.client.DeleteApplicationDeployment(data.Id.ValueString())
 	}); err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete Application Deployment, got error: %s", err))
@@ -989,6 +983,16 @@ func stopWaitBudget(deploymentType string) (int, time.Duration) {
 		return flinkStopWaitAttempts, flinkStopWaitDelay
 	}
 	return stopWaitAttempts, stopWaitDelay
+}
+
+// deleteWithRetry retries only a FLINK_SQL delete: the stop wait gives up rather than failing, and
+// Ververica refuses the DELETE for as long as its job is not in a terminal state. Every other type
+// is deleted once and its error returned unchanged.
+func deleteWithRetry(deploymentType string, delay time.Duration, deleteDeployment func() error) error {
+	if isFlinkSQL(deploymentType) {
+		return Retry(flinkDeleteAttempts, delay, deleteDeployment)
+	}
+	return deleteDeployment()
 }
 
 // startApplicationDeployment starts or resumes the deployment and returns nil once it is running or
