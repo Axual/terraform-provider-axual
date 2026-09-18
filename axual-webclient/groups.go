@@ -2,7 +2,6 @@ package webclient
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -60,20 +59,4 @@ func (c *Client) GetGroupByName(name string) (*GetGroupByNameResponse, error) {
 		return nil, err
 	}
 	return &o, nil
-}
-
-// GroupMemberURI returns the URI naming uid in a group's member list. A bare uid does not
-// say which kind it is and Platform Manager rejects the wrong one, so it is resolved by asking.
-func (c *Client) GroupMemberURI(uid string) (string, error) {
-	collection := "users"
-	err := c.RequestAndMap("GET", fmt.Sprintf("%s/service-accounts/%v", c.ApiURL, uid), nil, nil, nil)
-	switch {
-	case err == nil:
-		collection = "service-accounts"
-	case errors.Is(err, NotFoundError):
-		// a person, an unknown uid, or a Platform Manager without service accounts
-	default:
-		return "", fmt.Errorf("could not determine whether member %q is a service account: %w", uid, err)
-	}
-	return fmt.Sprintf("%s/%s/%v", c.ApiURL, collection, uid), nil
 }
