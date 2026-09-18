@@ -1,8 +1,11 @@
 package GroupResource
 
 import (
-	. "axual.com/terraform-provider-axual/internal/tests"
+	"fmt"
+	"strings"
 	"testing"
+
+	. "axual.com/terraform-provider-axual/internal/tests"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
@@ -42,6 +45,44 @@ func TestGroupResource(t *testing.T) {
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
 				Config:  GetProvider() + GetFile("axual_group_updated.tf"),
+			},
+		},
+	})
+}
+
+// The provider sends bare uids and lets Platform Manager resolve each one. This is the only
+// automated check that the contract holds: a service account named by a bare uid is stored as a
+// member and as a manager, and read back. A manager is a user, not a group, so both lists carry
+// the same kind of reference and one apply covers both.
+func TestGroupResourceServiceAccountMemberAndManager(t *testing.T) {
+	config, err := LoadProviderConfig()
+	if err != nil {
+		t.Fatalf("Error loading provider config: %v", err)
+	}
+	if config.ServiceAccountUid == "" || strings.HasPrefix(config.ServiceAccountUid, "YOUR_") {
+		t.Skip("serviceAccountUid is not set in test_config.yaml, so no service account can be added to a group")
+	}
+	locals := fmt.Sprintf("locals {\n  service_account_uid = %q\n}\n", config.ServiceAccountUid)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+
+		Steps: []resource.TestStep{
+			{
+				Config: GetProvider() + locals + GetFile("axual_group_service_account.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_group.team-service-accounts", "name", "testgroupsa9999"),
+					resource.TestCheckResourceAttr("axual_group.team-service-accounts", "members.#", "2"),
+					resource.TestCheckTypeSetElemAttr("axual_group.team-service-accounts", "members.*", config.ServiceAccountUid),
+					resource.TestCheckResourceAttr("axual_group.team-service-accounts", "managers.#", "2"),
+					resource.TestCheckTypeSetElemAttr("axual_group.team-service-accounts", "managers.*", config.ServiceAccountUid),
+				),
+			},
+			{
+				ResourceName:      "axual_group.team-service-accounts",
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 		},
 	})

@@ -74,12 +74,12 @@ func (r *groupResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				},
 			},
 			"members": schema.SetAttribute{
-				MarkdownDescription: "Group's members",
+				MarkdownDescription: "Group's members. Each entry is the uid of a user or of a service account. Adding a service account requires Tenant Admin; once it is a member, a group manager may promote or remove it.",
 				Optional:            true,
 				ElementType:         types.StringType,
 			},
 			"managers": schema.SetAttribute{
-				MarkdownDescription: "A Group Manager can edit this group, including adding or removing users and other group managers. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#making-a-group-member-manager-of-the-group",
+				MarkdownDescription: "A Group Manager can edit this group, including adding or removing users and other group managers. Each entry is the uid of a user or of a service account, and must also be listed in `members`. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#making-a-group-member-manager-of-the-group",
 				Optional:            true,
 				ElementType:         types.StringType,
 				Validators: []validator.Set{
@@ -107,7 +107,7 @@ func (r *groupResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	groupRequest, err := createGroupRequestFromData(ctx, &data, r.provider.client.ApiURL)
+	groupRequest, err := createGroupRequestFromData(ctx, &data)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating CREATE request struct for group resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
@@ -164,7 +164,7 @@ func (r *groupResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
-	groupRequest, err := createGroupRequestFromData(ctx, &data, r.provider.client.ApiURL)
+	groupRequest, err := createGroupRequestFromData(ctx, &data)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating UPDATE request struct for group resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
@@ -257,7 +257,7 @@ func mapGroupResponseToData(ctx context.Context, data *groupResourceData, group 
 	}
 }
 
-func createGroupRequestFromData(ctx context.Context, data *groupResourceData, apiUrl string) (webclient.GroupRequest, error) {
+func createGroupRequestFromData(ctx context.Context, data *groupResourceData) (webclient.GroupRequest, error) {
 	// Create members list
 	members := []string{}
 	if !data.Members.IsNull() {
@@ -267,10 +267,9 @@ func createGroupRequestFromData(ctx context.Context, data *groupResourceData, ap
 			return webclient.GroupRequest{}, fmt.Errorf("failed to extract members: %v", diags)
 		}
 
-		for _, member := range memberUIDs {
-			fullURL := fmt.Sprintf("%s/users/%v", apiUrl, member)
-			members = append(members, fullURL)
-		}
+		// A bare uid: Platform Manager resolves whether it names a person or a service
+		// account. A typed URI would have to claim one, and the uid alone does not say which.
+		members = append(members, memberUIDs...)
 	}
 
 	tflog.Info(ctx, fmt.Sprintf("Desired members list size %d", len(data.Members.Elements())))
@@ -285,10 +284,8 @@ func createGroupRequestFromData(ctx context.Context, data *groupResourceData, ap
 			return webclient.GroupRequest{}, fmt.Errorf("failed to extract managers: %v", diags)
 		}
 
-		for _, manager := range managerUIDs {
-			fullURL := fmt.Sprintf("%s/groups/%v", apiUrl, manager)
-			managers = append(managers, fullURL)
-		}
+		// A manager is a member with an extra role, not a group, so it is named the same way.
+		managers = append(managers, managerUIDs...)
 	}
 
 	groupRequest := webclient.GroupRequest{

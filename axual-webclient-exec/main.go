@@ -547,11 +547,12 @@ func main() {
 func getClient() *webclient.Client {
 	apiUrl := "https://platform.local/api"
 	realm := "axual"
-	auth := webclient.AuthStruct{
+	auth := webclient.Credentials{
+		Mode:     webclient.ModeROPC,
+		TokenURL: "https://platform.local/auth/realms/axual/protocol/openid-connect/token",
+		ClientID: "self-service",
 		Username: "kubernetes@axual.com",
 		Password: "PLEASE_CHANGE_PASSWORD",
-		ClientId: "self-service",
-		Url:      "https://platform.local/auth/realms/axual/protocol/openid-connect/token",
 		Scopes:   []string{"openid", "profile", "email"},
 	}
 

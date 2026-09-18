@@ -34,6 +34,8 @@ type ProviderConfig struct {
 	UserEmail         string `yaml:"userEmail"`
 	Username          string `yaml:"username"`
 	Password          string `yaml:"password"`
+	// A service account uid to use as a group member.
+	ServiceAccountUid string `yaml:"serviceAccountUid"`
 	// The Ververica values the Flink suites need. The API validates the workspace, namespace and
 	// deployment target live, so a developer whose namespace differs sets them here rather than
 	// editing the fixtures; they default to defaultworkspace / default / default-target.
@@ -153,7 +155,6 @@ func GetProvider() string {
 
 	providerBlock := `
 		provider "axual" {
-		authmode = "keycloak"
 		apiurl   = "` + config.ApiUrl + `"
 		realm    = "` + config.Realm + `"
 		username = "` + config.Username + `"
@@ -265,13 +266,13 @@ func apiClient() (*webclient.Client, error) {
 	return webclient.NewClient(
 		config.ApiUrl,
 		config.Realm,
-		webclient.AuthStruct{
+		webclient.Credentials{
+			Mode:     webclient.ModeROPC,
+			TokenURL: config.AuthUrl,
+			ClientID: "self-service",
 			Username: config.Username,
 			Password: config.Password,
-			Url:      config.AuthUrl,
-			ClientId: "self-service",
 			Scopes:   []string{"openid", "profile", "email"},
-			AuthMode: "keycloak",
 		},
 	)
 }
