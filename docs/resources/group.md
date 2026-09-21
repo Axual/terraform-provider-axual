@@ -15,8 +15,8 @@ Group resource. Read more: https://docs.axual.io/axual/2026.1/self-service/user-
 ### Optional
 
 - `email_address` (String) Group's email address
-- `managers` (Set of String) A Group Manager can edit this group, including adding or removing users and other group managers. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#making-a-group-member-manager-of-the-group
-- `members` (Set of String) Group's members
+- `managers` (Set of String) A Group Manager can edit this group, including adding or removing users and other group managers. Each entry is the uid of a user or of a service account, and must also be listed in `members`. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#making-a-group-member-manager-of-the-group
+- `members` (Set of String) Group's members. Each entry is the uid of a user or of a service account. Adding a service account requires Tenant Admin; once it is a member, a group manager may promote or remove it.
 - `phone_number` (String) Group's phone number
 
 ### Read-Only
@@ -36,7 +36,7 @@ resource "axual_group" "team-awesome" {
     	]
   managers       = [
       	data.axual_user.tom.id,
-      	data.axual_user.kate.id
+      	data.axual_user.john.id
       	]
 }
 ```

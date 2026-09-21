@@ -64,7 +64,7 @@ func (d *groupDataSource) Schema(ctx context.Context, req datasource.SchemaReque
 				Computed:            true,
 			},
 			"members": schema.SetAttribute{
-				MarkdownDescription: "Group's members",
+				MarkdownDescription: "Group's members. Each entry is the uid of a user or of a service account.",
 				Computed:            true,
 				ElementType:         types.StringType,
 			},

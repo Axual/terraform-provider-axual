@@ -25,25 +25,40 @@ terraform {
   }
 }
 
+variable "axual_client_secret" {
+  description = "Client secret of the service account. Set it with TF_VAR_axual_client_secret, or omit client_secret below and set AXUAL_CLIENT_SECRET instead."
+  type        = string
+  sensitive   = true
+}
+
 provider "axual" {
-  # Default `authMode` is "keycloak", if omitted.
-  authmode = "keycloak"
   # URL that will be used by the client for all resource requests
-  apiurl   = "https://axual.cloud/api"
-  # Axual realm used for the requests
-  realm    = "PLEASE_CHANGE_TENANT_NAME"
-  # Username for all requests. Will be used to acquire a token. It can be omitted if the environment variable AXUAL_AUTH_USERNAME is used.
-  username = "PLEASE_CHANGE_USERNAME"
-  # (Sensitive) Password belonging to the user. It can be omitted if the environment variable AXUAL_AUTH_PASSWORD is used.
-  password = "PLEASE_CHANGE_PASSWORD"
-  # Client ID to be used for OAUTH
-  clientid = "self-service"
+  apiurl        = "https://axual.cloud/api"
+  # Axual realm used for the requests. This is your tenant's short name.
+  realm         = "PLEASE_CHANGE_TENANT_NAME"
   # Token url
-  authurl  = "https://axual.cloud/auth/realms/PLEASE_CHANGE_TENANT_NAME/protocol/openid-connect/token"
-  # OAuth authorization server scopes
-  scopes   = ["openid", "profile", "email"]
+  authurl       = "https://axual.cloud/auth/realms/PLEASE_CHANGE_TENANT_NAME/protocol/openid-connect/token"
+
+  # Client ID of the service account. It can be omitted if the environment variable AXUAL_CLIENT_ID is set.
+  client_id     = "PLEASE_CHANGE_SERVICE_ACCOUNT_CLIENT_ID"
+  # (Sensitive) Client secret of the service account, shown once when the account is created
+  # or its secret is rotated. It can be omitted if the environment variable AXUAL_CLIENT_SECRET is set.
+  client_secret = var.axual_client_secret
 }
 ```
+
+A tenant admin creates the service account and gives you its client ID and secret. The
+secret is shown once, so keep it somewhere your pipeline can read it and pass it in with
+`AXUAL_CLIENT_SECRET` rather than writing it into a `.tf` file.
+
+Service accounts can also authenticate with **no secret at all**, using a token from your
+own identity provider. See the
+[Service account authentication](guides/service-account-authentication) guide for that,
+and for how to move an existing configuration off a username and password.
+
+~> **Username and password authentication is deprecated.** Earlier versions authenticated
+as a person using the OAuth2 password grant. That still works and emits a warning, but it
+puts a real person's password into automation and will be removed in a future release.
 
 ### Step 2 – Define Resources
 
