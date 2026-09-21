@@ -99,11 +99,7 @@ func (d *schemaVersionDataSource) Read(ctx context.Context, req datasource.ReadR
 		return
 	}
 
-	// Read the requested version once, before the loop. data.Version is also one of the
-	// fields the loop writes to below - comparing against data.Version.ValueString() directly
-	// inside the loop would compare against whatever the previous iteration just wrote, not
-	// against what was actually requested, so every schema with more than one version would
-	// only ever match its first entry.
+	// data.Version is overwritten below, so capture the target before the loop starts.
 	requestedVersion := data.Version.ValueString()
 	foundMatchingVersion := false
 
