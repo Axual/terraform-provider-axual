@@ -61,14 +61,17 @@ func (p *AxualProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		return
 	}
 
-	// A credential that is still unknown at configure time cannot be used to sign in,
-	// and the resulting failure would point at the wrong thing.
+	// A value that is still unknown at configure time cannot be used to reach the API or
+	// sign in, and the resulting failure would point at the wrong thing.
 	// A slice, not a map: with more than one unknown the reported attribute must be the
 	// same on every run.
-	credentialAttributes := []struct {
+	configAttributes := []struct {
 		name  string
 		value types.String
 	}{
+		{"apiurl", data.ApiUrl},
+		{"authurl", data.AuthUrl},
+		{"realm", data.Realm},
 		{"client_id", data.ClientID},
 		{"client_secret", data.ClientSecret},
 		{"oidc_token", data.OIDCToken},
@@ -77,12 +80,12 @@ func (p *AxualProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		{"password", data.Password},
 		{"clientid", data.LegacyClientID},
 	}
-	for _, attribute := range credentialAttributes {
+	for _, attribute := range configAttributes {
 		if attribute.value.IsUnknown() {
 			resp.Diagnostics.AddError(
-				"Credential is not known yet",
+				"Provider configuration is not known yet",
 				fmt.Sprintf("The value of %q is not known until after apply, so the provider "+
-					"cannot authenticate with it. Supply it from a variable or an environment "+
+					"cannot be configured with it. Supply it from a variable or an environment "+
 					"variable instead of from another resource's output.", attribute.name),
 			)
 			return
