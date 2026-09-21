@@ -99,15 +99,21 @@ func (d *schemaVersionDataSource) Read(ctx context.Context, req datasource.ReadR
 		return
 	}
 
+	// Read the requested version once, before the loop. data.Version is also one of the
+	// fields the loop writes to below - comparing against data.Version.ValueString() directly
+	// inside the loop would compare against whatever the previous iteration just wrote, not
+	// against what was actually requested, so every schema with more than one version would
+	// only ever match its first entry.
+	requestedVersion := data.Version.ValueString()
 	foundMatchingVersion := false
 
 	for i := range sv.Embedded.SchemaVersion {
-		if sv.Embedded.SchemaVersion[i].Version == data.Version.ValueString() {
-			foundMatchingVersion = true
-			data.Id = types.StringValue(sv.Embedded.SchemaVersion[i].Uid)
+		if sv.Embedded.SchemaVersion[i].Version != requestedVersion {
+			continue
 		}
+		foundMatchingVersion = true
+		data.Id = types.StringValue(sv.Embedded.SchemaVersion[i].Uid)
 		data.Version = types.StringValue(sv.Embedded.SchemaVersion[i].Version)
-
 		data.Body = types.StringValue(sv.Embedded.SchemaVersion[i].SchemaBody)
 		data.SchemaId = types.StringValue(sv.Embedded.SchemaVersion[i].Embedded.Schema.Uid)
 		data.FullName = types.StringValue(sv.Embedded.SchemaVersion[i].Embedded.Schema.Name)
@@ -115,9 +121,7 @@ func (d *schemaVersionDataSource) Read(ctx context.Context, req datasource.ReadR
 		if sv.Embedded.SchemaVersion[i].Embedded.Schema.Owners != nil {
 			data.Owners = types.StringValue(sv.Embedded.SchemaVersion[i].Embedded.Schema.Owners.UID)
 		}
-		if foundMatchingVersion {
-			break
-		}
+		break
 	}
 
 	if !foundMatchingVersion {
