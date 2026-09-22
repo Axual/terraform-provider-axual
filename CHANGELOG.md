@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+### Fixed
+* `axual_schema_version` data source: fix looking up any schema version other than the latest
+  one, which failed with "Schema version matching the name you requested was not found" even
+  though the version existed
+
 ## [3.1.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.1.0) - 2026-06-30
 ### Added
 * Allow rotating a Connector's `axual_application_principal`
