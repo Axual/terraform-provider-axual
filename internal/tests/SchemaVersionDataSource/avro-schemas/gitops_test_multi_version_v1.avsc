@@ -1,0 +1,11 @@
+{
+  "type" : "record",
+  "name" : "GitOpsTestMultiVersion",
+  "namespace" : "io.axual.qa.general",
+  "doc" : "Used to check that the data source can look up a schema version that is not the latest one.",
+  "fields" : [ {
+    "name" : "gitops1",
+    "type" : "string",
+    "doc" : "The gitops test value. v 1.0.0"
+  } ]
+}
