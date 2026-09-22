@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+* Fix `axual_schema_version` data source: looking up any schema version other than the latest
+  one failed with "Schema version matching the name you requested was not found", even though
+  the version existed
+
 ## [3.0.0](https://github.com/Axual/terraform-provider-axual/tree/master) - 2026-03-24
 * Import support for `axual_application_principal`
 * Import support for `axual_application_credential`
