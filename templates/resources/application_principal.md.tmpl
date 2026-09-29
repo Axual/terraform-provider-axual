@@ -6,7 +6,7 @@
 - Axual Terraform Provider only support these authentication methods:
 	- SSL (MUTUAL TLS) as a Certificate(PEM). To use it please provide a string with PEM certificate as `principal` property.
 		- Read more: https://docs.axual.io/axual/2026.1/self-service/application-management.html#ssl-application-principals
-	- SASL (OAUTHBEARER) as a Custom Principal that specifies the ID referenced in URI and tokens. To use it please provide a string with PEM certificate as principal property. For example, `my-client`.
+	- SASL (OAUTHBEARER) as a Custom Principal that specifies the ID referenced in URI and tokens. To use it please set `custom = true` and provide the client ID as `principal` property. For example, `my-client`.
 		- Read more: https://docs.axual.io/axual/2026.1/self-service/application-management.html#application-custom-principal
 
 ## Security
@@ -75,7 +75,7 @@ resource "axual_application_principal" "new" {
 
 ### Required by `axual_application_deployment`
 
-A Connector `axual_application_deployment` cannot be created unless at least one active principal exists for the same application+environment. The deployment resource performs a pre-flight check and fails fast with a clear error otherwise.
+A Connector `axual_application_deployment` with `autostart = true` (the default) cannot be created unless at least one active principal exists for the same application+environment. The deployment resource performs a pre-flight check and fails fast with a clear error otherwise. With `autostart = false` there is no such check: the deployment is created first and the principal after it, and `axual_application_deployment_state` starts the connector (see the [Connector Application guide](../guides/connector-application.md)).
 
 **Cross-repo setup:** when the principal is managed in a separate Terraform configuration than the deployment, ensure the principal is activated (via `active = true` or manually via UI) before running `terraform apply` on the deployment repo. The provider does not auto-activate principals.
 
@@ -83,7 +83,7 @@ A Connector `axual_application_deployment` cannot be created unless at least one
 
 ### Deleting an active principal
 
-An active principal can be deleted if no `axual_application_deployment` exists for the same application+environment combination (i.e. the connector is not running). When a deployment is present and the connector is running, the API will reject the deletion — you must first rotate to a new active principal before removing the old one.
+An active principal of a Connector application can only be deleted while its deployment in that environment is undeployed: no `axual_application_deployment` exists, or the connector was reset. A stopped connector is not enough; the API rejects the deletion while the deployment is running or stopped. Delete the deployment first, or, with `autostart = false`, let the `axual_application_deployment_state` be destroyed first: it stops and resets the connector. To keep the connector running, rotate to a new active principal before removing the old one.
 
 ### In-place certificate rotation (same resource, new cert)
 

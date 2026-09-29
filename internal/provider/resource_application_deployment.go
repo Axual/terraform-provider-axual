@@ -208,7 +208,7 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 			"autostart": schema.BoolAttribute{
 				MarkdownDescription: "Whether this resource starts the deployment. Defaults to `true`: the deployment is created only after an approved `axual_application_access_grant` and an Application Principal or Credential exist, and it is started on create and after every update. " +
 					"Set it to `false` to only store the deployment target and configs, the same way the Self-Service UI does when a deployment target is confirmed. The deployment is then created before the principal or credential and is not started; an `axual_application_deployment_state` resource starts and stops it. " +
-					"`false` is required for a Connector on a SASL_SCRAM Kafka Connect cluster, whose `axual_application_credential` can only be created once the deployment and its `target_id` exist. " +
+					"`false` is required for a Connector on a registered Kafka Connect cluster (`target_id` set), on MTLS and SASL_SCRAM clusters alike. A legacy Axual Connect Connector supports both values. " +
 					"With `false`, an update that has to stop the deployment starts it again only if it was running before. Changing only this value changes nothing on the platform.",
 				Optional: true,
 				Computed: true,
@@ -449,21 +449,8 @@ func (r *applicationDeploymentResource) checkStartPrerequisites(data *Applicatio
 			return false, diags
 		}
 	} else {
-		// A Connector on a SASL_SCRAM Kafka Connect cluster authenticates with a credential, and the
-		// platform creates that credential only for a deployment whose target is already stored. So it
-		// cannot exist before this deployment does, which is exactly what autostart = true needs.
-		authMethod, authDiags := r.targetKafkaAuthMethod(data)
-		diags.Append(authDiags...)
-		if diags.HasError() {
-			return false, diags
-		}
-		if authMethod == "SASL_SCRAM" {
-			diags.AddError(
-				"SASL_SCRAM Kafka Connect cluster needs autostart = false",
-				"This Connector targets a SASL_SCRAM Kafka Connect cluster. Its axual_application_credential can only be created after the deployment and its target_id exist. "+
-					"Set `autostart = false` on this axual_application_deployment, make the credential depend on it, and start the deployment with an axual_application_deployment_state resource "+
-					"that depends on the access grant approval.",
-			)
+		if isKafkaConnectTarget(data) {
+			addKafkaConnectAutostartError(&diags)
 			return false, diags
 		}
 
@@ -541,22 +528,26 @@ func (r *applicationDeploymentResource) checkStartPrerequisites(data *Applicatio
 	return true, diags
 }
 
-// targetKafkaAuthMethod is the Kafka authentication ("MTLS" or "SASL_SCRAM") of the registered Kafka
-// Connect cluster a Connector deployment targets, or "" for no target (legacy Axual Connect) and for
-// other deployment types. The deployment-targets endpoint is used because it takes only the
-// application and environment this deployment already has.
-func (r *applicationDeploymentResource) targetKafkaAuthMethod(data *ApplicationDeploymentResourceData) (string, diag.Diagnostics) {
-	var diags diag.Diagnostics
-	if !isConnector(data.Type.ValueString()) || data.TargetId.IsNull() || data.TargetId.IsUnknown() || data.TargetId.ValueString() == "" ||
-		strings.HasPrefix(data.TargetId.ValueString(), legacyAxualConnectTargetPrefix) {
-		return "", diags
-	}
-	targets, err := r.provider.client.GetDeploymentTargets(data.Application.ValueString(), data.Environment.ValueString())
-	if err != nil {
-		diags.AddError("Error querying for deployment targets for this application and environment", fmt.Sprintf("Error message: %s", err.Error()))
-		return "", diags
-	}
-	return kafkaAuthMethodForTarget(targets, data.TargetId.ValueString()), diags
+// isKafkaConnectTarget reports whether a Connector deployment targets a registered Kafka Connect
+// cluster. No target, or the synthesized `axualconnect-` one, means legacy Axual Connect.
+func isKafkaConnectTarget(data *ApplicationDeploymentResourceData) bool {
+	return isConnector(data.Type.ValueString()) && !data.TargetId.IsNull() && !data.TargetId.IsUnknown() &&
+		data.TargetId.ValueString() != "" && !strings.HasPrefix(data.TargetId.ValueString(), legacyAxualConnectTargetPrefix)
+}
+
+// addKafkaConnectAutostartError refuses autostart = true on a Kafka Connect cluster. That flow needs
+// the principal or credential before the deployment, but the platform only writes a principal's key
+// to the Connect cluster's Vault, and only creates a SASL_SCRAM credential, once the target is stored.
+func addKafkaConnectAutostartError(diags *diag.Diagnostics) {
+	diags.AddError(
+		"Kafka Connect cluster needs autostart = false",
+		"This Connector targets a registered Kafka Connect cluster, which is only supported with `autostart = false`. "+
+			"With `autostart = true` the principal or credential has to exist before the deployment, but Platform Manager only stores a principal's private key in the Connect cluster's Vault, "+
+			"and only creates a SASL_SCRAM credential, once the deployment and its target_id exist. "+
+			"Set `autostart = false` on this axual_application_deployment, make the principal or credential depend on it, and start the deployment with an axual_application_deployment_state resource "+
+			"that depends on the access grant approval. "+
+			"If an axual_application_principal for this deployment was already created, replace it after that change (`terraform apply -replace=<principal address>`) so its key is stored for the Connect cluster.",
+	)
 }
 
 func (r *applicationDeploymentResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -621,6 +612,11 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 		tflog.Info(ctx, fmt.Sprintf("Resized Application Deployment %s to %s without redeploying", planData.Id.ValueString(), planData.DeploymentSize.ValueString()))
 
 		resp.Diagnostics.Append(resp.State.Set(ctx, &planData)...)
+		return
+	}
+
+	if isAutostart(planData.Autostart) && isKafkaConnectTarget(&planData) {
+		addKafkaConnectAutostartError(&resp.Diagnostics)
 		return
 	}
 
@@ -1045,18 +1041,6 @@ func countScramCredentials(credentials []webclient.ApplicationCredentialFindByAp
 		}
 	}
 	return count
-}
-
-// kafkaAuthMethodForTarget reads the "kafkaAuthMethod" metadata ("MTLS" or "SASL_SCRAM") of the
-// deployment target named targetId, or "" when targetId does not appear in targets at all (a
-// stale or not-yet-eligible target, which the later CREATE call will reject on its own terms).
-func kafkaAuthMethodForTarget(targets *webclient.DeploymentTargetsResponse, targetId string) string {
-	for _, target := range targets.DeploymentTargets {
-		if target.Id == targetId {
-			return target.KafkaAuthMethod()
-		}
-	}
-	return ""
 }
 
 // isFlinkTaskSizeOnlyChange reports whether the only difference between state and plan is a

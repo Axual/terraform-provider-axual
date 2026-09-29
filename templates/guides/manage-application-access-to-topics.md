@@ -337,10 +337,9 @@ If Topic Owner tries to re-approve a revoked grant:
 ```
 
 ```
-│ Error: Error: Failed to approve grant
+│ Error: Cannot approve revoked grant
 │
-│ Only Pending grants can be approved
-│ Current status of the grant is: Revoked
+│ Grant '<GRANT UID>' was previously approved and then revoked. Revoked grants cannot be re-approved.
 ```
 
 ### Why This Happens

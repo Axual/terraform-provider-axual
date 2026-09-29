@@ -326,7 +326,24 @@ func TestApplicationDeploymentSaslTargetNeedsAutostartFalse(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      GetConnectProvider() + GetFile("sasl_autostart_error.tf"),
-				ExpectError: regexp.MustCompile("needs autostart = false"),
+				ExpectError: regexp.MustCompile("Kafka Connect cluster needs autostart = false"),
+			},
+		},
+	})
+}
+
+// TestApplicationDeploymentMtlsTargetNeedsAutostartFalse: an MTLS Kafka Connect cluster is refused
+// with autostart = true as well, since a principal created before the deployment has no target yet.
+func TestApplicationDeploymentMtlsTargetNeedsAutostartFalse(t *testing.T) {
+	connectTest(t)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+		Steps: []resource.TestStep{
+			{
+				Config:      GetConnectProvider() + GetFile("kc_tls_autostart_error.tf"),
+				ExpectError: regexp.MustCompile("Kafka Connect cluster needs autostart = false"),
 			},
 		},
 	})
