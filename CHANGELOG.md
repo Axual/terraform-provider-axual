@@ -23,6 +23,9 @@ All notable changes to this project will be documented in this file.
 * An `axual_application_deployment` can be imported in any state, not only while it is running
 
 ### Fixed
+* `axual_schema_version` data source: fix looking up any schema version other than the latest
+  one, which failed with "Schema version matching the name you requested was not found" even
+  though the version existed
 * Importing an `axual_application_credential` with an id that does not exist now reports "Application Credential Not Found" instead of a raw internal error message
 * `terraform import` on an `axual_application_principal`, followed by `terraform apply` with the same certificate, no longer triggers a certificate rotation (create new, delete old)
 
