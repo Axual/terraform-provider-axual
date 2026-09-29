@@ -23,11 +23,12 @@ type Links map[string]Link
 
 // Link relations advertised by the Application Deployment endpoints.
 const (
-	RelStop   = "stop"
-	RelStart  = "start"
-	RelResume = "resume"
-	RelReset  = "reset"
-	RelDelete = "delete"
+	RelStop    = "stop"
+	RelStart   = "start"
+	RelResume  = "resume"
+	RelRestart = "restart"
+	RelReset   = "reset"
+	RelDelete  = "delete"
 )
 
 func (l Links) Has(rel string) bool {
@@ -40,12 +41,13 @@ type Config struct {
 	ConfigValue string `json:"configValue"`
 }
 type ApplicationDeploymentResponse struct {
-	Links    Links    `json:"_links"`
-	Configs  []Config `json:"configs"`
-	State    string   `json:"state"`
-	Uid      string   `json:"uid"`
-	TargetId string   `json:"targetId,omitempty"`
-	Embedded struct {
+	Links         Links    `json:"_links"`
+	Configs       []Config `json:"configs"`
+	State         string   `json:"state"`
+	Uid           string   `json:"uid"`
+	TargetId      string   `json:"targetId,omitempty"`
+	TargetVersion string   `json:"targetVersion,omitempty"`
+	Embedded      struct {
 		Application struct {
 			ShortName       string `json:"shortName"`
 			ApplicationType string `json:"applicationType"`
@@ -61,18 +63,21 @@ type ApplicationDeploymentResponse struct {
 // ApplicationDeploymentCreateRequest is the POST body. Configs is omitted when empty: a FLINK_SQL
 // deployment is created with a target only and gets its SQL from a follow-up PATCH.
 type ApplicationDeploymentCreateRequest struct {
-	Application string            `json:"application"`
-	Environment string            `json:"environment"`
-	Configs     map[string]string `json:"configs,omitempty"`
-	TargetId    string            `json:"targetId,omitempty"`
+	Application   string            `json:"application"`
+	Environment   string            `json:"environment"`
+	Configs       map[string]string `json:"configs,omitempty"`
+	TargetId      string            `json:"targetId,omitempty"`
+	TargetVersion string            `json:"targetVersion,omitempty"`
 }
 
-// ApplicationDeploymentUpdateRequest is the PATCH body. TargetId is omitted when empty: the PATCH
-// accepts a target change for Connector, KSML and Custom deployments, while FLINK_SQL rejects one
-// outright (AXPD-11759) and is replaced instead, so its target never reaches this path.
+// ApplicationDeploymentUpdateRequest is the PATCH body. TargetId/TargetVersion are omitted when
+// empty: the PATCH accepts a target change for Connector, KSML and Custom deployments, while
+// FLINK_SQL rejects one outright (AXPD-11759) and is replaced instead, so its target never reaches
+// this path.
 type ApplicationDeploymentUpdateRequest struct {
-	Configs  map[string]string `json:"configs"`
-	TargetId string            `json:"targetId,omitempty"`
+	Configs       map[string]string `json:"configs"`
+	TargetId      string            `json:"targetId,omitempty"`
+	TargetVersion string            `json:"targetVersion,omitempty"`
 }
 
 type ApplicationDeploymentOperationRequest struct {
@@ -88,7 +93,15 @@ type ApplicationDeploymentFindByApplicationAndEnvironmentResponse struct {
 type ApplicationDeploymentStatusResponse struct {
 	ConnectorState struct {
 		State string `json:"state"`
+		Trace string `json:"trace,omitempty"`
 	} `json:"connectorState"`
+	// TaskStates is only reported for Connector deployments. Connect keeps a connector `Running`
+	// while one of its tasks has failed, so the tasks decide whether it really runs.
+	TaskStates []struct {
+		Id     int    `json:"id"`
+		Status string `json:"status"`
+		Trace  string `json:"trace,omitempty"`
+	} `json:"taskStates"`
 	KsmlStatus struct {
 		Status string `json:"status"`
 	} `json:"ksmlStatus"`

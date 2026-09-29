@@ -161,24 +161,17 @@ After import, `principal`, `environment`, and `application` are populated from t
 
 ### Connector principals (`private_key`)
 
-The API does not return the private key for security reasons. After importing a connector principal, Terraform will plan a replacement because `private_key` is missing from state.
+The API does not return the private key for security reasons, so after import `private_key` is
+`null` in state — the same as a principal created without one. Applying the same config again
+(with `private_key` set) is a no-op: the provider treats this as adopting the existing principal,
+not rotating it, so no `lifecycle { ignore_changes }` block is needed.
 
-**Use lifecycle ignore** — add the following to suppress the diff:
-
-```hcl
-resource "axual_application_principal" "example" {
-  environment = "..."
-  application = "..."
-  principal   = file("certs/my-connector.pem")
-  private_key = file("certs/my-connector.key")
-
-  lifecycle {
-    ignore_changes = [private_key]
-  }
-}
-```
-
-Remove the `lifecycle` block once the state is stable. Subsequent `terraform apply` runs from config will include the private key normally since Create always sends it.
+One trade-off follows from this: since state alone cannot distinguish "imported, never had a key
+seen" from "created without one," if you deliberately add `private_key` to a principal that was
+originally created *without* one, the provider will also treat that as adoption — the value is
+saved to state but never sent to the API. This is rare in practice (only non-Connector SSL
+principals can omit `private_key` at all); if you hit it, rotate through a new resource instead
+(see "In-place certificate rotation" above).
 
 ### Custom principals (`custom`)
 

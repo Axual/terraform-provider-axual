@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -178,6 +179,14 @@ func (r *applicationCredentialResource) Read(ctx context.Context, req resource.R
 		tflog.Info(ctx, "Import mode: reading credential by ID")
 		credential, err := r.provider.client.ReadApplicationCredential(data.Id.ValueString())
 		if err != nil {
+			// A nonexistent id makes the API answer a raw 400 instead of a clean 404. Give a real message.
+			if strings.Contains(err.Error(), "converted to null") {
+				resp.Diagnostics.AddError(
+					"Application Credential Not Found",
+					fmt.Sprintf("Application Credential with ID: %s not found.", data.Id.ValueString()),
+				)
+				return
+			}
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application credential, got error: %s", err))
 			return
 		}

@@ -5,15 +5,17 @@
 
 ## Usage
 - To see the required configuration parameters for each connect-plugin (`axual_application.application_class`), refer to the documentation: [Axual Connect Plugins Catalog](https://docs.axual.io/connect/Axual-Connect/connect-plugins-catalog/connect-plugins-catalog.html).
-- Creating the `axual_application_deployment` resource automatically starts the application.
-- Updating the resource stops the application first (if it is running), applies the update, and starts it again — with two exceptions:
-  - a **Connector** deployment is destroyed and recreated instead. The API itself accepts an update, so this is a provider-side restriction that stays until the Connector support of AXPD-11929 verifies the in-place update; note that recreating a connector loses its offsets;
+- With the default `autostart = true`, creating the `axual_application_deployment` resource automatically starts the application.
+- With `autostart = false`, the resource only stores the deployment target and configs, the way the Self-Service UI does when a deployment target is confirmed: no principal, credential or grant has to exist yet, and nothing is started. Start and stop it with an [`axual_application_deployment_state`](application_deployment_state.md). This is required for a Connector on a `SASL_SCRAM` Kafka Connect cluster; see the [Connector Application guide](../guides/connector-application.md).
+- Updating the resource stops the application first (if it is running), applies the update, and starts it again, for every deployment type including **Connector** (a registered Kafka Connect cluster or legacy Axual Connect). With `autostart = false` it is started again only if it was running before the update. One exception:
   - a **FLINK_SQL** deployment is *resumed* rather than started, so it continues from its last checkpoint, and a change of `deployment_size` alone is stored without stopping the job at all - the running job keeps its current size, and the new one takes effect the next time the job is deployed.
 - Deleting the `axual_application_deployment` resource automatically stops the application (if it is running) before removing it.
 - For more information about connector applications in Axual, refer to the documentation: [Starting Connectors](https://docs.axual.io/connect/Axual-Connect/starting-connectors.html).
 - Currently, a data source for `axual_application_deployment` is not supported.
 
-### Prerequisite: active Application Principal (Connector only)
+### Prerequisite: active Application Principal (Connector only, `autostart = true`)
+
+The prerequisites below apply only with `autostart = true`. With `autostart = false` the deployment is created first and has no prerequisites; the [`axual_application_deployment_state`](application_deployment_state.md) that starts it depends on them instead.
 
 For **Connector** applications, an active `axual_application_principal` must exist for the same application and environment before the deployment can be created. The provider performs a pre-flight check during `terraform apply` and returns a clear error if no active principal is found:
 
@@ -28,7 +30,9 @@ Activation options:
 - **Same Terraform configuration:** set `active = true` on the `axual_application_principal` resource and apply it before (or together with) the deployment. See [`axual_application_principal`](application_principal.md) for activation semantics and the multi-principal certificate rotation flow.
 - **Cross-repo setup:** when the principal is managed in a separate Terraform configuration (or activated manually via the UI), make sure activation has been applied before running `terraform apply` on the deployment. The provider does not auto-activate principals.
 
-KSML deployments are unaffected — they allow one authentication (`axual_application_credential` or `axual_application_principal`) and do not require an active principal.
+KSML deployments are unaffected - they allow one authentication (`axual_application_credential` or `axual_application_principal`) and do not require an active principal.
+
+A **Connector** deployment whose `target_id` names a registered Kafka Connect cluster configured for `SASL_SCRAM` (see [`axual_connect_cluster`](../data-sources/connect_cluster.md)) authenticates with an `axual_application_credential` instead of a principal. Platform Manager creates that credential only for a deployment whose target is already stored, so it cannot exist before this deployment does. Such a deployment therefore needs `autostart = false`, the credential with `depends_on = [axual_application_deployment...]`, and an `axual_application_deployment_state` to start it. With `autostart = true` the provider refuses it up front with `SASL_SCRAM Kafka Connect cluster needs autostart = false`.
 
 ### Prerequisites: FLINK_SQL
 
@@ -90,3 +94,5 @@ Import is supported using the following syntax:
 terraform import axual_application_deployment.<LOCAL NAME> <APPLICATION DEPLOYMENT UID>
 terraform import axual_application_deployment.connector_axual_application_deployment 362f33655195493c9574fc18f5d9a701
 ```
+
+A deployment can be imported in any state, running or not. `autostart` is not stored on the platform, so it is imported as `true`; when the configuration says `autostart = false`, the next plan shows an in-place change of `autostart` only, which changes nothing on the platform.

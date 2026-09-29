@@ -86,6 +86,18 @@ func isCertificateChanging(ctx context.Context, plan tfsdk.Plan, state tfsdk.Sta
 	var planPrivateKey, statePrivateKey types.String
 	plan.GetAttribute(ctx, path.Root("private_key"), &planPrivateKey)
 	state.GetAttribute(ctx, path.Root("private_key"), &statePrivateKey)
+	// private_key can never be read back from the API (write-only), so a resource brought in via
+	// `terraform import` always starts with private_key null in state, exactly like one created
+	// without setting it at all - state alone cannot tell those two cases apart. Config supplying a
+	// real value against a null state is treated as adopting the existing principal, not rotating
+	// it. Trade-off, accepted: a principal genuinely created without a key, then given one later in
+	// config, is also treated as adoption - the value is saved to state but never sent to the API,
+	// silently. Rare in practice (only non-Connector SSL principals can omit private_key at all),
+	// and the alternative (always rotate on a null-to-value transition) reintroduces the phantom
+	// rotation this fix exists to remove for the far more common import case.
+	if statePrivateKey.IsNull() && !planPrivateKey.IsNull() && !planPrivateKey.IsUnknown() {
+		return false
+	}
 	// Compare like principal: ignore leading/trailing whitespace so a trailing newline in a key
 	// file does not show as a phantom rotation in the plan (apply trims too, so nothing changes).
 	return strings.TrimSpace(planPrivateKey.ValueString()) != strings.TrimSpace(statePrivateKey.ValueString())
@@ -273,8 +285,12 @@ func (r *applicationPrincipalResource) Update(ctx context.Context, req resource.
 	// Cert-unchanged fast path: only `active` (or other non-cert attrs) changed.
 	// Skip rotation — POST with the same fingerprint returns errmsg.duplicate.principal.
 	// No deactivate API exists; active=false is a write-only intent (atomic swap by activating another principal).
+	// private_key adoption from a null state (import, or created without one) counts as unchanged
+	// too - see isCertificateChanging for why, including the accepted trade-off.
+	privateKeyUnchanged := strings.TrimSpace(plan.PrivateKey.ValueString()) == strings.TrimSpace(state.PrivateKey.ValueString()) ||
+		(state.PrivateKey.IsNull() && !plan.PrivateKey.IsNull() && !plan.PrivateKey.IsUnknown())
 	certUnchanged := strings.TrimSpace(plan.Principal.ValueString()) == strings.TrimSpace(state.Principal.ValueString()) &&
-		strings.TrimSpace(plan.PrivateKey.ValueString()) == strings.TrimSpace(state.PrivateKey.ValueString())
+		privateKeyUnchanged
 	if certUnchanged {
 		tflog.Info(ctx, fmt.Sprintf("Update application principal: cert unchanged for %s, no rotation", oldId))
 		active, err := r.resolveActivation(ctx, oldId, plan, application)
@@ -411,6 +427,13 @@ func warnActiveOnNonConnector(diags *diag.Diagnostics, app *webclient.Applicatio
 // always plan.Active — null stays null (non-Connector and omitted intent never gain a value).
 func (r *applicationPrincipalResource) resolveActivation(ctx context.Context, id string, plan applicationPrincipalResourceData, app *webclient.ApplicationResponse) (types.Bool, error) {
 	if app.ApplicationType == "Connector" && boolTrue(plan.Active) {
+		// Activating a principal that already is active fails in Platform Manager (a 403 with an
+		// optimistic locking error). This is the normal case after `terraform import`, whose state
+		// has no `active` value, so a principal that is already active is left as it is.
+		if current, err := r.provider.client.ReadApplicationPrincipal(id); err == nil && current.Active != nil && *current.Active {
+			tflog.Info(ctx, fmt.Sprintf("Application principal %s is already active", id))
+			return plan.Active, nil
+		}
 		tflog.Info(ctx, fmt.Sprintf("Activating application principal %s", id))
 		if err := r.provider.client.ActivateApplicationPrincipal(id); err != nil {
 			return types.BoolNull(), fmt.Errorf("unable to activate application principal: %w", err)

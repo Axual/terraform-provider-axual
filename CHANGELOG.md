@@ -9,11 +9,22 @@ All notable changes to this project will be documented in this file.
 * Guide: `Service account authentication`, covering both modes and migrating off username and password
 * The provider now verifies its credentials while configuring, so bad credentials fail at the start of a plan instead of partway through an apply
 * A member or manager of an `axual_group` may now be a service account as well as a user, on Platform Manager 15.1.0 or later. Adding a service account to a group requires Tenant Admin, and a manager must also be a member
+* The `axual_connect_cluster` data source, to look up a registered Kafka Connect cluster by id or by name
+* `target_version` on `axual_application_deployment`, the plugin version to deploy for a Connector targeting a registered Kafka Connect cluster
+* The `axual_application_deployment_state` resource: the desired state (`RUNNING` or `STOPPED`) of an Application Deployment. It starts, stops or restarts the deployment to match, shows a deployment stopped outside Terraform or failed as a change in the next plan, exposes the live status as `current_state`, and stops and resets the deployment on destroy. It can be imported by the deployment's Uid
+* `autostart` on `axual_application_deployment`, default `true`. With `false` the deployment only stores its target and configs, like the Self-Service UI does, and is created before the principal, credential and access grant; an `axual_application_deployment_state` starts it. This is the order the Connector Application guide now recommends
+* SASL_SCRAM support for Connector deployments on a registered Kafka Connect cluster: the deployment with `autostart = false`, then its `axual_application_credential`, then the grant, then an `axual_application_deployment_state`. With `autostart = true` such a deployment is refused up front with a message that explains this order
 
 ### Changed
 * `axual_group` sends each member and manager as a bare uid and lets Platform Manager resolve whether it names a user or a service account. Nothing changes for existing configurations; it removes the per-member API call that resolving them in the provider would have cost
 * The authentication method is determined by which credentials are supplied. Supplying a service account credential takes precedence over `username` and `password`, which are ignored with a warning naming them - a leftover `AXUAL_AUTH_PASSWORD` will not break a pipeline that has moved to a service account
 * The provider no longer disables TLS certificate verification process-wide. It now uses its own HTTP transport, leaving `http.DefaultTransport` untouched. Certificate verification behaviour for the provider's own requests is unchanged
+* A Connector deployment is now updated in place instead of being replaced when its config changes
+* An `axual_application_deployment` can be imported in any state, not only while it is running
+
+### Fixed
+* Importing an `axual_application_credential` with an id that does not exist now reports "Application Credential Not Found" instead of a raw internal error message
+* `terraform import` on an `axual_application_principal`, followed by `terraform apply` with the same certificate, no longer triggers a certificate rotation (create new, delete old)
 
 ### Deprecated
 * `username` and `password` authentication. Use a service account instead
