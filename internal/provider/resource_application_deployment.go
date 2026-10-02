@@ -28,6 +28,7 @@ import (
 var (
 	_ resource.Resource                = &applicationDeploymentResource{}
 	_ resource.ResourceWithImportState = &applicationDeploymentResource{}
+	_ resource.ResourceWithModifyPlan  = &applicationDeploymentResource{}
 )
 
 // NewApplicationDeploymentResource creates a new application deployment resource
@@ -175,13 +176,7 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				},
 			},
 			"target_version": schema.StringAttribute{
-				// Optional and Computed, like target_id: the API stores whatever is sent, or null
-				// if omitted (ApplicationDeploymentService.java:383, no default on write). For a
-				// legacy Axual Connect deployment (no target_id) every GET replaces this field with
-				// the connect_plugin's own deployed version instead of the stored value
-				// (ApplicationDeploymentResourceProcessor.applyAxualConnectFallback) - setting it
-				// there can show a diff that never clears if the two differ. UseStateForUnknown
-				// keeps an omitted `target_version` on whatever value Read last saw.
+				// UseStateForUnknown keeps an omitted target_version on the value Read last saw.
 				MarkdownDescription: "The plugin version to deploy on the deployment target named by `target_id`. Only meaningful for a Connector deployment targeting a registered Kafka Connect cluster; omit it for legacy Axual Connect and for other deployment types - for legacy Axual Connect this value is always overwritten on read with the actually-deployed plugin version, so setting it explicitly can produce a diff that never clears. Changing this value updates the deployment in place, the same way changing `target_id` does for every type except FLINK_SQL.",
 				Optional:            true,
 				Computed:            true,
@@ -246,6 +241,33 @@ func (m deploymentTypePlanModifier) PlanModifyString(ctx context.Context, req pl
 
 	if req.PlanValue.IsUnknown() {
 		resp.PlanValue = req.StateValue
+	}
+}
+
+// ModifyPlan refuses autostart = true on a Kafka Connect target at plan time. It can only do that
+// when the application already exists; otherwise Create and Update still refuse it at apply time.
+func (r *applicationDeploymentResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() || r.provider.client == nil {
+		return
+	}
+	var plan ApplicationDeploymentResourceData
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() || plan.Autostart.IsUnknown() || !isAutostart(plan.Autostart) || plan.Application.IsUnknown() {
+		return
+	}
+	if plan.TargetId.IsNull() || plan.TargetId.IsUnknown() || plan.TargetId.ValueString() == "" ||
+		strings.HasPrefix(plan.TargetId.ValueString(), legacyAxualConnectTargetPrefix) {
+		return
+	}
+	application, err := r.provider.client.GetApplication(plan.Application.ValueString())
+	if err != nil {
+		// Not decidable now; the apply-time check still applies.
+		tflog.Debug(ctx, fmt.Sprintf("Skipping the plan-time autostart check, unable to read application: %s", err))
+		return
+	}
+	plan.Type = types.StringValue(application.ApplicationType)
+	if isKafkaConnectTarget(&plan) {
+		addKafkaConnectAutostartError(&resp.Diagnostics)
 	}
 }
 
@@ -400,7 +422,7 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 	// A deployment that cannot start yet is not asked to: the START only waits out its full budget
 	// for a `start` rel the API will not offer, and then repeats the warning above.
 	if canStart {
-		if err := r.startApplicationDeployment(ctx, data.Id.ValueString(), data.Type.ValueString(), 10*time.Second); err != nil {
+		if err := startApplicationDeployment(ctx, r.provider.client, data.Id.ValueString(), data.Type.ValueString(), 10*time.Second); err != nil {
 			resp.Diagnostics.AddWarning(
 				"Deployment created but START failed",
 				fmt.Sprintf("The deployment was created and saved to state, but it is not running: %s. "+
@@ -577,9 +599,7 @@ func (r *applicationDeploymentResource) Read(ctx context.Context, req resource.R
 		return
 	}
 	// A state written before `autostart` existed has no value; those versions always started.
-	if data.Autostart.IsNull() || data.Autostart.IsUnknown() {
-		data.Autostart = types.BoolValue(true)
-	}
+	data.Autostart = types.BoolValue(isAutostart(data.Autostart))
 	tflog.Info(ctx, "saving the resource to state")
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
@@ -629,20 +649,20 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 
 	// With autostart = false an axual_application_deployment_state resource owns whether the
 	// deployment runs, so an update that has to stop it puts it back the way it was.
-	wasRunning := false
+	restartAfterUpdate := false
 	if !isAutostart(planData.Autostart) {
 		status, err := r.provider.client.GetApplicationDeploymentStatus(planData.Id.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get Application Deployment status, got error: %s", err))
 			return
 		}
-		wasRunning = shouldStopDeployment(planData.Type.ValueString(), status)
+		restartAfterUpdate = shouldStopDeployment(planData.Type.ValueString(), status)
 	}
 
 	// A running deployment cannot be updated: `beforeUpdateImpl` rejects a save while the desired
 	// state is RUNNING, and `saveFlinkSql` rejects one while a Flink job actually is. Stop it and
 	// wait, exactly as Delete does.
-	if err := r.stopDeploymentAndWait(ctx, planData.Id.ValueString(), planData.Type.ValueString()); err != nil {
+	if err := stopDeploymentAndWait(ctx, r.provider.client, planData.Id.ValueString(), planData.Type.ValueString()); err != nil {
 		resp.Diagnostics.AddError("Client Error", err.Error())
 		return
 	}
@@ -663,14 +683,14 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 	diags = resp.State.Set(ctx, &planData)
 	resp.Diagnostics.Append(diags...)
 
-	if !isAutostart(planData.Autostart) && !wasRunning {
+	if !isAutostart(planData.Autostart) && !restartAfterUpdate {
 		tflog.Info(ctx, "Application Deployment was not running before the update, leaving it stopped")
 		return
 	}
 
 	// Unlike Create, Update fails the apply when the deployment cannot be started: the resource
 	// is already tracked, so an error here does not taint it and the next apply retries Update.
-	if err := r.startApplicationDeployment(ctx, planData.Id.ValueString(), planData.Type.ValueString(), 5*time.Second); err != nil {
+	if err := startApplicationDeployment(ctx, r.provider.client, planData.Id.ValueString(), planData.Type.ValueString(), 5*time.Second); err != nil {
 		resp.Diagnostics.AddError(
 			"Application Deployment START failed",
 			fmt.Sprintf("The deployment was updated but it is not running: %s. "+
@@ -692,7 +712,7 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 		return
 	}
 
-	if err := r.stopDeploymentAndWait(ctx, data.Id.ValueString(), data.Type.ValueString()); err != nil {
+	if err := stopDeploymentAndWait(ctx, r.provider.client, data.Id.ValueString(), data.Type.ValueString()); err != nil {
 		resp.Diagnostics.AddError("Client Error", err.Error())
 		return
 	}
@@ -737,19 +757,19 @@ func mapApplicationDeploymentByIdResponseToData(ctx context.Context, data *Appli
 }
 
 func mapTargetIdToData(data *ApplicationDeploymentResourceData, targetId string) {
-	if targetId == "" {
-		data.TargetId = types.StringNull()
-	} else {
-		data.TargetId = types.StringValue(targetId)
-	}
+	data.TargetId = stringOrNull(targetId)
 }
 
 func mapTargetVersionToData(data *ApplicationDeploymentResourceData, targetVersion string) {
-	if targetVersion == "" {
-		data.TargetVersion = types.StringNull()
-	} else {
-		data.TargetVersion = types.StringValue(targetVersion)
+	data.TargetVersion = stringOrNull(targetVersion)
+}
+
+// stringOrNull maps an empty API string to null, so an unset optional attribute shows no diff.
+func stringOrNull(value string) types.String {
+	if value == "" {
+		return types.StringNull()
 	}
+	return types.StringValue(value)
 }
 
 func createApplicationDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData) (webclient.ApplicationDeploymentCreateRequest, error) {
@@ -1083,8 +1103,8 @@ func isOnlyAutostartChange(state *ApplicationDeploymentResourceData, plan *Appli
 // for the per-type status to report a terminal state - the rels cannot answer that, because both
 // `stop` and `delete` are already gone or offered while a Flink job is still draining.
 // Running out of attempts is not an error: the caller lets the API decide, as Delete always did.
-func (r *applicationDeploymentResource) stopDeploymentAndWait(ctx context.Context, id string, deploymentType string) error {
-	status, err := r.provider.client.GetApplicationDeploymentStatus(id)
+func stopDeploymentAndWait(ctx context.Context, client *webclient.Client, id string, deploymentType string) error {
+	status, err := client.GetApplicationDeploymentStatus(id)
 	if err != nil {
 		return fmt.Errorf("unable to get Application Deployment status, got error: %s", err)
 	}
@@ -1092,8 +1112,7 @@ func (r *applicationDeploymentResource) stopDeploymentAndWait(ctx context.Contex
 		return nil
 	}
 
-	stopRequest := webclient.ApplicationDeploymentOperationRequest{Action: "STOP"}
-	if err := r.provider.client.OperateApplicationDeployment(id, "STOP", stopRequest); err != nil {
+	if err := operateDeployment(client, id, actionStop); err != nil {
 		return fmt.Errorf("unable to stop Application Deployment, got error: %s", err)
 	}
 
@@ -1102,7 +1121,7 @@ func (r *applicationDeploymentResource) stopDeploymentAndWait(ctx context.Contex
 	started := time.Now()
 	for i := 0; i < attempts; i++ {
 		time.Sleep(delay)
-		status, err := r.provider.client.GetApplicationDeploymentStatus(id)
+		status, err := client.GetApplicationDeploymentStatus(id)
 		if err != nil {
 			return fmt.Errorf("unable to get Application Deployment status while waiting for it to stop, got error: %s", err)
 		}
@@ -1136,8 +1155,8 @@ func deleteWithRetry(deploymentType string, delay time.Duration, deleteDeploymen
 // startApplicationDeployment starts or resumes the deployment and returns nil once it is running or
 // once the action was accepted; the caller decides whether the error fails the apply. A stopped
 // FLINK_SQL deployment offers `resume`, not `start`, so the rel decides which action is sent.
-func (r *applicationDeploymentResource) startApplicationDeployment(ctx context.Context, id string, deploymentType string, retryDelay time.Duration) error {
-	status, err := r.provider.client.GetApplicationDeploymentStatus(id)
+func startApplicationDeployment(ctx context.Context, client *webclient.Client, id string, deploymentType string, retryDelay time.Duration) error {
+	status, err := client.GetApplicationDeploymentStatus(id)
 	if err != nil {
 		return fmt.Errorf("unable to get Application Deployment status before starting it: %s", err)
 	}
@@ -1155,7 +1174,7 @@ func (r *applicationDeploymentResource) startApplicationDeployment(ctx context.C
 			return nil
 		}
 		time.Sleep(startWaitDelay)
-		if status, err = r.provider.client.GetApplicationDeploymentStatus(id); err != nil {
+		if status, err = client.GetApplicationDeploymentStatus(id); err != nil {
 			return fmt.Errorf("unable to get Application Deployment status while waiting for it to become startable: %s", err)
 		}
 		action = startActionFor(status)
@@ -1173,7 +1192,7 @@ func (r *applicationDeploymentResource) startApplicationDeployment(ctx context.C
 		Action: action,
 	}
 	err = Retry(startAttempts, retryDelay, func() error {
-		return r.provider.client.OperateApplicationDeployment(id, action, applicationStartRequest)
+		return client.OperateApplicationDeployment(id, action, applicationStartRequest)
 	})
 	if err == nil {
 		return nil
@@ -1181,7 +1200,7 @@ func (r *applicationDeploymentResource) startApplicationDeployment(ctx context.C
 
 	// The START may still have gone through on a request whose response was lost, so a deployment
 	// that reports itself running counts as success rather than a failure.
-	if currentStatus, statusErr := r.provider.client.GetApplicationDeploymentStatus(id); statusErr == nil && isDeploymentRunning(deploymentType, currentStatus) {
+	if currentStatus, statusErr := client.GetApplicationDeploymentStatus(id); statusErr == nil && isDeploymentRunning(deploymentType, currentStatus) {
 		tflog.Info(ctx, "START reported an error but the Application Deployment is running")
 		return nil
 	}
@@ -1196,7 +1215,7 @@ func (r *applicationDeploymentResource) startApplicationDeployment(ctx context.C
 func startActionFor(status *webclient.ApplicationDeploymentStatusResponse) string {
 	switch {
 	case status.Links.Has(webclient.RelStart):
-		return "START"
+		return actionStart
 	case status.Links.Has(webclient.RelResume):
 		return "RESUME"
 	}
@@ -1232,32 +1251,50 @@ func describeDeploymentStatus(status *webclient.ApplicationDeploymentStatusRespo
 // stop advertising STOP - and start advertising DELETE - while a Flink job is still shutting down,
 // which is exactly the window in which Ververica rejects the DELETE.
 func isDeploymentStopped(deploymentType string, status *webclient.ApplicationDeploymentStatusResponse) bool {
-	if isFlinkSQL(deploymentType) {
-		return status.FlinkStatus.Status == "Undeployed" || status.FlinkStatus.Status == "Failed"
-	}
-	if isKSML(deploymentType) {
+	live := liveDeploymentStatus(deploymentType, status)
+	switch {
+	case isFlinkSQL(deploymentType):
+		return live == "Undeployed" || live == "Failed"
+	case isKSML(deploymentType):
 		// KSML never reports `Stopped`: a stopped app reads as `Undeployed`. `Failed` and `Completed`
 		// are end states with nothing running, so waiting for them to change wastes the full budget.
-		return status.KsmlStatus.Status == "Undeployed" || status.KsmlStatus.Status == "Failed" ||
-			status.KsmlStatus.Status == "Completed"
+		return live == "Undeployed" || live == "Failed" || live == "Completed"
 	}
-	// A Connector that never ran reports `Undefined` rather than `Stopped`, and a failed one stays
-	// `Failed` (ManagedApplicationStatus is STARTING, RUNNING, STOPPED, FAILED, UNDEFINED).
-	return status.ConnectorState.State == "Stopped" || status.ConnectorState.State == "Undefined" ||
-		status.ConnectorState.State == "Failed"
+	// A Connector that never ran reports `Undefined` rather than `Stopped`, and a failed one stays `Failed`.
+	return live == "Stopped" || live == "Undefined" || live == "Failed"
 }
 
 // isDeploymentRunning reports whether the deployment reports itself as running. Like
 // isDeploymentStopped this reads the per-type status: the `_links` cannot answer it, because a
 // deployment that is still shutting down offers no `start` either.
 func isDeploymentRunning(deploymentType string, status *webclient.ApplicationDeploymentStatusResponse) bool {
-	if isFlinkSQL(deploymentType) {
-		return status.FlinkStatus.Status == "Running"
+	return liveDeploymentStatus(deploymentType, status) == "Running"
+}
+
+// liveDeploymentStatus is the status string the API reports for the deployment's type. It is the
+// one place that picks the per-type field.
+func liveDeploymentStatus(deploymentType string, status *webclient.ApplicationDeploymentStatusResponse) string {
+	switch {
+	case isFlinkSQL(deploymentType):
+		return status.FlinkStatus.Status
+	case isKSML(deploymentType):
+		return status.KsmlStatus.Status
 	}
-	if isKSML(deploymentType) {
-		return status.KsmlStatus.Status == "Running"
-	}
-	return status.ConnectorState.State == "Running"
+	return status.ConnectorState.State
+}
+
+const (
+	actionStart   = "START"
+	actionStop    = "STOP"
+	actionRestart = "RESTART"
+	actionReset   = "RESET"
+
+	connectorApplicationType = "Connector"
+)
+
+// operateDeployment sends one lifecycle action, so the action name is written once.
+func operateDeployment(client *webclient.Client, id string, action string) error {
+	return client.OperateApplicationDeployment(id, action, webclient.ApplicationDeploymentOperationRequest{Action: action})
 }
 
 // shouldStopDeployment reports whether the deployment has to be stopped before it can be

@@ -50,10 +50,6 @@ func (d *connectClusterDataSource) Metadata(ctx context.Context, req datasource.
 
 func (d *connectClusterDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		// A Kafka Connect cluster is registered by a Tenant Admin, from Self Service or directly
-		// against the API - there is no axual_connect_cluster resource, the same way there is no
-		// axual_instance or axual_cluster resource: provisioning it is an administrator action, not
-		// something Terraform creates. This data source only looks up a cluster that already exists.
 		MarkdownDescription: "Looks up a Kafka Connect cluster already registered on an Instance-Cluster, so its id can be used as an `axual_application_deployment`'s `target_id`. Registering, changing or removing a Kafka Connect cluster is an administrator action outside Terraform; this data source is read-only.",
 
 		Attributes: map[string]schema.Attribute{
@@ -66,12 +62,12 @@ func (d *connectClusterDataSource) Schema(ctx context.Context, req datasource.Sc
 				Required:            true,
 			},
 			"id": schema.StringAttribute{
-				MarkdownDescription: "The Kafka Connect cluster's unique identifier. Provide this or `name`.",
+				MarkdownDescription: "The Kafka Connect cluster's unique identifier. Provide this or `name`, not both.",
 				Optional:            true,
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "The Kafka Connect cluster's name. Provide this or `id`. Looking up by name reads every page of the cluster list, since the API has no server-side name filter for this resource.",
+				MarkdownDescription: "The Kafka Connect cluster's name. Provide this or `id`, not both. Looking up by name reads every page of the cluster list, since the API has no server-side name filter for this resource.",
 				Optional:            true,
 				Computed:            true,
 			},
@@ -110,7 +106,7 @@ func (d *connectClusterDataSource) Schema(ctx context.Context, req datasource.Sc
 
 func (d *connectClusterDataSource) ConfigValidators(ctx context.Context) []datasource.ConfigValidator {
 	return []datasource.ConfigValidator{
-		datasourcevalidator.AtLeastOneOf(
+		datasourcevalidator.ExactlyOneOf(
 			path.MatchRoot("id"),
 			path.MatchRoot("name"),
 		),
@@ -171,17 +167,8 @@ func mapConnectClusterDataSourceResponseToData(data *connectClusterDataSourceDat
 	data.OwnerGroupId = types.StringValue(connectCluster.OwnerGroupId)
 	data.OwnerGroupName = types.StringValue(connectCluster.OwnerGroupName)
 
-	if connectCluster.Description == "" {
-		data.Description = types.StringNull()
-	} else {
-		data.Description = types.StringValue(connectCluster.Description)
-	}
-
-	if connectCluster.LogViewerUrl == "" {
-		data.LogViewerUrl = types.StringNull()
-	} else {
-		data.LogViewerUrl = types.StringValue(connectCluster.LogViewerUrl)
-	}
+	data.Description = stringOrNull(connectCluster.Description)
+	data.LogViewerUrl = stringOrNull(connectCluster.LogViewerUrl)
 
 	groupIds := make([]attr.Value, 0, len(connectCluster.AuthorizedGroups))
 	for _, group := range connectCluster.AuthorizedGroups {

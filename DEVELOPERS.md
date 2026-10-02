@@ -230,6 +230,23 @@ Before running acceptance tests:
    test run that failed part-way through, which is a common cause of a Flink test failing during its
    setup step.
 
+   The following values are only needed by the Kafka Connect tests
+   (`internal/tests/ConnectClusterDataSource` and `internal/tests/ApplicationDeploymentStateResource`).
+   These tests never register a Kafka Connect cluster themselves, so they need two that a Tenant
+   Admin already registered on one Instance-Cluster: one with `auth_method` `MTLS` and one with
+   `SASL_SCRAM`. The suites skip themselves while any of these is still a `YOUR_...` placeholder.
+   - `connectClusterInstanceId`: the Uid of the Instance the two Kafka Connect clusters belong to.
+   - `connectClusterClusterId`: the Uid of the Cluster they are registered on.
+   - `connectClusterMtlsId`, `connectClusterMtlsName`: the id and name of the `MTLS` Kafka Connect
+     cluster.
+   - `connectClusterSaslId`, `connectClusterSaslName`: the id and name of the `SASL_SCRAM` Kafka
+     Connect cluster.
+
+   The fixtures read them as `local.connect_cluster_instance_id`, `local.connect_cluster_cluster_id`,
+   `local.connect_cluster_mtls_id`, `local.connect_cluster_mtls_name`, `local.connect_cluster_sasl_id`
+   and `local.connect_cluster_sasl_name`. Both Connect clusters need the `http-sink` plugin
+   (`io.axual.connect.plugins.http.HttpSinkConnector`, version `1.0.0`), which the tests deploy.
+
 3. **Verify Test User Permissions:**
 
    Ensure your test user has these roles:

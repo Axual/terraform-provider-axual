@@ -349,6 +349,27 @@ func TestApplicationDeploymentMtlsTargetNeedsAutostartFalse(t *testing.T) {
 	})
 }
 
+// TestApplicationDeploymentKafkaConnectAutostartFailsAtPlan: when the application already exists,
+// autostart = true on a Kafka Connect target is refused by `terraform plan`, before anything changes.
+func TestApplicationDeploymentKafkaConnectAutostartFailsAtPlan(t *testing.T) {
+	connectTest(t)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: GetConnectProvider() + GetFile("kc_tls_autostart_error_base.tf"),
+			},
+			{
+				Config:      GetConnectProvider() + GetFile("kc_tls_autostart_error_base.tf", "kc_tls_autostart_plan_deployment.tf"),
+				PlanOnly:    true,
+				ExpectError: regexp.MustCompile("Kafka Connect cluster needs autostart = false"),
+			},
+		},
+	})
+}
+
 func TestApplicationDeploymentStateImportNotFound(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,

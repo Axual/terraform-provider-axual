@@ -27,6 +27,7 @@ type fakeConnector struct {
 	startsIn  int
 	failAfter bool // a START ends in Failed instead of Running
 	gone      bool // the deployment does not exist
+	noReset   bool // a stopped connector is never offered RESET
 	actions   []string
 }
 
@@ -40,6 +41,9 @@ func (f *fakeConnector) links() map[string]webclient.Link {
 	}[f.state]
 	links := map[string]webclient.Link{}
 	for _, rel := range rels {
+		if rel == "reset" && f.noReset {
+			continue
+		}
 		links[rel] = webclient.Link{Href: "http://pm/" + rel}
 	}
 	return links
@@ -241,13 +245,34 @@ func TestStateResourceDeleteStopsAndResets(t *testing.T) {
 			fake := &fakeConnector{state: test.state, taskStatus: "Running"}
 			r := newStateResourceAgainst(t, fake)
 
-			if err := r.resetAfterStop(context.Background(), "dep1"); err != nil {
-				t.Fatalf("delete error = %v", err)
+			warning, err := r.resetAfterStop(context.Background(), "dep1")
+			if err != nil || warning != "" {
+				t.Fatalf("delete = (%q, %v), expected no warning and no error", warning, err)
 			}
 			if !equalActions(fake.sent(), test.want...) {
 				t.Errorf("actions = %v, expected %v", fake.sent(), test.want)
 			}
 		})
+	}
+}
+
+// A stopped connector that is never offered RESET is a warning the user sees, not only a log line.
+func TestStateResourceDeleteWarnsWhenResetIsNotOffered(t *testing.T) {
+	old := resetWaitAttempts
+	resetWaitAttempts = 3
+	t.Cleanup(func() { resetWaitAttempts = old })
+	fake := &fakeConnector{state: "Running", taskStatus: "Running", noReset: true}
+	r := newStateResourceAgainst(t, fake)
+
+	warning, err := r.resetAfterStop(context.Background(), "dep1")
+	if err != nil {
+		t.Fatalf("delete error = %v", err)
+	}
+	if !strings.Contains(warning, "did not offer RESET") {
+		t.Errorf("warning = %q, expected it to say RESET was not offered", warning)
+	}
+	if !equalActions(fake.sent(), "STOP") {
+		t.Errorf("actions = %v, expected STOP only", fake.sent())
 	}
 }
 

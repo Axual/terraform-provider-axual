@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
 * Examples in `examples/connector-application` for AC+TLS with and without `autostart`, KC+TLS and KC+SASL
 
 ### Changed
+* A Connector deployment with a `target_id` that names a registered Kafka Connect cluster now needs `autostart = false`; the default `autostart = true` is refused with `Kafka Connect cluster needs autostart = false`. `terraform plan` reports it when the application already exists, otherwise `terraform apply` does, before anything is created. No released version supported such a deployment, but a configuration built against an unreleased build from the main branch that relies on the default must add `autostart = false` and an `axual_application_deployment_state`
 * `axual_group` sends each member and manager as a bare uid and lets Platform Manager resolve whether it names a user or a service account. Nothing changes for existing configurations; it removes the per-member API call that resolving them in the provider would have cost
 * The authentication method is determined by which credentials are supplied. Supplying a service account credential takes precedence over `username` and `password`, which are ignored with a warning naming them - a leftover `AXUAL_AUTH_PASSWORD` will not break a pipeline that has moved to a service account
 * The provider no longer disables TLS certificate verification process-wide. It now uses its own HTTP transport, leaving `http.DefaultTransport` untouched. Certificate verification behaviour for the provider's own requests is unchanged

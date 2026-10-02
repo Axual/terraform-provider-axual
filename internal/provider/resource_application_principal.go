@@ -68,6 +68,12 @@ func (m trimSpaceSemanticallyEqual) PlanModifyString(_ context.Context, req plan
 	}
 }
 
+// adoptsPrivateKey reports a private_key set in config against a null state. The API never returns
+// the key, so this is an imported principal, not a rotation.
+func adoptsPrivateKey(state, plan types.String) bool {
+	return state.IsNull() && !plan.IsNull() && !plan.IsUnknown()
+}
+
 // isCertificateChanging returns true when principal or private_key differs between plan and state,
 // indicating a certificate rotation is in progress. Used by plan modifiers for id and active
 // to mark those attributes as (known after apply) so the plan/apply cycle is consistent.
@@ -86,16 +92,7 @@ func isCertificateChanging(ctx context.Context, plan tfsdk.Plan, state tfsdk.Sta
 	var planPrivateKey, statePrivateKey types.String
 	plan.GetAttribute(ctx, path.Root("private_key"), &planPrivateKey)
 	state.GetAttribute(ctx, path.Root("private_key"), &statePrivateKey)
-	// private_key can never be read back from the API (write-only), so a resource brought in via
-	// `terraform import` always starts with private_key null in state, exactly like one created
-	// without setting it at all - state alone cannot tell those two cases apart. Config supplying a
-	// real value against a null state is treated as adopting the existing principal, not rotating
-	// it. Trade-off, accepted: a principal genuinely created without a key, then given one later in
-	// config, is also treated as adoption - the value is saved to state but never sent to the API,
-	// silently. Rare in practice (only non-Connector SSL principals can omit private_key at all),
-	// and the alternative (always rotate on a null-to-value transition) reintroduces the phantom
-	// rotation this fix exists to remove for the far more common import case.
-	if statePrivateKey.IsNull() && !planPrivateKey.IsNull() && !planPrivateKey.IsUnknown() {
+	if adoptsPrivateKey(statePrivateKey, planPrivateKey) {
 		return false
 	}
 	// Compare like principal: ignore leading/trailing whitespace so a trailing newline in a key
@@ -285,10 +282,8 @@ func (r *applicationPrincipalResource) Update(ctx context.Context, req resource.
 	// Cert-unchanged fast path: only `active` (or other non-cert attrs) changed.
 	// Skip rotation — POST with the same fingerprint returns errmsg.duplicate.principal.
 	// No deactivate API exists; active=false is a write-only intent (atomic swap by activating another principal).
-	// private_key adoption from a null state (import, or created without one) counts as unchanged
-	// too - see isCertificateChanging for why, including the accepted trade-off.
 	privateKeyUnchanged := strings.TrimSpace(plan.PrivateKey.ValueString()) == strings.TrimSpace(state.PrivateKey.ValueString()) ||
-		(state.PrivateKey.IsNull() && !plan.PrivateKey.IsNull() && !plan.PrivateKey.IsUnknown())
+		adoptsPrivateKey(state.PrivateKey, plan.PrivateKey)
 	certUnchanged := strings.TrimSpace(plan.Principal.ValueString()) == strings.TrimSpace(state.Principal.ValueString()) &&
 		privateKeyUnchanged
 	if certUnchanged {

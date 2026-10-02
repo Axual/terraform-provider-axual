@@ -168,8 +168,13 @@ func (r *applicationDeploymentStateResource) Delete(ctx context.Context, req res
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if err := r.resetAfterStop(ctx, data.ApplicationDeployment.ValueString()); err != nil {
+	warning, err := r.resetAfterStop(ctx, data.ApplicationDeployment.ValueString())
+	if err != nil {
 		resp.Diagnostics.AddError("Client Error", err.Error())
+		return
+	}
+	if warning != "" {
+		resp.Diagnostics.AddWarning("Application Deployment was not reset", warning)
 	}
 }
 
@@ -180,23 +185,22 @@ func (r *applicationDeploymentStateResource) Delete(ctx context.Context, req res
 // it was created (desired state UNDEPLOYED); a STOP leaves it at STOPPED. RESET is what takes it
 // there: it removes the connector from its Connect cluster and keeps the deployment, its configs
 // and its offsets. A KSML or Flink deployment needs nothing more than the STOP.
-func (r *applicationDeploymentStateResource) resetAfterStop(ctx context.Context, id string) error {
+func (r *applicationDeploymentStateResource) resetAfterStop(ctx context.Context, id string) (string, error) {
 	deploymentType, err := r.deploymentType(id)
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
-			return nil
+			return "", nil
 		}
-		return fmt.Errorf("unable to read Application Deployment %s, got error: %s", id, err)
+		return "", fmt.Errorf("unable to read Application Deployment %s, got error: %s", id, err)
 	}
 
-	deployments := &applicationDeploymentResource{provider: r.provider}
-	if err := deployments.stopDeploymentAndWait(ctx, id, deploymentType); err != nil {
-		return err
+	if err := stopDeploymentAndWait(ctx, r.provider.client, id, deploymentType); err != nil {
+		return "", err
 	}
 	if isConnector(deploymentType) {
 		return r.resetConnector(ctx, id)
 	}
-	return nil
+	return "", nil
 }
 
 func (r *applicationDeploymentStateResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
@@ -257,16 +261,14 @@ func (r *applicationDeploymentStateResource) run(ctx context.Context, id string,
 		// A failed connector is still on its Connect cluster: the API offers RESTART, not START.
 		if status.Links.Has(webclient.RelRestart) {
 			tflog.Info(ctx, fmt.Sprintf("Application Deployment %s has failed, restarting it", id))
-			request := webclient.ApplicationDeploymentOperationRequest{Action: "RESTART"}
-			if err := r.provider.client.OperateApplicationDeployment(id, "RESTART", request); err != nil {
+			if err := operateDeployment(r.provider.client, id, actionRestart); err != nil {
 				return fmt.Errorf("unable to restart the failed Application Deployment: %s", err)
 			}
 			break
 		}
 		fallthrough
 	default:
-		deployments := &applicationDeploymentResource{provider: r.provider}
-		if err := deployments.startApplicationDeployment(ctx, id, deploymentType, 5*time.Second); err != nil {
+		if err := startApplicationDeployment(ctx, r.provider.client, id, deploymentType, 5*time.Second); err != nil {
 			return err
 		}
 	}
@@ -275,8 +277,7 @@ func (r *applicationDeploymentStateResource) run(ctx context.Context, id string,
 
 // stop stops the deployment and fails when it is still running afterwards.
 func (r *applicationDeploymentStateResource) stop(ctx context.Context, id string, deploymentType string) error {
-	deployments := &applicationDeploymentResource{provider: r.provider}
-	if err := deployments.stopDeploymentAndWait(ctx, id, deploymentType); err != nil {
+	if err := stopDeploymentAndWait(ctx, r.provider.client, id, deploymentType); err != nil {
 		return err
 	}
 	status, err := r.provider.client.GetApplicationDeploymentStatus(id)
@@ -311,31 +312,30 @@ func (r *applicationDeploymentStateResource) waitUntilRunning(ctx context.Contex
 	return fmt.Errorf("the deployment did not report itself running within %s (%s)", time.Duration(runningWaitAttempts)*runningWaitDelay, describeDeploymentStatus(status))
 }
 
-// resetConnector sends RESET once the API offers it. A connector with no tasks is deleted by STOP
-// already, which leaves nothing to reset; that is reported, not failed, because Platform Manager
-// then refuses to delete the active principal and says why.
-func (r *applicationDeploymentStateResource) resetConnector(ctx context.Context, id string) error {
+// resetConnector sends RESET once the API offers it. When it is never offered, it returns a warning
+// rather than an error: the destroy can still go on, but deleting the active principal may then fail.
+func (r *applicationDeploymentStateResource) resetConnector(ctx context.Context, id string) (string, error) {
 	for i := 0; i < resetWaitAttempts; i++ {
 		status, err := r.provider.client.GetApplicationDeploymentStatus(id)
 		if err != nil {
-			return fmt.Errorf("unable to get Application Deployment status before resetting it: %s", err)
+			return "", fmt.Errorf("unable to get Application Deployment status before resetting it: %s", err)
 		}
 		if status.Links.Has(webclient.RelReset) {
-			request := webclient.ApplicationDeploymentOperationRequest{Action: "RESET"}
-			if err := r.provider.client.OperateApplicationDeployment(id, "RESET", request); err != nil {
-				return fmt.Errorf("unable to reset Application Deployment %s: %s", id, err)
+			if err := operateDeployment(r.provider.client, id, actionReset); err != nil {
+				return "", fmt.Errorf("unable to reset Application Deployment %s: %s", id, err)
 			}
 			tflog.Info(ctx, fmt.Sprintf("Reset Application Deployment %s", id))
-			return nil
+			return "", nil
 		}
 		if !status.Links.Has(webclient.RelStop) && status.Links.Has(webclient.RelStart) && status.ConnectorState.State != "Stopped" {
 			// Nothing is deployed on the Connect cluster any more (for example never started, or already reset).
-			return nil
+			return "", nil
 		}
 		time.Sleep(resetWaitDelay)
 	}
-	tflog.Warn(ctx, fmt.Sprintf("Application Deployment %s did not offer RESET after it was stopped, continuing", id))
-	return nil
+	return fmt.Sprintf("Application Deployment %s was stopped, but Platform Manager did not offer RESET within %s. "+
+		"It stays STOPPED, so deleting its active principal can fail. Reset it in the Self-Service UI, then apply again.",
+		id, time.Duration(resetWaitAttempts)*resetWaitDelay), nil
 }
 
 func (r *applicationDeploymentStateResource) deploymentType(id string) (string, error) {
@@ -344,7 +344,7 @@ func (r *applicationDeploymentStateResource) deploymentType(id string) (string, 
 		return "", err
 	}
 	if deployment.Embedded.Application.ApplicationType == "" {
-		return "Connector", nil
+		return connectorApplicationType, nil
 	}
 	return deployment.Embedded.Application.ApplicationType, nil
 }
@@ -354,20 +354,14 @@ func (r *applicationDeploymentStateResource) deploymentType(id string) (string, 
 // Connect keeps a connector `Running` while one of its tasks has failed, so a failed task counts as
 // FAILED: that connector moves no data.
 func observedDeploymentState(deploymentType string, status *webclient.ApplicationDeploymentStatusResponse) string {
-	switch {
-	case isFlinkSQL(deploymentType):
-		return mapLiveStatus(status.FlinkStatus.Status)
-	case isKSML(deploymentType):
-		return mapLiveStatus(status.KsmlStatus.Status)
-	}
-	if status.ConnectorState.State == "Running" {
+	if isConnector(deploymentType) && status.ConnectorState.State == "Running" {
 		for _, task := range status.TaskStates {
 			if strings.EqualFold(task.Status, "Failed") {
 				return deploymentStateFailed
 			}
 		}
 	}
-	return mapLiveStatus(status.ConnectorState.State)
+	return mapLiveStatus(liveDeploymentStatus(deploymentType, status))
 }
 
 func mapLiveStatus(live string) string {
@@ -381,17 +375,6 @@ func mapLiveStatus(live string) string {
 	default:
 		return deploymentStateStopped
 	}
-}
-
-// liveDeploymentStatus is the status string the API reports for the deployment's type.
-func liveDeploymentStatus(deploymentType string, status *webclient.ApplicationDeploymentStatusResponse) string {
-	switch {
-	case isFlinkSQL(deploymentType):
-		return status.FlinkStatus.Status
-	case isKSML(deploymentType):
-		return status.KsmlStatus.Status
-	}
-	return status.ConnectorState.State
 }
 
 // failureTrace is the first line of the connector's or a failed task's trace, if the API gave one.
