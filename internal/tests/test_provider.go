@@ -48,6 +48,16 @@ type ProviderConfig struct {
 	// ResolvedTopicPrefix is only needed by the hand-written Flink table DDL, whose
 	// `CREATE TEMPORARY TABLE` names the real Kafka topic. That test skips when it is empty.
 	ResolvedTopicPrefix string `yaml:"resolvedTopicPrefix"`
+	// Kafka Connect cluster test values. A Kafka Connect cluster is registered by an administrator,
+	// not created by Terraform - see the axual_connect_cluster data source - so these name two
+	// clusters that must already exist: one MTLS-authenticated, one SASL_SCRAM-authenticated, both
+	// on the same instance/cluster.
+	ConnectClusterInstanceId string `yaml:"connectClusterInstanceId"`
+	ConnectClusterClusterId  string `yaml:"connectClusterClusterId"`
+	ConnectClusterMtlsId     string `yaml:"connectClusterMtlsId"`
+	ConnectClusterMtlsName   string `yaml:"connectClusterMtlsName"`
+	ConnectClusterSaslId     string `yaml:"connectClusterSaslId"`
+	ConnectClusterSaslName   string `yaml:"connectClusterSaslName"`
 }
 
 // LoadProviderConfig Function to load the configuration from a YAML file
@@ -89,6 +99,26 @@ func SkipWithoutVerverica(t *testing.T, config ProviderConfig) {
 	} {
 		if field.value == "" || strings.HasPrefix(field.value, "YOUR_") {
 			t.Skipf("%s is not set in test_config.yaml, so no Flink Cluster can be registered", field.key)
+		}
+	}
+}
+
+// SkipWithoutConnectCluster skips a Kafka Connect test unless test_config.yaml names two already
+// registered Kafka Connect clusters (one MTLS, one SASL_SCRAM). Unlike a Flink Cluster, these are
+// never created by this suite - registering one is an administrator action outside Terraform - so
+// the committed placeholders always skip rather than fail for a developer whose stack has none.
+func SkipWithoutConnectCluster(t *testing.T, config ProviderConfig) {
+	t.Helper()
+	for _, field := range []struct{ key, value string }{
+		{"connectClusterInstanceId", config.ConnectClusterInstanceId},
+		{"connectClusterClusterId", config.ConnectClusterClusterId},
+		{"connectClusterMtlsId", config.ConnectClusterMtlsId},
+		{"connectClusterMtlsName", config.ConnectClusterMtlsName},
+		{"connectClusterSaslId", config.ConnectClusterSaslId},
+		{"connectClusterSaslName", config.ConnectClusterSaslName},
+	} {
+		if field.value == "" || strings.HasPrefix(field.value, "YOUR_") {
+			t.Skipf("%s is not set in test_config.yaml, so no registered Kafka Connect cluster is available", field.key)
 		}
 	}
 }
@@ -225,6 +255,27 @@ func GetFlinkProvider() string {
 	`
 }
 
+// GetConnectProvider returns GetProvider() plus the locals the Kafka Connect fixtures read: the
+// instance/cluster a registered Kafka Connect cluster lives on, and the ids/names of the two test
+// clusters (MTLS and SASL_SCRAM) an administrator must have already registered there.
+func GetConnectProvider() string {
+	config, err := LoadProviderConfig()
+	if err != nil {
+		log.Panicf("Error loading provider configuration: %s", err)
+	}
+
+	return GetProvider() + `
+	locals {
+	  connect_cluster_instance_id = "` + config.ConnectClusterInstanceId + `"
+	  connect_cluster_cluster_id = "` + config.ConnectClusterClusterId + `"
+	  connect_cluster_mtls_id = "` + config.ConnectClusterMtlsId + `"
+	  connect_cluster_mtls_name = "` + config.ConnectClusterMtlsName + `"
+	  connect_cluster_sasl_id = "` + config.ConnectClusterSaslId + `"
+	  connect_cluster_sasl_name = "` + config.ConnectClusterSaslName + `"
+	}
+	`
+}
+
 func GetFile(paths ...string) string {
 	var combinedConfig string
 
@@ -258,6 +309,12 @@ func CertPath(name string) string {
 // provider block used by GetProvider (apiUrl/authUrl come from test_config.yaml). Used by check
 // helpers that must inspect live API state that the provider deliberately does not refresh into
 // Terraform state (e.g. a principal's activation status).
+// ApiClient is apiClient for the test packages, for a step that has to change platform state
+// outside Terraform (for example stopping a deployment to test drift).
+func ApiClient() (*webclient.Client, error) {
+	return apiClient()
+}
+
 func apiClient() (*webclient.Client, error) {
 	config, err := LoadProviderConfig()
 	if err != nil {

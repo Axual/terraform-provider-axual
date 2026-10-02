@@ -29,7 +29,8 @@ This data source exports the following attributes in addition to the one listed 
 
 - id Application unique identifier.
 - description The description of the application.
-- application_type Axual Application type. Possible values are Custom.
+- application_type Axual Application type. Possible values are `Custom`, `Connector`, `Ksml` and `FLINK_SQL`.
+- application_class The plugin class of a Connector application.
 - application_id The Application Id of the Application, usually a fully qualified class name. Must be unique. The application ID, used in logging and to determine the consumer group (if applicable).
 - short_name Unique human-readable name for the application.
 - owners The team owing this application.

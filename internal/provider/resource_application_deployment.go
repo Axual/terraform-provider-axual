@@ -11,9 +11,11 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -26,6 +28,7 @@ import (
 var (
 	_ resource.Resource                = &applicationDeploymentResource{}
 	_ resource.ResourceWithImportState = &applicationDeploymentResource{}
+	_ resource.ResourceWithModifyPlan  = &applicationDeploymentResource{}
 )
 
 // NewApplicationDeploymentResource creates a new application deployment resource
@@ -49,8 +52,9 @@ const legacyAxualConnectTargetPrefix = "axualconnect-"
 const startAttempts = 3
 
 // stopWaitAttempts and stopWaitDelay bound how long an update or a delete waits for a stopped
-// deployment to stop running before it PATCHes or DELETEs it.
-const (
+// deployment to stop running before it PATCHes or DELETEs it. Variables so the unit tests can
+// shorten them.
+var (
 	stopWaitAttempts = 10
 	stopWaitDelay    = 3 * time.Second
 )
@@ -73,7 +77,7 @@ const (
 
 // startWaitAttempts and startWaitDelay bound how long a START waits for a deployment that is
 // still stopping to become startable.
-const (
+var (
 	startWaitAttempts = 30
 	startWaitDelay    = 2 * time.Second
 )
@@ -88,8 +92,10 @@ type ApplicationDeploymentResourceData struct {
 	DeploymentSize    types.String `tfsdk:"deployment_size"`
 	RestartPolicy     types.String `tfsdk:"restart_policy"`
 	TargetId          types.String `tfsdk:"target_id"`
+	TargetVersion     types.String `tfsdk:"target_version"`
 	SqlScript         types.String `tfsdk:"sql_script"`
 	GenerateTablesSql types.Bool   `tfsdk:"generate_tables_sql"`
+	Autostart         types.Bool   `tfsdk:"autostart"`
 }
 
 func (r *applicationDeploymentResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -169,6 +175,15 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 					),
 				},
 			},
+			"target_version": schema.StringAttribute{
+				// UseStateForUnknown keeps an omitted target_version on the value Read last saw.
+				MarkdownDescription: "The plugin version to deploy on the deployment target named by `target_id`. Only meaningful for a Connector deployment targeting a registered Kafka Connect cluster; omit it for legacy Axual Connect and for other deployment types - for legacy Axual Connect this value is always overwritten on read with the actually-deployed plugin version, so setting it explicitly can produce a diff that never clears. Changing this value updates the deployment in place, the same way changing `target_id` does for every type except FLINK_SQL.",
+				Optional:            true,
+				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 			"sql_script": schema.StringAttribute{
 				MarkdownDescription: "The user-authored Flink SQL script. Required for FLINK_SQL deployments. Each statement must be a `CREATE TEMPORARY TABLE` or an `INSERT INTO ... SELECT`; two or more top-level `INSERT INTO` statements must be wrapped in `BEGIN STATEMENT SET; ... END;`. With `generate_tables_sql = true` the platform generates the `CREATE TEMPORARY TABLE` statements from the application's approved topic access and the script carries only the `INSERT INTO ... SELECT`; with `false` you write the table DDL yourself. Kafka and schema registry connection options (`bootstrap.servers`, `properties.security.protocol`, `properties.sasl.*`, `ssl.*`, and the `avro-confluent` `url`/`basic-auth.*`/`bearer-auth.*` options) are injected by the platform and are rejected here, `connector` must stay `kafka` or `upsert-kafka`, and each side is declared with `key.format`/`value.format` rather than Flink's `format` shorthand. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.",
 				Optional:            true,
@@ -185,6 +200,15 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"autostart": schema.BoolAttribute{
+				MarkdownDescription: "Whether this resource starts the deployment. Defaults to `true`: the deployment is created only after an approved `axual_application_access_grant` and an Application Principal or Credential exist, and it is started on create and after every update. " +
+					"Set it to `false` to only store the deployment target and configs, the same way the Self-Service UI does when a deployment target is confirmed. The deployment is then created before the principal or credential and is not started; an `axual_application_deployment_state` resource starts and stops it. " +
+					"`false` is required for a Connector on a registered Kafka Connect cluster (`target_id` set), on MTLS and SASL_SCRAM clusters alike. A legacy Axual Connect Connector supports both values. " +
+					"With `false`, an update that has to stop the deployment starts it again only if it was running before. Changing only this value changes nothing on the platform.",
+				Optional: true,
+				Computed: true,
+				Default:  booldefault.StaticBool(true),
+			},
 			"id": schema.StringAttribute{
 				Computed: true,
 				PlanModifiers: []planmodifier.String{
@@ -195,16 +219,14 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 	}
 }
 
-// deploymentTypePlanModifier keeps KSML and FLINK_SQL deployments on an in-place update and replaces
-// Connector deployments. The API does accept a `configs` PATCH for a Connector, so the replace is
-// kept only until the Connector support of AXPD-11929 verifies the in-place update against a real
-// Connect cluster. Leaving the planned type unknown is what makes Terraform replace it, so the state
-// value is only copied for the types updated in place (UseStateForUnknown plus RequiresReplaceIf
-// cannot express that: making the values equal is exactly what stops RequiresReplaceIf from firing).
+// deploymentTypePlanModifier keeps the prior `type` when it is recomputed, so a change applies in
+// place instead of replacing the deployment. Changing `application` already forces a replace on
+// its own. Connector deployments need a Platform Manager with the `validateConfig` NPE fix to
+// update in place at all - see the CHANGELOG.
 type deploymentTypePlanModifier struct{}
 
 func (m deploymentTypePlanModifier) Description(_ context.Context) string {
-	return "Connector Application Deployments are replaced rather than updated in place; KSML and FLINK_SQL deployments are updated in place."
+	return "Every Application Deployment type is updated in place; none is replaced just because `type` is recomputed."
 }
 
 func (m deploymentTypePlanModifier) MarkdownDescription(ctx context.Context) string {
@@ -217,13 +239,35 @@ func (m deploymentTypePlanModifier) PlanModifyString(ctx context.Context, req pl
 		return
 	}
 
-	if isConnector(req.StateValue.ValueString()) {
-		resp.RequiresReplace = true
-		return
-	}
-
 	if req.PlanValue.IsUnknown() {
 		resp.PlanValue = req.StateValue
+	}
+}
+
+// ModifyPlan refuses autostart = true on a Kafka Connect target at plan time. It can only do that
+// when the application already exists; otherwise Create and Update still refuse it at apply time.
+func (r *applicationDeploymentResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() || r.provider.client == nil {
+		return
+	}
+	var plan ApplicationDeploymentResourceData
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() || plan.Autostart.IsUnknown() || !isAutostart(plan.Autostart) || plan.Application.IsUnknown() {
+		return
+	}
+	if plan.TargetId.IsNull() || plan.TargetId.IsUnknown() || plan.TargetId.ValueString() == "" ||
+		strings.HasPrefix(plan.TargetId.ValueString(), legacyAxualConnectTargetPrefix) {
+		return
+	}
+	application, err := r.provider.client.GetApplication(plan.Application.ValueString())
+	if err != nil {
+		// Not decidable now; the apply-time check still applies.
+		tflog.Debug(ctx, fmt.Sprintf("Skipping the plan-time autostart check, unable to read application: %s", err))
+		return
+	}
+	plan.Type = types.StringValue(application.ApplicationType)
+	if isKafkaConnectTarget(&plan) {
+		addKafkaConnectAutostartError(&resp.Diagnostics)
 	}
 }
 
@@ -246,87 +290,6 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 	// Set the type based on the application's type
 	data.Type = types.StringValue(application.ApplicationType)
 
-	applicationURL := fmt.Sprintf("%s/applications/%v", r.provider.client.ApiURL, data.Application.ValueString())
-	environmentURL := fmt.Sprintf("%s/environments/%v", r.provider.client.ApiURL, data.Environment.ValueString())
-
-	// A FLINK_SQL job runs on the application's SASL/SCRAM Kafka credential, which the platform
-	// injects into the generated SQL at deploy time. An mTLS Application Principal cannot be used,
-	// so the principal/credential count check below does not apply to FLINK_SQL.
-	var applicationPrincipalsResponse *webclient.ApplicationPrincipalFindByApplicationAndEnvironmentResponse
-	if isFlinkSQL(data.Type.ValueString()) {
-		// The credential search endpoint takes plain ids (`applicationId=`/`environmentId=`), unlike the
-		// principal search below, which takes resource URLs (`application=`/`environment=`).
-		credentials, err := r.provider.client.FindApplicationCredentialByApplicationAndEnvironment(data.Application.ValueString(), data.Environment.ValueString())
-		if err != nil {
-			resp.Diagnostics.AddError("Error querying for Application Credential for this application and environment", fmt.Sprintf("Error message: %s", err.Error()))
-			return
-		}
-		if countScramCredentials(credentials) == 0 {
-			resp.Diagnostics.AddError(
-				"Missing SASL/SCRAM Application Credential",
-				"A FLINK_SQL Application Deployment requires an axual_application_credential supporting SCRAM_SHA_512 for this application and environment. "+
-					"An axual_application_principal cannot be used: the platform rejects the deployment with "+
-					"\"a Flink SQL application requires SASL/SCRAM Kafka credentials\".",
-			)
-			return
-		}
-	} else {
-		// we count if there is at least one authentication defined for these application and environment
-		authenticationCount := 0
-		// We check if Application Principal exists for this environment and application
-		applicationPrincipalsResponse, err = r.provider.client.FindApplicationPrincipalByApplicationAndEnvironment(applicationURL, environmentURL)
-		if err != nil {
-			resp.Diagnostics.AddError("Error querying for Application Principal for this application and environment", fmt.Sprintf("Error message: %s", err.Error()))
-			return
-		}
-		authenticationCount += len(applicationPrincipalsResponse.Embedded.ApplicationPrincipalResponses)
-		if isKSML(data.Type.ValueString()) {
-			// For KSML applications, we check if Application Credential exists for this environment and application
-			applicationCredentialsResponse, err := r.provider.client.FindApplicationCredentialByApplicationAndEnvironment(data.Application.ValueString(), data.Environment.ValueString())
-			if err != nil {
-				resp.Diagnostics.AddError("Error querying for Application Credential for this application and environment", fmt.Sprintf("Error message: %s", err.Error()))
-				return
-			}
-			authenticationCount += len(applicationCredentialsResponse)
-		}
-
-		if authenticationCount == 0 {
-			resp.Diagnostics.AddError("Error from Terraform Provider validation", "Please first create an Application Principal or Application Credential for this application and environment")
-			return
-		}
-	}
-
-	// Connector deployments require at least one active Application Principal: the deployment START
-	// will fail at the API otherwise. The API does NOT auto-activate, so we surface a clear error here
-	// instead of letting deployment creation fail with a generic platform error.
-	if isConnector(data.Type.ValueString()) {
-		if countActivePrincipals(applicationPrincipalsResponse) == 0 {
-			resp.Diagnostics.AddError(
-				"No active Application Principal",
-				fmt.Sprintf(
-					"No active Application Principal found for application=%s environment=%s. "+
-						"Activate one by setting `active = true` on the axual_application_principal resource for this application and environment, "+
-						"or activate it manually via the Axual Self Service UI. "+
-						"For cross-repo setups (where the principal is managed in a different Terraform configuration), "+
-						"ensure activation has been applied before creating this deployment.",
-					data.Application.ValueString(), data.Environment.ValueString(),
-				),
-			)
-			return
-		}
-	}
-
-	// Registering a Connector deployment target and adding the configs later is a supported flow
-	// (ConnectorDeploymentManager.validateConfig returns early on empty configs), so this only
-	// warns: the deployment is created but offers no START action until `configs` are set.
-	canStart := true
-	if data.Type.ValueString() == "Connector" && countConfigs(data.Configs) == 0 {
-		resp.Diagnostics.AddWarning(
-			"Connector Application Deployment has no configs",
-			"The deployment is created but cannot be started until `configs` are set.",
-		)
-		canStart = false
-	}
 	// A FLINK_SQL deployment without SQL is rejected here rather than created: the API accepts it
 	// and then never offers a START action, leaving a created-but-unstartable deployment behind.
 	if isFlinkSQL(data.Type.ValueString()) && data.SqlScript.ValueString() == "" {
@@ -346,21 +309,18 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 		return
 	}
 
-	// We check if Approved Application Access Grant exists for this environment and application
-	accessGrantRequest := webclient.ApplicationAccessGrantAttributes{
-		ApplicationId: data.Application.ValueString(),
-		EnvironmentId: data.Environment.ValueString(),
-		Statuses:      "APPROVED",
-	}
-	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrantsByAttributes(accessGrantRequest)
-	if err != nil {
-		resp.Diagnostics.AddError("Error querying for Application Access Grant for this application and environment", fmt.Sprintf("Error message: %s", err.Error()))
-		return
-	}
-	// We do not allow creating Application Deployment if there is no Approved Application Access Grant, because we can't start the connector without it
-	if len(applicationAccessGrant.Embedded.ApplicationAccessGrantResponses) == 0 {
-		resp.Diagnostics.AddError("Error from Terraform Provider validation", "Please first create and approve Application Access Grant for this application and environment")
-		return
+	// With autostart = false this resource only stores the target and configs, like the Self-Service
+	// UI does when a deployment target is confirmed: the platform needs no principal, credential or
+	// grant for that, and the axual_application_deployment_state resource starts the deployment later.
+	autostart := isAutostart(data.Autostart)
+	canStart := false
+	if autostart {
+		var startDiags diag.Diagnostics
+		canStart, startDiags = r.checkStartPrerequisites(&data)
+		resp.Diagnostics.Append(startDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
 	// We create Application Deployment
@@ -462,7 +422,7 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 	// A deployment that cannot start yet is not asked to: the START only waits out its full budget
 	// for a `start` rel the API will not offer, and then repeats the warning above.
 	if canStart {
-		if err := r.startApplicationDeployment(ctx, data.Id.ValueString(), data.Type.ValueString(), 10*time.Second); err != nil {
+		if err := startApplicationDeployment(ctx, r.provider.client, data.Id.ValueString(), data.Type.ValueString(), 10*time.Second); err != nil {
 			resp.Diagnostics.AddWarning(
 				"Deployment created but START failed",
 				fmt.Sprintf("The deployment was created and saved to state, but it is not running: %s. "+
@@ -475,6 +435,141 @@ func (r *applicationDeploymentResource) Create(ctx context.Context, req resource
 	}
 
 	tflog.Info(ctx, "Successfully created Application Deployment, which cannot be started yet")
+}
+
+// isAutostart reads the `autostart` attribute. A state written by a provider version without it
+// has no value, which keeps the behaviour those versions had: start the deployment.
+func isAutostart(autostart types.Bool) bool {
+	return autostart.IsNull() || autostart.IsUnknown() || autostart.ValueBool()
+}
+
+// checkStartPrerequisites is what `autostart = true` needs before the deployment is created: the
+// principal or credential the START will use, and an approved access grant. It returns whether the
+// deployment can be started right after it is created; a Connector without configs cannot.
+func (r *applicationDeploymentResource) checkStartPrerequisites(data *ApplicationDeploymentResourceData) (bool, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	applicationURL := fmt.Sprintf("%s/applications/%v", r.provider.client.ApiURL, data.Application.ValueString())
+	environmentURL := fmt.Sprintf("%s/environments/%v", r.provider.client.ApiURL, data.Environment.ValueString())
+
+	if isFlinkSQL(data.Type.ValueString()) {
+		// A FLINK_SQL job runs on the application's SASL/SCRAM Kafka credential, which the platform
+		// injects into the generated SQL at deploy time. An mTLS Application Principal cannot be used.
+		// The credential search endpoint takes plain ids (`applicationId=`/`environmentId=`), unlike the
+		// principal search below, which takes resource URLs (`application=`/`environment=`).
+		credentials, err := r.provider.client.FindApplicationCredentialByApplicationAndEnvironment(data.Application.ValueString(), data.Environment.ValueString())
+		if err != nil {
+			diags.AddError("Error querying for Application Credential for this application and environment", fmt.Sprintf("Error message: %s", err.Error()))
+			return false, diags
+		}
+		if countScramCredentials(credentials) == 0 {
+			diags.AddError(
+				"Missing SASL/SCRAM Application Credential",
+				"A FLINK_SQL Application Deployment requires an axual_application_credential supporting SCRAM_SHA_512 for this application and environment. "+
+					"An axual_application_principal cannot be used: the platform rejects the deployment with "+
+					"\"a Flink SQL application requires SASL/SCRAM Kafka credentials\".",
+			)
+			return false, diags
+		}
+	} else {
+		if isKafkaConnectTarget(data) {
+			addKafkaConnectAutostartError(&diags)
+			return false, diags
+		}
+
+		// we count if there is at least one authentication defined for these application and environment
+		authenticationCount := 0
+		// We check if Application Principal exists for this environment and application
+		applicationPrincipalsResponse, err := r.provider.client.FindApplicationPrincipalByApplicationAndEnvironment(applicationURL, environmentURL)
+		if err != nil {
+			diags.AddError("Error querying for Application Principal for this application and environment", fmt.Sprintf("Error message: %s", err.Error()))
+			return false, diags
+		}
+		authenticationCount += len(applicationPrincipalsResponse.Embedded.ApplicationPrincipalResponses)
+		if isKSML(data.Type.ValueString()) {
+			// For KSML applications, we check if Application Credential exists for this environment and application
+			applicationCredentialsResponse, err := r.provider.client.FindApplicationCredentialByApplicationAndEnvironment(data.Application.ValueString(), data.Environment.ValueString())
+			if err != nil {
+				diags.AddError("Error querying for Application Credential for this application and environment", fmt.Sprintf("Error message: %s", err.Error()))
+				return false, diags
+			}
+			authenticationCount += len(applicationCredentialsResponse)
+		}
+
+		if authenticationCount == 0 {
+			diags.AddError("Error from Terraform Provider validation", "Please first create an Application Principal or Application Credential for this application and environment")
+			return false, diags
+		}
+
+		// Connector deployments require at least one active Application Principal: the deployment START
+		// will fail at the API otherwise. The API does NOT auto-activate, so we surface a clear error here
+		// instead of letting deployment creation fail with a generic platform error.
+		if isConnector(data.Type.ValueString()) && countActivePrincipals(applicationPrincipalsResponse) == 0 {
+			diags.AddError(
+				"No active Application Principal",
+				fmt.Sprintf(
+					"No active Application Principal found for application=%s environment=%s. "+
+						"Activate one by setting `active = true` on the axual_application_principal resource for this application and environment, "+
+						"or activate it manually via the Axual Self Service UI. "+
+						"For cross-repo setups (where the principal is managed in a different Terraform configuration), "+
+						"ensure activation has been applied before creating this deployment.",
+					data.Application.ValueString(), data.Environment.ValueString(),
+				),
+			)
+			return false, diags
+		}
+	}
+
+	// We check if Approved Application Access Grant exists for this environment and application
+	accessGrantRequest := webclient.ApplicationAccessGrantAttributes{
+		ApplicationId: data.Application.ValueString(),
+		EnvironmentId: data.Environment.ValueString(),
+		Statuses:      "APPROVED",
+	}
+	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrantsByAttributes(accessGrantRequest)
+	if err != nil {
+		diags.AddError("Error querying for Application Access Grant for this application and environment", fmt.Sprintf("Error message: %s", err.Error()))
+		return false, diags
+	}
+	// We do not allow creating Application Deployment if there is no Approved Application Access Grant, because we can't start the connector without it
+	if len(applicationAccessGrant.Embedded.ApplicationAccessGrantResponses) == 0 {
+		diags.AddError("Error from Terraform Provider validation", "Please first create and approve Application Access Grant for this application and environment. "+
+			"To create the deployment before the grant, set `autostart = false` and start it with an axual_application_deployment_state resource.")
+		return false, diags
+	}
+
+	// Registering a Connector deployment target and adding the configs later is a supported flow
+	// (ConnectorDeploymentManager.validateConfig returns early on empty configs), so this only
+	// warns: the deployment is created but offers no START action until `configs` are set.
+	if isConnector(data.Type.ValueString()) && countConfigs(data.Configs) == 0 {
+		diags.AddWarning(
+			"Connector Application Deployment has no configs",
+			"The deployment is created but cannot be started until `configs` are set.",
+		)
+		return false, diags
+	}
+	return true, diags
+}
+
+// isKafkaConnectTarget reports whether a Connector deployment targets a registered Kafka Connect
+// cluster. No target, or the synthesized `axualconnect-` one, means legacy Axual Connect.
+func isKafkaConnectTarget(data *ApplicationDeploymentResourceData) bool {
+	return isConnector(data.Type.ValueString()) && !data.TargetId.IsNull() && !data.TargetId.IsUnknown() &&
+		data.TargetId.ValueString() != "" && !strings.HasPrefix(data.TargetId.ValueString(), legacyAxualConnectTargetPrefix)
+}
+
+// addKafkaConnectAutostartError refuses autostart = true on a Kafka Connect cluster. That flow needs
+// the principal or credential before the deployment, but the platform only writes a principal's key
+// to the Connect cluster's Vault, and only creates a SASL_SCRAM credential, once the target is stored.
+func addKafkaConnectAutostartError(diags *diag.Diagnostics) {
+	diags.AddError(
+		"Kafka Connect cluster needs autostart = false",
+		"This Connector targets a registered Kafka Connect cluster, which is only supported with `autostart = false`. "+
+			"With `autostart = true` the principal or credential has to exist before the deployment, but Platform Manager only stores a principal's private key in the Connect cluster's Vault, "+
+			"and only creates a SASL_SCRAM credential, once the deployment and its target_id exist. "+
+			"Set `autostart = false` on this axual_application_deployment, make the principal or credential depend on it, and start the deployment with an axual_application_deployment_state resource "+
+			"that depends on the access grant approval. "+
+			"If an axual_application_principal for this deployment was already created, replace it after that change (`terraform apply -replace=<principal address>`) so its key is stored for the Connect cluster.",
+	)
 }
 
 func (r *applicationDeploymentResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -503,6 +598,8 @@ func (r *applicationDeploymentResource) Read(ctx context.Context, req resource.R
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to map Application Deployment, got error: %s", err))
 		return
 	}
+	// A state written before `autostart` existed has no value; those versions always started.
+	data.Autostart = types.BoolValue(isAutostart(data.Autostart))
 	tflog.Info(ctx, "saving the resource to state")
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
@@ -538,10 +635,34 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 		return
 	}
 
+	if isAutostart(planData.Autostart) && isKafkaConnectTarget(&planData) {
+		addKafkaConnectAutostartError(&resp.Diagnostics)
+		return
+	}
+
+	// `autostart` only decides what this resource does, so changing nothing else is not a change on
+	// the platform. This is also how a state written before `autostart` existed picks up its value.
+	if isOnlyAutostartChange(&stateData, &planData) {
+		resp.Diagnostics.Append(resp.State.Set(ctx, &planData)...)
+		return
+	}
+
+	// With autostart = false an axual_application_deployment_state resource owns whether the
+	// deployment runs, so an update that has to stop it puts it back the way it was.
+	restartAfterUpdate := false
+	if !isAutostart(planData.Autostart) {
+		status, err := r.provider.client.GetApplicationDeploymentStatus(planData.Id.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get Application Deployment status, got error: %s", err))
+			return
+		}
+		restartAfterUpdate = shouldStopDeployment(planData.Type.ValueString(), status)
+	}
+
 	// A running deployment cannot be updated: `beforeUpdateImpl` rejects a save while the desired
 	// state is RUNNING, and `saveFlinkSql` rejects one while a Flink job actually is. Stop it and
 	// wait, exactly as Delete does.
-	if err := r.stopDeploymentAndWait(ctx, planData.Id.ValueString(), planData.Type.ValueString()); err != nil {
+	if err := stopDeploymentAndWait(ctx, r.provider.client, planData.Id.ValueString(), planData.Type.ValueString()); err != nil {
 		resp.Diagnostics.AddError("Client Error", err.Error())
 		return
 	}
@@ -562,9 +683,14 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 	diags = resp.State.Set(ctx, &planData)
 	resp.Diagnostics.Append(diags...)
 
+	if !isAutostart(planData.Autostart) && !restartAfterUpdate {
+		tflog.Info(ctx, "Application Deployment was not running before the update, leaving it stopped")
+		return
+	}
+
 	// Unlike Create, Update fails the apply when the deployment cannot be started: the resource
 	// is already tracked, so an error here does not taint it and the next apply retries Update.
-	if err := r.startApplicationDeployment(ctx, planData.Id.ValueString(), planData.Type.ValueString(), 5*time.Second); err != nil {
+	if err := startApplicationDeployment(ctx, r.provider.client, planData.Id.ValueString(), planData.Type.ValueString(), 5*time.Second); err != nil {
 		resp.Diagnostics.AddError(
 			"Application Deployment START failed",
 			fmt.Sprintf("The deployment was updated but it is not running: %s. "+
@@ -586,7 +712,7 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 		return
 	}
 
-	if err := r.stopDeploymentAndWait(ctx, data.Id.ValueString(), data.Type.ValueString()); err != nil {
+	if err := stopDeploymentAndWait(ctx, r.provider.client, data.Id.ValueString(), data.Type.ValueString()); err != nil {
 		resp.Diagnostics.AddError("Client Error", err.Error())
 		return
 	}
@@ -614,6 +740,7 @@ func mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(
 		data.Environment = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Environment.Uid)
 		data.Application = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Application.Uid)
 		mapTargetIdToData(data, applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].TargetId)
+		mapTargetVersionToData(data, applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].TargetVersion)
 		mapResponseConfigsToData(ctx, data, applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Embedded.Application.ApplicationType, applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Configs)
 		return nil
 	}
@@ -625,15 +752,24 @@ func mapApplicationDeploymentByIdResponseToData(ctx context.Context, data *Appli
 	data.Application = types.StringValue(applicationDeploymentResponse.Embedded.Application.Uid)
 
 	mapTargetIdToData(data, applicationDeploymentResponse.TargetId)
+	mapTargetVersionToData(data, applicationDeploymentResponse.TargetVersion)
 	mapResponseConfigsToData(ctx, data, applicationDeploymentResponse.Embedded.Application.ApplicationType, applicationDeploymentResponse.Configs)
 }
 
 func mapTargetIdToData(data *ApplicationDeploymentResourceData, targetId string) {
-	if targetId == "" {
-		data.TargetId = types.StringNull()
-	} else {
-		data.TargetId = types.StringValue(targetId)
+	data.TargetId = stringOrNull(targetId)
+}
+
+func mapTargetVersionToData(data *ApplicationDeploymentResourceData, targetVersion string) {
+	data.TargetVersion = stringOrNull(targetVersion)
+}
+
+// stringOrNull maps an empty API string to null, so an unset optional attribute shows no diff.
+func stringOrNull(value string) types.String {
+	if value == "" {
+		return types.StringNull()
 	}
+	return types.StringValue(value)
 }
 
 func createApplicationDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData) (webclient.ApplicationDeploymentCreateRequest, error) {
@@ -659,6 +795,9 @@ func createApplicationDeploymentRequestFromData(ctx context.Context, data *Appli
 		!strings.HasPrefix(data.TargetId.ValueString(), legacyAxualConnectTargetPrefix) {
 		ApplicationDeploymentRequest.TargetId = data.TargetId.ValueString()
 	}
+	if !data.TargetVersion.IsNull() && !data.TargetVersion.IsUnknown() {
+		ApplicationDeploymentRequest.TargetVersion = data.TargetVersion.ValueString()
+	}
 
 	tflog.Info(ctx, fmt.Sprintf("Application request completed: %q", ApplicationDeploymentRequest))
 	return ApplicationDeploymentRequest, nil
@@ -681,6 +820,9 @@ func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data 
 		!strings.HasPrefix(data.TargetId.ValueString(), legacyAxualConnectTargetPrefix) {
 		ApplicationDeploymentUpdateRequest.TargetId = data.TargetId.ValueString()
 	}
+	if !isFlinkSQL(data.Type.ValueString()) && !data.TargetVersion.IsNull() && !data.TargetVersion.IsUnknown() {
+		ApplicationDeploymentUpdateRequest.TargetVersion = data.TargetVersion.ValueString()
+	}
 
 	tflog.Info(ctx, fmt.Sprintf("Application update request completed: %q", ApplicationDeploymentUpdateRequest))
 	return ApplicationDeploymentUpdateRequest, nil
@@ -702,15 +844,12 @@ func (r *applicationDeploymentResource) ImportState(ctx context.Context, req res
 		return
 	}
 
-	if applicationDeployment.State != "Running" && applicationDeployment.State != "Started" {
-		resp.Diagnostics.AddError("Import Error", fmt.Sprintf("Unable to import an Application Deployment with status: %s. In order to import an Application deployment, it should be in RUNNING state", applicationDeployment.State))
-		return
-
-	}
-
-	// Map the response to Terraform state
+	// Any state can be imported: a deployment created with `autostart = false` is not running until
+	// an axual_application_deployment_state starts it. `autostart` is not stored on the platform, so
+	// the default is imported; a configuration that says `false` then only updates the state.
 	var data ApplicationDeploymentResourceData
 	mapApplicationDeploymentByIdResponseToData(ctx, &data, applicationDeployment)
+	data.Autostart = types.BoolValue(true)
 
 	// Validate that the mapped data is complete
 	if data.Id.IsNull() || data.Id.ValueString() == "" {
@@ -941,12 +1080,31 @@ func isFlinkTaskSizeOnlyChange(state *ApplicationDeploymentResourceData, plan *A
 	return plan.SqlScript.Equal(state.SqlScript) && plan.GenerateTablesSql.Equal(state.GenerateTablesSql)
 }
 
+// isOnlyAutostartChange reports whether `autostart` is the only difference between state and plan.
+// An unknown value is not comparable, so it cannot be ruled out as a change.
+func isOnlyAutostartChange(state *ApplicationDeploymentResourceData, plan *ApplicationDeploymentResourceData) bool {
+	for _, v := range []attr.Value{plan.Configs, plan.Definition, plan.DeploymentSize, plan.RestartPolicy,
+		plan.TargetId, plan.TargetVersion, plan.SqlScript, plan.GenerateTablesSql} {
+		if v.IsUnknown() {
+			return false
+		}
+	}
+	return plan.Configs.Equal(state.Configs) &&
+		plan.Definition.Equal(state.Definition) &&
+		plan.DeploymentSize.Equal(state.DeploymentSize) &&
+		plan.RestartPolicy.Equal(state.RestartPolicy) &&
+		plan.TargetId.Equal(state.TargetId) &&
+		plan.TargetVersion.Equal(state.TargetVersion) &&
+		plan.SqlScript.Equal(state.SqlScript) &&
+		plan.GenerateTablesSql.Equal(state.GenerateTablesSql)
+}
+
 // stopDeploymentAndWait stops the deployment when the API still offers a `stop` action, then waits
 // for the per-type status to report a terminal state - the rels cannot answer that, because both
 // `stop` and `delete` are already gone or offered while a Flink job is still draining.
 // Running out of attempts is not an error: the caller lets the API decide, as Delete always did.
-func (r *applicationDeploymentResource) stopDeploymentAndWait(ctx context.Context, id string, deploymentType string) error {
-	status, err := r.provider.client.GetApplicationDeploymentStatus(id)
+func stopDeploymentAndWait(ctx context.Context, client *webclient.Client, id string, deploymentType string) error {
+	status, err := client.GetApplicationDeploymentStatus(id)
 	if err != nil {
 		return fmt.Errorf("unable to get Application Deployment status, got error: %s", err)
 	}
@@ -954,8 +1112,7 @@ func (r *applicationDeploymentResource) stopDeploymentAndWait(ctx context.Contex
 		return nil
 	}
 
-	stopRequest := webclient.ApplicationDeploymentOperationRequest{Action: "STOP"}
-	if err := r.provider.client.OperateApplicationDeployment(id, "STOP", stopRequest); err != nil {
+	if err := operateDeployment(client, id, actionStop); err != nil {
 		return fmt.Errorf("unable to stop Application Deployment, got error: %s", err)
 	}
 
@@ -964,7 +1121,7 @@ func (r *applicationDeploymentResource) stopDeploymentAndWait(ctx context.Contex
 	started := time.Now()
 	for i := 0; i < attempts; i++ {
 		time.Sleep(delay)
-		status, err := r.provider.client.GetApplicationDeploymentStatus(id)
+		status, err := client.GetApplicationDeploymentStatus(id)
 		if err != nil {
 			return fmt.Errorf("unable to get Application Deployment status while waiting for it to stop, got error: %s", err)
 		}
@@ -998,8 +1155,8 @@ func deleteWithRetry(deploymentType string, delay time.Duration, deleteDeploymen
 // startApplicationDeployment starts or resumes the deployment and returns nil once it is running or
 // once the action was accepted; the caller decides whether the error fails the apply. A stopped
 // FLINK_SQL deployment offers `resume`, not `start`, so the rel decides which action is sent.
-func (r *applicationDeploymentResource) startApplicationDeployment(ctx context.Context, id string, deploymentType string, retryDelay time.Duration) error {
-	status, err := r.provider.client.GetApplicationDeploymentStatus(id)
+func startApplicationDeployment(ctx context.Context, client *webclient.Client, id string, deploymentType string, retryDelay time.Duration) error {
+	status, err := client.GetApplicationDeploymentStatus(id)
 	if err != nil {
 		return fmt.Errorf("unable to get Application Deployment status before starting it: %s", err)
 	}
@@ -1017,7 +1174,7 @@ func (r *applicationDeploymentResource) startApplicationDeployment(ctx context.C
 			return nil
 		}
 		time.Sleep(startWaitDelay)
-		if status, err = r.provider.client.GetApplicationDeploymentStatus(id); err != nil {
+		if status, err = client.GetApplicationDeploymentStatus(id); err != nil {
 			return fmt.Errorf("unable to get Application Deployment status while waiting for it to become startable: %s", err)
 		}
 		action = startActionFor(status)
@@ -1035,7 +1192,7 @@ func (r *applicationDeploymentResource) startApplicationDeployment(ctx context.C
 		Action: action,
 	}
 	err = Retry(startAttempts, retryDelay, func() error {
-		return r.provider.client.OperateApplicationDeployment(id, action, applicationStartRequest)
+		return client.OperateApplicationDeployment(id, action, applicationStartRequest)
 	})
 	if err == nil {
 		return nil
@@ -1043,7 +1200,7 @@ func (r *applicationDeploymentResource) startApplicationDeployment(ctx context.C
 
 	// The START may still have gone through on a request whose response was lost, so a deployment
 	// that reports itself running counts as success rather than a failure.
-	if currentStatus, statusErr := r.provider.client.GetApplicationDeploymentStatus(id); statusErr == nil && isDeploymentRunning(deploymentType, currentStatus) {
+	if currentStatus, statusErr := client.GetApplicationDeploymentStatus(id); statusErr == nil && isDeploymentRunning(deploymentType, currentStatus) {
 		tflog.Info(ctx, "START reported an error but the Application Deployment is running")
 		return nil
 	}
@@ -1058,7 +1215,7 @@ func (r *applicationDeploymentResource) startApplicationDeployment(ctx context.C
 func startActionFor(status *webclient.ApplicationDeploymentStatusResponse) string {
 	switch {
 	case status.Links.Has(webclient.RelStart):
-		return "START"
+		return actionStart
 	case status.Links.Has(webclient.RelResume):
 		return "RESUME"
 	}
@@ -1094,32 +1251,50 @@ func describeDeploymentStatus(status *webclient.ApplicationDeploymentStatusRespo
 // stop advertising STOP - and start advertising DELETE - while a Flink job is still shutting down,
 // which is exactly the window in which Ververica rejects the DELETE.
 func isDeploymentStopped(deploymentType string, status *webclient.ApplicationDeploymentStatusResponse) bool {
-	if isFlinkSQL(deploymentType) {
-		return status.FlinkStatus.Status == "Undeployed" || status.FlinkStatus.Status == "Failed"
-	}
-	if isKSML(deploymentType) {
+	live := liveDeploymentStatus(deploymentType, status)
+	switch {
+	case isFlinkSQL(deploymentType):
+		return live == "Undeployed" || live == "Failed"
+	case isKSML(deploymentType):
 		// KSML never reports `Stopped`: a stopped app reads as `Undeployed`. `Failed` and `Completed`
 		// are end states with nothing running, so waiting for them to change wastes the full budget.
-		return status.KsmlStatus.Status == "Undeployed" || status.KsmlStatus.Status == "Failed" ||
-			status.KsmlStatus.Status == "Completed"
+		return live == "Undeployed" || live == "Failed" || live == "Completed"
 	}
-	// A Connector that never ran reports `Undefined` rather than `Stopped`, and a failed one stays
-	// `Failed` (ManagedApplicationStatus is STARTING, RUNNING, STOPPED, FAILED, UNDEFINED).
-	return status.ConnectorState.State == "Stopped" || status.ConnectorState.State == "Undefined" ||
-		status.ConnectorState.State == "Failed"
+	// A Connector that never ran reports `Undefined` rather than `Stopped`, and a failed one stays `Failed`.
+	return live == "Stopped" || live == "Undefined" || live == "Failed"
 }
 
 // isDeploymentRunning reports whether the deployment reports itself as running. Like
 // isDeploymentStopped this reads the per-type status: the `_links` cannot answer it, because a
 // deployment that is still shutting down offers no `start` either.
 func isDeploymentRunning(deploymentType string, status *webclient.ApplicationDeploymentStatusResponse) bool {
-	if isFlinkSQL(deploymentType) {
-		return status.FlinkStatus.Status == "Running"
+	return liveDeploymentStatus(deploymentType, status) == "Running"
+}
+
+// liveDeploymentStatus is the status string the API reports for the deployment's type. It is the
+// one place that picks the per-type field.
+func liveDeploymentStatus(deploymentType string, status *webclient.ApplicationDeploymentStatusResponse) string {
+	switch {
+	case isFlinkSQL(deploymentType):
+		return status.FlinkStatus.Status
+	case isKSML(deploymentType):
+		return status.KsmlStatus.Status
 	}
-	if isKSML(deploymentType) {
-		return status.KsmlStatus.Status == "Running"
-	}
-	return status.ConnectorState.State == "Running"
+	return status.ConnectorState.State
+}
+
+const (
+	actionStart   = "START"
+	actionStop    = "STOP"
+	actionRestart = "RESTART"
+	actionReset   = "RESET"
+
+	connectorApplicationType = "Connector"
+)
+
+// operateDeployment sends one lifecycle action, so the action name is written once.
+func operateDeployment(client *webclient.Client, id string, action string) error {
+	return client.OperateApplicationDeployment(id, action, webclient.ApplicationDeploymentOperationRequest{Action: action})
 }
 
 // shouldStopDeployment reports whether the deployment has to be stopped before it can be

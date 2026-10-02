@@ -60,5 +60,15 @@ The Grant request will remain in a PENDING state until approved or rejected by t
 ### Alternative flow
 - Instead of the Application Team creating the grant, it is possible for the Topic Team to create the Grant as well. In that case, the Topic Team would create both the Grant and Grant Approval resources in their repository. Please see the configuration under the comment `ALTERNATIVE FLOW SETUP` in  [Topic Team's Terraform Resources](https://github.com/Axual/terraform-provider-axual/blob/master/examples/3-team-guide/topic-team/main.tf)
 
-### Limitations
-- Currently, it is not possible for the Application Team to revoke the Grant Approval. The workaround is that the Application Team would need to ask the Topic Team to revoke the grant by deleting the Grant Approval.
+### Revoking access
+
+- The Application Team revokes its own access by deleting its `axual_application_access_grant`.
+- This needs a member of the group that owns the application, or a user with the `APPLICATION_ADMIN`
+  role. If the tenant lets only resource managers update and deploy, the member must also be a
+  resource manager of that group.
+- If the deletion fails with `Application Access Grant cannot be deleted`, the Topic Team revokes the
+  grant instead, by deleting its `axual_application_access_grant_approval`.
+- After a revoke, the Topic Team must remove its `axual_application_access_grant_approval` for that
+  grant. Applying it again fails with `Cannot approve revoked grant`.
+- To get access again, the Application Team creates a new grant. See
+  [Re-approving After Revocation](manage-application-access-to-topics#re-approving-after-revocation).

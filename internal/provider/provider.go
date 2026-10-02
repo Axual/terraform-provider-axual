@@ -152,6 +152,7 @@ func (p *AxualProvider) Resources(ctx context.Context) []func() resource.Resourc
 		func() resource.Resource { return NewApplicationAccessGrantRejectionResource(*p) },
 		func() resource.Resource { return NewApplicationAccessGrantApprovalResource(*p) },
 		func() resource.Resource { return NewApplicationDeploymentResource(*p) },
+		func() resource.Resource { return NewApplicationDeploymentStateResource(*p) },
 		func() resource.Resource { return NewTopicBrowsePermissionsResource(*p) },
 		func() resource.Resource { return NewApplicationCredentialResource(*p) },
 		func() resource.Resource { return NewFlinkClusterResource(*p) },
@@ -177,6 +178,7 @@ func (p *AxualProvider) DataSources(ctx context.Context) []func() datasource.Dat
 		func() datasource.DataSource { return NewApplicationAccessGrantDataSource(*p) },
 		func() datasource.DataSource { return NewInstanceDataSource(*p) },
 		func() datasource.DataSource { return NewUserDataSource(*p) },
+		func() datasource.DataSource { return NewConnectClusterDataSource(*p) },
 	}
 }
 

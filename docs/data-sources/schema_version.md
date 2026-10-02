@@ -24,6 +24,8 @@ This data source exports the following attributes in addition to the one listed 
 
 - id Schema_version unique identifier.
 - body The avro schema.
-- description A short description of the schema version
+- description A short description of the schema. This belongs to the schema itself, not to this
+  specific version - it always reflects the latest description set on any version of the schema,
+  not necessarily the one named by `version` above.
 - schema_id The Schema unique identifier
 - owners The unique identifier of the owning group of the schema

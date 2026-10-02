@@ -28,3 +28,13 @@ resolvedTopicPrefix: ""
 # credentials above must belong to a Tenant Admin: only a Tenant Admin may add a service account to
 # a group. Leave empty to skip that test.
 serviceAccountUid: ""
+
+# Two Kafka Connect clusters already registered on one Instance-Cluster, used by the Kafka Connect
+# tests (ConnectClusterDataSource, ApplicationDeploymentStateResource): one MTLS, one SASL_SCRAM.
+# The tests never register them. They skip while any of these is still a YOUR_ placeholder.
+connectClusterInstanceId: "YOUR_CONNECT_CLUSTER_INSTANCE_ID"
+connectClusterClusterId: "YOUR_CONNECT_CLUSTER_CLUSTER_ID"
+connectClusterMtlsId: "YOUR_CONNECT_CLUSTER_MTLS_ID"
+connectClusterMtlsName: "YOUR_CONNECT_CLUSTER_MTLS_NAME"
+connectClusterSaslId: "YOUR_CONNECT_CLUSTER_SASL_ID"
+connectClusterSaslName: "YOUR_CONNECT_CLUSTER_SASL_NAME"

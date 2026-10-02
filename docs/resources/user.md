@@ -20,7 +20,7 @@ You have two options for managing existing users with Terraform:
 1. **Use the `axual_user` data source** to reference existing users:
    ```hcl
    data "axual_user" "john" {
-     email_address = "john.doe@example.com"
+     email = "john.doe@example.com"
    }
    ```
    See: https://registry.terraform.io/providers/Axual/axual/latest/docs/data-sources/user
@@ -91,7 +91,7 @@ resource "axual_user" "john" {
 
 ```hcl
 data "axual_user" "john" {
-  email_address = "john.doe@example.com"
+  email = "john.doe@example.com"
 }
 
 # Use data.axual_user.john.id to reference the user

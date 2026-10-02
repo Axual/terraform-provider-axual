@@ -52,3 +52,33 @@ func TestApplicationCredentialConnectorResource(t *testing.T) {
 		},
 	})
 }
+
+// TestApplicationCredentialImportNotFound covers importing a nonexistent credential id.
+// GET /application_credentials/{id} binds the path variable straight to the domain entity
+// server-side, so a nonexistent id fails that binding before the request reaches application
+// code, and the API answers a raw 400 ("...converted to null") instead of a clean 404. The
+// provider now recognizes that specific response and reports "Application Credential Not Found"
+// instead of passing the confusing raw message through - confirmed with both a malformed id and a
+// well-formed but nonexistent one, since the API responds identically to both.
+func TestApplicationCredentialImportNotFound(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+		Steps: []resource.TestStep{
+			{
+				ResourceName:  "axual_application_credential.import_target",
+				ImportState:   true,
+				ImportStateId: "00000000000000000000000000000000",
+				Config:        GetProvider() + GetFile("axual_application_credential_import_target.tf"),
+				ExpectError:   regexp.MustCompile("Application Credential Not Found"),
+			},
+			{
+				ResourceName:  "axual_application_credential.import_target",
+				ImportState:   true,
+				ImportStateId: "not-a-well-formed-uid",
+				Config:        GetProvider() + GetFile("axual_application_credential_import_target.tf"),
+				ExpectError:   regexp.MustCompile("Application Credential Not Found"),
+			},
+		},
+	})
+}

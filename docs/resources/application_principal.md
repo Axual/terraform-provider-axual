@@ -6,7 +6,7 @@ An Application Principal is a security principal (certificate or comparable) tha
 - Axual Terraform Provider only support these authentication methods:
 	- SSL (MUTUAL TLS) as a Certificate(PEM). To use it please provide a string with PEM certificate as `principal` property.
 		- Read more: https://docs.axual.io/axual/2026.1/self-service/application-management.html#ssl-application-principals
-	- SASL (OAUTHBEARER) as a Custom Principal that specifies the ID referenced in URI and tokens. To use it please provide a string with PEM certificate as principal property. For example, `my-client`.
+	- SASL (OAUTHBEARER) as a Custom Principal that specifies the ID referenced in URI and tokens. To use it please set `custom = true` and provide the client ID as `principal` property. For example, `my-client`.
 		- Read more: https://docs.axual.io/axual/2026.1/self-service/application-management.html#application-custom-principal
 
 ## Security
@@ -92,7 +92,7 @@ resource "axual_application_principal" "new" {
 
 ### Required by `axual_application_deployment`
 
-A Connector `axual_application_deployment` cannot be created unless at least one active principal exists for the same application+environment. The deployment resource performs a pre-flight check and fails fast with a clear error otherwise.
+A Connector `axual_application_deployment` with `autostart = true` (the default) cannot be created unless at least one active principal exists for the same application+environment. The deployment resource performs a pre-flight check and fails fast with a clear error otherwise. With `autostart = false` there is no such check: the deployment is created first and the principal after it, and `axual_application_deployment_state` starts the connector (see the [Connector Application guide](../guides/connector-application.md)).
 
 **Cross-repo setup:** when the principal is managed in a separate Terraform configuration than the deployment, ensure the principal is activated (via `active = true` or manually via UI) before running `terraform apply` on the deployment repo. The provider does not auto-activate principals.
 
@@ -100,7 +100,7 @@ A Connector `axual_application_deployment` cannot be created unless at least one
 
 ### Deleting an active principal
 
-An active principal can be deleted if no `axual_application_deployment` exists for the same application+environment combination (i.e. the connector is not running). When a deployment is present and the connector is running, the API will reject the deletion — you must first rotate to a new active principal before removing the old one.
+An active principal of a Connector application can only be deleted while its deployment in that environment is undeployed: no `axual_application_deployment` exists, or the connector was reset. A stopped connector is not enough; the API rejects the deletion while the deployment is running or stopped. Delete the deployment first, or, with `autostart = false`, let the `axual_application_deployment_state` be destroyed first: it stops and resets the connector. To keep the connector running, rotate to a new active principal before removing the old one.
 
 ### In-place certificate rotation (same resource, new cert)
 
@@ -161,24 +161,17 @@ After import, `principal`, `environment`, and `application` are populated from t
 
 ### Connector principals (`private_key`)
 
-The API does not return the private key for security reasons. After importing a connector principal, Terraform will plan a replacement because `private_key` is missing from state.
+The API does not return the private key for security reasons, so after import `private_key` is
+`null` in state — the same as a principal created without one. Applying the same config again
+(with `private_key` set) is a no-op: the provider treats this as adopting the existing principal,
+not rotating it, so no `lifecycle { ignore_changes }` block is needed.
 
-**Use lifecycle ignore** — add the following to suppress the diff:
-
-```hcl
-resource "axual_application_principal" "example" {
-  environment = "..."
-  application = "..."
-  principal   = file("certs/my-connector.pem")
-  private_key = file("certs/my-connector.key")
-
-  lifecycle {
-    ignore_changes = [private_key]
-  }
-}
-```
-
-Remove the `lifecycle` block once the state is stable. Subsequent `terraform apply` runs from config will include the private key normally since Create always sends it.
+One trade-off follows from this: since state alone cannot distinguish "imported, never had a key
+seen" from "created without one," if you deliberately add `private_key` to a principal that was
+originally created *without* one, the provider will also treat that as adoption — the value is
+saved to state but never sent to the API. This is rare in practice (only non-Connector SSL
+principals can omit `private_key` at all); if you hit it, rotate through a new resource instead
+(see "In-place certificate rotation" above).
 
 ### Custom principals (`custom`)
 

@@ -4,7 +4,9 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -178,6 +180,15 @@ func (r *applicationCredentialResource) Read(ctx context.Context, req resource.R
 		tflog.Info(ctx, "Import mode: reading credential by ID")
 		credential, err := r.provider.client.ReadApplicationCredential(data.Id.ValueString())
 		if err != nil {
+			// The API answers a nonexistent id with a 400 ("... converted to null"), not a 404. Any other
+			// 400 is a real error, so the status alone is not enough; a 404 is handled for when the API is fixed.
+			if errors.Is(err, webclient.NotFoundError) || strings.Contains(err.Error(), "converted to null") {
+				resp.Diagnostics.AddError(
+					"Application Credential Not Found",
+					fmt.Sprintf("Application Credential with ID: %s not found.", data.Id.ValueString()),
+				)
+				return
+			}
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application credential, got error: %s", err))
 			return
 		}
