@@ -60,12 +60,14 @@ A `FLINK_SQL` deployment needs all of the following before it can be created. Th
 |---|---|
 | A `Connector` on Axual Connect (no `target_id`), with `autostart = true` or `false` | 15.0.x or later |
 | A `Ksml` deployment | 15.0.x or later |
+| A change of `target_id` on a `Ksml` deployment | 16.0.0 or later |
 | A `Connector` whose `target_id` names a registered Kafka Connect cluster, and `target_version` | 16.0.0 or later |
 | A `Connector` deployment without `configs` | 16.0.0 or later |
 | A `FLINK_SQL` deployment (`sql_script`, `generate_tables_sql` and the other Flink attributes) | 16.0.0 or later |
 
-With Platform Manager 15.0.x, use 15.0.6 or later when you run Terraform with a parallelism above 1.
-Older versions can fail to stop or delete many Connector deployments at the same time.
+With Platform Manager 15.0.x, use 15.0.6 or later. Older versions can fail to stop or delete many
+Connector deployments at the same time. Terraform does 10 operations at a time by default; if you
+cannot upgrade, run with `-parallelism=1`.
 
 ## Required Roles
 - APPLICATION_ADMIN or be part of the Team that owns the Application

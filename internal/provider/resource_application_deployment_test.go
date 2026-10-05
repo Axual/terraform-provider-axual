@@ -390,6 +390,8 @@ func TestUpdateRequestSendsTargetOnlyWhenItChanges(t *testing.T) {
 		{name: "Connector, target unchanged", state: deployment("Connector", "kc-cluster", "1.0.0"), plan: deployment("Connector", "kc-cluster", "1.0.0"), wantTarget: false},
 		{name: "Connector, only version changed", state: deployment("Connector", "kc-cluster", "1.0.0"), plan: deployment("Connector", "kc-cluster", "2.0.0"), wantTarget: true},
 		{name: "Connector, new target", state: deployment("Connector", "", ""), plan: deployment("Connector", "kc-cluster", "1.0.0"), wantTarget: true},
+		{name: "FLINK_SQL, target changed", state: deployment(webclient.FlinkSQLApplicationType, "flink-a", ""), plan: deployment(webclient.FlinkSQLApplicationType, "flink-b", ""), wantTarget: false},
+		{name: "Connector, moved to Axual Connect", state: deployment("Connector", "kc-cluster", "1.0.0"), plan: deployment("Connector", "axualconnect-dta", ""), wantTarget: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -406,8 +408,12 @@ func TestUpdateRequestSendsTargetOnlyWhenItChanges(t *testing.T) {
 				t.Fatal(err)
 			}
 			_, hasTarget := fields["targetId"]
+			_, hasVersion := fields["targetVersion"]
 			if hasTarget != tt.wantTarget {
 				t.Errorf("targetId sent = %v, want %v (body %s)", hasTarget, tt.wantTarget, body)
+			}
+			if !tt.wantTarget && hasVersion {
+				t.Errorf("targetVersion sent, want none (body %s)", body)
 			}
 			if tt.wantTarget && !tt.plan.TargetVersion.IsNull() {
 				if fields["targetVersion"] != tt.plan.TargetVersion.ValueString() {

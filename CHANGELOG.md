@@ -19,13 +19,23 @@ All notable changes to this project will be documented in this file.
 * Support for Axual-managed `FLINK_SQL` Application
 * A size-only change of a `FLINK_SQL` Application Deployment is stored without redeploying the job.
   The new size takes effect the next time the job is deployed
+
 ### Changed
-* A Connector deployment with a `target_id` that names a registered Kafka Connect cluster now needs `autostart = false`; the default `autostart = true` is refused with `Kafka Connect cluster needs autostart = false`. `terraform plan` reports it when the application already exists, otherwise `terraform apply` does, before anything is created. No released version supported such a deployment, but a configuration built against an unreleased build from the main branch that relies on the default must add `autostart = false` and an `axual_application_deployment_state`
+* A Connector deployment whose `target_id` names a registered Kafka Connect cluster needs `autostart = false`. `terraform plan` reports this when the application already exists, otherwise `terraform apply` does, before anything is created
 * `axual_group` sends each member and manager as a bare uid and lets Platform Manager resolve whether it names a user or a service account. Nothing changes for existing configurations; it removes the per-member API call that resolving them in the provider would have cost
 * The authentication method is determined by which credentials are supplied. Supplying a service account credential takes precedence over `username` and `password`, which are ignored with a warning naming them - a leftover `AXUAL_AUTH_PASSWORD` will not break a pipeline that has moved to a service account
 * The provider no longer disables TLS certificate verification process-wide. It now uses its own HTTP transport, leaving `http.DefaultTransport` untouched. Certificate verification behaviour for the provider's own requests is unchanged
 * A Connector deployment is now updated in place instead of being replaced when its config changes
 * An `axual_application_deployment` can be imported in any state, not only while it is running
+
+### Deprecated
+* `username` and `password` authentication. Use a service account instead
+* `clientid`, replaced by `client_id`. Both are accepted; setting them to different values is an error
+* `authmode` and `audience`. Neither has any effect
+
+### Removed
+* The `auth0` authentication mode. `authmode = "auth0"` now reports a clear error
+
 ### Fixed
 * Rotating the certificate of an `axual_application_principal` no longer fails with "Provider produced inconsistent final plan" when the new certificate is only known at apply, for example when it comes from a module output or another resource ([#175](https://github.com/Axual/terraform-provider-axual/issues/175))
 * `axual_schema_version` data source: fix looking up any schema version other than the latest
@@ -34,18 +44,9 @@ All notable changes to this project will be documented in this file.
 * Importing an `axual_application_credential` with an id that does not exist now reports "Application Credential Not Found" instead of a raw internal error message
 * `terraform import` on an `axual_application_principal`, followed by `terraform apply` with the same certificate, no longer triggers a certificate rotation (create new, delete old)
 * A Connector deployment update that Platform Manager refuses (for example an unknown `target_version` or an invalid config) no longer leaves a running connector stopped: it is started again with its previous settings, and the error says so
-* Changing the `target_id` of a Connector between Axual Connect and a Kafka Connect cluster now works both ways. The connector is reset on its old cluster first, so the paused copy there no longer keeps the partitions from the new one, and a move back to Axual Connect (`target_id = "axualconnect-<instance>"`) now clears the target instead of keeping the old one
-* `axual_application_deployment_state` restarts failed tasks, not only the connector: a connector restart leaves failed tasks failed. It also waits out a short failure right after a start, for example a task that resumes once on a credential that was just replaced
 * The error for a refused `axual_application_credential` delete now says "credential" instead of "principal"
-* Resume a stopped `FLINK_SQL` Application Deployment instead of waiting for a START it is never offered
-* Clear the `description` of an `axual_flink_cluster` by removing it from the configuration
-* Create a `FLINK_SQL` Application Deployment without `generate_tables_sql`
 * Create a Connector Application Deployment without `configs`
-* Destroy a failed `FLINK_SQL` Application Deployment
 * Wait for a deployment to stop before updating it
-* Wait up to 5 minutes for a `FLINK_SQL` job to reach a terminal state before updating or deleting it,
-  and retry a DELETE that Ververica refuses while the job is still draining (AXPD-11714)
-* Validate `axual_flink_cluster` attribute lengths in the schema
 * Retry the delete of an `axual_application` that the API rejects with a transient commit conflict
   after an access grant was revoked moments earlier (AXPD-12049)
 * Treat a failed Connector or KSML Application Deployment as stopped, so a destroy no longer waits
@@ -54,12 +55,6 @@ All notable changes to this project will be documented in this file.
 * Update the deployment target of a KSML Application Deployment in place instead of replacing it
 * Fix five `go vet` findings in `resource_schema_version.go`, `resource_topic_config.go` and
   `resource_user.go`, so `go test ./internal/provider/` runs with vet enabled
-### Deprecated
-* `username` and `password` authentication. Use a service account instead
-* `clientid`, replaced by `client_id`. Both are accepted; setting them to different values is an error
-* `authmode` and `audience`. Neither has any effect
-### Removed
-* The `auth0` authentication mode. `authmode = "auth0"` now reports a clear error
 
 ## [3.1.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.1.0) - 2026-06-30
 ### Added

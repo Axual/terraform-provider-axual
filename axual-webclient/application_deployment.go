@@ -2,6 +2,7 @@ package webclient
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -74,8 +75,11 @@ func (c *Client) UpdateApplicationDeployment(id string, data ApplicationDeployme
 	headers := map[string]string{"Content-Type": "application/json"}
 	url := fmt.Sprintf("%s/application_deployments/%v", c.ApiURL, id)
 	err = c.RequestAndMap("PATCH", url, strings.NewReader(string(marshal)), headers, &o)
-	if err != nil && isPatchNotSupported(err) && !data.changesTarget() {
-		// Platform Manager 15.0.x only updates configs through the PUT that 16.0.0 deprecates.
+	if err != nil && isPatchNotSupported(err) {
+		if data.changesTarget() {
+			return nil, fmt.Errorf("changing the deployment target in place needs Platform Manager 16.0.0 or later: %w", err)
+		}
+		// Platform Manager 15.0.x only updates configs with PUT.
 		err = c.RequestAndMap("PUT", url, strings.NewReader(string(marshal)), headers, &o)
 	}
 	if err != nil {
@@ -84,11 +88,11 @@ func (c *Client) UpdateApplicationDeployment(id string, data ApplicationDeployme
 	return o, nil
 }
 
-// isPatchNotSupported reports the answer of a Platform Manager without the PATCH endpoint: its
-// generic resource handler cannot read the body.
+// isPatchNotSupported reports the 400 that Platform Manager 15.0.x sends for a PATCH of a deployment.
 func isPatchNotSupported(err error) bool {
-	message := err.Error()
-	return strings.HasPrefix(message, "status: 400,") && strings.Contains(message, "Could not read payload")
+	var httpErr *HTTPError
+	return errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusBadRequest &&
+		strings.Contains(httpErr.Body, "Could not read payload")
 }
 
 // RestartApplicationDeploymentTask restarts one task of a Connector deployment. A connector RESTART

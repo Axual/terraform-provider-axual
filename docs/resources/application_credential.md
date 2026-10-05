@@ -7,13 +7,15 @@ An Application Credential is a security credential (SASL) that uniquely authenti
 - Terraform will save the password and username in local state file(terraform.tfstate). Please make sure that this file is appropriately secured.
 - Here are best practices for securing secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/
 
+## Platform Manager version
+
+- A credential for a `Connector` on a registered Kafka Connect cluster needs Platform Manager 16.0.0 or
+  later. Other credentials work with every supported version.
+
 ## Required Roles
 - APPLICATION_ADMIN or be part of the Team that owns the Application
 
 ## Connector applications on a registered Kafka Connect cluster
-
-This needs Platform Manager 16.0.0 or later.
-
 
 A `Connector` application on a `SASL_SCRAM`-configured
 [Kafka Connect cluster](../data-sources/connect_cluster.md) needs a credential with

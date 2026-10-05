@@ -843,11 +843,9 @@ func createApplicationDeploymentRequestFromData(ctx context.Context, data *Appli
 	return ApplicationDeploymentRequest, nil
 }
 
-// createApplicationUpdateDeploymentRequestFromData builds the update request. The target is sent for
-// the types that can change it in place; a FLINK_SQL deployment is replaced instead (AXPD-11759),
-// and the synthesized `axualconnect-` target is left out for the same reason as on the create.
-// createApplicationUpdateDeploymentRequestFromData builds the PATCH body. The target is sent only when
-// it changes: Platform Manager 15.0.x cannot read `targetId` or `targetVersion` and refuses the body.
+// createApplicationUpdateDeploymentRequestFromData builds the update request. The target is sent
+// only when it changes, because Platform Manager 15.0.x refuses it. FLINK_SQL and the synthesized
+// `axualconnect-` target are never sent.
 func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData, state *ApplicationDeploymentResourceData) (webclient.ApplicationDeploymentUpdateRequest, error) {
 	configs, err := createConfigsForDeploymentType(data)
 

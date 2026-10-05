@@ -1,6 +1,7 @@
 package ApplicationPrincipalResource
 
 import (
+	"fmt"
 	"testing"
 
 	. "axual.com/terraform-provider-axual/internal/tests"
@@ -104,6 +105,7 @@ func TestApplicationPrincipalCustomActiveNoPermaDiff(t *testing.T) {
 // because the plan kept the old id while apply replaced the principal.
 func TestApplicationPrincipalRotationWithUnknownCertificate(t *testing.T) {
 	const name = "axual_application_principal.tf-test-app-principal"
+	var rotatedId string
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
 		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
@@ -124,13 +126,32 @@ func TestApplicationPrincipalRotationWithUnknownCertificate(t *testing.T) {
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{plancheck.ExpectUnknownValue(name, tfjsonpath.New("id"))},
 				},
-				Check: CheckBodyMatchesFile(name, "principal", CertPath("example_stream_processor.cer")),
+				Check: resource.ComposeTestCheckFunc(
+					CheckBodyMatchesFile(name, "principal", CertPath("example_stream_processor.cer")),
+					resource.TestCheckResourceAttrWith(name, "id", func(id string) error {
+						rotatedId = id
+						return nil
+					}),
+				),
+			},
+			{
+				// Unknown at plan but the same certificate: the id may show as unknown, but no rotation happens.
+				Config: GetProvider() + GetFile(
+					"axual_application_principal_setup.tf",
+					"axual_application_principal_custom_unknown_same.tf",
+				),
+				Check: resource.TestCheckResourceAttrWith(name, "id", func(id string) error {
+					if id != rotatedId {
+						return fmt.Errorf("id changed from %s to %s, but the certificate is the same", rotatedId, id)
+					}
+					return nil
+				}),
 			},
 			{
 				Destroy: true,
 				Config: GetProvider() + GetFile(
 					"axual_application_principal_setup.tf",
-					"axual_application_principal_custom_unknown_rotated.tf",
+					"axual_application_principal_custom_unknown_same.tf",
 				),
 			},
 		},
