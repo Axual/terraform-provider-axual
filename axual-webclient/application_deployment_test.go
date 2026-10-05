@@ -1,6 +1,7 @@
 package webclient
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
 )
@@ -58,5 +59,19 @@ func TestUidFromLocationHeader(t *testing.T) {
 func TestUidFromLocationHeaderWithoutHeaders(t *testing.T) {
 	if uid := uidFromLocationHeader(nil); uid != "" {
 		t.Fatalf("expected no Uid for nil headers, got %q", uid)
+	}
+}
+
+func TestApplicationDeploymentUpdateRequestClearTarget(t *testing.T) {
+	body, err := json.Marshal(ApplicationDeploymentUpdateRequest{Configs: map[string]string{"a": "b"}, ClearTarget: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(body); got != `{"configs":{"a":"b"},"targetId":null,"targetVersion":null}` {
+		t.Errorf("body = %s", got)
+	}
+	body, _ = json.Marshal(ApplicationDeploymentUpdateRequest{Configs: map[string]string{}, TargetId: "cc1"})
+	if got := string(body); got != `{"configs":{},"targetId":"cc1"}` {
+		t.Errorf("body = %s", got)
 	}
 }

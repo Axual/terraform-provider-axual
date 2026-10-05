@@ -647,17 +647,15 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 		return
 	}
 
+	status, err := r.provider.client.GetApplicationDeploymentStatus(planData.Id.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get Application Deployment status, got error: %s", err))
+		return
+	}
+	wasRunning := shouldStopDeployment(planData.Type.ValueString(), status)
 	// With autostart = false an axual_application_deployment_state resource owns whether the
 	// deployment runs, so an update that has to stop it puts it back the way it was.
-	restartAfterUpdate := false
-	if !isAutostart(planData.Autostart) {
-		status, err := r.provider.client.GetApplicationDeploymentStatus(planData.Id.ValueString())
-		if err != nil {
-			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get Application Deployment status, got error: %s", err))
-			return
-		}
-		restartAfterUpdate = shouldStopDeployment(planData.Type.ValueString(), status)
-	}
+	restartAfterUpdate := isAutostart(planData.Autostart) || wasRunning
 
 	// A running deployment cannot be updated: `beforeUpdateImpl` rejects a save while the desired
 	// state is RUNNING, and `saveFlinkSql` rejects one while a Flink job actually is. Stop it and
@@ -667,15 +665,41 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 		return
 	}
 
+	// A stopped connector is only paused, and stays on its Connect cluster with its consumers in the
+	// group. Moved to another cluster, it would keep the partitions from the new connector, so reset
+	// it first: that removes it from the old cluster and keeps its offsets.
+	if isConnector(planData.Type.ValueString()) && isConnectTargetChange(stateData.TargetId, planData.TargetId) {
+		warning, err := resetConnector(ctx, r.provider.client, planData.Id.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", err.Error())
+			return
+		}
+		if warning != "" {
+			resp.Diagnostics.AddWarning("Application Deployment was not reset before its target changed", warning)
+		}
+	}
+
 	ApplicationDeploymentUpdateRequest, err := createApplicationUpdateDeploymentRequestFromData(ctx, &planData)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating request struct for application deployment resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
+	ApplicationDeploymentUpdateRequest.ClearTarget = isConnector(planData.Type.ValueString()) &&
+		connectTargetKey(stateData.TargetId) != "" && connectTargetKey(planData.TargetId) == "" && !planData.TargetId.IsUnknown()
 
 	_, err = r.provider.client.UpdateApplicationDeployment(planData.Id.ValueString(), ApplicationDeploymentUpdateRequest)
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update Application Deployment, got error: %s", err))
+		message := fmt.Sprintf("Unable to update Application Deployment, got error: %s", err)
+		// The update was refused, so the deployment still has its old settings: start it again
+		// instead of leaving a deployment that was running stopped by a failed apply.
+		if wasRunning {
+			if startErr := startApplicationDeployment(ctx, r.provider.client, planData.Id.ValueString(), planData.Type.ValueString(), 5*time.Second); startErr != nil {
+				message += fmt.Sprintf(". It was stopped for the update and could not be started again: %s", startErr)
+			} else {
+				message += ". It was started again with its previous settings."
+			}
+		}
+		resp.Diagnostics.AddError("Client Error", message)
 		return
 	}
 	tflog.Info(ctx, "Successfully updated Application Deployment")
@@ -683,7 +707,7 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 	diags = resp.State.Set(ctx, &planData)
 	resp.Diagnostics.Append(diags...)
 
-	if !isAutostart(planData.Autostart) && !restartAfterUpdate {
+	if !restartAfterUpdate {
 		tflog.Info(ctx, "Application Deployment was not running before the update, leaving it stopped")
 		return
 	}
@@ -764,6 +788,22 @@ func mapTargetVersionToData(data *ApplicationDeploymentResourceData, targetVersi
 	data.TargetVersion = stringOrNull(targetVersion)
 }
 
+// isConnectTargetChange reports whether a Connector moves to another Connect runtime. No target and
+// the synthesized `axualconnect-` target both mean legacy Axual Connect.
+func isConnectTargetChange(state, plan types.String) bool {
+	if plan.IsUnknown() {
+		return false
+	}
+	return connectTargetKey(state) != connectTargetKey(plan)
+}
+
+func connectTargetKey(target types.String) string {
+	if target.IsNull() || target.IsUnknown() || strings.HasPrefix(target.ValueString(), legacyAxualConnectTargetPrefix) {
+		return ""
+	}
+	return target.ValueString()
+}
+
 // stringOrNull maps an empty API string to null, so an unset optional attribute shows no diff.
 func stringOrNull(value string) types.String {
 	if value == "" {
@@ -824,7 +864,7 @@ func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data 
 		ApplicationDeploymentUpdateRequest.TargetVersion = data.TargetVersion.ValueString()
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("Application update request completed: %q", ApplicationDeploymentUpdateRequest))
+	tflog.Info(ctx, fmt.Sprintf("Application update request completed: %+v", ApplicationDeploymentUpdateRequest))
 	return ApplicationDeploymentUpdateRequest, nil
 }
 

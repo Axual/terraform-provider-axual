@@ -80,7 +80,8 @@ func (c *Client) doRequestWithHeaders(req *http.Request) ([]byte, http.Header, e
 
 	if res.StatusCode != http.StatusOK &&
 		res.StatusCode != http.StatusNoContent &&
-		res.StatusCode != http.StatusCreated {
+		res.StatusCode != http.StatusCreated &&
+		res.StatusCode != http.StatusAccepted {
 		log.Printf("Unexpected response status: %d, body: %s", res.StatusCode, body)
 		return nil, nil, fmt.Errorf("status: %d, body: %s", res.StatusCode, body)
 	}

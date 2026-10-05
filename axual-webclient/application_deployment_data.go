@@ -1,5 +1,7 @@
 package webclient
 
+import "encoding/json"
+
 // ApplicationDeploymentCreateResponse holds what the POST /application_deployments response
 // exposes about the created deployment. The Uid is read from the response's Location header and is
 // empty when that header is absent.
@@ -78,6 +80,24 @@ type ApplicationDeploymentUpdateRequest struct {
 	Configs       map[string]string `json:"configs"`
 	TargetId      string            `json:"targetId,omitempty"`
 	TargetVersion string            `json:"targetVersion,omitempty"`
+	// ClearTarget sends targetId and targetVersion as null, which moves a Connector back to
+	// Axual Connect. An empty TargetId alone is left out of the PATCH and keeps the old target.
+	ClearTarget bool `json:"-"`
+}
+
+func (r ApplicationDeploymentUpdateRequest) MarshalJSON() ([]byte, error) {
+	type plain ApplicationDeploymentUpdateRequest
+	body, err := json.Marshal(plain(r))
+	if err != nil || !r.ClearTarget {
+		return body, err
+	}
+	fields := map[string]any{}
+	if err := json.Unmarshal(body, &fields); err != nil {
+		return nil, err
+	}
+	fields["targetId"] = nil
+	fields["targetVersion"] = nil
+	return json.Marshal(fields)
 }
 
 type ApplicationDeploymentOperationRequest struct {

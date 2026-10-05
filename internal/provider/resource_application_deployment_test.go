@@ -336,3 +336,27 @@ func TestIsKafkaConnectTarget(t *testing.T) {
 		})
 	}
 }
+
+// TestIsConnectTargetChange: no target and the synthesized `axualconnect-` target are the same
+// runtime, so only a move to or between Kafka Connect clusters counts.
+func TestIsConnectTargetChange(t *testing.T) {
+	tests := []struct {
+		name        string
+		state, plan types.String
+		want        bool
+	}{
+		{"axual connect to kafka connect", types.StringValue("axualconnect-dta"), types.StringValue("cc1"), true},
+		{"kafka connect to axual connect", types.StringValue("cc1"), types.StringNull(), true},
+		{"kafka connect to another", types.StringValue("cc1"), types.StringValue("cc2"), true},
+		{"same kafka connect cluster", types.StringValue("cc1"), types.StringValue("cc1"), false},
+		{"null to synthesized axual connect", types.StringNull(), types.StringValue("axualconnect-dta"), false},
+		{"unknown plan", types.StringValue("cc1"), types.StringUnknown(), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isConnectTargetChange(tt.state, tt.plan); got != tt.want {
+				t.Errorf("isConnectTargetChange() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

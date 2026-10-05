@@ -28,7 +28,9 @@ type fakeConnector struct {
 	failAfter bool // a START ends in Failed instead of Running
 	gone      bool // the deployment does not exist
 	noReset   bool // a stopped connector is never offered RESET
-	actions   []string
+	// recoversIn is how many status reads a Failed connector stays failed before it runs on its own.
+	recoversIn int
+	actions    []string
 }
 
 func (f *fakeConnector) links() map[string]webclient.Link {
@@ -67,6 +69,12 @@ func (f *fakeConnector) handler(w http.ResponseWriter, r *http.Request) {
 			}
 			f.startsIn--
 		}
+		if f.state == "Failed" && f.recoversIn > 0 {
+			f.recoversIn--
+			if f.recoversIn == 0 {
+				f.state, f.trace = "Running", ""
+			}
+		}
 		body := map[string]any{
 			"connectorState": map[string]any{"state": f.state, "trace": f.trace},
 			"_links":         f.links(),
@@ -80,6 +88,10 @@ func (f *fakeConnector) handler(w http.ResponseWriter, r *http.Request) {
 			"uid":       "dep1",
 			"_embedded": map[string]any{"application": map[string]any{"applicationType": "Connector"}},
 		})
+	case r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/task/") && strings.HasSuffix(r.URL.Path, "/restart"):
+		f.actions = append(f.actions, "RESTART_TASK")
+		f.taskStatus, f.trace = "Running", ""
+		w.WriteHeader(http.StatusAccepted)
 	case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/operation"):
 		action := r.URL.Query().Get("action")
 		f.actions = append(f.actions, action)
@@ -87,7 +99,8 @@ func (f *fakeConnector) handler(w http.ResponseWriter, r *http.Request) {
 		case "START":
 			f.state = "Starting"
 		case "RESTART":
-			f.state, f.taskStatus, f.trace = "Running", "Running", ""
+			// Like Connect: a connector restart leaves a failed task failed.
+			f.state = "Running"
 		case "STOP":
 			f.state = "Stopped"
 		case "RESET":
@@ -161,8 +174,21 @@ func TestStateResourceRunRestartsAConnectorWithAFailedTask(t *testing.T) {
 	if err := r.run(context.Background(), "dep1", "Connector"); err != nil {
 		t.Fatalf("run() error = %v", err)
 	}
-	if !equalActions(fake.sent(), "RESTART") {
-		t.Errorf("actions = %v, expected RESTART", fake.sent())
+	if !equalActions(fake.sent(), "RESTART_TASK") {
+		t.Errorf("actions = %v, expected RESTART_TASK", fake.sent())
+	}
+}
+
+// A failed connector with a failed task needs both: the connector RESTART alone leaves the task failed.
+func TestStateResourceRunRestartsAFailedConnectorAndItsFailedTask(t *testing.T) {
+	fake := &fakeConnector{state: "Failed", taskStatus: "Failed", trace: "boom"}
+	r := newStateResourceAgainst(t, fake)
+
+	if err := r.run(context.Background(), "dep1", "Connector"); err != nil {
+		t.Fatalf("run() error = %v", err)
+	}
+	if !equalActions(fake.sent(), "RESTART", "RESTART_TASK") {
+		t.Errorf("actions = %v, expected RESTART then RESTART_TASK", fake.sent())
 	}
 }
 
@@ -188,6 +214,16 @@ func TestStateResourceRunReportsAConnectorThatFailsAfterStart(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "TopicAuthorizationException") || strings.Contains(err.Error(), "\tat") {
 		t.Errorf("run() error = %q, expected the first line of the trace only", err)
+	}
+}
+
+// A resumed task can fail once on credentials it read before a rotation, then run with the new ones.
+func TestStateResourceRunWaitsOutAShortFailureAfterStart(t *testing.T) {
+	fake := &fakeConnector{state: "Stopped", failAfter: true, recoversIn: 2, trace: "Not authorized"}
+	r := newStateResourceAgainst(t, fake)
+
+	if err := r.run(context.Background(), "dep1", "Connector"); err != nil {
+		t.Fatalf("run() error = %v, expected the short failure to be waited out", err)
 	}
 }
 

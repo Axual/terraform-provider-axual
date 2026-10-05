@@ -30,6 +30,10 @@ All notable changes to this project will be documented in this file.
   though the version existed
 * Importing an `axual_application_credential` with an id that does not exist now reports "Application Credential Not Found" instead of a raw internal error message
 * `terraform import` on an `axual_application_principal`, followed by `terraform apply` with the same certificate, no longer triggers a certificate rotation (create new, delete old)
+* A Connector deployment update that Platform Manager refuses (for example an unknown `target_version` or an invalid config) no longer leaves a running connector stopped: it is started again with its previous settings, and the error says so
+* Changing the `target_id` of a Connector between Axual Connect and a Kafka Connect cluster now works both ways. The connector is reset on its old cluster first, so the paused copy there no longer keeps the partitions from the new one, and a move back to Axual Connect (`target_id = "axualconnect-<instance>"`) now clears the target instead of keeping the old one
+* `axual_application_deployment_state` restarts failed tasks, not only the connector: a connector restart leaves failed tasks failed. It also waits out a short failure right after a start, for example a task that resumes once on a credential that was just replaced
+* The error for a refused `axual_application_credential` delete now says "credential" instead of "principal"
 
 ### Deprecated
 * `username` and `password` authentication. Use a service account instead
