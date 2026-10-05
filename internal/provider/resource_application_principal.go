@@ -68,6 +68,12 @@ func (m trimSpaceSemanticallyEqual) PlanModifyString(_ context.Context, req plan
 	}
 }
 
+// adoptsPrivateKey reports a private_key set in config against a null state. The API never returns
+// the key, so this is an imported principal, not a rotation.
+func adoptsPrivateKey(state, plan types.String) bool {
+	return state.IsNull() && !plan.IsNull() && !plan.IsUnknown()
+}
+
 // isCertificateChanging returns true when principal or private_key differs between plan and state,
 // indicating a certificate rotation is in progress. Used by plan modifiers for id and active
 // to mark those attributes as (known after apply) so the plan/apply cycle is consistent.
@@ -86,6 +92,9 @@ func isCertificateChanging(ctx context.Context, plan tfsdk.Plan, state tfsdk.Sta
 	var planPrivateKey, statePrivateKey types.String
 	plan.GetAttribute(ctx, path.Root("private_key"), &planPrivateKey)
 	state.GetAttribute(ctx, path.Root("private_key"), &statePrivateKey)
+	if adoptsPrivateKey(statePrivateKey, planPrivateKey) {
+		return false
+	}
 	// Compare like principal: ignore leading/trailing whitespace so a trailing newline in a key
 	// file does not show as a phantom rotation in the plan (apply trims too, so nothing changes).
 	return strings.TrimSpace(planPrivateKey.ValueString()) != strings.TrimSpace(statePrivateKey.ValueString())
@@ -273,8 +282,10 @@ func (r *applicationPrincipalResource) Update(ctx context.Context, req resource.
 	// Cert-unchanged fast path: only `active` (or other non-cert attrs) changed.
 	// Skip rotation — POST with the same fingerprint returns errmsg.duplicate.principal.
 	// No deactivate API exists; active=false is a write-only intent (atomic swap by activating another principal).
+	privateKeyUnchanged := strings.TrimSpace(plan.PrivateKey.ValueString()) == strings.TrimSpace(state.PrivateKey.ValueString()) ||
+		adoptsPrivateKey(state.PrivateKey, plan.PrivateKey)
 	certUnchanged := strings.TrimSpace(plan.Principal.ValueString()) == strings.TrimSpace(state.Principal.ValueString()) &&
-		strings.TrimSpace(plan.PrivateKey.ValueString()) == strings.TrimSpace(state.PrivateKey.ValueString())
+		privateKeyUnchanged
 	if certUnchanged {
 		tflog.Info(ctx, fmt.Sprintf("Update application principal: cert unchanged for %s, no rotation", oldId))
 		active, err := r.resolveActivation(ctx, oldId, plan, application)
@@ -411,6 +422,13 @@ func warnActiveOnNonConnector(diags *diag.Diagnostics, app *webclient.Applicatio
 // always plan.Active — null stays null (non-Connector and omitted intent never gain a value).
 func (r *applicationPrincipalResource) resolveActivation(ctx context.Context, id string, plan applicationPrincipalResourceData, app *webclient.ApplicationResponse) (types.Bool, error) {
 	if app.ApplicationType == "Connector" && boolTrue(plan.Active) {
+		// Activating a principal that already is active fails in Platform Manager (a 403 with an
+		// optimistic locking error). This is the normal case after `terraform import`, whose state
+		// has no `active` value, so a principal that is already active is left as it is.
+		if current, err := r.provider.client.ReadApplicationPrincipal(id); err == nil && current.Active != nil && *current.Active {
+			tflog.Info(ctx, fmt.Sprintf("Application principal %s is already active", id))
+			return plan.Active, nil
+		}
 		tflog.Info(ctx, fmt.Sprintf("Activating application principal %s", id))
 		if err := r.provider.client.ActivateApplicationPrincipal(id); err != nil {
 			return types.BoolNull(), fmt.Errorf("unable to activate application principal: %w", err)

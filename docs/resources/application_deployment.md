@@ -5,15 +5,18 @@ An Application Deployment stores the configuration an Application runs with on a
 
 ## Usage
 - To see the required configuration parameters for each connect-plugin (`axual_application.application_class`), refer to the documentation: [Axual Connect Plugins Catalog](https://docs.axual.io/connect/Axual-Connect/connect-plugins-catalog/connect-plugins-catalog.html).
-- Creating the `axual_application_deployment` resource automatically starts the application.
-- Updating the resource stops the application first (if it is running), applies the update, and starts it again — with two exceptions:
-  - a **Connector** deployment is destroyed and recreated instead. The API itself accepts an update, so this is a provider-side restriction that stays until the Connector support of AXPD-11929 verifies the in-place update; note that recreating a connector loses its offsets;
+- With the default `autostart = true`, creating the `axual_application_deployment` resource automatically starts the application.
+- With `autostart = false`, the resource only stores the deployment target and configs, the way the Self-Service UI does when a deployment target is confirmed: no principal, credential or grant has to exist yet, and nothing is started. Start and stop it with an [`axual_application_deployment_state`](application_deployment_state.md). This is required for a Connector on a registered Kafka Connect cluster (`target_id` set, Platform Manager 16.0.0 or later), on `MTLS` and `SASL_SCRAM` clusters alike. A legacy Axual Connect Connector works with both values. See the [Connector Application guide](../guides/connector-application.md).
+- Updating the resource stops the application first (if it is running), applies the update, and starts it again, for every deployment type including **Connector** (a registered Kafka Connect cluster or legacy Axual Connect). With `autostart = false` it is started again only if it was running before the update. One exception:
   - a **FLINK_SQL** deployment is *resumed* rather than started, so it continues from its last checkpoint, and a change of `deployment_size` alone is stored without stopping the job at all - the running job keeps its current size, and the new one takes effect the next time the job is deployed.
+- To move a **Connector** from a Kafka Connect cluster back to legacy Axual Connect, set `target_id = "axualconnect-<instance short name>"`, the value the deployment reports for Axual Connect. Removing `target_id` from the configuration keeps the current target. A move in either direction resets the stopped connector on its old cluster first, so it is removed there; its consumer group offsets stay.
 - Deleting the `axual_application_deployment` resource automatically stops the application (if it is running) before removing it.
 - For more information about connector applications in Axual, refer to the documentation: [Starting Connectors](https://docs.axual.io/connect/Axual-Connect/starting-connectors.html).
 - Currently, a data source for `axual_application_deployment` is not supported.
 
-### Prerequisite: active Application Principal (Connector only)
+### Prerequisite: active Application Principal (Connector only, `autostart = true`)
+
+The prerequisites below apply only with `autostart = true`. With `autostart = false` the deployment is created first and has no prerequisites; the [`axual_application_deployment_state`](application_deployment_state.md) that starts it depends on them instead.
 
 For **Connector** applications, an active `axual_application_principal` must exist for the same application and environment before the deployment can be created. The provider performs a pre-flight check during `terraform apply` and returns a clear error if no active principal is found:
 
@@ -28,7 +31,9 @@ Activation options:
 - **Same Terraform configuration:** set `active = true` on the `axual_application_principal` resource and apply it before (or together with) the deployment. See [`axual_application_principal`](application_principal.md) for activation semantics and the multi-principal certificate rotation flow.
 - **Cross-repo setup:** when the principal is managed in a separate Terraform configuration (or activated manually via the UI), make sure activation has been applied before running `terraform apply` on the deployment. The provider does not auto-activate principals.
 
-KSML deployments are unaffected — they allow one authentication (`axual_application_credential` or `axual_application_principal`) and do not require an active principal.
+KSML deployments are unaffected - they allow one authentication (`axual_application_credential` or `axual_application_principal`) and do not require an active principal.
+
+A **Connector** deployment whose `target_id` names a registered Kafka Connect cluster (see [`axual_connect_cluster`](../data-sources/connect_cluster.md)) only works with `autostart = false`. On an `MTLS` cluster it uses an `axual_application_principal`, and Platform Manager writes the principal's private key to the Connect cluster's Vault only when the deployment and its target already exist. On a `SASL_SCRAM` cluster it uses an `axual_application_credential`, which Platform Manager creates only for a deployment whose target is already stored. So create the deployment with `autostart = false`, give the principal or credential `depends_on = [axual_application_deployment...]`, and start it with an `axual_application_deployment_state`. With `autostart = true` the provider refuses it with `Kafka Connect cluster needs autostart = false`: in `terraform plan` when the application already exists, otherwise in `terraform apply`, before anything is created.
 
 ### Prerequisites: FLINK_SQL
 
@@ -46,7 +51,7 @@ A `FLINK_SQL` deployment needs all of the following before it can be created. Th
 - An empty string `""` **is** a valid config value and is sent as an empty string (not converted to `null`). It is the right value for configs that accept "no value".
 
 ### Design Decision: Use of `depends_on`
-- Ensure the use of the `depends_on` attribute as shown in the example below. This guarantees that Terraform creates the required `axual_application_access_grant_approval` resource before creating `axual_application_deployment` resource.
+- With `autostart = true` (the default), ensure the use of the `depends_on` attribute as shown in the example below. This guarantees that Terraform creates the required `axual_application_access_grant_approval` resource before creating `axual_application_deployment` resource. With `autostart = false` the deployment comes first, and the `depends_on` on the approval belongs on the `axual_application_deployment_state` instead (see the [Connector Application guide](../guides/connector-application.md)).
 - We use the `depends_on` attribute because each connector plugin determines the topic names it should use in its own way. By explicitly specifying `depends_on`, the connector owner can protect the deployment until the necessary approvals are in place. Due to the dynamic nature of Connect, this structure is necessary to maintain flexibility and control over the resource creation process.
 
 ## Required Roles
@@ -62,6 +67,7 @@ A `FLINK_SQL` deployment needs all of the following before it can be created. Th
 
 ### Optional
 
+- `autostart` (Boolean) Whether this resource starts the deployment. Defaults to `true`: the deployment is created only after an approved `axual_application_access_grant` and an Application Principal or Credential exist, and it is started on create and after every update. Set it to `false` to only store the deployment target and configs, the same way the Self-Service UI does when a deployment target is confirmed. The deployment is then created before the principal or credential and is not started; an `axual_application_deployment_state` resource starts and stops it. `false` is required for a Connector on a registered Kafka Connect cluster (`target_id` set), on MTLS and SASL_SCRAM clusters alike. A legacy Axual Connect Connector supports both values. With `false`, an update that has to stop the deployment starts it again only if it was running before. Changing only this value changes nothing on the platform.
 - `configs` (Map of String, Sensitive) Connector config for Application Deployment. Required for Connector deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. All available application plugin class names, plugin types and plugin configs are listed here in API- `GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass` and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/connect-plugins-catalog/connect-plugins-catalog.html
 - `definition` (String, Sensitive) KSML definition for Application Deployment. Required for KSML deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.
 - `deployment_size` (String) The t-shirt size of the deployment. Optional for KSML and FLINK_SQL deployments; for FLINK_SQL it sizes the Flink TaskManager. The accepted sizes are configured per Platform Manager install (`axual.application-deployment.flink.deployment-sizes`, `...ksml.deployment-sizes`) and default to `XS`, `S`, `M`, `L` and `XL`, so your instance may accept a different set; the match is case-insensitive. No endpoint lists them, so an unknown size is only rejected once the apply reaches the API. If not specified, the Platform Manager will assign a default value.
@@ -69,6 +75,7 @@ A `FLINK_SQL` deployment needs all of the following before it can be created. Th
 - `restart_policy` (String) The restart policy for KSML applications. Valid values are 'on_exit' and 'never'. Required for KSML deployments.
 - `sql_script` (String, Sensitive) The user-authored Flink SQL script. Required for FLINK_SQL deployments. Each statement must be a `CREATE TEMPORARY TABLE` or an `INSERT INTO ... SELECT`; two or more top-level `INSERT INTO` statements must be wrapped in `BEGIN STATEMENT SET; ... END;`. With `generate_tables_sql = true` the platform generates the `CREATE TEMPORARY TABLE` statements from the application's approved topic access and the script carries only the `INSERT INTO ... SELECT`; with `false` you write the table DDL yourself. Kafka and schema registry connection options (`bootstrap.servers`, `properties.security.protocol`, `properties.sasl.*`, `ssl.*`, and the `avro-confluent` `url`/`basic-auth.*`/`bearer-auth.*` options) are injected by the platform and are rejected here, `connector` must stay `kafka` or `upsert-kafka`, and each side is declared with `key.format`/`value.format` rather than Flink's `format` shorthand. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.
 - `target_id` (String) The id of the deployment target to deploy to. Required for FLINK_SQL deployments, where it must be the id of an `axual_flink_cluster` registered for the environment. For other deployment types the Platform Manager assigns a default target if not specified. Changing this value replaces a FLINK_SQL Application Deployment, whose deployment target can only be set when the deployment is created; for the other types the target is updated in place. Available targets can be listed via `GET /applications/{applicationId}/deployment-targets?environmentId={environmentId}`.
+- `target_version` (String) The plugin version to deploy on the deployment target named by `target_id`. Only meaningful for a Connector deployment targeting a registered Kafka Connect cluster; omit it for legacy Axual Connect and for other deployment types - for legacy Axual Connect this value is always overwritten on read with the actually-deployed plugin version, so setting it explicitly can produce a diff that never clears. Changing this value updates the deployment in place, the same way changing `target_id` does for every type except FLINK_SQL.
 
 ### Read-Only
 
@@ -111,3 +118,5 @@ Import is supported using the following syntax:
 terraform import axual_application_deployment.<LOCAL NAME> <APPLICATION DEPLOYMENT UID>
 terraform import axual_application_deployment.connector_axual_application_deployment 362f33655195493c9574fc18f5d9a701
 ```
+
+A deployment can be imported in any state, running or not. `autostart` is not stored on the platform, so it is imported as `true`; when the configuration says `autostart = false`, the next plan shows an in-place change of `autostart` only, which changes nothing on the platform.

@@ -27,6 +27,7 @@ Data sources are read-only - they fetch information but don't create, update, or
 | `axual_application` | `name` or `short_name` | `id`, `name`, `short_name`, `description`, `application_type`, `application_id`, `application_class`, `type`, `owners`, `visibility` |
 | `axual_schema_version` | `full_name` and `version` | `id`, `schema_id`, `body`, `description`, `owners` |
 | `axual_application_access_grant` | `application`, `topic`, `environment`, `access_type` | `id`, `status` |
+| `axual_connect_cluster` | `instance_id` and `cluster_id`, plus `id` or `name` | `id`, `name`, `description`, `connect_url`, `auth_method`, `log_viewer_url`, `owner_group_id`, `owner_group_name`, `authorized_group_ids` |
 
 ## Example Usage
 
@@ -245,3 +246,31 @@ resource "axual_application_access_grant_approval" "logs_producer_approval" {
 ```
 
 **Available attributes:** `id`, `application`, `topic`, `environment`, `access_type`, `status`
+
+### axual_connect_cluster
+
+To define an `axual_connect_cluster` data source, provide `instance_id` and `cluster_id`, plus
+either the cluster's `id` or its `name`. A Kafka Connect cluster is registered by an administrator,
+not by Terraform, so this data source is the only way to reference one:
+
+```hcl
+data "axual_connect_cluster" "jsonlog" {
+  instance_id = data.axual_instance.example.id
+  cluster_id  = "YOUR_CLUSTER_ID"
+  name        = "jsonlog"
+}
+```
+
+Now we can use this data source when creating a Connector deployment:
+
+```hcl
+resource "axual_application_deployment" "example" {
+  environment    = data.axual_environment.dev.id
+  application    = axual_application.example.id
+  target_id      = data.axual_connect_cluster.jsonlog.id
+  target_version = "4.1.1"
+  configs        = { /* ... */ }
+}
+```
+
+**Available attributes:** `id`, `name`, `description`, `connect_url`, `auth_method`, `log_viewer_url`, `owner_group_id`, `owner_group_name`, `authorized_group_ids`

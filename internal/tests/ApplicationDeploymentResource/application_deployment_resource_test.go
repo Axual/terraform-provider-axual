@@ -1,15 +1,38 @@
 package ApplicationDeploymentResource
 
 import (
+	"fmt"
 	"regexp"
 	"testing"
 
 	. "axual.com/terraform-provider-axual/internal/tests"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
+// idUnchanged returns a check that fails if resourceName's id ever differs from the id captured
+// the first time it runs. It proves an update was applied in place rather than by destroying and
+// recreating the resource, which a plain attribute check cannot tell apart from a replace.
+func idUnchanged(resourceName string, capturedId *string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		rs, ok := s.RootModule().Resources[resourceName]
+		if !ok {
+			return fmt.Errorf("no resource %q in state", resourceName)
+		}
+		if *capturedId == "" {
+			*capturedId = rs.Primary.ID
+			return nil
+		}
+		if rs.Primary.ID != *capturedId {
+			return fmt.Errorf("resource %q was replaced: id changed from %q to %q", resourceName, *capturedId, rs.Primary.ID)
+		}
+		return nil
+	}
+}
+
 func TestApplicationDeploymentResource(t *testing.T) {
+	var deploymentId string
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
 		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
@@ -34,8 +57,8 @@ func TestApplicationDeploymentResource(t *testing.T) {
 			},
 			// A Connector deployment can be created with no `configs` at all: the API registers the
 			// deployment target and takes the configs later, so the provider only warns that the
-			// deployment cannot be started yet. The deployment it leaves behind is replaced by the
-			// next step, which adds the configs.
+			// deployment cannot be started yet. The next step adds the configs to the same
+			// deployment, in place.
 			{
 				Config: GetProvider() + GetFile(
 					"axual_application_deployment_setup.tf",
@@ -44,6 +67,7 @@ func TestApplicationDeploymentResource(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttrPair("axual_application_deployment.connector_axual_application_deployment", "environment", "axual_environment.tf-test-env", "id"),
 					resource.TestCheckNoResourceAttr("axual_application_deployment.connector_axual_application_deployment", "configs.%"),
+					idUnchanged("axual_application_deployment.connector_axual_application_deployment", &deploymentId),
 				),
 			},
 			{
@@ -58,6 +82,7 @@ func TestApplicationDeploymentResource(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_application_deployment.connector_axual_application_deployment", "configs.tasks.max", "1"),
 					CheckBodyMatchesFile("axual_application_principal.connector_axual_application_principal", "principal", CertPath("connector-cert.crt")),
 					CheckBodyMatchesFile("axual_application_principal.connector_axual_application_principal", "private_key", CertPath("connector-cert.key")),
+					idUnchanged("axual_application_deployment.connector_axual_application_deployment", &deploymentId),
 				),
 			},
 			{
@@ -70,6 +95,7 @@ func TestApplicationDeploymentResource(t *testing.T) {
 					resource.TestCheckResourceAttrPair("axual_application_deployment.connector_axual_application_deployment", "application", "axual_application.tf-test-app", "id"),
 					resource.TestCheckResourceAttr("axual_application_deployment.connector_axual_application_deployment", "configs.topic", "test-topic"),
 					resource.TestCheckResourceAttr("axual_application_deployment.connector_axual_application_deployment", "configs.tasks.max", "2"),
+					idUnchanged("axual_application_deployment.connector_axual_application_deployment", &deploymentId),
 				),
 			},
 			{
@@ -314,6 +340,25 @@ func TestApplicationDeploymentFlinkResource(t *testing.T) {
 					"axual_application_deployment_flink_setup.tf",
 					"axual_application_deployment_flink_generate_tables_unset.tf",
 				),
+			},
+		},
+	})
+}
+
+// TestApplicationDeploymentImportNotFound covers importing a nonexistent deployment id - unlike
+// the equivalent credential case, GetApplicationDeployment already answers a clean 404 that
+// ImportState already translates into "Application Deployment Not Found". This locks that in.
+func TestApplicationDeploymentImportNotFound(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+		Steps: []resource.TestStep{
+			{
+				ResourceName:  "axual_application_deployment.import_target",
+				ImportState:   true,
+				ImportStateId: "00000000000000000000000000000000",
+				Config:        GetProvider() + GetFile("axual_application_deployment_import_target.tf"),
+				ExpectError:   regexp.MustCompile("Application Deployment Not Found"),
 			},
 		},
 	})

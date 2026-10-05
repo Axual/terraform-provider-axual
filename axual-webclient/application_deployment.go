@@ -79,6 +79,12 @@ func (c *Client) UpdateApplicationDeployment(id string, data ApplicationDeployme
 	return o, nil
 }
 
+// RestartApplicationDeploymentTask restarts one task of a Connector deployment. A connector RESTART
+// leaves failed tasks failed, so a failed task needs its own restart.
+func (c *Client) RestartApplicationDeploymentTask(id string, taskId int) error {
+	return c.RequestAndMap("POST", fmt.Sprintf("%s/application_deployments/%v/task/%d/restart", c.ApiURL, id, taskId), nil, nil, nil)
+}
+
 func (c *Client) OperateApplicationDeployment(id string, action string, data ApplicationDeploymentOperationRequest) error {
 	marshal, err := json.Marshal(data)
 	if err != nil {

@@ -163,8 +163,8 @@ or a role that the person had. Ask your tenant admin to compare the two.
 
 ## What changed, and what still works
 
-Everything below still works and now emits a deprecation warning. Nothing has been
-removed, so no existing configuration fails to load.
+Everything below still works; the deprecated settings emit a warning. The only thing
+removed is the `auth0` mode: `authmode = "auth0"` now fails with an error, so remove it.
 
 | | |
 |---|---|

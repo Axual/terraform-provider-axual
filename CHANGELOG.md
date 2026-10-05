@@ -9,11 +9,31 @@ All notable changes to this project will be documented in this file.
 * Guide: `Service account authentication`, covering both modes and migrating off username and password
 * The provider now verifies its credentials while configuring, so bad credentials fail at the start of a plan instead of partway through an apply
 * A member or manager of an `axual_group` may now be a service account as well as a user, on Platform Manager 15.1.0 or later. Adding a service account to a group requires Tenant Admin, and a manager must also be a member
+* The `axual_connect_cluster` data source, to look up a registered Kafka Connect cluster by id or by name
+* `target_version` on `axual_application_deployment`, the plugin version to deploy for a Connector targeting a registered Kafka Connect cluster
+* The `axual_application_deployment_state` resource: the desired state (`RUNNING` or `STOPPED`) of an Application Deployment. It starts, stops or restarts the deployment to match, shows a deployment stopped outside Terraform or failed as a change in the next plan, exposes the live status as `current_state`, and stops and resets the deployment on destroy. It can be imported by the deployment's Uid
+* `autostart` on `axual_application_deployment`, default `true`. With `false` the deployment only stores its target and configs, like the Self-Service UI does, and is created before the principal, credential and access grant; an `axual_application_deployment_state` starts it. This is the order the Connector Application guide now recommends
+* Connector deployments on a registered Kafka Connect cluster (Platform Manager 16.0.0 or later), on `MTLS` and `SASL_SCRAM` clusters: the deployment with `autostart = false`, then its `axual_application_principal` or `axual_application_credential`, then the grant, then an `axual_application_deployment_state`. With `autostart = true` such a deployment is refused with a message that explains this order. Legacy Axual Connect works with both `autostart` values
+* Examples in `examples/connector-application` for AC+TLS with and without `autostart`, KC+TLS and KC+SASL
 
 ### Changed
+* A Connector deployment with a `target_id` that names a registered Kafka Connect cluster now needs `autostart = false`; the default `autostart = true` is refused with `Kafka Connect cluster needs autostart = false`. `terraform plan` reports it when the application already exists, otherwise `terraform apply` does, before anything is created. No released version supported such a deployment, but a configuration built against an unreleased build from the main branch that relies on the default must add `autostart = false` and an `axual_application_deployment_state`
 * `axual_group` sends each member and manager as a bare uid and lets Platform Manager resolve whether it names a user or a service account. Nothing changes for existing configurations; it removes the per-member API call that resolving them in the provider would have cost
 * The authentication method is determined by which credentials are supplied. Supplying a service account credential takes precedence over `username` and `password`, which are ignored with a warning naming them - a leftover `AXUAL_AUTH_PASSWORD` will not break a pipeline that has moved to a service account
 * The provider no longer disables TLS certificate verification process-wide. It now uses its own HTTP transport, leaving `http.DefaultTransport` untouched. Certificate verification behaviour for the provider's own requests is unchanged
+* A Connector deployment is now updated in place instead of being replaced when its config changes
+* An `axual_application_deployment` can be imported in any state, not only while it is running
+
+### Fixed
+* `axual_schema_version` data source: fix looking up any schema version other than the latest
+  one, which failed with "Schema version matching the name you requested was not found" even
+  though the version existed
+* Importing an `axual_application_credential` with an id that does not exist now reports "Application Credential Not Found" instead of a raw internal error message
+* `terraform import` on an `axual_application_principal`, followed by `terraform apply` with the same certificate, no longer triggers a certificate rotation (create new, delete old)
+* A Connector deployment update that Platform Manager refuses (for example an unknown `target_version` or an invalid config) no longer leaves a running connector stopped: it is started again with its previous settings, and the error says so
+* Changing the `target_id` of a Connector between Axual Connect and a Kafka Connect cluster now works both ways. The connector is reset on its old cluster first, so the paused copy there no longer keeps the partitions from the new one, and a move back to Axual Connect (`target_id = "axualconnect-<instance>"`) now clears the target instead of keeping the old one
+* `axual_application_deployment_state` restarts failed tasks, not only the connector: a connector restart leaves failed tasks failed. It also waits out a short failure right after a start, for example a task that resumes once on a credential that was just replaced
+* The error for a refused `axual_application_credential` delete now says "credential" instead of "principal"
 
 ### Deprecated
 * `username` and `password` authentication. Use a service account instead

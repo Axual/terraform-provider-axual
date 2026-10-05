@@ -309,3 +309,54 @@ func TestDeleteWithRetry(t *testing.T) {
 		}
 	})
 }
+
+// TestIsKafkaConnectTarget: only a Connector on a registered Kafka Connect cluster counts. Legacy
+// Axual Connect and FLINK_SQL, which also sets target_id, keep working with autostart = true.
+func TestIsKafkaConnectTarget(t *testing.T) {
+	tests := []struct {
+		name     string
+		appType  string
+		targetId types.String
+		want     bool
+	}{
+		{"connector on a Kafka Connect cluster", "Connector", types.StringValue("cc00000000000000000000000jsonlog"), true},
+		{"connector with no target", "Connector", types.StringNull(), false},
+		{"connector with an empty target", "Connector", types.StringValue(""), false},
+		{"connector on legacy Axual Connect", "Connector", types.StringValue("axualconnect-dta"), false},
+		{"connector with an unknown target", "Connector", types.StringUnknown(), false},
+		{"flink sql on a flink cluster", webclient.FlinkSQLApplicationType, types.StringValue("f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1"), false},
+		{"ksml", "Ksml", types.StringValue("anything"), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data := ApplicationDeploymentResourceData{Type: types.StringValue(tt.appType), TargetId: tt.targetId}
+			if got := isKafkaConnectTarget(&data); got != tt.want {
+				t.Errorf("isKafkaConnectTarget() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestIsConnectTargetChange: no target and the synthesized `axualconnect-` target are the same
+// runtime, so only a move to or between Kafka Connect clusters counts.
+func TestIsConnectTargetChange(t *testing.T) {
+	tests := []struct {
+		name        string
+		state, plan types.String
+		want        bool
+	}{
+		{"axual connect to kafka connect", types.StringValue("axualconnect-dta"), types.StringValue("cc1"), true},
+		{"kafka connect to axual connect", types.StringValue("cc1"), types.StringNull(), true},
+		{"kafka connect to another", types.StringValue("cc1"), types.StringValue("cc2"), true},
+		{"same kafka connect cluster", types.StringValue("cc1"), types.StringValue("cc1"), false},
+		{"null to synthesized axual connect", types.StringNull(), types.StringValue("axualconnect-dta"), false},
+		{"unknown plan", types.StringValue("cc1"), types.StringUnknown(), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isConnectTargetChange(tt.state, tt.plan); got != tt.want {
+				t.Errorf("isConnectTargetChange() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
