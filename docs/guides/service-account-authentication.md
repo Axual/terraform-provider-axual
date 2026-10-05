@@ -7,6 +7,9 @@ description: |-
 
 # Service account authentication
 
+Service accounts need Platform Manager 16.0.0 or later. With an older Platform Manager, use
+`username` and `password`.
+
 A **service account** is a machine identity. It holds roles and group memberships just
 like a person does, but nothing about it belongs to an individual: it does not leave when
 someone changes team, and everything it does is recorded as machine activity rather than

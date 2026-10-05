@@ -12,6 +12,9 @@ An Application Credential is a security credential (SASL) that uniquely authenti
 
 ## Connector applications on a registered Kafka Connect cluster
 
+This needs Platform Manager 16.0.0 or later.
+
+
 A `Connector` application on a `SASL_SCRAM`-configured
 [Kafka Connect cluster](../data-sources/connect_cluster.md) needs a credential with
 `target = "KAFKA"` instead of an `axual_application_principal`. Platform Manager creates it only

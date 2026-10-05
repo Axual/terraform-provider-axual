@@ -256,19 +256,6 @@ The Axual Terraform provider enables a distributed GitOps setup across teams:
 | 3.1.x                      | 15.0.x - onward                      |   2026.2 - onwards          |
 | 3.2.x                      | 15.0.x - onward                      |   2026.2 - onwards          |
 
-Some features of 3.2.x need Platform Manager 16.0.0 or later. With Platform Manager 15.0.x they are
-not available, and the rest of the provider works as before:
-
-| Feature                                                                                  | Platform Manager |
-|------------------------------------------------------------------------------------------|------------------|
-| Connectors on a registered Kafka Connect cluster, and the `axual_connect_cluster` data source | 16.0.0           |
-| `axual_flink_cluster` and `FLINK_SQL` applications                                      | 16.0.0           |
-| Service account authentication, and service accounts as group members or managers       | 16.0.0           |
-| A Connector `axual_application_deployment` without `configs`                             | 16.0.0           |
-
-With Platform Manager 15.0.x, use 15.0.6 or later when you run Terraform with parallelism above 1:
-older versions can fail to stop or delete many Connector deployments at the same time.
-
 ## Custom JSON Schema Support
 
 Enable IDE integration for Terraform auto-complete and validation by importing the provider’s custom JSON schema:

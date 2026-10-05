@@ -12,6 +12,7 @@ A Flink Cluster registers a Ververica Platform namespace on an Instance-Cluster,
 
 ## Prerequisites
 
+- Platform Manager 16.0.0 or later.
 - The instance must have Flink enabled, or the API refuses the create with "Flink is not enabled for this instance".
 - An instance is currently limited to one Flink Cluster per Instance-Cluster combination.
 - Both create and update validate the connection live against Ververica Platform, so a wrong `namespace`, `workspace` or `deployment_target` fails the apply rather than the first deployment: expect "The provided namespace is invalid" or "The provided deployment-target: `<name>` was not found". An unreachable `url` or a rejected `api_token` fails the same way.
