@@ -72,11 +72,23 @@ func (c *Client) UpdateApplicationDeployment(id string, data ApplicationDeployme
 		return nil, err
 	}
 	headers := map[string]string{"Content-Type": "application/json"}
-	err = c.RequestAndMap("PATCH", fmt.Sprintf("%s/application_deployments/%v", c.ApiURL, id), strings.NewReader(string(marshal)), headers, &o)
+	url := fmt.Sprintf("%s/application_deployments/%v", c.ApiURL, id)
+	err = c.RequestAndMap("PATCH", url, strings.NewReader(string(marshal)), headers, &o)
+	if err != nil && isPatchNotSupported(err) && !data.changesTarget() {
+		// Platform Manager 15.0.x only updates configs through the PUT that 16.0.0 deprecates.
+		err = c.RequestAndMap("PUT", url, strings.NewReader(string(marshal)), headers, &o)
+	}
 	if err != nil {
 		return nil, err
 	}
 	return o, nil
+}
+
+// isPatchNotSupported reports the answer of a Platform Manager without the PATCH endpoint: its
+// generic resource handler cannot read the body.
+func isPatchNotSupported(err error) bool {
+	message := err.Error()
+	return strings.HasPrefix(message, "status: 400,") && strings.Contains(message, "Could not read payload")
 }
 
 // RestartApplicationDeploymentTask restarts one task of a Connector deployment. A connector RESTART

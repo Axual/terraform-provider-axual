@@ -84,6 +84,12 @@ func isCertificateChanging(ctx context.Context, plan tfsdk.Plan, state tfsdk.Sta
 	var planPrincipal, statePrincipal types.String
 	plan.GetAttribute(ctx, path.Root("principal"), &planPrincipal)
 	state.GetAttribute(ctx, path.Root("principal"), &statePrincipal)
+	var planKey types.String
+	plan.GetAttribute(ctx, path.Root("private_key"), &planKey)
+	// A value only known at apply may be a new certificate, so the id may change too.
+	if planPrincipal.IsUnknown() || planKey.IsUnknown() {
+		return true
+	}
 	if !planPrincipal.IsNull() && !planPrincipal.IsUnknown() &&
 		!statePrincipal.IsNull() && !statePrincipal.IsUnknown() &&
 		strings.TrimSpace(planPrincipal.ValueString()) != strings.TrimSpace(statePrincipal.ValueString()) {

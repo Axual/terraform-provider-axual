@@ -85,6 +85,11 @@ type ApplicationDeploymentUpdateRequest struct {
 	ClearTarget bool `json:"-"`
 }
 
+// changesTarget reports whether the request sets or clears the deployment target.
+func (r ApplicationDeploymentUpdateRequest) changesTarget() bool {
+	return r.TargetId != "" || r.TargetVersion != "" || r.ClearTarget
+}
+
 func (r ApplicationDeploymentUpdateRequest) MarshalJSON() ([]byte, error) {
 	type plain ApplicationDeploymentUpdateRequest
 	body, err := json.Marshal(plain(r))

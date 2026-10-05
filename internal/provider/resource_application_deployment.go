@@ -679,7 +679,7 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 		}
 	}
 
-	ApplicationDeploymentUpdateRequest, err := createApplicationUpdateDeploymentRequestFromData(ctx, &planData)
+	ApplicationDeploymentUpdateRequest, err := createApplicationUpdateDeploymentRequestFromData(ctx, &planData, &stateData)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating request struct for application deployment resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
@@ -846,7 +846,9 @@ func createApplicationDeploymentRequestFromData(ctx context.Context, data *Appli
 // createApplicationUpdateDeploymentRequestFromData builds the update request. The target is sent for
 // the types that can change it in place; a FLINK_SQL deployment is replaced instead (AXPD-11759),
 // and the synthesized `axualconnect-` target is left out for the same reason as on the create.
-func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData) (webclient.ApplicationDeploymentUpdateRequest, error) {
+// createApplicationUpdateDeploymentRequestFromData builds the PATCH body. The target is sent only when
+// it changes: Platform Manager 15.0.x cannot read `targetId` or `targetVersion` and refuses the body.
+func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData, state *ApplicationDeploymentResourceData) (webclient.ApplicationDeploymentUpdateRequest, error) {
 	configs, err := createConfigsForDeploymentType(data)
 
 	if err != nil {
@@ -856,11 +858,12 @@ func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data 
 	ApplicationDeploymentUpdateRequest := webclient.ApplicationDeploymentUpdateRequest{
 		Configs: configs,
 	}
-	if !isFlinkSQL(data.Type.ValueString()) && !data.TargetId.IsNull() && !data.TargetId.IsUnknown() &&
+	targetChanged := !data.TargetId.Equal(state.TargetId) || !data.TargetVersion.Equal(state.TargetVersion)
+	if targetChanged && !isFlinkSQL(data.Type.ValueString()) && !data.TargetId.IsNull() && !data.TargetId.IsUnknown() &&
 		!strings.HasPrefix(data.TargetId.ValueString(), legacyAxualConnectTargetPrefix) {
 		ApplicationDeploymentUpdateRequest.TargetId = data.TargetId.ValueString()
 	}
-	if !isFlinkSQL(data.Type.ValueString()) && !data.TargetVersion.IsNull() && !data.TargetVersion.IsUnknown() {
+	if targetChanged && !isFlinkSQL(data.Type.ValueString()) && !data.TargetVersion.IsNull() && !data.TargetVersion.IsUnknown() {
 		ApplicationDeploymentUpdateRequest.TargetVersion = data.TargetVersion.ValueString()
 	}
 

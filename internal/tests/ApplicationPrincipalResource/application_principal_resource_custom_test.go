@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
+	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 )
 
 func TestApplicationPrincipalResource(t *testing.T) {
@@ -92,6 +93,44 @@ func TestApplicationPrincipalCustomActiveNoPermaDiff(t *testing.T) {
 				Config: GetProvider() + GetFile(
 					"axual_application_principal_setup.tf",
 					"axual_application_principal_custom_active.tf",
+				),
+			},
+		},
+	})
+}
+
+// TestApplicationPrincipalRotationWithUnknownCertificate covers GitHub #175: a rotation whose new
+// certificate is only known at apply failed with "Provider produced inconsistent final plan",
+// because the plan kept the old id while apply replaced the principal.
+func TestApplicationPrincipalRotationWithUnknownCertificate(t *testing.T) {
+	const name = "axual_application_principal.tf-test-app-principal"
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+
+		Steps: []resource.TestStep{
+			{
+				Config: GetProvider() + GetFile(
+					"axual_application_principal_setup.tf",
+					"axual_application_principal_custom_unknown_initial.tf",
+				),
+				Check: CheckBodyMatchesFile(name, "principal", CertPath("generic_application_3.cer")),
+			},
+			{
+				Config: GetProvider() + GetFile(
+					"axual_application_principal_setup.tf",
+					"axual_application_principal_custom_unknown_rotated.tf",
+				),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectUnknownValue(name, tfjsonpath.New("id"))},
+				},
+				Check: CheckBodyMatchesFile(name, "principal", CertPath("example_stream_processor.cer")),
+			},
+			{
+				Destroy: true,
+				Config: GetProvider() + GetFile(
+					"axual_application_principal_setup.tf",
+					"axual_application_principal_custom_unknown_rotated.tf",
 				),
 			},
 		},

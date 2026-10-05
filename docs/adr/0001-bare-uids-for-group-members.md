@@ -39,7 +39,7 @@ would have had to carry (b) for it anyway.
 
 - A typed URI still works and is still validated. A client that read the group
   first, and so holds the typed `self` href, may echo it back.
-- The provider requires Platform Manager 15.1.0 or later to put a service
+- The provider requires Platform Manager 16.0.0 or later to put a service
   account in a group. Groups of people work on every version, before and after.
 - Nothing in the provider needs to know what a uid refers to, so no member type
   is stored in state and no lookup exists to keep correct.
