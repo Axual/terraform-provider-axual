@@ -3,12 +3,12 @@
 page_title: "axual_connect_cluster Data Source - terraform-provider-axual"
 subcategory: ""
 description: |-
-  Looks up a Kafka Connect cluster already registered on an Instance-Cluster, so its id can be used as an axual_application_deployment's target_id. Registering, changing or removing a Kafka Connect cluster is an administrator action outside Terraform; this data source is read-only.
+  Looks up a Kafka Connect cluster already registered on an Instance-Cluster, so its id can be used as an axual_application_deployment's target_id. Registering, changing or removing a Kafka Connect cluster is an administrator action outside Terraform; this data source is read-only. Needs Platform Manager 16.0.0 or later.
 ---
 
 # axual_connect_cluster (Data Source)
 
-Looks up a Kafka Connect cluster already registered on an Instance-Cluster, so its id can be used as an `axual_application_deployment`'s `target_id`. Registering, changing or removing a Kafka Connect cluster is an administrator action outside Terraform; this data source is read-only.
+Looks up a Kafka Connect cluster already registered on an Instance-Cluster, so its id can be used as an `axual_application_deployment`'s `target_id`. Registering, changing or removing a Kafka Connect cluster is an administrator action outside Terraform; this data source is read-only. Needs Platform Manager 16.0.0 or later.
 
 
 

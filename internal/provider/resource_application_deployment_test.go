@@ -2,6 +2,7 @@ package provider
 
 import (
 	webclient "axual-webclient"
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -356,6 +357,79 @@ func TestIsConnectTargetChange(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := isConnectTargetChange(tt.state, tt.plan); got != tt.want {
 				t.Errorf("isConnectTargetChange() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestUpdateRequestSendsTargetOnlyWhenItChanges guards Platform Manager 15.0.x, which refuses a
+// PATCH body that contains `targetId` or `targetVersion`.
+func TestUpdateRequestSendsTargetOnlyWhenItChanges(t *testing.T) {
+	deployment := func(appType, targetId, targetVersion string) ApplicationDeploymentResourceData {
+		data := ApplicationDeploymentResourceData{
+			Type:           types.StringValue(appType),
+			DeploymentSize: types.StringValue("M"),
+			TargetId:       types.StringNull(),
+			TargetVersion:  types.StringNull(),
+		}
+		if targetId != "" {
+			data.TargetId = types.StringValue(targetId)
+		}
+		if targetVersion != "" {
+			data.TargetVersion = types.StringValue(targetVersion)
+		}
+		return data
+	}
+	tests := []struct {
+		name        string
+		state, plan ApplicationDeploymentResourceData
+		wantTarget  bool
+		wantClear   bool
+	}{
+		{name: "KSML, target unchanged", state: deployment("Ksml", "ksml-target", ""), plan: deployment("Ksml", "ksml-target", ""), wantTarget: false},
+		{name: "KSML, target changed", state: deployment("Ksml", "ksml-target", ""), plan: deployment("Ksml", "other-target", ""), wantTarget: true},
+		{name: "Connector, target unchanged", state: deployment("Connector", "kc-cluster", "1.0.0"), plan: deployment("Connector", "kc-cluster", "1.0.0"), wantTarget: false},
+		{name: "Connector, only version changed", state: deployment("Connector", "kc-cluster", "1.0.0"), plan: deployment("Connector", "kc-cluster", "2.0.0"), wantTarget: true},
+		{name: "Connector, new target", state: deployment("Connector", "", ""), plan: deployment("Connector", "kc-cluster", "1.0.0"), wantTarget: true},
+		{name: "FLINK_SQL, target changed", state: deployment(webclient.FlinkSQLApplicationType, "flink-a", ""), plan: deployment(webclient.FlinkSQLApplicationType, "flink-b", ""), wantTarget: false},
+		// target_version keeps its old value in the plan (UseStateForUnknown); ClearTarget sends both as null.
+		{name: "Connector, moved to Axual Connect", state: deployment("Connector", "kc-cluster", "1.0.0"), plan: deployment("Connector", "axualconnect-dta", "1.0.0"), wantClear: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			request, err := createApplicationUpdateDeploymentRequestFromData(context.Background(), &tt.plan, &tt.state)
+			if err != nil {
+				t.Fatal(err)
+			}
+			body, err := json.Marshal(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var fields map[string]any
+			if err := json.Unmarshal(body, &fields); err != nil {
+				t.Fatal(err)
+			}
+			targetId, hasTarget := fields["targetId"]
+			targetVersion, hasVersion := fields["targetVersion"]
+			if request.ClearTarget != tt.wantClear {
+				t.Errorf("ClearTarget = %v, want %v", request.ClearTarget, tt.wantClear)
+			}
+			if tt.wantClear {
+				if !hasTarget || targetId != nil || !hasVersion || targetVersion != nil {
+					t.Errorf("want targetId and targetVersion sent as null (body %s)", body)
+				}
+				return
+			}
+			if hasTarget != tt.wantTarget {
+				t.Errorf("targetId sent = %v, want %v (body %s)", hasTarget, tt.wantTarget, body)
+			}
+			if !tt.wantTarget && hasVersion {
+				t.Errorf("targetVersion sent, want none (body %s)", body)
+			}
+			if tt.wantTarget && !tt.plan.TargetVersion.IsNull() {
+				if fields["targetVersion"] != tt.plan.TargetVersion.ValueString() {
+					t.Errorf("targetVersion = %v, want %s (body %s)", fields["targetVersion"], tt.plan.TargetVersion.ValueString(), body)
+				}
 			}
 		})
 	}

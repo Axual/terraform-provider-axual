@@ -3,6 +3,8 @@ package webclient
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -73,5 +75,59 @@ func TestApplicationDeploymentUpdateRequestClearTarget(t *testing.T) {
 	body, _ = json.Marshal(ApplicationDeploymentUpdateRequest{Configs: map[string]string{}, TargetId: "cc1"})
 	if got := string(body); got != `{"configs":{},"targetId":"cc1"}` {
 		t.Errorf("body = %s", got)
+	}
+}
+
+// TestUpdateApplicationDeploymentFallsBackToPut covers Platform Manager 15.0.x, which has no PATCH
+// endpoint for a deployment and refuses the body with 400 "Could not read payload".
+func TestUpdateApplicationDeploymentFallsBackToPut(t *testing.T) {
+	const pm15Answer = `{"detail":"Invalid request body: ` + "`Could not read payload`" + `. Please check API docs for building correct request."}`
+	tests := []struct {
+		name        string
+		patchStatus int
+		patchBody   string
+		request     ApplicationDeploymentUpdateRequest
+		wantMethods []string
+		wantErr     bool
+		wantErrText string
+	}{
+		{name: "PM 16: PATCH works", patchStatus: http.StatusNoContent,
+			request: ApplicationDeploymentUpdateRequest{Configs: map[string]string{"a": "b"}}, wantMethods: []string{"PATCH"}},
+		{name: "PM 15: configs only falls back to PUT", patchStatus: http.StatusBadRequest, patchBody: pm15Answer,
+			request: ApplicationDeploymentUpdateRequest{Configs: map[string]string{"a": "b"}}, wantMethods: []string{"PATCH", "PUT"}},
+		{name: "PM 15: a target change is not sent with PUT", patchStatus: http.StatusBadRequest, patchBody: pm15Answer,
+			request: ApplicationDeploymentUpdateRequest{Configs: map[string]string{"a": "b"}, TargetId: "kc"}, wantMethods: []string{"PATCH"}, wantErr: true,
+			wantErrText: "needs Platform Manager 16.0.0 or later"},
+		{name: "PM 15: clearing the target is not sent with PUT", patchStatus: http.StatusBadRequest, patchBody: pm15Answer,
+			request: ApplicationDeploymentUpdateRequest{Configs: map[string]string{"a": "b"}, ClearTarget: true}, wantMethods: []string{"PATCH"}, wantErr: true,
+			wantErrText: "needs Platform Manager 16.0.0 or later"},
+		{name: "another 400 is returned as is", patchStatus: http.StatusBadRequest, patchBody: `{"detail":"invalid config"}`,
+			request: ApplicationDeploymentUpdateRequest{Configs: map[string]string{"a": "b"}}, wantMethods: []string{"PATCH"}, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var methods []string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				methods = append(methods, r.Method)
+				if r.Method == "PATCH" {
+					w.WriteHeader(tt.patchStatus)
+					_, _ = w.Write([]byte(tt.patchBody))
+					return
+				}
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			defer srv.Close()
+			client := &Client{HTTPClient: srv.Client(), ApiURL: srv.URL}
+			_, err := client.UpdateApplicationDeployment("dep1", tt.request)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErrText != "" && !strings.Contains(err.Error(), tt.wantErrText) {
+				t.Fatalf("error = %v, want it to contain %q", err, tt.wantErrText)
+			}
+			if strings.Join(methods, ",") != strings.Join(tt.wantMethods, ",") {
+				t.Fatalf("methods = %v, want %v", methods, tt.wantMethods)
+			}
+		})
 	}
 }

@@ -22,6 +22,14 @@ The desired running state of an Application Deployment: whether it should run or
 - Make it depend on the access grant approval and on the principal or credential. See the
   [Connector Application guide](../guides/connector-application.md) for the complete order.
 
+## Platform Manager version
+
+| Deployment | Platform Manager |
+|---|---|
+| A `Connector` on Axual Connect | 15.0.x or later |
+| A `Connector` on a registered Kafka Connect cluster | 16.0.0 or later |
+| A `FLINK_SQL` deployment | 16.0.0 or later |
+
 ## Required Roles
 
 - APPLICATION_ADMIN or be part of the Team that owns the Application

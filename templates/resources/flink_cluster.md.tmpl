@@ -16,6 +16,10 @@
 - An instance is currently limited to one Flink Cluster per Instance-Cluster combination.
 - Both create and update validate the connection live against Ververica Platform, so a wrong `namespace`, `workspace` or `deployment_target` fails the apply rather than the first deployment: expect "The provided namespace is invalid" or "The provided deployment-target: `<name>` was not found". An unreachable `url` or a rejected `api_token` fails the same way.
 
+## Platform Manager version
+
+- Platform Manager 16.0.0 or later.
+
 ## Required Roles
 - TENANT_ADMIN
 

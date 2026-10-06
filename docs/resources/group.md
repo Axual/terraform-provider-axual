@@ -2,6 +2,11 @@
 
 Group resource. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#groups
 
+## Platform Manager version
+
+- A service account as a member or a manager needs Platform Manager 16.0.0 or later. Users work
+  with every supported version.
+
 ## Required Roles
 - TENANT_ADMIN
 

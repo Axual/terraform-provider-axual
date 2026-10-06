@@ -75,23 +75,23 @@ func adoptsPrivateKey(state, plan types.String) bool {
 }
 
 // isCertificateChanging returns true when principal or private_key differs between plan and state,
-// indicating a certificate rotation is in progress. Used by plan modifiers for id and active
-// to mark those attributes as (known after apply) so the plan/apply cycle is consistent.
+// or is only known at apply. The id plan modifier uses it to mark id as (known after apply).
 func isCertificateChanging(ctx context.Context, plan tfsdk.Plan, state tfsdk.State) bool {
 	if state.Raw.IsNull() {
 		return false // Create operation — not an update
 	}
-	var planPrincipal, statePrincipal types.String
+	var planPrincipal, statePrincipal, planPrivateKey, statePrivateKey types.String
 	plan.GetAttribute(ctx, path.Root("principal"), &planPrincipal)
 	state.GetAttribute(ctx, path.Root("principal"), &statePrincipal)
-	if !planPrincipal.IsNull() && !planPrincipal.IsUnknown() &&
-		!statePrincipal.IsNull() && !statePrincipal.IsUnknown() &&
+	plan.GetAttribute(ctx, path.Root("private_key"), &planPrivateKey)
+	state.GetAttribute(ctx, path.Root("private_key"), &statePrivateKey)
+	if planPrincipal.IsUnknown() || planPrivateKey.IsUnknown() {
+		return true
+	}
+	if !planPrincipal.IsNull() && !statePrincipal.IsNull() && !statePrincipal.IsUnknown() &&
 		strings.TrimSpace(planPrincipal.ValueString()) != strings.TrimSpace(statePrincipal.ValueString()) {
 		return true
 	}
-	var planPrivateKey, statePrivateKey types.String
-	plan.GetAttribute(ctx, path.Root("private_key"), &planPrivateKey)
-	state.GetAttribute(ctx, path.Root("private_key"), &statePrivateKey)
 	if adoptsPrivateKey(statePrivateKey, planPrivateKey) {
 		return false
 	}

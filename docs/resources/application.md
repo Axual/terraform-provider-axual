@@ -2,6 +2,11 @@
 
 An application is responsible for producing and/or consuming data on a topic, whether it is a Java or .NET app or a connector.
 
+## Platform Manager version
+
+- `application_type = "FLINK_SQL"` needs Platform Manager 16.0.0 or later. The other types work with
+  every supported version.
+
 ## Required Roles
 - APPLICATION_AUTHOR or APPLICATION_ADMIN
 

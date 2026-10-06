@@ -207,7 +207,7 @@ func (p *AxualProvider) Schema(ctx context.Context, req provider.SchemaRequest, 
 			"client_secret": schema.StringAttribute{
 				MarkdownDescription: "Client secret of the service account. Setting it selects service account " +
 					"authentication with a secret. Can be omitted if the environment variable " +
-					"`AXUAL_CLIENT_SECRET` is set.",
+					"`AXUAL_CLIENT_SECRET` is set. Needs Platform Manager 16.0.0 or later.",
 				Optional:  true,
 				Sensitive: true,
 			},
@@ -216,7 +216,7 @@ func (p *AxualProvider) Schema(ctx context.Context, req provider.SchemaRequest, 
 					"issued by your own identity provider, not an Axual token. Setting it selects " +
 					"federated authentication, which sends no client secret at all. Can be omitted if " +
 					"the environment variable `AXUAL_OIDC_TOKEN` is set, which is the usual way to " +
-					"supply it from a CI pipeline.",
+					"supply it from a CI pipeline. Needs Platform Manager 16.0.0 or later.",
 				Optional:  true,
 				Sensitive: true,
 			},
@@ -224,7 +224,8 @@ func (p *AxualProvider) Schema(ctx context.Context, req provider.SchemaRequest, 
 				MarkdownDescription: "Path to a file holding the assertion a federated service account " +
 					"authenticates with. The file is read again every time the access token is renewed, " +
 					"so use this rather than `oidc_token` when something rewrites the assertion as it " +
-					"rotates. Can be omitted if the environment variable `AXUAL_OIDC_TOKEN_FILE` is set.",
+					"rotates. Can be omitted if the environment variable `AXUAL_OIDC_TOKEN_FILE` is set. " +
+					"Needs Platform Manager 16.0.0 or later.",
 				Optional: true,
 			},
 

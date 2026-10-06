@@ -17,6 +17,17 @@ type Client struct {
 }
 
 var NotFoundError = errors.New("resource not found")
+
+// HTTPError is an answer with an unexpected status code. Callers match the text of Error(), so keep its format.
+type HTTPError struct {
+	StatusCode int
+	Body       string
+}
+
+func (e *HTTPError) Error() string {
+	return fmt.Sprintf("status: %d, body: %s", e.StatusCode, e.Body)
+}
+
 var UnprocessableEntityError = errors.New("unprocessable entity")
 
 // NewClient creates a new Client using the provided API URL, realm, and resolved credentials.
@@ -83,7 +94,7 @@ func (c *Client) doRequestWithHeaders(req *http.Request) ([]byte, http.Header, e
 		res.StatusCode != http.StatusCreated &&
 		res.StatusCode != http.StatusAccepted {
 		log.Printf("Unexpected response status: %d, body: %s", res.StatusCode, body)
-		return nil, nil, fmt.Errorf("status: %d, body: %s", res.StatusCode, body)
+		return nil, nil, &HTTPError{StatusCode: res.StatusCode, Body: string(body)}
 	}
 
 	return body, res.Header, err

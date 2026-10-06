@@ -679,13 +679,11 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 		}
 	}
 
-	ApplicationDeploymentUpdateRequest, err := createApplicationUpdateDeploymentRequestFromData(ctx, &planData)
+	ApplicationDeploymentUpdateRequest, err := createApplicationUpdateDeploymentRequestFromData(ctx, &planData, &stateData)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating request struct for application deployment resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
-	ApplicationDeploymentUpdateRequest.ClearTarget = isConnector(planData.Type.ValueString()) &&
-		connectTargetKey(stateData.TargetId) != "" && connectTargetKey(planData.TargetId) == "" && !planData.TargetId.IsUnknown()
 
 	_, err = r.provider.client.UpdateApplicationDeployment(planData.Id.ValueString(), ApplicationDeploymentUpdateRequest)
 	if err != nil {
@@ -843,11 +841,11 @@ func createApplicationDeploymentRequestFromData(ctx context.Context, data *Appli
 	return ApplicationDeploymentRequest, nil
 }
 
-// createApplicationUpdateDeploymentRequestFromData builds the update request. The target is sent for
-// the types that can change it in place; a FLINK_SQL deployment is replaced instead (AXPD-11759),
-// and the synthesized `axualconnect-` target is left out for the same reason as on the create.
-func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData) (webclient.ApplicationDeploymentUpdateRequest, error) {
-	configs, err := createConfigsForDeploymentType(data)
+// createApplicationUpdateDeploymentRequestFromData builds the update request. The target is sent
+// only when it changes, because Platform Manager 15.0.x refuses it. FLINK_SQL and the synthesized
+// `axualconnect-` target are never sent; a Connector moved back to Axual Connect clears the target.
+func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, plan *ApplicationDeploymentResourceData, state *ApplicationDeploymentResourceData) (webclient.ApplicationDeploymentUpdateRequest, error) {
+	configs, err := createConfigsForDeploymentType(plan)
 
 	if err != nil {
 		return webclient.ApplicationDeploymentUpdateRequest{}, err
@@ -855,13 +853,17 @@ func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data 
 
 	ApplicationDeploymentUpdateRequest := webclient.ApplicationDeploymentUpdateRequest{
 		Configs: configs,
+		ClearTarget: isConnector(plan.Type.ValueString()) &&
+			connectTargetKey(state.TargetId) != "" && connectTargetKey(plan.TargetId) == "" && !plan.TargetId.IsUnknown(),
 	}
-	if !isFlinkSQL(data.Type.ValueString()) && !data.TargetId.IsNull() && !data.TargetId.IsUnknown() &&
-		!strings.HasPrefix(data.TargetId.ValueString(), legacyAxualConnectTargetPrefix) {
-		ApplicationDeploymentUpdateRequest.TargetId = data.TargetId.ValueString()
+	targetChanged := !plan.TargetId.Equal(state.TargetId) || !plan.TargetVersion.Equal(state.TargetVersion)
+	sendTarget := targetChanged && !isFlinkSQL(plan.Type.ValueString())
+	if sendTarget && !plan.TargetId.IsNull() && !plan.TargetId.IsUnknown() &&
+		!strings.HasPrefix(plan.TargetId.ValueString(), legacyAxualConnectTargetPrefix) {
+		ApplicationDeploymentUpdateRequest.TargetId = plan.TargetId.ValueString()
 	}
-	if !isFlinkSQL(data.Type.ValueString()) && !data.TargetVersion.IsNull() && !data.TargetVersion.IsUnknown() {
-		ApplicationDeploymentUpdateRequest.TargetVersion = data.TargetVersion.ValueString()
+	if sendTarget && !plan.TargetVersion.IsNull() && !plan.TargetVersion.IsUnknown() {
+		ApplicationDeploymentUpdateRequest.TargetVersion = plan.TargetVersion.ValueString()
 	}
 
 	tflog.Info(ctx, fmt.Sprintf("Application update request completed: %+v", ApplicationDeploymentUpdateRequest))
