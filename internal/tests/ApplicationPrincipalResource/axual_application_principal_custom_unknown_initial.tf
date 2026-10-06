@@ -1,5 +1,5 @@
 # The certificate goes through another resource, so a new one is only known at apply, like a
-# certificate from a module output or a tls_* resource (GitHub #175).
+# certificate from a module output or a tls_* resource.
 resource "terraform_data" "certificate" {
   input = file("{{CERTS}}/generic_application_3.cer")
 }

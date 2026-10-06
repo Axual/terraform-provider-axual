@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 * The provider now verifies its credentials while configuring, so bad credentials fail at the start of a plan instead of partway through an apply
 * A member or manager of an `axual_group` may now be a service account as well as a user, on Platform Manager 16.0.0 or later. Adding a service account to a group requires Tenant Admin, and a manager must also be a member
 * The `axual_connect_cluster` data source, to look up a registered Kafka Connect cluster by id or by name
+* `target_id` on `axual_application_deployment` (Platform Manager 16.0.0 or later): the deployment target. Changing it updates a Connector or KSML deployment in place; a `FLINK_SQL` deployment is replaced
 * `target_version` on `axual_application_deployment`, the plugin version to deploy for a Connector targeting a registered Kafka Connect cluster
 * The `axual_application_deployment_state` resource: the desired state (`RUNNING` or `STOPPED`) of an Application Deployment. It starts, stops or restarts the deployment to match, shows a deployment stopped outside Terraform or failed as a change in the next plan, exposes the live status as `current_state`, and stops and resets the deployment on destroy. It can be imported by the deployment's Uid
 * `autostart` on `axual_application_deployment`, default `true`. With `false` the deployment only stores its target and configs, like the Self-Service UI does, and is created before the principal, credential and access grant; an `axual_application_deployment_state` starts it. This is the order the Connector Application guide now recommends
@@ -21,7 +22,7 @@ All notable changes to this project will be documented in this file.
   The new size takes effect the next time the job is deployed
 
 ### Changed
-* A Connector deployment whose `target_id` names a registered Kafka Connect cluster needs `autostart = false`. `terraform plan` reports this when the application already exists, otherwise `terraform apply` does, before anything is created
+* A Connector deployment whose `target_id` names a registered Kafka Connect cluster needs `autostart = false`; otherwise it is refused with `Kafka Connect cluster needs autostart = false`. `terraform plan` reports this when the application already exists, otherwise `terraform apply` does, before anything is created
 * `axual_group` sends each member and manager as a bare uid and lets Platform Manager resolve whether it names a user or a service account. Nothing changes for existing configurations; it removes the per-member API call that resolving them in the provider would have cost
 * The authentication method is determined by which credentials are supplied. Supplying a service account credential takes precedence over `username` and `password`, which are ignored with a warning naming them - a leftover `AXUAL_AUTH_PASSWORD` will not break a pipeline that has moved to a service account
 * The provider no longer disables TLS certificate verification process-wide. It now uses its own HTTP transport, leaving `http.DefaultTransport` untouched. Certificate verification behaviour for the provider's own requests is unchanged
@@ -43,16 +44,14 @@ All notable changes to this project will be documented in this file.
   though the version existed
 * Importing an `axual_application_credential` with an id that does not exist now reports "Application Credential Not Found" instead of a raw internal error message
 * `terraform import` on an `axual_application_principal`, followed by `terraform apply` with the same certificate, no longer triggers a certificate rotation (create new, delete old)
-* A Connector deployment update that Platform Manager refuses (for example an unknown `target_version` or an invalid config) no longer leaves a running connector stopped: it is started again with its previous settings, and the error says so
 * The error for a refused `axual_application_credential` delete now says "credential" instead of "principal"
-* Create a Connector Application Deployment without `configs`
+* Create a Connector Application Deployment without `configs` (Platform Manager 16.0.0 or later)
 * Wait for a deployment to stop before updating it
 * Retry the delete of an `axual_application` that the API rejects with a transient commit conflict
   after an access grant was revoked moments earlier (AXPD-12049)
 * Treat a failed Connector or KSML Application Deployment as stopped, so a destroy no longer waits
   out the full stop budget first
 * Stop a deployment the status endpoint reports as running even when it advertises no actions
-* Update the deployment target of a KSML Application Deployment in place instead of replacing it
 * Fix five `go vet` findings in `resource_schema_version.go`, `resource_topic_config.go` and
   `resource_user.go`, so `go test ./internal/provider/` runs with vet enabled
 

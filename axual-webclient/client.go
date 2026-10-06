@@ -18,7 +18,7 @@ type Client struct {
 
 var NotFoundError = errors.New("resource not found")
 
-// HTTPError is an answer with an unexpected status code. Error() keeps the "status: %d, body: %s" form.
+// HTTPError is an answer with an unexpected status code. Callers match the text of Error(), so keep its format.
 type HTTPError struct {
 	StatusCode int
 	Body       string

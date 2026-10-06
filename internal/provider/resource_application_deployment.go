@@ -684,8 +684,6 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 		resp.Diagnostics.AddError("Error creating request struct for application deployment resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
-	ApplicationDeploymentUpdateRequest.ClearTarget = isConnector(planData.Type.ValueString()) &&
-		connectTargetKey(stateData.TargetId) != "" && connectTargetKey(planData.TargetId) == "" && !planData.TargetId.IsUnknown()
 
 	_, err = r.provider.client.UpdateApplicationDeployment(planData.Id.ValueString(), ApplicationDeploymentUpdateRequest)
 	if err != nil {
@@ -845,9 +843,9 @@ func createApplicationDeploymentRequestFromData(ctx context.Context, data *Appli
 
 // createApplicationUpdateDeploymentRequestFromData builds the update request. The target is sent
 // only when it changes, because Platform Manager 15.0.x refuses it. FLINK_SQL and the synthesized
-// `axualconnect-` target are never sent.
-func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data *ApplicationDeploymentResourceData, state *ApplicationDeploymentResourceData) (webclient.ApplicationDeploymentUpdateRequest, error) {
-	configs, err := createConfigsForDeploymentType(data)
+// `axualconnect-` target are never sent; a Connector moved back to Axual Connect clears the target.
+func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, plan *ApplicationDeploymentResourceData, state *ApplicationDeploymentResourceData) (webclient.ApplicationDeploymentUpdateRequest, error) {
+	configs, err := createConfigsForDeploymentType(plan)
 
 	if err != nil {
 		return webclient.ApplicationDeploymentUpdateRequest{}, err
@@ -855,14 +853,17 @@ func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, data 
 
 	ApplicationDeploymentUpdateRequest := webclient.ApplicationDeploymentUpdateRequest{
 		Configs: configs,
+		ClearTarget: isConnector(plan.Type.ValueString()) &&
+			connectTargetKey(state.TargetId) != "" && connectTargetKey(plan.TargetId) == "" && !plan.TargetId.IsUnknown(),
 	}
-	targetChanged := !data.TargetId.Equal(state.TargetId) || !data.TargetVersion.Equal(state.TargetVersion)
-	if targetChanged && !isFlinkSQL(data.Type.ValueString()) && !data.TargetId.IsNull() && !data.TargetId.IsUnknown() &&
-		!strings.HasPrefix(data.TargetId.ValueString(), legacyAxualConnectTargetPrefix) {
-		ApplicationDeploymentUpdateRequest.TargetId = data.TargetId.ValueString()
+	targetChanged := !plan.TargetId.Equal(state.TargetId) || !plan.TargetVersion.Equal(state.TargetVersion)
+	sendTarget := targetChanged && !isFlinkSQL(plan.Type.ValueString())
+	if sendTarget && !plan.TargetId.IsNull() && !plan.TargetId.IsUnknown() &&
+		!strings.HasPrefix(plan.TargetId.ValueString(), legacyAxualConnectTargetPrefix) {
+		ApplicationDeploymentUpdateRequest.TargetId = plan.TargetId.ValueString()
 	}
-	if targetChanged && !isFlinkSQL(data.Type.ValueString()) && !data.TargetVersion.IsNull() && !data.TargetVersion.IsUnknown() {
-		ApplicationDeploymentUpdateRequest.TargetVersion = data.TargetVersion.ValueString()
+	if sendTarget && !plan.TargetVersion.IsNull() && !plan.TargetVersion.IsUnknown() {
+		ApplicationDeploymentUpdateRequest.TargetVersion = plan.TargetVersion.ValueString()
 	}
 
 	tflog.Info(ctx, fmt.Sprintf("Application update request completed: %+v", ApplicationDeploymentUpdateRequest))

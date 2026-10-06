@@ -384,6 +384,7 @@ func TestUpdateRequestSendsTargetOnlyWhenItChanges(t *testing.T) {
 		name        string
 		state, plan ApplicationDeploymentResourceData
 		wantTarget  bool
+		wantClear   bool
 	}{
 		{name: "KSML, target unchanged", state: deployment("Ksml", "ksml-target", ""), plan: deployment("Ksml", "ksml-target", ""), wantTarget: false},
 		{name: "KSML, target changed", state: deployment("Ksml", "ksml-target", ""), plan: deployment("Ksml", "other-target", ""), wantTarget: true},
@@ -391,7 +392,8 @@ func TestUpdateRequestSendsTargetOnlyWhenItChanges(t *testing.T) {
 		{name: "Connector, only version changed", state: deployment("Connector", "kc-cluster", "1.0.0"), plan: deployment("Connector", "kc-cluster", "2.0.0"), wantTarget: true},
 		{name: "Connector, new target", state: deployment("Connector", "", ""), plan: deployment("Connector", "kc-cluster", "1.0.0"), wantTarget: true},
 		{name: "FLINK_SQL, target changed", state: deployment(webclient.FlinkSQLApplicationType, "flink-a", ""), plan: deployment(webclient.FlinkSQLApplicationType, "flink-b", ""), wantTarget: false},
-		{name: "Connector, moved to Axual Connect", state: deployment("Connector", "kc-cluster", "1.0.0"), plan: deployment("Connector", "axualconnect-dta", ""), wantTarget: false},
+		// target_version keeps its old value in the plan (UseStateForUnknown); ClearTarget sends both as null.
+		{name: "Connector, moved to Axual Connect", state: deployment("Connector", "kc-cluster", "1.0.0"), plan: deployment("Connector", "axualconnect-dta", "1.0.0"), wantClear: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -407,8 +409,17 @@ func TestUpdateRequestSendsTargetOnlyWhenItChanges(t *testing.T) {
 			if err := json.Unmarshal(body, &fields); err != nil {
 				t.Fatal(err)
 			}
-			_, hasTarget := fields["targetId"]
-			_, hasVersion := fields["targetVersion"]
+			targetId, hasTarget := fields["targetId"]
+			targetVersion, hasVersion := fields["targetVersion"]
+			if request.ClearTarget != tt.wantClear {
+				t.Errorf("ClearTarget = %v, want %v", request.ClearTarget, tt.wantClear)
+			}
+			if tt.wantClear {
+				if !hasTarget || targetId != nil || !hasVersion || targetVersion != nil {
+					t.Errorf("want targetId and targetVersion sent as null (body %s)", body)
+				}
+				return
+			}
 			if hasTarget != tt.wantTarget {
 				t.Errorf("targetId sent = %v, want %v (body %s)", hasTarget, tt.wantTarget, body)
 			}

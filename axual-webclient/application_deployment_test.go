@@ -98,6 +98,9 @@ func TestUpdateApplicationDeploymentFallsBackToPut(t *testing.T) {
 		{name: "PM 15: a target change is not sent with PUT", patchStatus: http.StatusBadRequest, patchBody: pm15Answer,
 			request: ApplicationDeploymentUpdateRequest{Configs: map[string]string{"a": "b"}, TargetId: "kc"}, wantMethods: []string{"PATCH"}, wantErr: true,
 			wantErrText: "needs Platform Manager 16.0.0 or later"},
+		{name: "PM 15: clearing the target is not sent with PUT", patchStatus: http.StatusBadRequest, patchBody: pm15Answer,
+			request: ApplicationDeploymentUpdateRequest{Configs: map[string]string{"a": "b"}, ClearTarget: true}, wantMethods: []string{"PATCH"}, wantErr: true,
+			wantErrText: "needs Platform Manager 16.0.0 or later"},
 		{name: "another 400 is returned as is", patchStatus: http.StatusBadRequest, patchBody: `{"detail":"invalid config"}`,
 			request: ApplicationDeploymentUpdateRequest{Configs: map[string]string{"a": "b"}}, wantMethods: []string{"PATCH"}, wantErr: true},
 	}

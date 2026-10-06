@@ -100,9 +100,7 @@ func TestApplicationPrincipalCustomActiveNoPermaDiff(t *testing.T) {
 	})
 }
 
-// TestApplicationPrincipalRotationWithUnknownCertificate covers GitHub #175: a rotation whose new
-// certificate is only known at apply failed with "Provider produced inconsistent final plan",
-// because the plan kept the old id while apply replaced the principal.
+// A new certificate that is only known at apply must plan id as unknown.
 func TestApplicationPrincipalRotationWithUnknownCertificate(t *testing.T) {
 	const name = "axual_application_principal.tf-test-app-principal"
 	var rotatedId string

@@ -73,14 +73,14 @@ func (c *Client) UpdateApplicationDeployment(id string, data ApplicationDeployme
 		return nil, err
 	}
 	headers := map[string]string{"Content-Type": "application/json"}
-	url := fmt.Sprintf("%s/application_deployments/%v", c.ApiURL, id)
-	err = c.RequestAndMap("PATCH", url, strings.NewReader(string(marshal)), headers, &o)
+	endpoint := fmt.Sprintf("%s/application_deployments/%v", c.ApiURL, id)
+	err = c.RequestAndMap("PATCH", endpoint, strings.NewReader(string(marshal)), headers, &o)
 	if err != nil && isPatchNotSupported(err) {
 		if data.changesTarget() {
 			return nil, fmt.Errorf("changing the deployment target in place needs Platform Manager 16.0.0 or later: %w", err)
 		}
 		// Platform Manager 15.0.x only updates configs with PUT.
-		err = c.RequestAndMap("PUT", url, strings.NewReader(string(marshal)), headers, &o)
+		err = c.RequestAndMap("PUT", endpoint, strings.NewReader(string(marshal)), headers, &o)
 	}
 	if err != nil {
 		return nil, err
