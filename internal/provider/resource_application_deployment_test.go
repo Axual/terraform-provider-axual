@@ -25,7 +25,8 @@ func TestShouldStopDeployment(t *testing.T) {
 	}{
 		{name: "connector not running", deploymentType: "Connector", fixture: "deployment_status_connector_stopped.json", expected: false},
 		{name: "connector running", deploymentType: "Connector", fixture: "deployment_status_connector_running.json", expected: true},
-		{name: "flink undeployed", deploymentType: webclient.FlinkSQLApplicationType, fixture: "deployment_status_flink_stopped.json", expected: false},
+		{name: "flink undeployed", deploymentType: webclient.FlinkSQLApplicationType, fixture: "deployment_status_flink_undeployed.json", expected: false},
+		{name: "flink stopped", deploymentType: webclient.FlinkSQLApplicationType, fixture: "deployment_status_flink_stopped.json", expected: false},
 		{name: "flink starting", deploymentType: webclient.FlinkSQLApplicationType, fixture: "deployment_status_flink_starting.json", expected: true},
 		{name: "ksml undeployed", deploymentType: "Ksml", fixture: "deployment_status_ksml_stopped.json", expected: false},
 		{name: "ksml starting", deploymentType: "Ksml", fixture: "deployment_status_ksml_starting.json", expected: true},
