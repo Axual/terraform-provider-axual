@@ -1296,7 +1296,8 @@ func isDeploymentStopped(deploymentType string, status *webclient.ApplicationDep
 	live := liveDeploymentStatus(deploymentType, status)
 	switch {
 	case isFlinkSQL(deploymentType):
-		return live == "Undeployed" || live == "Failed"
+		// A stopped job reports `Stopped`; `Undeployed` is one that never ran or was reset.
+		return live == "Stopped" || live == "Undeployed" || live == "Failed"
 	case isKSML(deploymentType):
 		// KSML never reports `Stopped`: a stopped app reads as `Undeployed`. `Failed` and `Completed`
 		// are end states with nothing running, so waiting for them to change wastes the full budget.
