@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.2.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.2.0) - TBR
+## [3.2.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.2.0) - 2026-10-08
 ### Added
 * Service account authentication with a client ID and secret: `client_id` and `client_secret`, or the `AXUAL_CLIENT_ID` and `AXUAL_CLIENT_SECRET` environment variables
 * Federated service account authentication, which sends no secret at all: `oidc_token` and `oidc_token_file`, or the `AXUAL_OIDC_TOKEN` and `AXUAL_OIDC_TOKEN_FILE` environment variables. `oidc_token_file` is read again on every token renewal, so a rotated assertion is picked up automatically
@@ -39,9 +39,6 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 * Rotating the certificate of an `axual_application_principal` no longer fails with "Provider produced inconsistent final plan" when the new certificate is only known at apply, for example when it comes from a module output or another resource ([#175](https://github.com/Axual/terraform-provider-axual/issues/175))
-* `axual_schema_version` data source: fix looking up any schema version other than the latest
-  one, which failed with "Schema version matching the name you requested was not found" even
-  though the version existed
 * Importing an `axual_application_credential` with an id that does not exist now reports "Application Credential Not Found" instead of a raw internal error message
 * `terraform import` on an `axual_application_principal`, followed by `terraform apply` with the same certificate, no longer triggers a certificate rotation (create new, delete old)
 * The error for a refused `axual_application_credential` delete now says "credential" instead of "principal"
@@ -54,6 +51,12 @@ All notable changes to this project will be documented in this file.
 * Stop a deployment the status endpoint reports as running even when it advertises no actions
 * Fix five `go vet` findings in `resource_schema_version.go`, `resource_topic_config.go` and
   `resource_user.go`, so `go test ./internal/provider/` runs with vet enabled
+
+## [3.1.1](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.1.1) - 2026-09-22
+### Fixed
+* `axual_schema_version` data source: fix looking up any schema version other than the latest
+  one, which failed with "Schema version matching the name you requested was not found" even
+  though the version existed
 
 ## [3.1.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.1.0) - 2026-06-30
 ### Added
