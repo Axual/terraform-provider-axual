@@ -93,6 +93,8 @@ func TestIsDeploymentStopped(t *testing.T) {
 		{name: "ksml completed", deploymentType: "Ksml", status: "Completed", expected: true},
 		{name: "ksml running", deploymentType: "Ksml", status: "Running", expected: false},
 		{name: "ksml starting", deploymentType: "Ksml", status: "Starting", expected: false},
+		{name: "flink stopped", deploymentType: webclient.FlinkSQLApplicationType, status: "Stopped", expected: true},
+		{name: "flink stopping", deploymentType: webclient.FlinkSQLApplicationType, status: "Stopping", expected: false},
 		{name: "flink undeployed", deploymentType: webclient.FlinkSQLApplicationType, status: "Undeployed", expected: true},
 		{name: "flink failed", deploymentType: webclient.FlinkSQLApplicationType, status: "Failed", expected: true},
 		{name: "flink running", deploymentType: webclient.FlinkSQLApplicationType, status: "Running", expected: false},
