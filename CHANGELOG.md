@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+### Added
+* `terraform query` support (Terraform 1.14 or newer): a list resource for every resource except `axual_flink_cluster` and `axual_application_principal`, with filters such as `owners`, `environment`, `application`, `topic` and `name`. `terraform query -generate-config-out=generated.tf` writes `resource` and `import` blocks for resources that already exist, for example resources created in the Self-Service UI
+* Resource identity for every resource except `axual_flink_cluster` and `axual_application_principal`, so an `import` block can use `identity` instead of `id`
+* Guide: `Exporting existing resources with terraform query`, and an example in `examples/terraform-query`
+
+### Fixed
+* An `axual_schema_version` whose `body` differs from the stored body only in JSON whitespace no longer fails on apply with `API does not allow update of schema version`; the new text is stored without a change on the platform
+
 ## [3.2.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.2.0) - 2026-10-08
 ### Added
 * Service account authentication with a client ID and secret: `client_id` and `client_secret`, or the `AXUAL_CLIENT_ID` and `AXUAL_CLIENT_SECRET` environment variables

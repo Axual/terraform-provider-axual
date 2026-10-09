@@ -17,6 +17,7 @@ import (
 
 var _ provider.Provider = &AxualProvider{}
 var _ provider.ProviderWithFunctions = &AxualProvider{}
+var _ provider.ProviderWithListResources = &AxualProvider{}
 
 type AxualProvider struct {
 	// client can contain the upstream provider SDK or HTTP client used to
@@ -140,21 +141,25 @@ func (p *AxualProvider) Configure(ctx context.Context, req provider.ConfigureReq
 
 func (p *AxualProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		func() resource.Resource { return NewApplicationResource(*p) },
-		func() resource.Resource { return NewUserResource(*p) },
-		func() resource.Resource { return NewGroupResource(*p) },
-		func() resource.Resource { return NewTopicResource(*p) },
-		func() resource.Resource { return NewTopicConfigResource(*p) },
-		func() resource.Resource { return NewEnvironmentResource(*p) },
+		func() resource.Resource { return withIdentity(NewApplicationResource(*p), "id") },
+		func() resource.Resource { return withIdentity(NewUserResource(*p), "id") },
+		func() resource.Resource { return withIdentity(NewGroupResource(*p), "id") },
+		func() resource.Resource { return withIdentity(NewTopicResource(*p), "id") },
+		func() resource.Resource { return withIdentity(NewTopicConfigResource(*p), "id") },
+		func() resource.Resource { return withIdentity(NewEnvironmentResource(*p), "id") },
 		func() resource.Resource { return NewApplicationPrincipalResource(*p) },
-		func() resource.Resource { return NewSchemaVersionResource(*p) },
-		func() resource.Resource { return NewApplicationAccessGrantResource(*p) },
-		func() resource.Resource { return NewApplicationAccessGrantRejectionResource(*p) },
-		func() resource.Resource { return NewApplicationAccessGrantApprovalResource(*p) },
-		func() resource.Resource { return NewApplicationDeploymentResource(*p) },
-		func() resource.Resource { return NewApplicationDeploymentStateResource(*p) },
-		func() resource.Resource { return NewTopicBrowsePermissionsResource(*p) },
-		func() resource.Resource { return NewApplicationCredentialResource(*p) },
+		func() resource.Resource { return withIdentity(NewSchemaVersionResource(*p), "id") },
+		func() resource.Resource { return withIdentity(NewApplicationAccessGrantResource(*p), "id") },
+		func() resource.Resource {
+			return withIdentity(NewApplicationAccessGrantRejectionResource(*p), "application_access_grant")
+		},
+		func() resource.Resource {
+			return withIdentity(NewApplicationAccessGrantApprovalResource(*p), "application_access_grant")
+		},
+		func() resource.Resource { return withIdentity(NewApplicationDeploymentResource(*p), "id") },
+		func() resource.Resource { return withIdentity(NewApplicationDeploymentStateResource(*p), "id") },
+		func() resource.Resource { return withIdentity(NewTopicBrowsePermissionsResource(*p), "topic_config") },
+		func() resource.Resource { return withIdentity(NewApplicationCredentialResource(*p), "id") },
 		func() resource.Resource { return NewFlinkClusterResource(*p) },
 	}
 }

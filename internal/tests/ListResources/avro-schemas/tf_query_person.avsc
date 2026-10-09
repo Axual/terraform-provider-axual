@@ -1,0 +1,8 @@
+{
+  "type": "record",
+  "name": "Person",
+  "namespace": "io.axual.tfquery",
+  "fields": [
+    { "name": "name", "type": "string" }
+  ]
+}
