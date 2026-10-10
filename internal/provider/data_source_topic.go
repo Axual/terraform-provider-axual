@@ -40,6 +40,7 @@ type topicDataSourceData struct {
 	RetentionPolicy types.String `tfsdk:"retention_policy"`
 	Id              types.String `tfsdk:"id"`
 	Properties      types.Map    `tfsdk:"properties"`
+	Tags            types.Set    `tfsdk:"tags"`
 }
 
 func (d *topicDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -90,6 +91,11 @@ func (d *topicDataSource) Schema(ctx context.Context, req datasource.SchemaReque
 			},
 			"properties": schema.MapAttribute{
 				MarkdownDescription: "Advanced (Kafka) properties for a topic in a given environment. Read more: https://docs.axual.io/axual/2026.1/self-service/advanced-features.html#configuring-topic-properties",
+				Computed:            true,
+				ElementType:         types.StringType,
+			},
+			"tags": schema.SetAttribute{
+				MarkdownDescription: "Tags of the topic",
 				Computed:            true,
 				ElementType:         types.StringType,
 			},
@@ -145,6 +151,7 @@ func mapTopicDataSourceResponseToData(ctx context.Context, data *topicDataSource
 	data.ValueType = types.StringValue(topic.ValueType)
 	data.Owners = types.StringValue(topic.Embedded.Owners.Uid)
 	data.RetentionPolicy = types.StringValue(topic.RetentionPolicy)
+	data.Tags, _ = types.SetValueFrom(ctx, types.StringType, append([]string{}, topic.Tags...))
 
 	properties := make(map[string]attr.Value)
 	for key, value := range topic.Properties {

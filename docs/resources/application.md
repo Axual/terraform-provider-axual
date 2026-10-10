@@ -55,9 +55,20 @@ For a full example which shows the capabilities of the latest TerraForm provider
 
 ## Import
 
-Import is supported using the following syntax:
+Import is supported by ID, or by name (`name:`):
 
 ```shell
 terraform import axual_application.<LOCAL NAME> <APPLICATION UID>
 terraform import axual_application.test_application b21cf1d63a55436391463cee3f56e393
+terraform import axual_application.<LOCAL NAME> name:<APPLICATION NAME>
+terraform import axual_application.test_application 'name:payments-producer'
+```
+
+The name must match exactly, case included. An `import` block (Terraform 1.5 or later) takes the same IDs:
+
+```terraform
+import {
+  to = axual_application.test_application
+  id = "name:payments-producer"
+}
 ```

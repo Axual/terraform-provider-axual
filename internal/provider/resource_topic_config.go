@@ -338,7 +338,9 @@ func (r *topicConfigResource) Delete(ctx context.Context, req resource.DeleteReq
 }
 
 func (r *topicConfigResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	importByIDOrKey(ctx, req, resp, importByNamePrefix, func(key string) (string, error) {
+		return findTopicConfigID(r.provider.client, key)
+	})
 }
 
 func createTopicConfigRequestFromData(ctx context.Context, data *topicConfigResourceData, r *topicConfigResource) (webclient.TopicConfigRequest, error) {

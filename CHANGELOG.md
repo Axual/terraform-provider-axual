@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+### Added
+* `tags` on `axual_topic` and the `axual_topic` data source: the topic tags shown in the Self-Service UI. Leaving out `tags` keeps the tags the topic has; `tags = []` removes them ([#177](https://github.com/Axual/terraform-provider-axual/issues/177))
+* Import by name instead of ID: `name:<name>` for `axual_topic`, `axual_environment`, `axual_application` and `axual_group`, `email:<email address>` for `axual_user`, and `name:<topic name>/<environment short name>` for `axual_topic_config`, for example `terraform import axual_topic.payments name:payments`. Works in `import` blocks too ([#114](https://github.com/Axual/terraform-provider-axual/issues/114))
+
 ### Fixed
 * A failed STOP (for example a `500` while the Connect worker rebalances) is now retried, like START. It is sent again only while the deployment still offers `stop`; a `4xx` is not retried
 * An `axual_application_deployment` deleted outside Terraform no longer breaks `plan` and `destroy` with `no application deployment found`; it is removed from the state and planned again ([#121](https://github.com/Axual/terraform-provider-axual/issues/121))

@@ -7,6 +7,7 @@ type TopicResponse struct {
 	KeyType         string                 `json:"keyType"`
 	ValueType       string                 `json:"valueType"`
 	RetentionPolicy string                 `json:"retentionPolicy"`
+	Tags            []string               `json:"tags"`
 	Uid             string                 `json:"uid"`
 	Embedded        struct {
 		KeySchema struct {
@@ -39,6 +40,8 @@ type TopicRequest struct {
 	Viewers         []string               `json:"viewers"`
 	RetentionPolicy string                 `json:"retentionPolicy,omitempty"`
 	Properties      map[string]interface{} `json:"properties,omitempty"`
+	// Tags is left out when nil, which keeps the tags the topic has; an empty list removes them.
+	Tags *[]string `json:"tags,omitempty"`
 }
 
 type TopicsByNameResponse struct {

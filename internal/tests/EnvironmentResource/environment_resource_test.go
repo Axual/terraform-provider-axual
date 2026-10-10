@@ -84,6 +84,13 @@ func TestEnvironmentResource(t *testing.T) {
 				ImportStateVerify: true,
 			},
 			{
+				// GitHub #114: import by name instead of ID
+				ResourceName:      "axual_environment.tf-test-env",
+				ImportState:       true,
+				ImportStateId:     "name:tf-development1",
+				ImportStateVerify: true,
+			},
+			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
 				Config:  GetProvider() + GetFile("axual_environment_removed_settings_properties.tf"),

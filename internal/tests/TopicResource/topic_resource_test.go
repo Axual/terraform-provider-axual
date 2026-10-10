@@ -30,6 +30,34 @@ func TestTopicResource(t *testing.T) {
 				ImportStateVerify: true,
 			},
 			{
+				// GitHub #114: import by name instead of ID
+				ResourceName:      "axual_topic.topic-test",
+				ImportState:       true,
+				ImportStateId:     "name:test-topic",
+				ImportStateVerify: true,
+			},
+			{
+				// GitHub #177: tags
+				Config: GetProvider() + GetFile("axual_string_topic_tags.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_topic.topic-test", "tags.#", "2"),
+					resource.TestCheckTypeSetElemAttr("axual_topic.topic-test", "tags.*", "pii"),
+				),
+			},
+			{
+				// Leaving out tags keeps them
+				Config: GetProvider() + GetFile("axual_string_topic_initial.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_topic.topic-test", "tags.#", "2"),
+				),
+			},
+			{
+				Config: GetProvider() + GetFile("axual_string_topic_no_tags.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_topic.topic-test", "tags.#", "0"),
+				),
+			},
+			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
 				Config:  GetProvider() + GetFile("axual_string_topic_initial.tf"),

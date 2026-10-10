@@ -26,3 +26,4 @@ This data source exports the following attributes in addition to the one listed 
 - owners The team owing this topic.
 - retention_policy Determines what to do with messages after a certain period.
 - properties Advanced (Kafka) properties for a topic in a given environment.
+- tags The tags of the topic, as shown in the Self-Service UI.

@@ -296,7 +296,9 @@ func (r *environmentResource) Delete(ctx context.Context, req resource.DeleteReq
 }
 
 func (r *environmentResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	importByIDOrKey(ctx, req, resp, importByNamePrefix, func(key string) (string, error) {
+		return findEnvironmentIDByName(r.provider.client, key)
+	})
 }
 
 func createEnvironmentRequestFromData(ctx context.Context, data *environmentResourceData, r *environmentResource) (webclient.EnvironmentRequest, error) {
