@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 * `terraform query` support (Terraform 1.14 or newer): list resources with filters, so `terraform query -generate-config-out` writes `resource` and `import` blocks for resources that already exist. Not for `axual_flink_cluster`
 * Resource identity for every resource except `axual_flink_cluster`, so an `import` block can use `identity` instead of `id`
-* Guide: `Exporting existing resources with terraform query`, and an example in `examples/terraform-query`
+* Guides: `Quick start: export your resources with terraform query` and `Exporting existing resources with terraform query`, and an example in `examples/terraform-query`
 
 ### Changed
 * A plan that sets `configs`, `definition` or `sql_script` of an existing `axual_application_deployment` to null now stops with `Missing configs` (or `definition`, `sql_script`). Before, the apply removed them on the platform and stopped the deployment

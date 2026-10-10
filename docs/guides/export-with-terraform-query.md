@@ -8,6 +8,8 @@ resources for you, so you do not need to look up the ID of every resource.
 
 This needs Terraform 1.14 or newer.
 
+New to this? Start with the [Quick start](terraform-query-quick-start).
+
 ## When to use it
 
 - You built resources by hand (in the UI or the API) and now want Terraform to manage them.
