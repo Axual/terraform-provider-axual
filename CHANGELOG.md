@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+### Added
+* `terraform query` support (Terraform 1.14 or newer): list resources with filters, so `terraform query -generate-config-out` writes `resource` and `import` blocks for resources that already exist. Not for `axual_flink_cluster`
+* Resource identity for every resource except `axual_flink_cluster`, so an `import` block can use `identity` instead of `id`
+* Guides: `Quick start: export your resources with terraform query` and `Exporting existing resources with terraform query`, and an example in `examples/terraform-query`
+
+### Changed
+* A plan that sets `configs`, `definition` or `sql_script` of an existing `axual_application_deployment` to null now stops with `Missing configs` (or `definition`, `sql_script`). Before, the apply removed them on the platform and stopped the deployment
+
+### Fixed
+* Importing an `axual_application_deployment` on a registered Kafka Connect cluster now sets `autostart = false`, the only value allowed there; before, the imported `true` made the next apply fail with `Kafka Connect cluster needs autostart = false`
+* An `axual_schema_version` whose `body` differs from the stored body only in JSON whitespace no longer fails on apply with `API does not allow update of schema version`; the new text is stored without a change on the platform
+
 ## [3.2.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.2.0) - 2026-10-08
 ### Added
 * Service account authentication with a client ID and secret: `client_id` and `client_secret`, or the `AXUAL_CLIENT_ID` and `AXUAL_CLIENT_SECRET` environment variables

@@ -184,7 +184,29 @@ func (r *schemaVersionResource) Read(ctx context.Context, req resource.ReadReque
 }
 
 func (r *schemaVersionResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan, state schemaVersionResourceData
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Same JSON with other whitespace (for example from jsonencode): only store the new text.
+	if sameJSON(plan.Body.ValueString(), state.Body.ValueString()) && plan.Type.Equal(state.Type) &&
+		plan.Version.Equal(state.Version) && plan.Description.Equal(state.Description) && plan.Owners.Equal(state.Owners) {
+		state.Body = plan.Body
+		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+		return
+	}
+
 	resp.Diagnostics.AddError("Client Error", "API does not allow update of schema version. Please create another version of the schema")
+}
+
+// sameJSON is true when a and b are both valid JSON with the same content.
+func sameJSON(a, b string) bool {
+	na, errA := normalizeJSON(a)
+	nb, errB := normalizeJSON(b)
+	return errA == nil && errB == nil && na == nb
 }
 
 func (r *schemaVersionResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

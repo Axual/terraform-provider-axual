@@ -100,6 +100,9 @@ type ApplicationDeploymentResourceData struct {
 
 func (r *applicationDeploymentResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_application_deployment"
+	// Read finds the deployment by application and environment, so a deployment made again outside
+	// Terraform comes back with a new ID.
+	resp.ResourceBehavior.MutableIdentity = true
 }
 func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
@@ -252,7 +255,18 @@ func (r *applicationDeploymentResource) ModifyPlan(ctx context.Context, req reso
 	}
 	var plan ApplicationDeploymentResourceData
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	if resp.Diagnostics.HasError() || plan.Autostart.IsUnknown() || !isAutostart(plan.Autostart) || plan.Application.IsUnknown() {
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if !req.State.Raw.IsNull() {
+		var state ApplicationDeploymentResourceData
+		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+		refuseClearingDeployment(&plan, &state, &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+	if plan.Autostart.IsUnknown() || !isAutostart(plan.Autostart) || plan.Application.IsUnknown() {
 		return
 	}
 	if plan.TargetId.IsNull() || plan.TargetId.IsUnknown() || plan.TargetId.ValueString() == "" ||
@@ -548,6 +562,25 @@ func (r *applicationDeploymentResource) checkStartPrerequisites(data *Applicatio
 		return false, diags
 	}
 	return true, diags
+}
+
+// refuseClearingDeployment stops a plan that sets `configs`, `definition` or `sql_script` to null
+// while the deployment has one. The apply would remove it on the platform and stop the deployment.
+// A configuration from `terraform query -generate-config-out` has these sensitive values as null.
+func refuseClearingDeployment(plan, state *ApplicationDeploymentResourceData, diags *diag.Diagnostics) {
+	if plan.Configs.IsNull() && len(state.Configs.Elements()) > 0 {
+		diags.AddAttributeError(path.Root("configs"), "Missing configs",
+			"configs is null, but the deployment has a configuration. This apply would remove it and stop the deployment. Set configs; "+
+				"a configuration written by `terraform query -generate-config-out` leaves it out because it is sensitive.")
+	}
+	if plan.Definition.IsNull() && state.Definition.ValueString() != "" {
+		diags.AddAttributeError(path.Root("definition"), "Missing definition",
+			"definition is null, but the deployment has a KSML definition. Set definition; it is left out of generated configuration because it is sensitive.")
+	}
+	if plan.SqlScript.IsNull() && state.SqlScript.ValueString() != "" {
+		diags.AddAttributeError(path.Root("sql_script"), "Missing sql_script",
+			"sql_script is null, but the deployment has a SQL script. Set sql_script; it is left out of generated configuration because it is sensitive.")
+	}
 }
 
 // isKafkaConnectTarget reports whether a Connector deployment targets a registered Kafka Connect
@@ -888,10 +921,11 @@ func (r *applicationDeploymentResource) ImportState(ctx context.Context, req res
 
 	// Any state can be imported: a deployment created with `autostart = false` is not running until
 	// an axual_application_deployment_state starts it. `autostart` is not stored on the platform, so
-	// the default is imported; a configuration that says `false` then only updates the state.
+	// the default is imported; a configuration that says otherwise then only updates the state. A
+	// deployment on a Kafka Connect cluster imports as `false`, the only value allowed there.
 	var data ApplicationDeploymentResourceData
 	mapApplicationDeploymentByIdResponseToData(ctx, &data, applicationDeployment)
-	data.Autostart = types.BoolValue(true)
+	data.Autostart = types.BoolValue(!isKafkaConnectTarget(&data))
 
 	// Validate that the mapped data is complete
 	if data.Id.IsNull() || data.Id.ValueString() == "" {
