@@ -274,7 +274,7 @@ func (r *topicResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 
 	// Retry logic for deleting the topic to give time for Kafka to propagate changes
 	err := Retry(3, 3*time.Second, func() error {
-		return r.provider.client.DeleteTopic(data.Id.ValueString())
+		return ignoreGone(r.provider.client.DeleteTopic(data.Id.ValueString()))
 	})
 	if err != nil {
 		resp.Diagnostics.AddError("DELETE request error for topic resource", fmt.Sprintf("Error message after retries: %s", err.Error()))

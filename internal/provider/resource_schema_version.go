@@ -197,7 +197,7 @@ func (r *schemaVersionResource) Delete(ctx context.Context, req resource.DeleteR
 		return
 	}
 
-	err := r.provider.client.DeleteSchemaVersion(data.Id.ValueString())
+	err := ignoreGone(r.provider.client.DeleteSchemaVersion(data.Id.ValueString()))
 	if err != nil {
 		resp.Diagnostics.AddError("DELETE request error for schema version resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return

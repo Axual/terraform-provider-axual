@@ -329,7 +329,7 @@ func (r *topicConfigResource) Delete(ctx context.Context, req resource.DeleteReq
 
 	// Retry logic for deleting the topic config to give time for Kafka to propagate changes
 	err := Retry(3, 3*time.Second, func() error {
-		return r.provider.client.DeleteTopicConfig(data.Id.ValueString())
+		return ignoreGone(r.provider.client.DeleteTopicConfig(data.Id.ValueString()))
 	})
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete topic config after retries, got error: %s", err))

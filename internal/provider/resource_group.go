@@ -192,7 +192,7 @@ func (r *groupResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 
 	tflog.Info(ctx, fmt.Sprintf("delete request for group %q", data.Id.ValueString()))
 
-	err := r.provider.client.DeleteGroup(data.Id.ValueString())
+	err := ignoreGone(r.provider.client.DeleteGroup(data.Id.ValueString()))
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete group, got error: %s", err))
 		return

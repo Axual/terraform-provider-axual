@@ -288,7 +288,7 @@ func (r *environmentResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	err := r.provider.client.DeleteEnvironment(data.Id.ValueString())
+	err := ignoreGone(r.provider.client.DeleteEnvironment(data.Id.ValueString()))
 	if err != nil {
 		resp.Diagnostics.AddError("DELETE request error for environment resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return

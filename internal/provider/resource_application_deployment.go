@@ -56,6 +56,9 @@ const startAttempts = 3
 var (
 	stopAttempts   = 3
 	stopRetryDelay = 5 * time.Second
+	// conflictAttempts and conflictDelay retry a delete that hit a concurrent change of the same row.
+	conflictAttempts = 3
+	conflictDelay    = 2 * time.Second
 )
 
 // stopWaitAttempts and stopWaitDelay bound how long an update or a delete waits for a stopped
@@ -744,6 +747,9 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 	}
 
 	if err := stopDeploymentAndWait(ctx, r.provider.client, data.Id.ValueString(), data.Type.ValueString()); err != nil {
+		if deploymentGone(r.provider.client, data.Id.ValueString()) {
+			return
+		}
 		resp.Diagnostics.AddError("Client Error", err.Error())
 		return
 	}
@@ -751,7 +757,7 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 	// No `delete` rel pre-check (AXPD-11714): a draining Flink job still offers it, a failed
 	// deployment does not.
 	if err := deleteWithRetry(data.Type.ValueString(), flinkDeleteDelay, func() error {
-		return r.provider.client.DeleteApplicationDeployment(data.Id.ValueString())
+		return ignoreGone(r.provider.client.DeleteApplicationDeployment(data.Id.ValueString()))
 	}); err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete Application Deployment, got error: %s", err))
 		return
@@ -1198,7 +1204,13 @@ func stopWithRetry(ctx context.Context, client *webclient.Client, id string, dep
 		if err = operateDeployment(client, id, actionStop); err == nil {
 			return nil
 		}
+		if isAlreadyStopped(err) {
+			return nil
+		}
 		if !isRetryableStopError(err) {
+			if status, statusErr := client.GetApplicationDeploymentStatus(id); statusErr == nil && !shouldStopDeployment(deploymentType, status) {
+				return nil
+			}
 			return err
 		}
 		tflog.Warn(ctx, fmt.Sprintf("STOP of Application Deployment %s failed (attempt %d of %d): %s", id, i+1, stopAttempts, err))
@@ -1211,6 +1223,9 @@ func stopWithRetry(ctx context.Context, client *webclient.Client, id string, dep
 func isRetryableStopError(err error) bool {
 	if errors.Is(err, webclient.NotFoundError) {
 		return false
+	}
+	if isConflict(err) {
+		return true
 	}
 	var httpErr *webclient.HTTPError
 	if errors.As(err, &httpErr) {
@@ -1234,7 +1249,13 @@ func deleteWithRetry(deploymentType string, delay time.Duration, deleteDeploymen
 	if isFlinkSQL(deploymentType) {
 		return Retry(flinkDeleteAttempts, delay, deleteDeployment)
 	}
-	return deleteDeployment()
+	// A concurrent change of the same deployment (409, optimistic lock) is retried.
+	err := deleteDeployment()
+	for attempt := 1; attempt < conflictAttempts && isConflict(err); attempt++ {
+		time.Sleep(conflictDelay)
+		err = deleteDeployment()
+	}
+	return err
 }
 
 // startApplicationDeployment starts or resumes the deployment and returns nil once it is running or

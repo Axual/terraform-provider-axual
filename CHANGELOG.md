@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 * A failed STOP (for example a `500` while the Connect worker rebalances) is now retried, like START. It is sent again only while the deployment still offers `stop`; a `4xx` is not retried
 * An `axual_application_deployment` deleted outside Terraform no longer breaks `plan` and `destroy` with `no application deployment found`; it is removed from the state and planned again ([#121](https://github.com/Axual/terraform-provider-axual/issues/121))
 * `roles = []` on an `axual_user` now removes all roles instead of failing with `Required request body is missing` (AXPD-9562). Leaving out `roles` now keeps the roles the user has
+* Destroy treats "already gone" as done. A delete or revoke of a resource that another resource in the same destroy (or a user) already removed no longer fails: topic, topic config, environment, principal, credential, schema version, group, application, deployment, deployment state, grant and approval. A delete that hits a concurrent change (`409 Could not commit changes`) is retried, and a STOP refused because the deployment is already stopped counts as done
 * Destroying the `axual_application_deployment_state` of a `Failed` connector now warns at once when Platform Manager cannot reset it, and says how to fix it
 
 ## [3.2.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.2.0) - 2026-10-08

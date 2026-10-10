@@ -256,7 +256,7 @@ func (r *applicationResource) Delete(ctx context.Context, req resource.DeleteReq
 		tflog.Info(ctx, fmt.Sprintf("Application %s could not be deleted yet (%s), retrying in %s", data.Id.ValueString(), err, applicationDeleteDelay))
 		time.Sleep(applicationDeleteDelay)
 	}
-	if err != nil {
+	if err = ignoreGone(err); err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete Application, got error: %s", err))
 		return
 	}

@@ -169,6 +169,10 @@ func (r *applicationDeploymentStateResource) Delete(ctx context.Context, req res
 		return
 	}
 	warning, err := r.resetAfterStop(ctx, data.ApplicationDeployment.ValueString())
+	if err != nil && deploymentGone(r.provider.client, data.ApplicationDeployment.ValueString()) {
+		// The deployment was deleted at the same time, for example by its own resource in this destroy.
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", err.Error())
 		return

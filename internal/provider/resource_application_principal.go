@@ -382,7 +382,7 @@ func (r *applicationPrincipalResource) Delete(ctx context.Context, req resource.
 		return
 	}
 
-	err := r.provider.client.DeleteApplicationPrincipal(data.Id.ValueString())
+	err := ignoreGone(r.provider.client.DeleteApplicationPrincipal(data.Id.ValueString()))
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete application principal, got error: %s", err))
 		return
