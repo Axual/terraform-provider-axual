@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"sort"
 	"strings"
 	"time"
@@ -591,17 +592,12 @@ func (r *applicationDeploymentResource) Read(ctx context.Context, req resource.R
 	applicationWithUrl := fmt.Sprintf("%s/applications/%v", r.provider.client.ApiURL, data.Application.ValueString())
 	environmentWithUrl := fmt.Sprintf("%s/environments/%v", r.provider.client.ApiURL, data.Environment.ValueString())
 	ApplicationDeploymentFindByApplicationAndEnvironmentResponse, err := r.provider.client.FindApplicationDeploymentByApplicationAndEnvironment(applicationWithUrl, environmentWithUrl)
-	if err != nil {
-		if errors.Is(err, webclient.NotFoundError) {
-			tflog.Warn(ctx, fmt.Sprintf("Application Deployment %s not found, removing it from the state", data.Id.ValueString()))
-			resp.State.RemoveResource(ctx)
-		} else {
-			resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to read Application Deployment, got error: %s", err))
-		}
+	if err != nil && !errors.Is(err, webclient.NotFoundError) {
+		resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to read Application Deployment, got error: %s", err))
 		return
 	}
 	// Deleted outside Terraform: plan to create it again, like the other resources do.
-	if len(ApplicationDeploymentFindByApplicationAndEnvironmentResponse.Embedded.ApplicationDeploymentResponses) == 0 {
+	if err != nil || len(ApplicationDeploymentFindByApplicationAndEnvironmentResponse.Embedded.ApplicationDeploymentResponses) == 0 {
 		tflog.Warn(ctx, fmt.Sprintf("Application Deployment %s not found, removing it from the state", data.Id.ValueString()))
 		resp.State.RemoveResource(ctx)
 		return
@@ -766,9 +762,7 @@ func mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(
 	ctx context.Context,
 	data *ApplicationDeploymentResourceData,
 	applicationDeploymentResponse *webclient.ApplicationDeploymentFindByApplicationAndEnvironmentResponse) error {
-	if len(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses) == 0 {
-		return fmt.Errorf("error processing mapping application deployment response, no application deployment found for the application and environment")
-	} else if len(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses) > 1 {
+	if len(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses) > 1 {
 		return fmt.Errorf("error processing mapping application deployment response, multiple application deployments found for the application and environment")
 	} else {
 		data.Id = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Uid)
@@ -1189,10 +1183,8 @@ func stopDeploymentAndWait(ctx context.Context, client *webclient.Client, id str
 	return nil
 }
 
-// stopWithRetry sends STOP and retries it when it fails, like START: a STOP that hits a Connect
-// worker rebalance fails with a 500 on Platform Manager without the AXPD-12302 fix (APCS-3090).
-// Before a retry it reads the status again and stops only while `stop` is still offered, so a STOP
-// that went through although its answer was an error is not sent twice.
+// stopWithRetry retries a failed STOP, for example a 500 during a Connect rebalance (APCS-3090).
+// Before a retry it reads the status, so a STOP that went through is not sent again.
 func stopWithRetry(ctx context.Context, client *webclient.Client, id string, deploymentType string) error {
 	var err error
 	for i := 0; i < stopAttempts; i++ {
@@ -1206,9 +1198,25 @@ func stopWithRetry(ctx context.Context, client *webclient.Client, id string, dep
 		if err = operateDeployment(client, id, actionStop); err == nil {
 			return nil
 		}
+		if !isRetryableStopError(err) {
+			return err
+		}
 		tflog.Warn(ctx, fmt.Sprintf("STOP of Application Deployment %s failed (attempt %d of %d): %s", id, i+1, stopAttempts, err))
 	}
 	return fmt.Errorf("after %d attempts: %s", stopAttempts, err)
+}
+
+// isRetryableStopError reports whether a STOP may succeed when sent again: a 5xx or a failed request
+// can, a 4xx cannot.
+func isRetryableStopError(err error) bool {
+	if errors.Is(err, webclient.NotFoundError) {
+		return false
+	}
+	var httpErr *webclient.HTTPError
+	if errors.As(err, &httpErr) {
+		return httpErr.StatusCode >= http.StatusInternalServerError
+	}
+	return true
 }
 
 // stopWaitBudget is how long stopDeploymentAndWait waits for the given type to come to a halt.

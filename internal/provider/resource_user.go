@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -76,8 +77,12 @@ func (r *userResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Optional:            true,
 			},
 			"roles": schema.SetNestedAttribute{
-				MarkdownDescription: "Roles attributed to the user. All possible roles with descriptions are listed here: https://docs.axual.io/apidocs/mgmt-api/8.5.0/index.html#valid-roles",
+				MarkdownDescription: "Roles attributed to the user. Leave it out to keep the roles the user has; `roles = []` removes all roles. All possible roles with descriptions are listed here: https://docs.axual.io/apidocs/mgmt-api/8.5.0/index.html#valid-roles",
 				Optional:            true,
+				Computed:            true,
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"name": schema.StringAttribute{
@@ -186,13 +191,9 @@ func mapUserResponseToData(_ context.Context, data *userResourceData, user *webc
 	data.FirstName = types.StringValue(user.FirstName)
 	data.LastName = types.StringValue(user.LastName)
 	data.EmailAddress = types.StringValue(user.EmailAddress.Email)
-	var newRoles []Role
+	newRoles := make([]Role, 0, len(user.Roles))
 	for _, role := range user.Roles {
 		newRoles = append(newRoles, Role{Name: types.StringValue(role.Name)})
-	}
-	// No roles: keep `roles = []` as an empty set rather than null, or the apply is inconsistent.
-	if newRoles == nil && data.Roles != nil {
-		newRoles = []Role{}
 	}
 	data.Roles = newRoles
 

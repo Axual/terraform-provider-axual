@@ -343,6 +343,9 @@ func (r *applicationDeploymentStateResource) waitUntilRunning(ctx context.Contex
 	return fmt.Errorf("the deployment did not report itself running within %s (%s)", time.Duration(runningWaitAttempts)*runningWaitDelay, describeDeploymentStatus(status))
 }
 
+// connectorStateFailed is the live state Platform Manager reports for a failed connector.
+const connectorStateFailed = "Failed"
+
 // resetConnector sends RESET once the API offers it. When it is never offered, it returns a warning
 // rather than an error: the destroy can still go on, but deleting the active principal may then fail.
 func resetConnector(ctx context.Context, client *webclient.Client, id string) (string, error) {
@@ -356,9 +359,8 @@ func resetConnector(ctx context.Context, client *webclient.Client, id string) (s
 		if status.Links.Has(webclient.RelReset) {
 			return "", sendReset(ctx, client, id)
 		}
-		if state == "Failed" {
-			// Platform Manager allows RESET only for a STOPPED connector, and a failed one stays
-			// Failed after STOP, so waiting longer does not help.
+		if state == connectorStateFailed {
+			// A failed connector stays Failed after STOP, so waiting for RESET does not help.
 			break
 		}
 		if !status.Links.Has(webclient.RelStop) && status.Links.Has(webclient.RelStart) && status.ConnectorState.State != "Stopped" {
@@ -367,10 +369,13 @@ func resetConnector(ctx context.Context, client *webclient.Client, id string) (s
 		}
 		time.Sleep(resetWaitDelay)
 	}
-	if state == "Failed" {
-		return fmt.Sprintf("Application Deployment %s could not be reset: its connector is Failed, and Platform Manager allows RESET only "+
-			"for a stopped connector. Deleting its active principal can fail. Fix the cause and restart the connector, or delete the "+
-			"deployment in the Self-Service UI, then apply again.", id), nil
+	if state == connectorStateFailed {
+		return fmt.Sprintf("Application Deployment %s could not be reset: its connector is Failed, and this Platform Manager version "+
+			"does not allow RESET for a failed connector. Deleting its active principal can fail. Fix the cause and restart the "+
+			"connector, or delete the deployment in the Self-Service UI, then apply again.", id), nil
+	}
+	if state == "" {
+		state = "unknown"
 	}
 	return fmt.Sprintf("Application Deployment %s was stopped, but Platform Manager did not offer RESET within %s. "+
 		"Its connector is %s, so deleting its active principal can fail. Reset it in the Self-Service UI, then apply again.",

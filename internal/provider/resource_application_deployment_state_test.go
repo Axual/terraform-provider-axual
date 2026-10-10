@@ -28,6 +28,8 @@ type fakeConnector struct {
 	failAfter bool // a START ends in Failed instead of Running
 	gone      bool // the deployment does not exist
 	noReset   bool // a stopped connector is never offered RESET
+	// resetWhenFailed: a failed connector is offered RESET, as on Platform Manager with AXPD-12387.
+	resetWhenFailed bool
 	// recoversIn is how many status reads a Failed connector stays failed before it runs on its own.
 	recoversIn int
 	actions    []string
@@ -36,6 +38,7 @@ type fakeConnector struct {
 	// stopFails is how many STOPs answer 500; with stopFailsAfterApplying the STOP still happened.
 	stopFails              int
 	stopFailsAfterApplying bool
+	stopFailStatus         int // the status of a failing STOP; 500 when not set
 }
 
 func (f *fakeConnector) links() map[string]webclient.Link {
@@ -46,6 +49,9 @@ func (f *fakeConnector) links() map[string]webclient.Link {
 		"Failed":    {"stop", "restart"},
 		"Stopped":   {"start", "reset"},
 	}[f.state]
+	if f.state == "Failed" && f.resetWhenFailed {
+		rels = append(rels, "reset")
+	}
 	links := map[string]webclient.Link{}
 	for _, rel := range rels {
 		if rel == "reset" && f.noReset {
@@ -105,7 +111,11 @@ func (f *fakeConnector) handler(w http.ResponseWriter, r *http.Request) {
 			if f.stopFailsAfterApplying {
 				f.state = "Stopped"
 			}
-			w.WriteHeader(http.StatusInternalServerError)
+			status := http.StatusInternalServerError
+			if f.stopFailStatus != 0 {
+				status = f.stopFailStatus
+			}
+			w.WriteHeader(status)
 			_, _ = w.Write([]byte(`{"detail":"None of the servers could handle the get connector info request. Status Code: 500"}`))
 			return
 		}
@@ -493,9 +503,7 @@ func TestMapLiveStatus(t *testing.T) {
 	}
 }
 
-// AXPD-12369: a Failed connector stays Failed after STOP, and Platform Manager refuses RESET for it
-// (ConnectorStateMachine: FAILED allows only STOP, RESTART and RESTART_TASK). The destroy does not
-// wait 30s for a RESET that never comes, and the warning says the connector is Failed.
+// AXPD-12369: a Failed connector gets a warning at once, and no RESET is sent.
 func TestStateResourceDeleteWarnsAtOnceForAFailedConnector(t *testing.T) {
 	fake := &fakeConnector{state: "Failed", taskStatus: "Failed", stopKeepsFailed: true}
 	r := newStateResourceAgainst(t, fake)
@@ -504,7 +512,7 @@ func TestStateResourceDeleteWarnsAtOnceForAFailedConnector(t *testing.T) {
 	if err != nil {
 		t.Fatalf("delete error = %v", err)
 	}
-	if !strings.Contains(warning, "its connector is Failed") || !strings.Contains(warning, "restart the connector") {
+	if !strings.Contains(warning, "its connector is Failed") || !strings.Contains(warning, "restart the") {
 		t.Errorf("warning = %q, expected it to say the connector is Failed and how to fix it", warning)
 	}
 	if !equalActions(fake.sent(), "STOP") {
@@ -548,5 +556,33 @@ func TestStopGivesUpAfterTheLastAttempt(t *testing.T) {
 	}
 	if len(fake.sent()) != 3 {
 		t.Errorf("actions = %v, expected three STOPs", fake.sent())
+	}
+}
+
+// Platform Manager with AXPD-12387 offers RESET for a failed connector: it is sent at once, with no warning.
+func TestStateResourceDeleteResetsAFailedConnectorWhenResetIsOffered(t *testing.T) {
+	fake := &fakeConnector{state: "Failed", taskStatus: "Failed", stopKeepsFailed: true, resetWhenFailed: true}
+	r := newStateResourceAgainst(t, fake)
+
+	warning, err := r.resetAfterStop(context.Background(), "dep1")
+	if err != nil || warning != "" {
+		t.Fatalf("delete = (%q, %v), expected no warning and no error", warning, err)
+	}
+	if !equalActions(fake.sent(), "STOP", "RESET") {
+		t.Errorf("actions = %v, expected STOP and RESET", fake.sent())
+	}
+}
+
+// A 4xx will not get better, so STOP is not retried.
+func TestStopIsNotRetriedForAClientError(t *testing.T) {
+	fake := &fakeConnector{state: "Running", taskStatus: "Running", stopFails: 10, stopFailStatus: http.StatusBadRequest}
+	r := newStateResourceAgainst(t, fake)
+
+	err := stopDeploymentAndWait(context.Background(), r.provider.client, "dep1", connectorApplicationType)
+	if err == nil || strings.Contains(err.Error(), "after 3 attempts") {
+		t.Fatalf("stop error = %v, expected the 400 at once", err)
+	}
+	if len(fake.sent()) != 1 {
+		t.Errorf("actions = %v, expected one STOP", fake.sent())
 	}
 }

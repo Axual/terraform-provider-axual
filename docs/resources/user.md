@@ -53,7 +53,7 @@ New users are created by logging in through your organization's Single Sign-On (
 
 - `middle_name` (String) User's middle name
 - `phone_number` (String) User's phone number
-- `roles` (Attributes Set) Roles attributed to the user. All possible roles with descriptions are listed here: https://docs.axual.io/apidocs/mgmt-api/8.5.0/index.html#valid-roles (see [below for nested schema](#nestedatt--roles))
+- `roles` (Attributes Set) Roles attributed to the user. Leave it out to keep the roles the user has; `roles = []` removes all roles. All possible roles with descriptions are listed here: https://docs.axual.io/apidocs/mgmt-api/8.5.0/index.html#valid-roles (see [below for nested schema](#nestedatt--roles))
 
 ### Read-Only
 

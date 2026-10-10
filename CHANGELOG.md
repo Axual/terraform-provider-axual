@@ -4,10 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 ### Fixed
-* A STOP that fails, for example with `500 None of the servers could handle the get connector info request` while the Connect worker rebalances, is now retried like START. It is sent again only while the deployment still offers `stop`. This covers destroy, the stop before an update, and `axual_application_deployment_state`
+* A failed STOP (for example a `500` while the Connect worker rebalances) is now retried, like START. It is sent again only while the deployment still offers `stop`; a `4xx` is not retried
 * An `axual_application_deployment` deleted outside Terraform no longer breaks `plan` and `destroy` with `no application deployment found`; it is removed from the state and planned again ([#121](https://github.com/Axual/terraform-provider-axual/issues/121))
-* `roles = []`, or no `roles`, on an `axual_user` now removes all roles instead of failing with `Required request body is missing` (AXPD-9562)
-* Destroying the `axual_application_deployment_state` of a `Failed` connector now warns at once that Platform Manager cannot reset a failed connector, and says how to fix it, instead of waiting 30s and saying the deployment "stays STOPPED"
+* `roles = []` on an `axual_user` now removes all roles instead of failing with `Required request body is missing` (AXPD-9562). Leaving out `roles` now keeps the roles the user has
+* Destroying the `axual_application_deployment_state` of a `Failed` connector now warns at once when Platform Manager cannot reset it, and says how to fix it
 
 ## [3.2.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.2.0) - 2026-10-08
 ### Added
