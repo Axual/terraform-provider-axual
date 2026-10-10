@@ -51,6 +51,12 @@ const legacyAxualConnectTargetPrefix = "axualconnect-"
 // startAttempts is how often a START is retried before the apply is failed.
 const startAttempts = 3
 
+// stopAttempts and stopRetryDelay retry a failed STOP. Variables so the unit tests can shorten them.
+var (
+	stopAttempts   = 3
+	stopRetryDelay = 5 * time.Second
+)
+
 // stopWaitAttempts and stopWaitDelay bound how long an update or a delete waits for a stopped
 // deployment to stop running before it PATCHes or DELETEs it. Variables so the unit tests can
 // shorten them.
@@ -587,10 +593,17 @@ func (r *applicationDeploymentResource) Read(ctx context.Context, req resource.R
 	ApplicationDeploymentFindByApplicationAndEnvironmentResponse, err := r.provider.client.FindApplicationDeploymentByApplicationAndEnvironment(applicationWithUrl, environmentWithUrl)
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
-			resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to find Application Deployment with ID: %s, got error: %s", data.Id.ValueString(), err))
+			tflog.Warn(ctx, fmt.Sprintf("Application Deployment %s not found, removing it from the state", data.Id.ValueString()))
+			resp.State.RemoveResource(ctx)
 		} else {
 			resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to read Application Deployment, got error: %s", err))
 		}
+		return
+	}
+	// Deleted outside Terraform: plan to create it again, like the other resources do.
+	if len(ApplicationDeploymentFindByApplicationAndEnvironmentResponse.Embedded.ApplicationDeploymentResponses) == 0 {
+		tflog.Warn(ctx, fmt.Sprintf("Application Deployment %s not found, removing it from the state", data.Id.ValueString()))
+		resp.State.RemoveResource(ctx)
 		return
 	}
 	err = mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx, &data, ApplicationDeploymentFindByApplicationAndEnvironmentResponse)
@@ -1154,7 +1167,7 @@ func stopDeploymentAndWait(ctx context.Context, client *webclient.Client, id str
 		return nil
 	}
 
-	if err := operateDeployment(client, id, actionStop); err != nil {
+	if err := stopWithRetry(ctx, client, id, deploymentType); err != nil {
 		return fmt.Errorf("unable to stop Application Deployment, got error: %s", err)
 	}
 
@@ -1174,6 +1187,28 @@ func stopDeploymentAndWait(ctx context.Context, client *webclient.Client, id str
 	}
 	tflog.Warn(ctx, fmt.Sprintf("Application Deployment %s did not report a stopped state within %s, continuing", id, time.Duration(attempts)*delay))
 	return nil
+}
+
+// stopWithRetry sends STOP and retries it when it fails, like START: a STOP that hits a Connect
+// worker rebalance fails with a 500 on Platform Manager without the AXPD-12302 fix (APCS-3090).
+// Before a retry it reads the status again and stops only while `stop` is still offered, so a STOP
+// that went through although its answer was an error is not sent twice.
+func stopWithRetry(ctx context.Context, client *webclient.Client, id string, deploymentType string) error {
+	var err error
+	for i := 0; i < stopAttempts; i++ {
+		if i > 0 {
+			time.Sleep(stopRetryDelay)
+			status, statusErr := client.GetApplicationDeploymentStatus(id)
+			if statusErr == nil && !shouldStopDeployment(deploymentType, status) {
+				return nil
+			}
+		}
+		if err = operateDeployment(client, id, actionStop); err == nil {
+			return nil
+		}
+		tflog.Warn(ctx, fmt.Sprintf("STOP of Application Deployment %s failed (attempt %d of %d): %s", id, i+1, stopAttempts, err))
+	}
+	return fmt.Errorf("after %d attempts: %s", stopAttempts, err)
 }
 
 // stopWaitBudget is how long stopDeploymentAndWait waits for the given type to come to a halt.

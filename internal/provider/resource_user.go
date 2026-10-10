@@ -190,6 +190,10 @@ func mapUserResponseToData(_ context.Context, data *userResourceData, user *webc
 	for _, role := range user.Roles {
 		newRoles = append(newRoles, Role{Name: types.StringValue(role.Name)})
 	}
+	// No roles: keep `roles = []` as an empty set rather than null, or the apply is inconsistent.
+	if newRoles == nil && data.Roles != nil {
+		newRoles = []Role{}
+	}
 	data.Roles = newRoles
 
 	// optional fields
@@ -208,8 +212,8 @@ func mapUserResponseToData(_ context.Context, data *userResourceData, user *webc
 
 func createUserRequestFromData(ctx context.Context, data *userResourceData) webclient.UserRequest {
 	// mandatory fields
-	var roles []webclient.UserRole
-
+	// Not nil: a nil slice is sent as JSON null, which the roles endpoint refuses; [] clears the roles.
+	roles := make([]webclient.UserRole, 0, len(data.Roles))
 	for _, raw := range data.Roles {
 		roles = append(roles, webclient.UserRole{Name: raw.Name.ValueString()})
 	}

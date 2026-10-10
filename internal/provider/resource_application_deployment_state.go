@@ -346,17 +346,20 @@ func (r *applicationDeploymentStateResource) waitUntilRunning(ctx context.Contex
 // resetConnector sends RESET once the API offers it. When it is never offered, it returns a warning
 // rather than an error: the destroy can still go on, but deleting the active principal may then fail.
 func resetConnector(ctx context.Context, client *webclient.Client, id string) (string, error) {
+	state := ""
 	for i := 0; i < resetWaitAttempts; i++ {
 		status, err := client.GetApplicationDeploymentStatus(id)
 		if err != nil {
 			return "", fmt.Errorf("unable to get Application Deployment status before resetting it: %s", err)
 		}
+		state = status.ConnectorState.State
 		if status.Links.Has(webclient.RelReset) {
-			if err := operateDeployment(client, id, actionReset); err != nil {
-				return "", fmt.Errorf("unable to reset Application Deployment %s: %s", id, err)
-			}
-			tflog.Info(ctx, fmt.Sprintf("Reset Application Deployment %s", id))
-			return "", nil
+			return "", sendReset(ctx, client, id)
+		}
+		if state == "Failed" {
+			// Platform Manager allows RESET only for a STOPPED connector, and a failed one stays
+			// Failed after STOP, so waiting longer does not help.
+			break
 		}
 		if !status.Links.Has(webclient.RelStop) && status.Links.Has(webclient.RelStart) && status.ConnectorState.State != "Stopped" {
 			// Nothing is deployed on the Connect cluster any more (for example never started, or already reset).
@@ -364,9 +367,22 @@ func resetConnector(ctx context.Context, client *webclient.Client, id string) (s
 		}
 		time.Sleep(resetWaitDelay)
 	}
+	if state == "Failed" {
+		return fmt.Sprintf("Application Deployment %s could not be reset: its connector is Failed, and Platform Manager allows RESET only "+
+			"for a stopped connector. Deleting its active principal can fail. Fix the cause and restart the connector, or delete the "+
+			"deployment in the Self-Service UI, then apply again.", id), nil
+	}
 	return fmt.Sprintf("Application Deployment %s was stopped, but Platform Manager did not offer RESET within %s. "+
-		"It stays STOPPED, so deleting its active principal can fail. Reset it in the Self-Service UI, then apply again.",
-		id, time.Duration(resetWaitAttempts)*resetWaitDelay), nil
+		"Its connector is %s, so deleting its active principal can fail. Reset it in the Self-Service UI, then apply again.",
+		id, time.Duration(resetWaitAttempts)*resetWaitDelay, state), nil
+}
+
+func sendReset(ctx context.Context, client *webclient.Client, id string) error {
+	if err := operateDeployment(client, id, actionReset); err != nil {
+		return fmt.Errorf("unable to reset Application Deployment %s: %s", id, err)
+	}
+	tflog.Info(ctx, fmt.Sprintf("Reset Application Deployment %s", id))
+	return nil
 }
 
 func (r *applicationDeploymentStateResource) deploymentType(id string) (string, error) {
