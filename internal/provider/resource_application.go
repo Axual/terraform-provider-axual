@@ -12,7 +12,6 @@ import (
 	custom_validator "axual.com/terraform-provider-axual/internal/custom-validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -257,14 +256,16 @@ func (r *applicationResource) Delete(ctx context.Context, req resource.DeleteReq
 		tflog.Info(ctx, fmt.Sprintf("Application %s could not be deleted yet (%s), retrying in %s", data.Id.ValueString(), err, applicationDeleteDelay))
 		time.Sleep(applicationDeleteDelay)
 	}
-	if err != nil {
+	if err = ignoreGone(err); err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete Application, got error: %s", err))
 		return
 	}
 }
 
 func (r *applicationResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	importByIDOrKey(ctx, req, resp, importByNamePrefix, func(key string) (string, error) {
+		return findApplicationIDByName(r.provider.client, key)
+	})
 }
 
 func createApplicationRequestFromData(ctx context.Context, data *ApplicationResourceData, r applicationResource) (webclient.ApplicationRequest, error) {

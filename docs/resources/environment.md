@@ -55,9 +55,21 @@ resource "axual_environment" "development" {
 For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 
 ## Import
-Import is supported using the following syntax:
+
+Import is supported by ID, or by name (`name:`):
 
 ```shell
 terraform import axual_environment.<LOCAL NAME> <ENVIRONMENT UID>
-terraform import axual_environment.test_env ab1cf1d63a55436391463cee3f56e393
+terraform import axual_environment.test_env b21cf1d63a55436391463cee3f56e393
+terraform import axual_environment.<LOCAL NAME> name:<ENVIRONMENT NAME>
+terraform import axual_environment.test_env 'name:development'
+```
+
+The name must match exactly, case included. An `import` block (Terraform 1.5 or later) takes the same IDs:
+
+```terraform
+import {
+  to = axual_environment.test_env
+  id = "name:development"
+}
 ```

@@ -8,6 +8,9 @@
 ## Limitations
 - If no properties please leave properties empty like this: properties = { }
 
+## Tags
+- `tags` are the tags shown in the Self-Service UI. Leave `tags` out to keep the tags the topic has (for example set in the UI); `tags = []` removes them.
+
 {{ .SchemaMarkdown | trimspace }}
 
 ## Example Usage
@@ -21,6 +24,7 @@ resource "axual_topic" "logs" {
   retention_policy = "delete"
   properties = { propertyKey1: "propertyValue1", propertyKey2: "propertyValue2"}
   description = "Logs from all applications"
+  tags = ["logging", "platform"]
 }
 
 resource "axual_topic" "example_avro" {
@@ -40,9 +44,20 @@ For a full example which shows the capabilities of the latest TerraForm provider
 
 ## Import
 
-Import is supported using the following syntax:
+Import is supported by ID, or by name (`name:`):
 
 ```shell
 terraform import axual_topic.<LOCAL NAME> <TOPIC UID>
 terraform import axual_topic.test_topic b21cf1d63a55436391463cee3f56e393
+terraform import axual_topic.<LOCAL NAME> name:<TOPIC NAME>
+terraform import axual_topic.test_topic 'name:payments'
+```
+
+The name must match exactly, case included. An `import` block (Terraform 1.5 or later) takes the same IDs:
+
+```terraform
+import {
+  to = axual_topic.test_topic
+  id = "name:payments"
+}
 ```

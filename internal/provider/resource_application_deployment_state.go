@@ -169,6 +169,10 @@ func (r *applicationDeploymentStateResource) Delete(ctx context.Context, req res
 		return
 	}
 	warning, err := r.resetAfterStop(ctx, data.ApplicationDeployment.ValueString())
+	if err != nil && deploymentGone(r.provider.client, data.ApplicationDeployment.ValueString()) {
+		// The deployment was deleted at the same time, for example by its own resource in this destroy.
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", err.Error())
 		return
@@ -343,20 +347,25 @@ func (r *applicationDeploymentStateResource) waitUntilRunning(ctx context.Contex
 	return fmt.Errorf("the deployment did not report itself running within %s (%s)", time.Duration(runningWaitAttempts)*runningWaitDelay, describeDeploymentStatus(status))
 }
 
+// connectorStateFailed is the live state Platform Manager reports for a failed connector.
+const connectorStateFailed = "Failed"
+
 // resetConnector sends RESET once the API offers it. When it is never offered, it returns a warning
 // rather than an error: the destroy can still go on, but deleting the active principal may then fail.
 func resetConnector(ctx context.Context, client *webclient.Client, id string) (string, error) {
+	state := ""
 	for i := 0; i < resetWaitAttempts; i++ {
 		status, err := client.GetApplicationDeploymentStatus(id)
 		if err != nil {
 			return "", fmt.Errorf("unable to get Application Deployment status before resetting it: %s", err)
 		}
+		state = status.ConnectorState.State
 		if status.Links.Has(webclient.RelReset) {
-			if err := operateDeployment(client, id, actionReset); err != nil {
-				return "", fmt.Errorf("unable to reset Application Deployment %s: %s", id, err)
-			}
-			tflog.Info(ctx, fmt.Sprintf("Reset Application Deployment %s", id))
-			return "", nil
+			return "", sendReset(ctx, client, id)
+		}
+		if state == connectorStateFailed {
+			// A failed connector stays Failed after STOP, so waiting for RESET does not help.
+			break
 		}
 		if !status.Links.Has(webclient.RelStop) && status.Links.Has(webclient.RelStart) && status.ConnectorState.State != "Stopped" {
 			// Nothing is deployed on the Connect cluster any more (for example never started, or already reset).
@@ -364,9 +373,25 @@ func resetConnector(ctx context.Context, client *webclient.Client, id string) (s
 		}
 		time.Sleep(resetWaitDelay)
 	}
+	if state == connectorStateFailed {
+		return fmt.Sprintf("Application Deployment %s could not be reset: its connector is Failed, and this Platform Manager version "+
+			"does not allow RESET for a failed connector. Deleting its active principal can fail. Fix the cause and restart the "+
+			"connector, or delete the deployment in the Self-Service UI, then apply again.", id), nil
+	}
+	if state == "" {
+		state = "unknown"
+	}
 	return fmt.Sprintf("Application Deployment %s was stopped, but Platform Manager did not offer RESET within %s. "+
-		"It stays STOPPED, so deleting its active principal can fail. Reset it in the Self-Service UI, then apply again.",
-		id, time.Duration(resetWaitAttempts)*resetWaitDelay), nil
+		"Its connector is %s, so deleting its active principal can fail. Reset it in the Self-Service UI, then apply again.",
+		id, time.Duration(resetWaitAttempts)*resetWaitDelay, state), nil
+}
+
+func sendReset(ctx context.Context, client *webclient.Client, id string) error {
+	if err := operateDeployment(client, id, actionReset); err != nil {
+		return fmt.Errorf("unable to reset Application Deployment %s: %s", id, err)
+	}
+	tflog.Info(ctx, fmt.Sprintf("Reset Application Deployment %s", id))
+	return nil
 }
 
 func (r *applicationDeploymentStateResource) deploymentType(id string) (string, error) {

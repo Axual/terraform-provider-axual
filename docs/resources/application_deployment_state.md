@@ -18,7 +18,8 @@ The desired running state of an Application Deployment: whether it should run or
   removed from its Connect cluster, and the deployment, its configs and its offsets stay. This is
   the state the deployment was created in, and it lets Platform Manager delete the connector's
   principal afterwards (it refuses to delete an active principal of a deployment that is only
-  stopped).
+  stopped). A Platform Manager that does not offer RESET for a `Failed` connector cannot reset it:
+  destroy then warns, and deleting the principal fails. Fix or restart the connector first.
 - Make it depend on the access grant approval and on the principal or credential. See the
   [Connector Application guide](../guides/connector-application.md) for the complete order.
 

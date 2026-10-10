@@ -28,9 +28,17 @@ type fakeConnector struct {
 	failAfter bool // a START ends in Failed instead of Running
 	gone      bool // the deployment does not exist
 	noReset   bool // a stopped connector is never offered RESET
+	// resetWhenFailed: a failed connector is offered RESET, as on Platform Manager with AXPD-12387.
+	resetWhenFailed bool
 	// recoversIn is how many status reads a Failed connector stays failed before it runs on its own.
 	recoversIn int
 	actions    []string
+	// Like Kafka Connect: STOP leaves a Failed connector Failed.
+	stopKeepsFailed bool
+	// stopFails is how many STOPs answer 500; with stopFailsAfterApplying the STOP still happened.
+	stopFails              int
+	stopFailsAfterApplying bool
+	stopFailStatus         int // the status of a failing STOP; 500 when not set
 }
 
 func (f *fakeConnector) links() map[string]webclient.Link {
@@ -41,6 +49,9 @@ func (f *fakeConnector) links() map[string]webclient.Link {
 		"Failed":    {"stop", "restart"},
 		"Stopped":   {"start", "reset"},
 	}[f.state]
+	if f.state == "Failed" && f.resetWhenFailed {
+		rels = append(rels, "reset")
+	}
 	links := map[string]webclient.Link{}
 	for _, rel := range rels {
 		if rel == "reset" && f.noReset {
@@ -95,6 +106,19 @@ func (f *fakeConnector) handler(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/operation"):
 		action := r.URL.Query().Get("action")
 		f.actions = append(f.actions, action)
+		if action == "STOP" && f.stopFails > 0 {
+			f.stopFails--
+			if f.stopFailsAfterApplying {
+				f.state = "Stopped"
+			}
+			status := http.StatusInternalServerError
+			if f.stopFailStatus != 0 {
+				status = f.stopFailStatus
+			}
+			w.WriteHeader(status)
+			_, _ = w.Write([]byte(`{"detail":"None of the servers could handle the get connector info request. Status Code: 500"}`))
+			return
+		}
 		switch action {
 		case "START":
 			f.state = "Starting"
@@ -102,7 +126,9 @@ func (f *fakeConnector) handler(w http.ResponseWriter, r *http.Request) {
 			// Like Connect: a connector restart leaves a failed task failed.
 			f.state = "Running"
 		case "STOP":
-			f.state = "Stopped"
+			if !(f.stopKeepsFailed && f.state == "Failed") {
+				f.state = "Stopped"
+			}
 		case "RESET":
 			f.state = "Undefined"
 		}
@@ -126,6 +152,7 @@ func newStateResourceAgainst(t *testing.T, fake *fakeConnector) *applicationDepl
 
 	for _, restore := range []func(){
 		shorten(&runningWaitDelay), shorten(&resetWaitDelay), shorten(&stopWaitDelay), shorten(&startWaitDelay),
+		shorten(&stopRetryDelay),
 	} {
 		t.Cleanup(restore)
 	}
@@ -473,5 +500,89 @@ func TestMapLiveStatus(t *testing.T) {
 		if got := mapLiveStatus(live); got != expected {
 			t.Errorf("mapLiveStatus(%q) = %q, expected %q", live, got, expected)
 		}
+	}
+}
+
+// AXPD-12369: a Failed connector gets a warning at once, and no RESET is sent.
+func TestStateResourceDeleteWarnsAtOnceForAFailedConnector(t *testing.T) {
+	fake := &fakeConnector{state: "Failed", taskStatus: "Failed", stopKeepsFailed: true}
+	r := newStateResourceAgainst(t, fake)
+
+	warning, err := r.resetAfterStop(context.Background(), "dep1")
+	if err != nil {
+		t.Fatalf("delete error = %v", err)
+	}
+	if !strings.Contains(warning, "its connector is Failed") || !strings.Contains(warning, "restart the") {
+		t.Errorf("warning = %q, expected it to say the connector is Failed and how to fix it", warning)
+	}
+	if !equalActions(fake.sent(), "STOP") {
+		t.Errorf("actions = %v, expected STOP only, no RESET", fake.sent())
+	}
+}
+
+// AXPD-12369: a STOP that fails (a 500 during a worker rebalance) is retried, like START.
+func TestStopIsRetried(t *testing.T) {
+	fake := &fakeConnector{state: "Running", taskStatus: "Running", stopFails: 2}
+	r := newStateResourceAgainst(t, fake)
+
+	if err := stopDeploymentAndWait(context.Background(), r.provider.client, "dep1", connectorApplicationType); err != nil {
+		t.Fatalf("stop error = %v", err)
+	}
+	if !equalActions(fake.sent(), "STOP", "STOP", "STOP") {
+		t.Errorf("actions = %v, expected three STOPs", fake.sent())
+	}
+}
+
+// A STOP that went through although its answer was an error is not sent again.
+func TestStopIsNotSentTwiceWhenItWentThrough(t *testing.T) {
+	fake := &fakeConnector{state: "Running", taskStatus: "Running", stopFails: 1, stopFailsAfterApplying: true}
+	r := newStateResourceAgainst(t, fake)
+
+	if err := stopDeploymentAndWait(context.Background(), r.provider.client, "dep1", connectorApplicationType); err != nil {
+		t.Fatalf("stop error = %v", err)
+	}
+	if !equalActions(fake.sent(), "STOP") {
+		t.Errorf("actions = %v, expected one STOP", fake.sent())
+	}
+}
+
+func TestStopGivesUpAfterTheLastAttempt(t *testing.T) {
+	fake := &fakeConnector{state: "Running", taskStatus: "Running", stopFails: 10}
+	r := newStateResourceAgainst(t, fake)
+
+	err := stopDeploymentAndWait(context.Background(), r.provider.client, "dep1", connectorApplicationType)
+	if err == nil || !strings.Contains(err.Error(), "after 3 attempts") {
+		t.Fatalf("stop error = %v, expected it to give up after 3 attempts", err)
+	}
+	if len(fake.sent()) != 3 {
+		t.Errorf("actions = %v, expected three STOPs", fake.sent())
+	}
+}
+
+// Platform Manager with AXPD-12387 offers RESET for a failed connector: it is sent at once, with no warning.
+func TestStateResourceDeleteResetsAFailedConnectorWhenResetIsOffered(t *testing.T) {
+	fake := &fakeConnector{state: "Failed", taskStatus: "Failed", stopKeepsFailed: true, resetWhenFailed: true}
+	r := newStateResourceAgainst(t, fake)
+
+	warning, err := r.resetAfterStop(context.Background(), "dep1")
+	if err != nil || warning != "" {
+		t.Fatalf("delete = (%q, %v), expected no warning and no error", warning, err)
+	}
+	if !equalActions(fake.sent(), "STOP", "RESET") {
+		t.Errorf("actions = %v, expected STOP and RESET", fake.sent())
+	}
+}
+
+// A 4xx will not get better, so STOP is not retried.
+func TestStopIsNotRetriedForAClientError(t *testing.T) {
+	fake := &fakeConnector{state: "Running", taskStatus: "Running", stopFails: 10, stopFailStatus: http.StatusBadRequest}
+	r := newStateResourceAgainst(t, fake)
+
+	err := stopDeploymentAndWait(context.Background(), r.provider.client, "dep1", connectorApplicationType)
+	if err == nil || strings.Contains(err.Error(), "after 3 attempts") {
+		t.Fatalf("stop error = %v, expected the 400 at once", err)
+	}
+	if len(fake.sent()) != 1 {
+		t.Errorf("actions = %v, expected one STOP", fake.sent())
 	}
 }

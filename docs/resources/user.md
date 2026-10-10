@@ -2,33 +2,25 @@
 
 User resource. Creating new users via Terraform is not supported. Use the axual_user data source to reference existing users, or use terraform import to manage existing users. New users are created by logging in through your organization's SSO provider. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#users
 
-## Important: User Creation No Longer Supported
+## Import
 
-Creating new users via Terraform is **no longer supported**.
+Import is supported by ID, or by email address (`email:`):
 
-### Why was user creation removed?
+```shell
+terraform import axual_user.<LOCAL NAME> <USER UID>
+terraform import axual_user.test_user b21cf1d63a55436391463cee3f56e393
+terraform import axual_user.<LOCAL NAME> email:<EMAIL ADDRESS>
+terraform import axual_user.test_user 'email:jane.doe@example.com'
+```
 
-User creation via the API was removed because:
-- Users created via the API were only added to the Self-Service database, not to the authentication provider (e.g., Keycloak)
-- This meant API-created users could not actually log in to Self-Service
-- Proper user management requires integration with the authentication provider
+The email address must match exactly, case included. An `import` block (Terraform 1.5 or later) takes the same IDs:
 
-### How to manage users with Terraform
-
-You have two options for managing existing users with Terraform:
-
-1. **Use the `axual_user` data source** to reference existing users:
-   ```hcl
-   data "axual_user" "john" {
-     email = "john.doe@example.com"
-   }
-   ```
-   See: https://registry.terraform.io/providers/Axual/axual/latest/docs/data-sources/user
-
-2. **Import existing users** into your Terraform state:
-   ```shell
-   terraform import axual_user.john <USER_UID>
-   ```
+```terraform
+import {
+  to = axual_user.test_user
+  id = "email:jane.doe@example.com"
+}
+```
 
 ### Creating new users
 
@@ -53,7 +45,7 @@ New users are created by logging in through your organization's Single Sign-On (
 
 - `middle_name` (String) User's middle name
 - `phone_number` (String) User's phone number
-- `roles` (Attributes Set) Roles attributed to the user. All possible roles with descriptions are listed here: https://docs.axual.io/apidocs/mgmt-api/8.5.0/index.html#valid-roles (see [below for nested schema](#nestedatt--roles))
+- `roles` (Attributes Set) Roles attributed to the user. Leave it out to keep the roles the user has; `roles = []` removes all roles. All possible roles with descriptions are listed here: https://docs.axual.io/apidocs/mgmt-api/8.5.0/index.html#valid-roles (see [below for nested schema](#nestedatt--roles))
 
 ### Read-Only
 

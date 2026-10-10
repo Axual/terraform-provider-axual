@@ -288,7 +288,7 @@ func (r *environmentResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	err := r.provider.client.DeleteEnvironment(data.Id.ValueString())
+	err := ignoreGone(r.provider.client.DeleteEnvironment(data.Id.ValueString()))
 	if err != nil {
 		resp.Diagnostics.AddError("DELETE request error for environment resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
@@ -296,7 +296,9 @@ func (r *environmentResource) Delete(ctx context.Context, req resource.DeleteReq
 }
 
 func (r *environmentResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	importByIDOrKey(ctx, req, resp, importByNamePrefix, func(key string) (string, error) {
+		return findEnvironmentIDByName(r.provider.client, key)
+	})
 }
 
 func createEnvironmentRequestFromData(ctx context.Context, data *environmentResourceData, r *environmentResource) (webclient.EnvironmentRequest, error) {

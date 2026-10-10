@@ -42,6 +42,13 @@ func TestGroupResource(t *testing.T) {
 				ImportStateVerify: true,
 			},
 			{
+				// GitHub #114: import by name instead of ID
+				ResourceName:      "axual_group.team-integrations",
+				ImportState:       true,
+				ImportStateId:     "name:updatedgroup9999",
+				ImportStateVerify: true,
+			},
+			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
 				Config:  GetProvider() + GetFile("axual_group_updated.tf"),

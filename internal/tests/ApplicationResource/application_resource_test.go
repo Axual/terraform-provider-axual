@@ -51,6 +51,13 @@ func TestApplicationResource(t *testing.T) {
 				ImportStateVerify: true,
 			},
 			{
+				// GitHub #114: import by name instead of ID
+				ResourceName:      "axual_application.tf_test_app",
+				ImportState:       true,
+				ImportStateId:     "name:tf-test-app1",
+				ImportStateVerify: true,
+			},
+			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
 				Config:  GetProvider() + GetFile("axual_application_updated.tf"),

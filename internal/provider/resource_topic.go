@@ -11,6 +11,7 @@ import (
 
 	custom_validator "axual.com/terraform-provider-axual/internal/custom-validator"
 	"axual.com/terraform-provider-axual/internal/provider/utils"
+	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -18,6 +19,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -49,6 +51,7 @@ type topicResourceData struct {
 	RetentionPolicy types.String `tfsdk:"retention_policy"`
 	Id              types.String `tfsdk:"id"`
 	Properties      types.Map    `tfsdk:"properties"`
+	Tags            types.Set    `tfsdk:"tags"`
 }
 
 func (r *topicResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -127,6 +130,18 @@ func (r *topicResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 					mapplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"tags": schema.SetAttribute{
+				MarkdownDescription: "Tags of the topic, as shown in the Self-Service UI. Leave it out to keep the tags the topic has; `tags = []` removes all tags.",
+				Optional:            true,
+				Computed:            true,
+				ElementType:         types.StringType,
+				Validators: []validator.Set{
+					setvalidator.ValueStringsAre(stringvalidator.LengthBetween(1, 255)),
+				},
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
+			},
 			"id": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "Topic unique identifier",
@@ -161,7 +176,7 @@ func (r *topicResource) Create(ctx context.Context, req resource.CreateRequest, 
 		topicRequest.Properties = properties
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("Create topic request %q", topicRequest))
+	tflog.Info(ctx, fmt.Sprintf("Create topic request %+v", topicRequest))
 	topic, err := r.provider.client.CreateTopic(topicRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("CREATE request error for topic resource", fmt.Sprintf("Error message: %s", err.Error()))
@@ -233,7 +248,7 @@ func (r *topicResource) Update(ctx context.Context, req resource.UpdateRequest, 
 
 	topicRequest.Properties = properties
 
-	tflog.Info(ctx, fmt.Sprintf("Update topic request %q", topicRequest))
+	tflog.Info(ctx, fmt.Sprintf("Update topic request %+v", topicRequest))
 	topic, err := r.provider.client.UpdateTopic(data.Id.ValueString(), topicRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("UPDATE request error for topic resource", fmt.Sprintf("Error message: %s", err.Error()))
@@ -259,7 +274,7 @@ func (r *topicResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 
 	// Retry logic for deleting the topic to give time for Kafka to propagate changes
 	err := Retry(3, 3*time.Second, func() error {
-		return r.provider.client.DeleteTopic(data.Id.ValueString())
+		return ignoreGone(r.provider.client.DeleteTopic(data.Id.ValueString()))
 	})
 	if err != nil {
 		resp.Diagnostics.AddError("DELETE request error for topic resource", fmt.Sprintf("Error message after retries: %s", err.Error()))
@@ -268,7 +283,9 @@ func (r *topicResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 }
 
 func (r *topicResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	importByIDOrKey(ctx, req, resp, importByNamePrefix, func(key string) (string, error) {
+		return findTopicIDByName(r.provider.client, key)
+	})
 }
 
 func createTopicRequestFromData(ctx context.Context, data *topicResourceData, r *topicResource) (webclient.TopicRequest, error) {
@@ -332,6 +349,13 @@ func createTopicRequestFromData(ctx context.Context, data *topicResourceData, r 
 	if !data.Description.IsNull() {
 		topicRequest.Description = data.Description.ValueString()
 	}
+	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
+		tags := make([]string, 0, len(data.Tags.Elements()))
+		if diags := data.Tags.ElementsAs(ctx, &tags, false); diags.HasError() {
+			return webclient.TopicRequest{}, fmt.Errorf("failed to extract tags: %v", diags)
+		}
+		topicRequest.Tags = &tags
+	}
 	return topicRequest, nil
 }
 
@@ -343,6 +367,11 @@ func mapTopicResponseToData(ctx context.Context, data *topicResourceData, topic 
 	data.Owners = types.StringValue(topic.Embedded.Owners.Uid)
 	data.RetentionPolicy = types.StringValue(topic.RetentionPolicy)
 	data.Properties = utils.HandlePropertiesMapping(ctx, topic.Properties)
+	tags, diags := types.SetValueFrom(ctx, types.StringType, append([]string{}, topic.Tags...))
+	if diags.HasError() {
+		tflog.Error(ctx, "Error creating tags set")
+	}
+	data.Tags = tags
 
 	// Optional fields
 	if topic.Description == nil || len(topic.Description.(string)) == 0 {

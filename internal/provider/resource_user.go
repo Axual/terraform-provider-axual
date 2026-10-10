@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -76,8 +76,12 @@ func (r *userResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Optional:            true,
 			},
 			"roles": schema.SetNestedAttribute{
-				MarkdownDescription: "Roles attributed to the user. All possible roles with descriptions are listed here: https://docs.axual.io/apidocs/mgmt-api/8.5.0/index.html#valid-roles",
+				MarkdownDescription: "Roles attributed to the user. Leave it out to keep the roles the user has; `roles = []` removes all roles. All possible roles with descriptions are listed here: https://docs.axual.io/apidocs/mgmt-api/8.5.0/index.html#valid-roles",
 				Optional:            true,
+				Computed:            true,
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"name": schema.StringAttribute{
@@ -177,7 +181,9 @@ func (r *userResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 }
 
 func (r *userResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	importByIDOrKey(ctx, req, resp, importByEmailPrefix, func(key string) (string, error) {
+		return findUserIDByEmail(r.provider.client, key)
+	})
 }
 
 func mapUserResponseToData(_ context.Context, data *userResourceData, user *webclient.UserResponse) {
@@ -186,7 +192,7 @@ func mapUserResponseToData(_ context.Context, data *userResourceData, user *webc
 	data.FirstName = types.StringValue(user.FirstName)
 	data.LastName = types.StringValue(user.LastName)
 	data.EmailAddress = types.StringValue(user.EmailAddress.Email)
-	var newRoles []Role
+	newRoles := make([]Role, 0, len(user.Roles))
 	for _, role := range user.Roles {
 		newRoles = append(newRoles, Role{Name: types.StringValue(role.Name)})
 	}
@@ -208,8 +214,8 @@ func mapUserResponseToData(_ context.Context, data *userResourceData, user *webc
 
 func createUserRequestFromData(ctx context.Context, data *userResourceData) webclient.UserRequest {
 	// mandatory fields
-	var roles []webclient.UserRole
-
+	// Not nil: a nil slice is sent as JSON null, which the roles endpoint refuses; [] clears the roles.
+	roles := make([]webclient.UserRole, 0, len(data.Roles))
 	for _, raw := range data.Roles {
 		roles = append(roles, webclient.UserRole{Name: raw.Name.ValueString()})
 	}
