@@ -13,6 +13,8 @@ This needs Terraform 1.14 or newer.
 - You built resources by hand (in the UI or the API) and now want Terraform to manage them.
 - You want to copy resources to another environment or another Axual installation.
 - You want to split resources over the repositories of several teams, for example by owner group.
+  Grant approvals and rejections belong to the topic team, so their `owners` filter is the owner of
+  the topic (see the [Multi-Repo Guide](multi-repo)).
 
 ## Step 1: provider configuration
 
@@ -39,7 +41,8 @@ provider "axual" {
 ## Step 2: a query file
 
 Put one `list` block per resource type in a file whose name ends in `.tfquery.hcl`. The `config`
-block holds the filters. Leave it out to list everything you can see.
+block holds the filters. Leave it out to list everything you can see; on a large tenant, use a
+filter, because some list resources call the API once per topic or application.
 
 ```terraform
 # export.tfquery.hcl
@@ -67,6 +70,7 @@ list "axual_topic_config" "team_a" {
 ```
 
 A `list` block returns at most 100 resources unless you set `limit`, for example `limit = 1000`.
+When there are more, `terraform query` warns `Only 100 of N ... results returned`.
 
 ## Step 3: run the query
 
@@ -89,7 +93,10 @@ list.axual_application.team_a   id=6a899c1e793a43e4a6efb087aca25e94   order-serv
 terraform query -generate-config-out=generated.tf
 ```
 
-`generated.tf` now has a `resource` block and an `import` block for every resource found:
+`generated.tf` now has a `resource` block and an `import` block for every resource found. The
+results come in a stable order, so a second export of the same resources gives each one the same
+name. Terraform loads every `.tf` file in the folder, so move `generated.tf` away (or write it to
+another folder) before you run `terraform query` again.
 
 ```terraform
 resource "axual_topic" "team_a_0" {
@@ -127,8 +134,11 @@ The plan shows the resources as `will be imported`. Nothing is created again.
 
 - **Secrets are not exported.** Terraform leaves sensitive values out of generated configuration and
   writes `null # sensitive` instead. Fill them in before you apply:
-  - `axual_application_deployment`: `configs`, `definition` (KSML) and `sql_script` (Flink).
-    **Applying with `configs = null` clears the connector configuration.**
+  - `axual_application_principal`: `principal` (the certificate) and `private_key`. The API never
+    returns the private key, so the first apply stores it again; no new principal is created.
+  - `axual_application_deployment`: `configs`, `definition` (KSML) and `sql_script` (Flink). Until
+    you fill them in, the plan stops with `Missing configs` (or `definition`, `sql_script`), because
+    applying `null` would remove them on the platform and stop the deployment.
   - `axual_application_credential`: the password is never returned. A credential applied to another
     environment or installation is a new credential with a new password.
 - **Schema versions**: Terraform writes a JSON body with `jsonencode(...)`, which changes only the
@@ -138,9 +148,11 @@ The plan shows the resources as `will be imported`. Nothing is created again.
   with references or data sources first, and remove the `import` blocks.
 - **Users, instances and clusters** cannot be created with Terraform. `axual_user` can be listed, but
   only to manage users that already exist.
-- **Deployment states**: `axual_application_deployment_state` lists only deployments that are
-  `Running` or `Stopped`. A resource that cannot be read is skipped with a warning, so one broken
-  resource does not stop the whole export.
+- **Deployments on a Kafka Connect cluster** are generated with `autostart = false`, the only value
+  allowed there; add an `axual_application_deployment_state` to keep them running.
+- **Deployment states**: `terraform query` lists every deployment, but `-generate-config-out` writes
+  only those that are `Running` or `Stopped`; the others are skipped with a warning. A resource that
+  cannot be read is also skipped with a warning, so one broken resource does not stop the export.
 - You only see what your user or service account may see in Self-Service.
 
 ## Filters
@@ -155,6 +167,7 @@ The plan shows the resources as `will be imported`. Nothing is created again.
 | `axual_topic_config` | `topic`, `environment`, `owners` |
 | `axual_topic_browse_permissions` | `topic`, `environment`, `owners` |
 | `axual_schema_version` | `schema` |
+| `axual_application_principal` | `application`, `environment`, `owners` |
 | `axual_application_credential` | `application`, `environment`, `owners` |
 | `axual_application_access_grant` | `application`, `topic`, `environment`, `owners`, `access_type`, `status` |
 | `axual_application_access_grant_approval` | `application`, `topic`, `environment`, `owners`, `access_type` |
@@ -163,21 +176,19 @@ The plan shows the resources as `will be imported`. Nothing is created again.
 | `axual_application_deployment_state` | `application`, `environment`, `owners` |
 
 - `name`, `short_name` and `email` match when the value contains the text, ignoring case.
-- `owners`, `environment`, `application` and `topic` take an ID or an exact name (an environment or
-  application also by its short name). For `axual_topic_config`, `axual_application_credential` and
-  similar resources, `owners` means the owner of the topic or application they belong to.
+- `owners`, `environment`, `application` and `topic` take an ID or an exact name, with the same
+  upper and lower case (an environment or application also by its short name).
+- `owners` means the owner of the topic or application a resource belongs to. For
+  `axual_application_access_grant_approval` and `_rejection` it is the owner of the topic, the team
+  that approves; for `axual_application_access_grant` it is the owner of the application.
+- When you set more than one filter, a resource must match all of them.
 
-Two resources have no list resource:
-
-- `axual_application_principal`: a new certificate replaces the principal with a new one (a new ID)
-  in the same apply, and Terraform does not allow the identity of a resource to change. Its
-  certificate and private key could not be exported anyway. Import a principal by ID as before.
-- `axual_flink_cluster`: it needs an instance and cluster ID, and has no list resource yet.
+`axual_flink_cluster` has no list resource: it needs an instance and cluster ID.
 
 ## Importing a single resource by identity
 
-Every resource except `axual_flink_cluster` and `axual_application_principal` also accepts an
-`identity` in an `import` block, as an alternative to `id`:
+Every resource except `axual_flink_cluster` also accepts an `identity` in an `import` block, as an
+alternative to `id`:
 
 ```terraform
 import {

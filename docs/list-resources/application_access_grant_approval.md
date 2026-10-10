@@ -20,5 +20,5 @@ Lists the approvals of application access grants: every grant with status `Appro
 - `access_type` (String) Only grants of this access type: `PRODUCER` or `CONSUMER`.
 - `application` (String) Only grants of this application. Takes the application's ID, short name or exact name.
 - `environment` (String) Only grants on this environment. Takes the environment's ID, short name or exact name.
-- `owners` (String) Only grants of applications owned by this group. Takes the group's ID or its exact name.
+- `owners` (String) Only grants on topics owned by this group, the team that approves them. Takes the group's ID or its exact name.
 - `topic` (String) Only grants on this topic. Takes the topic's ID or exact name.

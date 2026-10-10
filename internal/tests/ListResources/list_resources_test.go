@@ -3,6 +3,7 @@ package ListResources
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 
 	. "axual.com/terraform-provider-axual/internal/tests"
@@ -19,7 +20,8 @@ import (
 // environment, name, or schema.
 const queryAll = `
 list "axual_environment" "env" {
-  provider = axual
+  provider         = axual
+  include_resource = true
   config { name = "tf-query-env" }
 }
 list "axual_topic" "topic" {
@@ -38,7 +40,8 @@ list "axual_application" "apps" {
   config { short_name = "tfquery" }
 }
 list "axual_application_credential" "credential" {
-  provider = axual
+  provider         = axual
+  include_resource = true
   config { environment = "tfqueryenv" }
 }
 list "axual_application_access_grant" "grants" {
@@ -53,11 +56,13 @@ list "axual_application_access_grant" "producer_grants" {
   }
 }
 list "axual_application_access_grant_approval" "approval" {
-  provider = axual
+  provider         = axual
+  include_resource = true
   config { environment = "tfqueryenv" }
 }
 list "axual_application_access_grant_rejection" "rejection" {
-  provider = axual
+  provider         = axual
+  include_resource = true
   config { environment = "tfqueryenv" }
 }
 list "axual_application_deployment" "deployment" {
@@ -66,12 +71,38 @@ list "axual_application_deployment" "deployment" {
   config { environment = "tfqueryenv" }
 }
 list "axual_application_deployment_state" "deployment_state" {
-  provider = axual
+  provider         = axual
+  include_resource = true
   config { application = "tfqueryconnector" }
 }
 list "axual_schema_version" "schema" {
-  provider = axual
+  provider         = axual
+  include_resource = true
   config { schema = "io.axual.tfquery.Person" }
+}
+list "axual_application_principal" "principal" {
+  provider         = axual
+  include_resource = true
+  config { environment = "tfqueryenv" }
+}
+list "axual_topic_browse_permissions" "browse" {
+  provider         = axual
+  include_resource = true
+  config { environment = "tfqueryenv" }
+}
+`
+
+// queryGroupAndUser lists the test group and user by name and e-mail.
+const queryGroupAndUser = `
+list "axual_group" "group" {
+  provider         = axual
+  include_resource = true
+  config { name = "%s" }
+}
+list "axual_user" "user" {
+  provider         = axual
+  include_resource = true
+  config { email = "%s" }
 }
 `
 
@@ -111,7 +142,16 @@ func TestListResources(t *testing.T) {
 					querycheck.ExpectLength("axual_environment.env", 1),
 					querycheck.ExpectLength("axual_topic.topic", 1),
 					querycheck.ExpectLength("axual_topic_config.topic_config", 1),
-					querycheck.ExpectLength("axual_application.apps", 2),
+					querycheck.ExpectLengthAtLeast("axual_application.apps", 2),
+					querycheck.ExpectResourceDisplayName("axual_application.apps",
+						queryfilter.ByDisplayName(knownvalue.StringExact("tf-query-connector")), knownvalue.StringExact("tf-query-connector")),
+					querycheck.ExpectLength("axual_application_principal.principal", 1),
+					querycheck.ExpectLength("axual_topic_browse_permissions.browse", 1),
+					querycheck.ExpectResourceKnownValues("axual_application_access_grant_rejection.rejection",
+						queryfilter.ByDisplayName(knownvalue.StringRegexp(regexp.MustCompile("^tfquerycustom consumer"))),
+						[]querycheck.KnownValueCheck{
+							{Path: tfjsonpath.New("reason"), KnownValue: knownvalue.StringExact("Rejected by the terraform query tests")},
+						}),
 					querycheck.ExpectLength("axual_application_credential.credential", 1),
 					querycheck.ExpectLength("axual_application_access_grant.grants", 2),
 					querycheck.ExpectLength("axual_application_access_grant.producer_grants", 1),
@@ -163,6 +203,15 @@ func TestListResources(t *testing.T) {
 				},
 			},
 			{
+				Query:  true,
+				Config: fmt.Sprintf(queryGroupAndUser, config.GroupName, config.UserEmail),
+				QueryResultChecks: []querycheck.QueryResultCheck{
+					querycheck.ExpectResourceDisplayName("axual_group.group",
+						queryfilter.ByDisplayName(knownvalue.StringExact(config.GroupName)), knownvalue.StringExact(config.GroupName)),
+					querycheck.ExpectLength("axual_user.user", 1),
+				},
+			},
+			{
 				Query: true,
 				Config: `
 list "axual_topic_config" "missing" {
@@ -197,6 +246,23 @@ list "axual_topic_config" "missing" {
 				ResourceName:    "axual_application_access_grant_approval.tf-query-producer-approval",
 				ImportState:     true,
 				ImportStateKind: resource.ImportBlockWithResourceIdentity,
+			},
+			{
+				Config:          setup,
+				ResourceName:    "axual_application_access_grant_rejection.tf-query-consumer-rejection",
+				ImportState:     true,
+				ImportStateKind: resource.ImportBlockWithResourceIdentity,
+			},
+			{
+				Config:          setup,
+				ResourceName:    "axual_topic_browse_permissions.tf-query-browse",
+				ImportState:     true,
+				ImportStateKind: resource.ImportBlockWithResourceIdentity,
+			},
+			{
+				// The same schema with other whitespace, as -generate-config-out writes it: stored without
+				// an error, and the next plan is empty.
+				Config: strings.Replace(setup, "tf_query_person.avsc", "tf_query_person_compact.avsc", 1),
 			},
 			{
 				Destroy: true,

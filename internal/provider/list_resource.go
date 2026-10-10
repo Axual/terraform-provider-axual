@@ -4,6 +4,7 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -60,8 +61,8 @@ func newListResource(provider AxualProvider, spec listSpec) list.ListResource {
 	return &axualListResource{provider: provider, spec: spec}
 }
 
-func (l *axualListResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = l.spec.typeName
+func (l *axualListResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + strings.TrimPrefix(l.spec.typeName, "axual")
 }
 
 func (l *axualListResource) ListResourceConfigSchema(_ context.Context, _ list.ListResourceSchemaRequest, resp *list.ListResourceSchemaResponse) {
@@ -105,10 +106,30 @@ func (l *axualListResource) List(ctx context.Context, req list.ListRequest, stre
 		})
 		return
 	}
+	// The API does not always return results in the same order. A stable order keeps the generated
+	// resource names (`<list>_0`, `<list>_1`, ...) the same from one export to the next.
+	sort.SliceStable(found, func(i, j int) bool {
+		if found[i].displayName != found[j].displayName {
+			return found[i].displayName < found[j].displayName
+		}
+		return found[i].id < found[j].id
+	})
 
 	stream.Results = func(push func(list.ListResult) bool) {
-		for i, f := range found {
-			if req.Limit > 0 && int64(i) >= req.Limit {
+		// Terraform stops reading at the limit, so warn before the results, not after them.
+		if req.Limit > 0 && int64(len(found)) > req.Limit {
+			var cut list.ListResult
+			cut.Diagnostics.AddWarning(
+				fmt.Sprintf("Only %d of %d %s results returned", req.Limit, len(found), l.spec.typeName),
+				fmt.Sprintf("The list block stops at its limit of %d. Set `limit` in the list block to %d or more to get all of them.", req.Limit, len(found)),
+			)
+			if !push(cut) {
+				return
+			}
+		}
+		pushed := int64(0)
+		for _, f := range found {
+			if req.Limit > 0 && pushed >= req.Limit {
 				return
 			}
 			result := req.NewListResult(ctx)
@@ -118,12 +139,11 @@ func (l *axualListResource) List(ctx context.Context, req list.ListRequest, stre
 				var fillDiags diag.Diagnostics
 				l.fillResource(ctx, req, f.id, &result, &fillDiags)
 				if fillDiags.HasError() {
-					// One resource that cannot be read must not stop the whole export. A result with only
-					// a warning (no identity) is shown to the user but generates no configuration.
+					// Skip with a warning, so one bad resource does not stop the export.
 					var skipped list.ListResult
 					skipped.Diagnostics.AddWarning(
 						fmt.Sprintf("Skipped %s %s", l.spec.typeName, f.id),
-						fmt.Sprintf("%s (%s) could not be read, so no configuration is generated for it: %s", f.displayName, f.id, errorSummary(fillDiags)),
+						fmt.Sprintf("No configuration is generated for %s (%s). %s", f.displayName, f.id, errorSummary(fillDiags)),
 					)
 					if !push(skipped) {
 						return
@@ -135,6 +155,7 @@ func (l *axualListResource) List(ctx context.Context, req list.ListRequest, stre
 			if !push(result) {
 				return
 			}
+			pushed++
 		}
 	}
 }

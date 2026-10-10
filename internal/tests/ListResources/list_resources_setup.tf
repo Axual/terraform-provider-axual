@@ -110,3 +110,12 @@ resource "axual_schema_version" "tf-query-schema" {
   description = "Schema for the terraform query tests"
   owners      = data.axual_group.test_group.id
 }
+
+data "axual_user" "ben" {
+  email = "ben.foo@example.com"
+}
+
+resource "axual_topic_browse_permissions" "tf-query-browse" {
+  topic_config = axual_topic_config.tf-query-topic-config.id
+  users        = [data.axual_user.ben.id]
+}

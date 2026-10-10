@@ -15,13 +15,8 @@ var _ resource.ResourceWithImportState = &identityResource{}
 var _ resource.ResourceWithIdentity = &identityResource{}
 var _ resource.ResourceWithModifyPlan = &identityResource{}
 
-// identityResource gives a resource a resource identity with one string attribute, the same value
-// the resource already accepts as its import ID. Terraform needs the identity for `terraform query`
-// and for `import` blocks with `identity`.
-//
-// The wrapped resource keeps all of its own logic. After Create, Read and Update the identity is
-// copied from the state attribute of the same name, and on import an identity is turned back into
-// the import ID.
+// identityResource adds a one-attribute identity (the import ID) to a resource, which `terraform
+// query` needs. It copies the identity from state after Create, Read, Update and ImportState.
 type identityResource struct {
 	resource.Resource
 	attr string
@@ -38,7 +33,7 @@ func (w *identityResource) IdentitySchema(_ context.Context, _ resource.Identity
 		Attributes: map[string]identityschema.Attribute{
 			w.attr: identityschema.StringAttribute{
 				RequiredForImport: true,
-				Description:       "The unique identifier of the resource in Axual Platform Manager.",
+				Description:       "The ID used to import this resource.",
 			},
 		},
 	}
@@ -51,6 +46,11 @@ func (w *identityResource) Create(ctx context.Context, req resource.CreateReques
 
 func (w *identityResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	w.Resource.Read(ctx, req, resp)
+	if resp.State.Raw.IsNull() {
+		// Removed, but the framework still needs an identity, also for a state without one (3.2.0).
+		w.copyIdentity(ctx, req.State, resp.Identity, &resp.Diagnostics)
+		return
+	}
 	w.copyIdentity(ctx, resp.State, resp.Identity, &resp.Diagnostics)
 }
 

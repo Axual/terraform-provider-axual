@@ -147,7 +147,7 @@ func (p *AxualProvider) Resources(ctx context.Context) []func() resource.Resourc
 		func() resource.Resource { return withIdentity(NewTopicResource(*p), "id") },
 		func() resource.Resource { return withIdentity(NewTopicConfigResource(*p), "id") },
 		func() resource.Resource { return withIdentity(NewEnvironmentResource(*p), "id") },
-		func() resource.Resource { return NewApplicationPrincipalResource(*p) },
+		func() resource.Resource { return withIdentity(NewApplicationPrincipalResource(*p), "id") },
 		func() resource.Resource { return withIdentity(NewSchemaVersionResource(*p), "id") },
 		func() resource.Resource { return withIdentity(NewApplicationAccessGrantResource(*p), "id") },
 		func() resource.Resource {

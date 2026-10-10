@@ -191,10 +191,8 @@ func (r *schemaVersionResource) Update(ctx context.Context, req resource.UpdateR
 		return
 	}
 
-	// A body that is the same JSON with other whitespace, for example after `terraform query
-	// -generate-config-out` wrote it with jsonencode, changes nothing on the platform: keep the new
-	// text in the state.
-	if sameJSON(plan.Body.ValueString(), state.Body.ValueString()) &&
+	// Same JSON with other whitespace (for example from jsonencode): only store the new text.
+	if sameJSON(plan.Body.ValueString(), state.Body.ValueString()) && plan.Type.Equal(state.Type) &&
 		plan.Version.Equal(state.Version) && plan.Description.Equal(state.Description) && plan.Owners.Equal(state.Owners) {
 		state.Body = plan.Body
 		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)

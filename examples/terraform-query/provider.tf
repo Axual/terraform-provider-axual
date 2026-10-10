@@ -1,8 +1,8 @@
 terraform {
   required_providers {
     axual = {
-      source  = "Axual/axual"
-      version = ">= 3.3.0" # the first version with terraform query support
+      source = "Axual/axual"
+      # terraform query needs a provider version with list resources (see the CHANGELOG)
     }
   }
 }
@@ -10,16 +10,12 @@ terraform {
 provider "axual" {
   # (String) URL that will be used by the client for all resource requests
   apiurl = "YOUR_API_URL"
-  # (String) Axual realm used for the requests
+  # (String) Axual realm used for the requests. This is your tenant's short name.
   realm = "YOUR_REALM"
-  # (String) Username for all requests. Will be used to acquire a token. It can be omitted if the environment variable AXUAL_AUTH_USERNAME is used.
-  username = "YOUR_USERNAME"
-  # (String, Sensitive) Password belonging to the user. It can be omitted if the environment variable AXUAL_AUTH_PASSWORD is used.
-  password = "YOUR_PASSWORD"
-  # (String) Client ID to be used for OAUTH
-  client_id = "YOUR_CLIENT_ID"
   # (String) Token url
   authurl = "YOUR_AUTH_URL"
-  # (List of String) OAuth authorization server scopes
-  scopes = ["openid", "profile", "email"]
+  # (String) Client ID of the service account. It can be omitted if the environment variable AXUAL_CLIENT_ID is set.
+  client_id = "YOUR_SERVICE_ACCOUNT_CLIENT_ID"
+  # (String, Sensitive) Client secret of the service account. It can be omitted if the environment variable AXUAL_CLIENT_SECRET is set.
+  client_secret = "YOUR_SERVICE_ACCOUNT_CLIENT_SECRET"
 }
