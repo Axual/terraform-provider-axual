@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"sort"
 	"strings"
 	"time"
@@ -659,7 +658,7 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 		return
 	}
 
-	status, err := r.provider.client.GetApplicationDeploymentStatus(planData.Id.ValueString())
+	status, err := getDeploymentStatus(ctx, r.provider.client, planData.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get Application Deployment status, got error: %s", err))
 		return
@@ -1159,7 +1158,7 @@ func isOnlyAutostartChange(state *ApplicationDeploymentResourceData, plan *Appli
 // `stop` and `delete` are already gone or offered while a Flink job is still draining.
 // Running out of attempts is not an error: the caller lets the API decide, as Delete always did.
 func stopDeploymentAndWait(ctx context.Context, client *webclient.Client, id string, deploymentType string) error {
-	status, err := client.GetApplicationDeploymentStatus(id)
+	status, err := getDeploymentStatus(ctx, client, id)
 	if err != nil {
 		return fmt.Errorf("unable to get Application Deployment status, got error: %s", err)
 	}
@@ -1176,7 +1175,7 @@ func stopDeploymentAndWait(ctx context.Context, client *webclient.Client, id str
 	started := time.Now()
 	for i := 0; i < attempts; i++ {
 		time.Sleep(delay)
-		status, err := client.GetApplicationDeploymentStatus(id)
+		status, err := getDeploymentStatus(ctx, client, id)
 		if err != nil {
 			return fmt.Errorf("unable to get Application Deployment status while waiting for it to stop, got error: %s", err)
 		}
@@ -1196,7 +1195,7 @@ func stopWithRetry(ctx context.Context, client *webclient.Client, id string, dep
 	for i := 0; i < stopAttempts; i++ {
 		if i > 0 {
 			time.Sleep(stopRetryDelay)
-			status, statusErr := client.GetApplicationDeploymentStatus(id)
+			status, statusErr := getDeploymentStatus(ctx, client, id)
 			if statusErr == nil && !shouldStopDeployment(deploymentType, status) {
 				return nil
 			}
@@ -1208,7 +1207,7 @@ func stopWithRetry(ctx context.Context, client *webclient.Client, id string, dep
 			return nil
 		}
 		if !isRetryableStopError(err) {
-			if status, statusErr := client.GetApplicationDeploymentStatus(id); statusErr == nil && !shouldStopDeployment(deploymentType, status) {
+			if status, statusErr := getDeploymentStatus(ctx, client, id); statusErr == nil && !shouldStopDeployment(deploymentType, status) {
 				return nil
 			}
 			return err
@@ -1221,17 +1220,7 @@ func stopWithRetry(ctx context.Context, client *webclient.Client, id string, dep
 // isRetryableStopError reports whether a STOP may succeed when sent again: a 5xx or a failed request
 // can, a 4xx cannot.
 func isRetryableStopError(err error) bool {
-	if errors.Is(err, webclient.NotFoundError) {
-		return false
-	}
-	if isConflict(err) {
-		return true
-	}
-	var httpErr *webclient.HTTPError
-	if errors.As(err, &httpErr) {
-		return httpErr.StatusCode >= http.StatusInternalServerError
-	}
-	return true
+	return isConflict(err) || isTransientError(err)
 }
 
 // stopWaitBudget is how long stopDeploymentAndWait waits for the given type to come to a halt.
@@ -1262,7 +1251,7 @@ func deleteWithRetry(deploymentType string, delay time.Duration, deleteDeploymen
 // once the action was accepted; the caller decides whether the error fails the apply. A stopped
 // FLINK_SQL deployment offers `resume`, not `start`, so the rel decides which action is sent.
 func startApplicationDeployment(ctx context.Context, client *webclient.Client, id string, deploymentType string, retryDelay time.Duration) error {
-	status, err := client.GetApplicationDeploymentStatus(id)
+	status, err := getDeploymentStatus(ctx, client, id)
 	if err != nil {
 		return fmt.Errorf("unable to get Application Deployment status before starting it: %s", err)
 	}
@@ -1280,7 +1269,7 @@ func startApplicationDeployment(ctx context.Context, client *webclient.Client, i
 			return nil
 		}
 		time.Sleep(startWaitDelay)
-		if status, err = client.GetApplicationDeploymentStatus(id); err != nil {
+		if status, err = getDeploymentStatus(ctx, client, id); err != nil {
 			return fmt.Errorf("unable to get Application Deployment status while waiting for it to become startable: %s", err)
 		}
 		action = startActionFor(status)
@@ -1306,7 +1295,7 @@ func startApplicationDeployment(ctx context.Context, client *webclient.Client, i
 
 	// The START may still have gone through on a request whose response was lost, so a deployment
 	// that reports itself running counts as success rather than a failure.
-	if currentStatus, statusErr := client.GetApplicationDeploymentStatus(id); statusErr == nil && isDeploymentRunning(deploymentType, currentStatus) {
+	if currentStatus, statusErr := getDeploymentStatus(ctx, client, id); statusErr == nil && isDeploymentRunning(deploymentType, currentStatus) {
 		tflog.Info(ctx, "START reported an error but the Application Deployment is running")
 		return nil
 	}

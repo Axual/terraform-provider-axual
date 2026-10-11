@@ -134,7 +134,7 @@ func (r *applicationDeploymentStateResource) Read(ctx context.Context, req resou
 		resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to read Application Deployment %s, got error: %s", data.ApplicationDeployment.ValueString(), err))
 		return
 	}
-	status, err := r.provider.client.GetApplicationDeploymentStatus(data.ApplicationDeployment.ValueString())
+	status, err := getDeploymentStatus(ctx, r.provider.client, data.ApplicationDeployment.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to read the status of Application Deployment %s, got error: %s", data.ApplicationDeployment.ValueString(), err))
 		return
@@ -240,7 +240,7 @@ func (r *applicationDeploymentStateResource) apply(ctx context.Context, data *ap
 		return
 	}
 
-	status, err := r.provider.client.GetApplicationDeploymentStatus(id)
+	status, err := getDeploymentStatus(ctx, r.provider.client, id)
 	if err != nil {
 		addError("API Error", fmt.Sprintf("Unable to read the status of Application Deployment %s, got error: %s", id, err))
 		return
@@ -250,7 +250,7 @@ func (r *applicationDeploymentStateResource) apply(ctx context.Context, data *ap
 
 // run starts the deployment, or restarts it when it has failed, and waits until it runs.
 func (r *applicationDeploymentStateResource) run(ctx context.Context, id string, deploymentType string) error {
-	status, err := r.provider.client.GetApplicationDeploymentStatus(id)
+	status, err := getDeploymentStatus(ctx, r.provider.client, id)
 	if err != nil {
 		return fmt.Errorf("unable to get Application Deployment status: %s", err)
 	}
@@ -313,7 +313,7 @@ func (r *applicationDeploymentStateResource) stop(ctx context.Context, id string
 	if err := stopDeploymentAndWait(ctx, r.provider.client, id, deploymentType); err != nil {
 		return err
 	}
-	status, err := r.provider.client.GetApplicationDeploymentStatus(id)
+	status, err := getDeploymentStatus(ctx, r.provider.client, id)
 	if err != nil {
 		return fmt.Errorf("unable to get Application Deployment status after stopping it: %s", err)
 	}
@@ -327,7 +327,7 @@ func (r *applicationDeploymentStateResource) waitUntilRunning(ctx context.Contex
 	var status *webclient.ApplicationDeploymentStatusResponse
 	var err error
 	for i := 0; i < runningWaitAttempts; i++ {
-		status, err = r.provider.client.GetApplicationDeploymentStatus(id)
+		status, err = getDeploymentStatus(ctx, r.provider.client, id)
 		if err != nil {
 			return fmt.Errorf("unable to get Application Deployment status while waiting for it to run: %s", err)
 		}
@@ -355,7 +355,7 @@ const connectorStateFailed = "Failed"
 func resetConnector(ctx context.Context, client *webclient.Client, id string) (string, error) {
 	state := ""
 	for i := 0; i < resetWaitAttempts; i++ {
-		status, err := client.GetApplicationDeploymentStatus(id)
+		status, err := getDeploymentStatus(ctx, client, id)
 		if err != nil {
 			return "", fmt.Errorf("unable to get Application Deployment status before resetting it: %s", err)
 		}
