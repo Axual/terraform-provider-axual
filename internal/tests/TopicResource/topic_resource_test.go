@@ -30,14 +30,14 @@ func TestTopicResource(t *testing.T) {
 				ImportStateVerify: true,
 			},
 			{
-				// GitHub #114: import by name instead of ID
+				// Import by name instead of ID
 				ResourceName:      "axual_topic.topic-test",
 				ImportState:       true,
 				ImportStateId:     "name:test-topic",
 				ImportStateVerify: true,
 			},
 			{
-				// GitHub #177: tags
+				// Tags
 				Config: GetProvider() + GetFile("axual_string_topic_tags.tf"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("axual_topic.topic-test", "tags.#", "2"),

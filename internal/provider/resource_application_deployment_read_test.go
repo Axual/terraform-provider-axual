@@ -25,7 +25,7 @@ func readDeploymentAgainst(t *testing.T, handler http.HandlerFunc) resource.Read
 	return resp
 }
 
-// AXPD-12369: a deployment deleted outside Terraform is removed from the state, so the next plan creates it again.
+// A deployment deleted outside Terraform is removed from the state, so the next plan creates it again.
 func TestDeploymentReadRemovesAGoneDeployment(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -6,7 +6,8 @@ User resource. Creating new users via Terraform is not supported. Use the axual_
 
 Terraform cannot create users. Users created through the API were only added to Self-Service, not to the
 authentication provider (for example Keycloak), so they could not log in. Reference a user with the
-`axual_user` data source, or import the user (see Import below).
+[`axual_user` data source](https://registry.terraform.io/providers/Axual/axual/latest/docs/data-sources/user)
+(see the example below), or import the user (see Import below).
 
 ### Creating new users
 
@@ -88,7 +89,7 @@ terraform import axual_user.<LOCAL NAME> email:<EMAIL ADDRESS>
 terraform import axual_user.test_user 'email:jane.doe@example.com'
 ```
 
-The email address must match exactly, case included. An `import` block (Terraform 1.5 or later) takes the same IDs:
+The case of the email address does not matter. An `import` block (Terraform 1.5 or later) takes the same IDs:
 
 ```terraform
 import {

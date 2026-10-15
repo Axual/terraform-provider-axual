@@ -52,7 +52,7 @@ func TestTopicConfigResource(t *testing.T) {
 				ImportStateVerify: true,
 			},
 			{
-				// GitHub #114: import by name instead of ID
+				// Import by name instead of ID
 				ResourceName:      "axual_topic_config.tf-topic-config",
 				ImportState:       true,
 				ImportStateId:     "name:test-topic/tfdev",

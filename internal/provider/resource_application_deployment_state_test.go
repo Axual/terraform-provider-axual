@@ -29,7 +29,7 @@ type fakeConnector struct {
 	failAfter bool // a START ends in Failed instead of Running
 	gone      bool // the deployment does not exist
 	noReset   bool // a stopped connector is never offered RESET
-	// resetWhenFailed: a failed connector is offered RESET, as on Platform Manager with AXPD-12387.
+	// resetWhenFailed: a failed connector is offered RESET, as on newer Platform Manager versions.
 	resetWhenFailed bool
 	// recoversIn is how many status reads a Failed connector stays failed before it runs on its own.
 	recoversIn int
@@ -504,7 +504,7 @@ func TestMapLiveStatus(t *testing.T) {
 	}
 }
 
-// AXPD-12369: a Failed connector gets a warning at once, and no RESET is sent.
+// A Failed connector gets a warning at once, and no RESET is sent.
 func TestStateResourceDeleteWarnsAtOnceForAFailedConnector(t *testing.T) {
 	fake := &fakeConnector{state: "Failed", taskStatus: "Failed", stopKeepsFailed: true}
 	r := newStateResourceAgainst(t, fake)
@@ -521,7 +521,7 @@ func TestStateResourceDeleteWarnsAtOnceForAFailedConnector(t *testing.T) {
 	}
 }
 
-// AXPD-12369: a STOP that fails (a 500 during a worker rebalance) is retried, like START.
+// A STOP that fails (a 500 during a worker rebalance) is retried, like START.
 func TestStopIsRetried(t *testing.T) {
 	fake := &fakeConnector{state: "Running", taskStatus: "Running", stopFails: 2}
 	r := newStateResourceAgainst(t, fake)
@@ -560,7 +560,7 @@ func TestStopGivesUpAfterTheLastAttempt(t *testing.T) {
 	}
 }
 
-// Platform Manager with AXPD-12387 offers RESET for a failed connector: it is sent at once, with no warning.
+// A newer Platform Manager offers RESET for a failed connector: it is sent at once, with no warning.
 func TestStateResourceDeleteResetsAFailedConnectorWhenResetIsOffered(t *testing.T) {
 	fake := &fakeConnector{state: "Failed", taskStatus: "Failed", stopKeepsFailed: true, resetWhenFailed: true}
 	r := newStateResourceAgainst(t, fake)

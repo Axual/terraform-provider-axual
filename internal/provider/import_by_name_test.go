@@ -58,7 +58,7 @@ func importedID(t *testing.T, resp resource.ImportStateResponse) string {
 	return id.ValueString()
 }
 
-// GitHub #114: a topic is imported by name; the name must match exactly, case included.
+// A topic is imported by name; the name must match exactly, case included.
 func TestTopicImportByName(t *testing.T) {
 	resp := importTopic(t, "name:payments")
 	if resp.Diagnostics.HasError() {
@@ -127,5 +127,9 @@ func TestFindUserIDByEmail(t *testing.T) {
 	client := fakeSearchAPI(t)
 	if id, err := findUserIDByEmail(client, "jane@example.com"); err != nil || id != "u1" {
 		t.Errorf("jane@example.com = (%q, %v), expected u1", id, err)
+	}
+	// An email address does not depend on case
+	if id, err := findUserIDByEmail(client, "Jane@EXAMPLE.com"); err != nil || id != "u1" {
+		t.Errorf("Jane@EXAMPLE.com = (%q, %v), expected u1", id, err)
 	}
 }

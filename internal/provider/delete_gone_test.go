@@ -3,12 +3,16 @@ package provider
 import (
 	webclient "axual-webclient"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -34,22 +38,10 @@ func TestIsGone(t *testing.T) {
 	}
 }
 
-func TestIsConflict(t *testing.T) {
-	if !isConflict(&webclient.HTTPError{StatusCode: 409, Body: `{"message":"Could not commit changes!"}`}) {
-		t.Error("409 is a conflict")
-	}
-	if !isConflict(&webclient.HTTPError{StatusCode: 403, Body: "org.springframework.orm.ObjectOptimisticLockingFailureException: ..."}) {
-		t.Error("403 optimistic lock is a conflict")
-	}
-	if isConflict(&webclient.HTTPError{StatusCode: 403, Body: "Forbidden"}) {
-		t.Error("a plain 403 is not a conflict")
-	}
-}
-
 func TestDeleteRetriesAConflict(t *testing.T) {
 	t.Cleanup(shorten(&conflictDelay))
 	calls := 0
-	err := deleteWithRetry(connectorApplicationType, 0, func() error {
+	err := deleteWithRetry(context.Background(), connectorApplicationType, 0, func() error {
 		calls++
 		if calls < 3 {
 			return &webclient.HTTPError{StatusCode: 409, Body: `{"message":"Could not commit changes!"}`}
@@ -226,5 +218,72 @@ func TestStopRefusedAsStoppedWhileWorkerStillRuns(t *testing.T) {
 	})
 	if err := stopWithRetry(context.Background(), client, "d1", connectorApplicationType); err != nil {
 		t.Errorf("stop error = %v, expected none", err)
+	}
+}
+
+// Ctrl+C cancels the context: no further STOP is sent, and the wait stops at once.
+func TestStopRetryStopsWhenCancelled(t *testing.T) {
+	saved := stopRetryDelay
+	stopRetryDelay = time.Minute
+	t.Cleanup(func() { stopRetryDelay = saved })
+	var stops int32
+	client := fakePM(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			atomic.AddInt32(&stops, 1)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		_, _ = w.Write([]byte(`{"connectorState":{"state":"Running"},"_links":{"stop":{"href":"http://pm/stop"}}}`))
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	started := time.Now()
+	err := stopWithRetry(ctx, client, "d1", connectorApplicationType)
+	if !errors.Is(err, context.Canceled) || atomic.LoadInt32(&stops) != 1 || time.Since(started) > 5*time.Second {
+		t.Errorf("err = %v after %d STOPs in %s, expected context.Canceled after 1 STOP at once", err, stops, time.Since(started))
+	}
+}
+
+func TestRetryIfStopsWhenCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	calls := 0
+	err := RetryIf(ctx, 5, time.Minute, func(error) bool { return true }, func() error {
+		calls++
+		return errors.New("conflict")
+	})
+	if !errors.Is(err, context.Canceled) || calls != 1 {
+		t.Errorf("err = %v after %d calls, expected context.Canceled after 1 call", err, calls)
+	}
+}
+
+// Destroy of a resource that was deleted outside Terraform is done, not an error.
+func TestDeleteAcceptsAGoneResource(t *testing.T) {
+	client := fakePM(t, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) })
+	provider := AxualProvider{client: client}
+	flinkCluster := &flinkClusterResource{provider: provider}
+	registries := emptyState(t, flinkCluster).Schema.GetAttributes()["schema_registries"].GetType().(types.ListType)
+	tests := map[string]struct {
+		resource resource.Resource
+		data     any
+	}{
+		"user": {&userResource{provider: provider}, &userResourceData{Id: types.StringValue("u1"), Roles: types.SetNull(roleObjectType)}},
+		"flink cluster": {flinkCluster, &FlinkClusterResourceData{
+			Id: types.StringValue("f1"), InstanceId: types.StringValue("i1"), ClusterId: types.StringValue("c1"),
+			SchemaRegistries: types.ListNull(registries.ElemType),
+		}},
+		"topic browse permissions": {&topicBrowsePermissionsResource{provider: provider}, &topicBrowsePermissionsResourceData{
+			TopicConfig: types.StringValue("tc1"),
+			Users:       types.SetValueMust(types.StringType, []attr.Value{types.StringValue("u1")}),
+			Groups:      types.SetNull(types.StringType),
+		}},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			if resp := deleteResource(t, test.resource, test.data); resp.Diagnostics.HasError() {
+				t.Errorf("delete error = %v, expected none for a resource that is gone", resp.Diagnostics)
+			}
+		})
 	}
 }

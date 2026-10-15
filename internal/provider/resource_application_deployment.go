@@ -755,7 +755,7 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 
 	// No `delete` rel pre-check (AXPD-11714): a draining Flink job still offers it, a failed
 	// deployment does not.
-	if err := deleteWithRetry(data.Type.ValueString(), flinkDeleteDelay, func() error {
+	if err := deleteWithRetry(ctx, data.Type.ValueString(), flinkDeleteDelay, func() error {
 		return ignoreGone(r.provider.client.DeleteApplicationDeployment(data.Id.ValueString()))
 	}); err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete Application Deployment, got error: %s", err))
@@ -1194,7 +1194,9 @@ func stopWithRetry(ctx context.Context, client *webclient.Client, id string, dep
 	var err error
 	for i := 0; i < stopAttempts; i++ {
 		if i > 0 {
-			time.Sleep(stopRetryDelay)
+			if waitErr := sleepCtx(ctx, stopRetryDelay); waitErr != nil {
+				return waitErr
+			}
 			status, statusErr := getDeploymentStatus(ctx, client, id)
 			if statusErr == nil && !shouldStopDeployment(deploymentType, status) {
 				return nil
@@ -1233,12 +1235,12 @@ func stopWaitBudget(deploymentType string) (int, time.Duration) {
 // deleteWithRetry retries only a FLINK_SQL delete: the stop wait gives up rather than failing, and
 // Ververica refuses the DELETE for as long as its job is not in a terminal state. Every other type
 // is deleted once and its error returned unchanged.
-func deleteWithRetry(deploymentType string, delay time.Duration, deleteDeployment func() error) error {
+func deleteWithRetry(ctx context.Context, deploymentType string, delay time.Duration, deleteDeployment func() error) error {
 	if isFlinkSQL(deploymentType) {
 		return Retry(flinkDeleteAttempts, delay, deleteDeployment)
 	}
 	// A concurrent change of the same deployment (409, optimistic lock) is retried.
-	return RetryIf(conflictAttempts, conflictDelay, isConflict, deleteDeployment)
+	return RetryIf(ctx, conflictAttempts, conflictDelay, isConflict, deleteDeployment)
 }
 
 // startApplicationDeployment starts or resumes the deployment and returns nil once it is running or

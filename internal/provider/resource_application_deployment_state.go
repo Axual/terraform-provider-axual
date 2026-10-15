@@ -287,7 +287,7 @@ const failedPollsAfterRestart = 5
 // RESTART leaves failed tasks failed. It reports whether it restarted anything.
 func restartFailedConnector(ctx context.Context, client *webclient.Client, id string, status *webclient.ApplicationDeploymentStatusResponse) (bool, error) {
 	restarted := false
-	if strings.EqualFold(status.ConnectorState.State, "Failed") && status.Links.Has(webclient.RelRestart) {
+	if strings.EqualFold(status.ConnectorState.State, connectorStateFailed) && status.Links.Has(webclient.RelRestart) {
 		tflog.Info(ctx, fmt.Sprintf("Application Deployment %s has failed, restarting it", id))
 		if err := operateDeployment(client, id, actionRestart); err != nil {
 			return false, fmt.Errorf("unable to restart the failed Application Deployment: %s", err)
@@ -295,7 +295,7 @@ func restartFailedConnector(ctx context.Context, client *webclient.Client, id st
 		restarted = true
 	}
 	for _, task := range status.TaskStates {
-		if !strings.EqualFold(task.Status, "Failed") {
+		if !strings.EqualFold(task.Status, connectorStateFailed) {
 			continue
 		}
 		tflog.Info(ctx, fmt.Sprintf("Task %d of Application Deployment %s has failed, restarting it", task.Id, id))
@@ -362,7 +362,7 @@ func resetConnector(ctx context.Context, client *webclient.Client, id string) (s
 		if status.Links.Has(webclient.RelReset) {
 			return "", sendReset(ctx, client, id)
 		}
-		if state == connectorStateFailed {
+		if strings.EqualFold(state, connectorStateFailed) {
 			// A failed connector stays Failed after STOP, so waiting for RESET does not help.
 			break
 		}
@@ -372,7 +372,7 @@ func resetConnector(ctx context.Context, client *webclient.Client, id string) (s
 		}
 		time.Sleep(resetWaitDelay)
 	}
-	if state == connectorStateFailed {
+	if strings.EqualFold(state, connectorStateFailed) {
 		return fmt.Sprintf("Application Deployment %s could not be reset: its connector is Failed and Platform Manager "+
 			"does not offer RESET. Deleting its principal can fail. Restart the connector, or delete the deployment "+
 			"in the Self-Service UI, then apply again.", id), nil
@@ -411,7 +411,7 @@ func (r *applicationDeploymentStateResource) deploymentType(id string) (string, 
 func observedDeploymentState(deploymentType string, status *webclient.ApplicationDeploymentStatusResponse) string {
 	if isConnector(deploymentType) && status.ConnectorState.State == "Running" {
 		for _, task := range status.TaskStates {
-			if strings.EqualFold(task.Status, "Failed") {
+			if strings.EqualFold(task.Status, connectorStateFailed) {
 				return deploymentStateFailed
 			}
 		}

@@ -26,8 +26,7 @@ func topicRequestTags(t *testing.T, tags types.Set) string {
 	return string(body)
 }
 
-// GitHub #177: tags left out (unknown at create, or kept from state) are not sent, so Platform
-// Manager keeps the tags set in the UI; tags = [] is sent as [] and removes them.
+// Unknown tags are not sent; tags = [] is sent and removes them.
 func TestTopicRequestSendsTagsOnlyWhenSet(t *testing.T) {
 	if body := topicRequestTags(t, types.SetUnknown(types.StringType)); strings.Contains(body, `"tags"`) {
 		t.Errorf("unknown tags sent: %s", body)

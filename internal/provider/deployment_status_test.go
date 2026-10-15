@@ -6,10 +6,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -72,7 +77,10 @@ func TestIsTransientError(t *testing.T) {
 		expected bool
 	}{
 		{name: "5xx", err: &webclient.HTTPError{StatusCode: http.StatusInternalServerError}, expected: true},
-		{name: "no answer", err: &url.Error{Op: "Get", URL: "https://pm", Err: errors.New("connection refused")}, expected: true},
+		{name: "connection refused", err: &url.Error{Op: "Get", URL: "https://pm", Err: &net.OpError{Op: "dial", Err: os.NewSyscallError("connect", syscall.ECONNREFUSED)}}, expected: true},
+		{name: "connection dropped", err: &url.Error{Op: "Get", URL: "https://pm", Err: io.EOF}, expected: true},
+		{name: "timeout", err: &url.Error{Op: "Get", URL: "https://pm", Err: context.DeadlineExceeded}, expected: true},
+		{name: "unknown host", err: &url.Error{Op: "Get", URL: "https://pm", Err: &net.DNSError{Err: "no such host", Name: "pm", IsNotFound: true}}, expected: false},
 		{name: "404", err: webclient.NotFoundError, expected: false},
 		{name: "422", err: webclient.UnprocessableEntityError, expected: false},
 		{name: "4xx", err: &webclient.HTTPError{StatusCode: http.StatusBadRequest}, expected: false},
@@ -85,6 +93,43 @@ func TestIsTransientError(t *testing.T) {
 				t.Errorf("isTransientError() = %t, expected %t", got, test.expected)
 			}
 		})
+	}
+}
+
+// Errors that a retry cannot fix fail at once, also when they come from the network.
+func TestStatusReadDoesNotRetryABadCertificateOrURL(t *testing.T) {
+	t.Cleanup(shorten(&statusRetryDelay))
+	var calls int32
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { atomic.AddInt32(&calls, 1) }))
+	t.Cleanup(server.Close)
+	tests := map[string]*webclient.Client{
+		"untrusted certificate":       {HTTPClient: &http.Client{}, ApiURL: server.URL},
+		"unsupported protocol scheme": {HTTPClient: server.Client(), ApiURL: "htps://pm"},
+	}
+	for name, client := range tests {
+		t.Run(name, func(t *testing.T) {
+			started := time.Now()
+			_, err := getDeploymentStatus(context.Background(), client, "d1")
+			if err == nil || strings.Contains(err.Error(), "attempts") || time.Since(started) > time.Second {
+				t.Errorf("err = %v in %s, expected the first error at once", err, time.Since(started))
+			}
+		})
+	}
+	if calls != 0 {
+		t.Errorf("the handler was called %d times, expected 0", calls)
+	}
+}
+
+// A real connection refused is retried, because Platform Manager can be starting.
+func TestStatusReadRetriesARefusedConnection(t *testing.T) {
+	t.Cleanup(shorten(&statusRetryDelay))
+	server := httptest.NewServer(http.NotFoundHandler())
+	server.Close()
+	client := &webclient.Client{HTTPClient: &http.Client{}, ApiURL: server.URL}
+
+	_, err := getDeploymentStatus(context.Background(), client, "d1")
+	if err == nil || !strings.Contains(err.Error(), fmt.Sprintf("after %d attempts", statusAttempts)) {
+		t.Errorf("err = %v, expected it after %d attempts", err, statusAttempts)
 	}
 }
 

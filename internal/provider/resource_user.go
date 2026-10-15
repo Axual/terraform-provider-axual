@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -35,13 +36,16 @@ type userResourceData struct {
 	LastName     types.String `tfsdk:"last_name"`
 	EmailAddress types.String `tfsdk:"email_address"`
 	PhoneNumber  types.String `tfsdk:"phone_number"`
-	Roles        []Role       `tfsdk:"roles"`
+	Roles        types.Set    `tfsdk:"roles"`
 	Id           types.String `tfsdk:"id"`
 }
 
 type Role struct {
 	Name types.String `tfsdk:"name"`
 }
+
+// roleObjectType is the type of one element of roles.
+var roleObjectType = types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType}}
 
 func (r *userResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_user"
@@ -149,7 +153,12 @@ func (r *userResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
-	userRequest := createUserRequestFromData(ctx, &data)
+	roles, err := r.desiredRoles(ctx, data)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read the roles of user %s, got error: %s", data.Id.ValueString(), err))
+		return
+	}
+	userRequest := createUserRequestFromData(ctx, &data, roles)
 
 	user, err := r.provider.client.UpdateUser(data.Id.ValueString(), userRequest)
 	if err != nil {
@@ -173,7 +182,7 @@ func (r *userResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		return
 	}
 
-	err := r.provider.client.DeleteUser(data.Id.ValueString())
+	err := ignoreGone(r.provider.client.DeleteUser(data.Id.ValueString()))
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete user, got error: %s", err))
 		return
@@ -186,17 +195,42 @@ func (r *userResource) ImportState(ctx context.Context, req resource.ImportState
 	})
 }
 
-func mapUserResponseToData(_ context.Context, data *userResourceData, user *webclient.UserResponse) {
+// desiredRoles returns the roles to send. Unknown roles (left out, while the state has none, for example
+// a state from 3.2.x with -refresh=false) keep the roles the user has.
+func (r *userResource) desiredRoles(ctx context.Context, data userResourceData) ([]Role, error) {
+	if data.Roles.IsUnknown() || data.Roles.IsNull() {
+		user, err := r.provider.client.GetUser(data.Id.ValueString())
+		if err != nil {
+			return nil, err
+		}
+		return rolesOf(user), nil
+	}
+	var roles []Role
+	if diags := data.Roles.ElementsAs(ctx, &roles, false); diags.HasError() {
+		return nil, fmt.Errorf("unable to read the planned roles: %v", diags)
+	}
+	return roles, nil
+}
+
+func rolesOf(user *webclient.UserResponse) []Role {
+	roles := make([]Role, 0, len(user.Roles))
+	for _, role := range user.Roles {
+		roles = append(roles, Role{Name: types.StringValue(role.Name)})
+	}
+	return roles
+}
+
+func mapUserResponseToData(ctx context.Context, data *userResourceData, user *webclient.UserResponse) {
 	// mandatory fields first
 	data.Id = types.StringValue(user.Uid)
 	data.FirstName = types.StringValue(user.FirstName)
 	data.LastName = types.StringValue(user.LastName)
 	data.EmailAddress = types.StringValue(user.EmailAddress.Email)
-	newRoles := make([]Role, 0, len(user.Roles))
-	for _, role := range user.Roles {
-		newRoles = append(newRoles, Role{Name: types.StringValue(role.Name)})
+	roles, diags := types.SetValueFrom(ctx, roleObjectType, rolesOf(user))
+	if diags.HasError() {
+		tflog.Error(ctx, "Error creating roles set")
 	}
-	data.Roles = newRoles
+	data.Roles = roles
 
 	// optional fields
 	if user.PhoneNumber == nil {
@@ -212,14 +246,14 @@ func mapUserResponseToData(_ context.Context, data *userResourceData, user *webc
 	}
 }
 
-func createUserRequestFromData(ctx context.Context, data *userResourceData) webclient.UserRequest {
+func createUserRequestFromData(ctx context.Context, data *userResourceData, desiredRoles []Role) webclient.UserRequest {
 	// mandatory fields
 	// Not nil: a nil slice is sent as JSON null, which the roles endpoint refuses; [] clears the roles.
-	roles := make([]webclient.UserRole, 0, len(data.Roles))
-	for _, raw := range data.Roles {
+	roles := make([]webclient.UserRole, 0, len(desiredRoles))
+	for _, raw := range desiredRoles {
 		roles = append(roles, webclient.UserRole{Name: raw.Name.ValueString()})
 	}
-	tflog.Info(ctx, fmt.Sprintf("Desired roles list size %d", len(data.Roles)))
+	tflog.Info(ctx, fmt.Sprintf("Desired roles list size %d", len(desiredRoles)))
 	tflog.Info(ctx, fmt.Sprintf("Creating new roles list of size %d", len(roles)))
 	userRequest := webclient.UserRequest{
 		FirstName:    data.FirstName.ValueString(),

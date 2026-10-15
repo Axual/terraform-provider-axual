@@ -245,7 +245,7 @@ func (r *flinkClusterResource) Delete(ctx context.Context, req resource.DeleteRe
 		return
 	}
 
-	err := r.provider.client.DeleteFlinkCluster(data.InstanceId.ValueString(), data.ClusterId.ValueString(), data.Id.ValueString())
+	err := ignoreGone(r.provider.client.DeleteFlinkCluster(data.InstanceId.ValueString(), data.ClusterId.ValueString(), data.Id.ValueString()))
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete Flink Cluster, got error: %s", err))
 		return

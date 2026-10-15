@@ -42,7 +42,7 @@ func TestGroupResource(t *testing.T) {
 				ImportStateVerify: true,
 			},
 			{
-				// GitHub #114: import by name instead of ID
+				// Import by name instead of ID
 				ResourceName:      "axual_group.team-integrations",
 				ImportState:       true,
 				ImportStateId:     "name:updatedgroup9999",

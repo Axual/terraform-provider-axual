@@ -234,12 +234,9 @@ func (r *applicationResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	// Deleting an Application cascades over its deployments, principals, credentials and access
-	// grants (ApplicationEventHandler.deleteCascade). When Terraform has just revoked the grants,
-	// the platform is often still writing those `application_access` rows, so the cascade loses the
-	// optimistic lock and the whole delete is rejected with a 409 "Could not commit changes!".
-	// That conflict is transient, so it - and only it - is retried.
-	err := RetryIf(applicationDeleteAttempts, applicationDeleteDelay, isConflict, func() error {
+	// The delete cascades over just-revoked access grants and can lose the optimistic lock (409, or
+	// 403 OptimisticLocking). That conflict is transient, so it is retried.
+	err := RetryIf(ctx, applicationDeleteAttempts, applicationDeleteDelay, isConflict, func() error {
 		err := r.provider.client.DeleteApplication(data.Id.ValueString())
 		if isConflict(err) {
 			tflog.Info(ctx, fmt.Sprintf("Application %s could not be deleted yet (%s)", data.Id.ValueString(), err))

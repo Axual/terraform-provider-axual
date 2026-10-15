@@ -12,7 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 )
 
-// Import ID prefixes for importing by name instead of ID (GitHub #114).
+// Import ID prefixes for importing by name instead of ID.
 const (
 	importByNamePrefix  = "name:"
 	importByEmailPrefix = "email:"
@@ -46,15 +46,17 @@ type keyedID struct {
 }
 
 // onlyExactMatch runs search and returns the one ID whose key equals key exactly. Platform Manager's
-// searches ignore case, so a result can differ from key in case only.
+// searches ignore case, so a result can differ from key in case only. An email address does not
+// depend on case, so a user matches in any case.
 func onlyExactMatch(kind string, key string, search func() ([]keyedID, error)) (string, error) {
 	found, err := search()
 	if err != nil && !errors.Is(err, webclient.NotFoundError) {
 		return "", fmt.Errorf("unable to look up %s %q: %w", kind, key, err)
 	}
+	ignoreCase := kind == "user"
 	var ids []string
 	for _, result := range found {
-		if result.key == key {
+		if result.key == key || (ignoreCase && strings.EqualFold(result.key, key)) {
 			ids = append(ids, result.id)
 		}
 	}
@@ -62,6 +64,9 @@ func onlyExactMatch(kind string, key string, search func() ([]keyedID, error)) (
 	case 1:
 		return ids[0], nil
 	case 0:
+		if ignoreCase {
+			return "", fmt.Errorf("no %s %q found", kind, key)
+		}
 		return "", fmt.Errorf("no %s %q found; it must match exactly, case included", kind, key)
 	default:
 		return "", fmt.Errorf("%d %ss match %q; import this one by its ID", len(ids), kind, key)

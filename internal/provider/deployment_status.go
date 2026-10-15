@@ -5,12 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
-	"net/url"
+	"syscall"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"golang.org/x/oauth2"
 )
 
 // statusAttempts and statusRetryDelay retry a status read that gets a 5xx, for example for about a
@@ -27,10 +28,8 @@ func getDeploymentStatus(ctx context.Context, client *webclient.Client, id strin
 	for i := 0; i < statusAttempts; i++ {
 		if i > 0 {
 			tflog.Warn(ctx, fmt.Sprintf("Reading the status of Application Deployment %s failed (attempt %d of %d): %s", id, i, statusAttempts, err))
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(statusRetryDelay):
+			if waitErr := sleepCtx(ctx, statusRetryDelay); waitErr != nil {
+				return nil, waitErr
 			}
 		}
 		var status *webclient.ApplicationDeploymentStatusResponse
@@ -42,14 +41,16 @@ func getDeploymentStatus(ctx context.Context, client *webclient.Client, id strin
 	return nil, fmt.Errorf("after %d attempts: %w", statusAttempts, err)
 }
 
-// isTransientError reports a 5xx, or a request that got no answer. Anything else, such as a 4xx, a body
-// that cannot be read or a refused token, fails the same way when sent again.
+// isTransientError reports a 5xx, a timeout, or a connection that was refused or dropped. Anything
+// else, such as a 4xx, an untrusted certificate, a wrong URL or a refused token, fails the same way
+// when sent again.
 func isTransientError(err error) bool {
 	var httpErr *webclient.HTTPError
 	if errors.As(err, &httpErr) {
 		return httpErr.StatusCode >= http.StatusInternalServerError
 	}
-	var urlErr *url.Error
-	var tokenErr *oauth2.RetrieveError
-	return errors.As(err, &urlErr) && !errors.As(err, &tokenErr)
+	var netErr net.Error
+	return (errors.As(err, &netErr) && netErr.Timeout()) ||
+		errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, syscall.ECONNRESET) ||
+		errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
 }

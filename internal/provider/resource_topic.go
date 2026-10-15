@@ -3,6 +3,7 @@ package provider
 import (
 	webclient "axual-webclient"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -176,7 +177,8 @@ func (r *topicResource) Create(ctx context.Context, req resource.CreateRequest, 
 		topicRequest.Properties = properties
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("Create topic request %+v", topicRequest))
+	body, _ := json.Marshal(topicRequest)
+	tflog.Info(ctx, fmt.Sprintf("Create topic request %s", body))
 	topic, err := r.provider.client.CreateTopic(topicRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("CREATE request error for topic resource", fmt.Sprintf("Error message: %s", err.Error()))
@@ -248,7 +250,8 @@ func (r *topicResource) Update(ctx context.Context, req resource.UpdateRequest, 
 
 	topicRequest.Properties = properties
 
-	tflog.Info(ctx, fmt.Sprintf("Update topic request %+v", topicRequest))
+	body, _ := json.Marshal(topicRequest)
+	tflog.Info(ctx, fmt.Sprintf("Update topic request %s", body))
 	topic, err := r.provider.client.UpdateTopic(data.Id.ValueString(), topicRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("UPDATE request error for topic resource", fmt.Sprintf("Error message: %s", err.Error()))

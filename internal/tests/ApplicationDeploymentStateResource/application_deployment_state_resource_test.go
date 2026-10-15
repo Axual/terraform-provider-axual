@@ -57,7 +57,7 @@ func stopOutsideTerraform(t *testing.T, id *string) func() {
 }
 
 // deleteOutsideTerraform stops and deletes the deployment through the API, the way a user deleting it in
-// the Self-Service UI would (GitHub #121).
+// the Self-Service UI would.
 func deleteOutsideTerraform(t *testing.T, id *string) func() {
 	return func() {
 		stopOutsideTerraform(t, id)()
@@ -141,7 +141,7 @@ func TestApplicationDeploymentStateKafkaConnectMtls(t *testing.T) {
 				Check: resource.TestCheckResourceAttr(kcTlsState, "current_state", "Running"),
 			},
 			{
-				// GitHub #121: the deployment is deleted outside Terraform. The plan creates it again.
+				// The deployment is deleted outside Terraform. The plan creates it again.
 				PreConfig: deleteOutsideTerraform(t, &deploymentId),
 				Config:    GetConnectProvider() + GetFile("kc_tls_setup.tf", "kc_tls_deployment.tf", "kc_tls_state_running.tf"),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
