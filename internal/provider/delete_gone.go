@@ -7,9 +7,7 @@ import (
 	"strings"
 )
 
-// isGone reports whether err only says the resource does not exist any more. Platform Manager
-// answers some lookups of a deleted resource with 400 instead of 404. A destroy then counts the
-// resource as deleted: another resource in the same destroy, or a user, removed it already.
+// isGone reports a 404, or the 400 that Platform Manager answers for some deleted resources.
 func isGone(err error) bool {
 	if errors.Is(err, webclient.NotFoundError) {
 		return true
@@ -50,9 +48,8 @@ func deploymentGone(client *webclient.Client, id string) bool {
 	return isGone(err)
 }
 
-// isAlreadyStopped reports a STOP that Platform Manager refused because the deployment is stored as
-// STOPPED already, for example by its deployment state in the same destroy. The worker can still
-// report the connector as running for a moment, so the status cannot answer this.
+// isAlreadyStopped reports a STOP refused because the deployment is already STOPPED. The live
+// status can still say Running for a moment, so it cannot tell this.
 func isAlreadyStopped(err error) bool {
 	var httpErr *webclient.HTTPError
 	return errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusBadRequest &&

@@ -4,6 +4,7 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -116,7 +117,7 @@ func (f *fakeConnector) handler(w http.ResponseWriter, r *http.Request) {
 				status = f.stopFailStatus
 			}
 			w.WriteHeader(status)
-			_, _ = w.Write([]byte(`{"detail":"None of the servers could handle the get connector info request. Status Code: 500"}`))
+			_, _ = fmt.Fprintf(w, `{"detail":"STOP failed","status":%d}`, status)
 			return
 		}
 		switch action {
@@ -512,7 +513,7 @@ func TestStateResourceDeleteWarnsAtOnceForAFailedConnector(t *testing.T) {
 	if err != nil {
 		t.Fatalf("delete error = %v", err)
 	}
-	if !strings.Contains(warning, "its connector is Failed") || !strings.Contains(warning, "restart the") {
+	if !strings.Contains(warning, "its connector is Failed") || !strings.Contains(warning, "Restart the connector") {
 		t.Errorf("warning = %q, expected it to say the connector is Failed and how to fix it", warning)
 	}
 	if !equalActions(fake.sent(), "STOP") {

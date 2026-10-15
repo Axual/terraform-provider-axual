@@ -60,7 +60,7 @@ Import is supported by ID, or by name (`name:`):
 
 ```shell
 terraform import axual_environment.<LOCAL NAME> <ENVIRONMENT UID>
-terraform import axual_environment.test_env b21cf1d63a55436391463cee3f56e393
+terraform import axual_environment.test_env ab1cf1d63a55436391463cee3f56e393
 terraform import axual_environment.<LOCAL NAME> name:<ENVIRONMENT NAME>
 terraform import axual_environment.test_env 'name:development'
 ```

@@ -2,25 +2,11 @@
 
 User resource. Creating new users via Terraform is not supported. Use the axual_user data source to reference existing users, or use terraform import to manage existing users. New users are created by logging in through your organization's SSO provider. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#users
 
-## Import
+## User creation is not supported
 
-Import is supported by ID, or by email address (`email:`):
-
-```shell
-terraform import axual_user.<LOCAL NAME> <USER UID>
-terraform import axual_user.test_user b21cf1d63a55436391463cee3f56e393
-terraform import axual_user.<LOCAL NAME> email:<EMAIL ADDRESS>
-terraform import axual_user.test_user 'email:jane.doe@example.com'
-```
-
-The email address must match exactly, case included. An `import` block (Terraform 1.5 or later) takes the same IDs:
-
-```terraform
-import {
-  to = axual_user.test_user
-  id = "email:jane.doe@example.com"
-}
-```
+Terraform cannot create users. Users created through the API were only added to Self-Service, not to the
+authentication provider (for example Keycloak), so they could not log in. Reference a user with the
+`axual_user` data source, or import the user (see Import below).
 
 ### Creating new users
 
@@ -93,9 +79,20 @@ For a full example which shows the capabilities of the latest Terraform provider
 
 ## Import
 
-Import is supported using the following syntax:
+Import is supported by ID, or by email address (`email:`):
 
 ```shell
 terraform import axual_user.<LOCAL NAME> <USER UID>
 terraform import axual_user.test_user b21cf1d63a55436391463cee3f56e393
+terraform import axual_user.<LOCAL NAME> email:<EMAIL ADDRESS>
+terraform import axual_user.test_user 'email:jane.doe@example.com'
+```
+
+The email address must match exactly, case included. An `import` block (Terraform 1.5 or later) takes the same IDs:
+
+```terraform
+import {
+  to = axual_user.test_user
+  id = "email:jane.doe@example.com"
+}
 ```

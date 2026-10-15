@@ -6,14 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"golang.org/x/oauth2"
 )
 
-// statusAttempts and statusRetryDelay retry a status read that failed for a passing reason. Platform
-// Manager answers a Connect deployment's status with 500 for about a minute after the Connect workers
-// restart. Variables so the unit tests can shorten them.
+// statusAttempts and statusRetryDelay retry a status read that gets a 5xx, for example for about a
+// minute after the Connect workers restart. Variables so the unit tests can shorten them.
 var (
 	statusAttempts   = 12
 	statusRetryDelay = 10 * time.Second
@@ -26,7 +27,11 @@ func getDeploymentStatus(ctx context.Context, client *webclient.Client, id strin
 	for i := 0; i < statusAttempts; i++ {
 		if i > 0 {
 			tflog.Warn(ctx, fmt.Sprintf("Reading the status of Application Deployment %s failed (attempt %d of %d): %s", id, i, statusAttempts, err))
-			time.Sleep(statusRetryDelay)
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(statusRetryDelay):
+			}
 		}
 		var status *webclient.ApplicationDeploymentStatusResponse
 		status, err = client.GetApplicationDeploymentStatus(id)
@@ -37,15 +42,14 @@ func getDeploymentStatus(ctx context.Context, client *webclient.Client, id strin
 	return nil, fmt.Errorf("after %d attempts: %w", statusAttempts, err)
 }
 
-// isTransientError reports whether the same request can succeed when sent again: a 5xx or a failed
-// request can, a 4xx cannot.
+// isTransientError reports a 5xx, or a request that got no answer. Anything else, such as a 4xx, a body
+// that cannot be read or a refused token, fails the same way when sent again.
 func isTransientError(err error) bool {
-	if errors.Is(err, webclient.NotFoundError) {
-		return false
-	}
 	var httpErr *webclient.HTTPError
 	if errors.As(err, &httpErr) {
 		return httpErr.StatusCode >= http.StatusInternalServerError
 	}
-	return true
+	var urlErr *url.Error
+	var tokenErr *oauth2.RetrieveError
+	return errors.As(err, &urlErr) && !errors.As(err, &tokenErr)
 }

@@ -61,18 +61,31 @@ func TestDeleteRetriesAConflict(t *testing.T) {
 	}
 }
 
-// deleteResource runs Delete of r on a state holding data, against a fake Platform Manager.
-func deleteResource(t *testing.T, r resource.Resource, data any) resource.DeleteResponse {
+// emptyState is an empty state of r's schema.
+func emptyState(t *testing.T, r resource.Resource) tfsdk.State {
 	t.Helper()
 	ctx := context.Background()
 	var schemaResp resource.SchemaResponse
 	r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
-	state := tfsdk.State{Schema: schemaResp.Schema, Raw: tftypes.NewValue(schemaResp.Schema.Type().TerraformType(ctx), nil)}
-	if diags := state.Set(ctx, data); diags.HasError() {
+	return tfsdk.State{Schema: schemaResp.Schema, Raw: tftypes.NewValue(schemaResp.Schema.Type().TerraformType(ctx), nil)}
+}
+
+// stateFor is a state of r's schema holding data.
+func stateFor(t *testing.T, r resource.Resource, data any) tfsdk.State {
+	t.Helper()
+	state := emptyState(t, r)
+	if diags := state.Set(context.Background(), data); diags.HasError() {
 		t.Fatalf("set state: %v", diags)
 	}
+	return state
+}
+
+// deleteResource runs Delete of r on a state holding data, against a fake Platform Manager.
+func deleteResource(t *testing.T, r resource.Resource, data any) resource.DeleteResponse {
+	t.Helper()
+	state := stateFor(t, r, data)
 	resp := resource.DeleteResponse{State: state}
-	r.Delete(ctx, resource.DeleteRequest{State: state}, &resp)
+	r.Delete(context.Background(), resource.DeleteRequest{State: state}, &resp)
 	return resp
 }
 
@@ -83,8 +96,7 @@ func fakePM(t *testing.T, handler http.HandlerFunc) *webclient.Client {
 	return &webclient.Client{HTTPClient: server.Client(), ApiURL: server.URL}
 }
 
-// A destroy of generated config (no references) revokes the grant and its approval at the same time:
-// the approval is done when the grant is gone or already revoked, also when its own revoke lost the race.
+// The approval is done when its grant is gone or revoked, also when its own revoke lost the race.
 func TestApprovalDeleteAcceptsAGoneOrRevokedGrant(t *testing.T) {
 	tests := map[string]http.HandlerFunc{
 		"grant gone": func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) },
@@ -153,7 +165,7 @@ func TestDeploymentStateDeleteAcceptsAGoneDeployment(t *testing.T) {
 }
 
 // A STOP refused because the deployment stopped meanwhile is not an error.
-func TestStopRefusedBecauseAlreadyStoppedIsFine(t *testing.T) {
+func TestStopAfterA4xxIsDoneWhenTheStatusShowsStopped(t *testing.T) {
 	fake := &fakeConnector{state: "Running", taskStatus: "Running", stopFails: 1, stopFailsAfterApplying: true, stopFailStatus: http.StatusBadRequest}
 	r := newStateResourceAgainst(t, fake)
 

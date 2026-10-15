@@ -3,6 +3,7 @@ package webclient
 type EnvironmentsResponse struct {
 	Embedded struct {
 		Environments []struct {
+			Name      string `json:"name"`
 			ShortName string `json:"shortName"`
 			Uid       string `json:"uid"`
 		} `json:"environments"`

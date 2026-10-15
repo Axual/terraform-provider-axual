@@ -151,7 +151,11 @@ func mapTopicDataSourceResponseToData(ctx context.Context, data *topicDataSource
 	data.ValueType = types.StringValue(topic.ValueType)
 	data.Owners = types.StringValue(topic.Embedded.Owners.Uid)
 	data.RetentionPolicy = types.StringValue(topic.RetentionPolicy)
-	data.Tags, _ = types.SetValueFrom(ctx, types.StringType, append([]string{}, topic.Tags...))
+	tags, diags := types.SetValueFrom(ctx, types.StringType, append([]string{}, topic.Tags...))
+	if diags.HasError() {
+		tflog.Error(ctx, "Error creating tags set")
+	}
+	data.Tags = tags
 
 	properties := make(map[string]attr.Value)
 	for key, value := range topic.Properties {

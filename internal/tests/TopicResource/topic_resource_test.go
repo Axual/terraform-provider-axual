@@ -41,6 +41,7 @@ func TestTopicResource(t *testing.T) {
 				Config: GetProvider() + GetFile("axual_string_topic_tags.tf"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("axual_topic.topic-test", "tags.#", "2"),
+					resource.TestCheckTypeSetElemAttr("axual_topic.topic-test", "tags.*", "finance"),
 					resource.TestCheckTypeSetElemAttr("axual_topic.topic-test", "tags.*", "pii"),
 				),
 			},
@@ -52,7 +53,7 @@ func TestTopicResource(t *testing.T) {
 				),
 			},
 			{
-				Config: GetProvider() + GetFile("axual_string_topic_no_tags.tf"),
+				Config: GetProvider() + GetFile("axual_string_topic_tags_cleared.tf"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("axual_topic.topic-test", "tags.#", "0"),
 				),
@@ -61,6 +62,27 @@ func TestTopicResource(t *testing.T) {
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
 				Config:  GetProvider() + GetFile("axual_string_topic_initial.tf"),
+			},
+		},
+	})
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+
+		Steps: []resource.TestStep{
+			{
+				// Create sends the tags with POST, not PATCH
+				Config: GetProvider() + GetFile("axual_string_topic_tags.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_topic.topic-test", "tags.#", "2"),
+					resource.TestCheckTypeSetElemAttr("axual_topic.topic-test", "tags.*", "finance"),
+					resource.TestCheckTypeSetElemAttr("axual_topic.topic-test", "tags.*", "pii"),
+				),
+			},
+			{
+				Destroy: true,
+				Config:  GetProvider() + GetFile("axual_string_topic_tags.tf"),
 			},
 		},
 	})

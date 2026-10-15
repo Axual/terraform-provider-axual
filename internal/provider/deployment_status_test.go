@@ -3,16 +3,19 @@ package provider
 import (
 	webclient "axual-webclient"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-go/tftypes"
+	"golang.org/x/oauth2"
 )
 
 // statusServer answers the status read with the given codes, one per request, then 200 Running.
@@ -51,6 +54,56 @@ func TestStatusReadDoesNotRetryA4xx(t *testing.T) {
 	}
 }
 
+// A 422 is a 4xx too, although the webclient does not return it as an HTTPError.
+func TestStatusReadDoesNotRetryA422(t *testing.T) {
+	t.Cleanup(shorten(&statusRetryDelay))
+	client, calls := statusServer(t, http.StatusUnprocessableEntity)
+
+	if _, err := getDeploymentStatus(context.Background(), client, "d1"); err == nil || *calls != 1 {
+		t.Errorf("err = %v after %d calls, expected the 422 at once", err, *calls)
+	}
+}
+
+func TestIsTransientError(t *testing.T) {
+	refusedToken := &oauth2.RetrieveError{Response: &http.Response{StatusCode: http.StatusUnauthorized}}
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{name: "5xx", err: &webclient.HTTPError{StatusCode: http.StatusInternalServerError}, expected: true},
+		{name: "no answer", err: &url.Error{Op: "Get", URL: "https://pm", Err: errors.New("connection refused")}, expected: true},
+		{name: "404", err: webclient.NotFoundError, expected: false},
+		{name: "422", err: webclient.UnprocessableEntityError, expected: false},
+		{name: "4xx", err: &webclient.HTTPError{StatusCode: http.StatusBadRequest}, expected: false},
+		{name: "unreadable body", err: &json.SyntaxError{}, expected: false},
+		{name: "refused token", err: &url.Error{Op: "Get", URL: "https://pm", Err: fmt.Errorf("renewing the access token failed: %w", refusedToken)}, expected: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := isTransientError(test.err); got != test.expected {
+				t.Errorf("isTransientError() = %t, expected %t", got, test.expected)
+			}
+		})
+	}
+}
+
+// Ctrl+C in Terraform cancels the context: the wait between attempts stops at once.
+func TestStatusReadStopsWhenCancelled(t *testing.T) {
+	saved := statusRetryDelay
+	statusRetryDelay = time.Minute
+	t.Cleanup(func() { statusRetryDelay = saved })
+	client, calls := statusServer(t, http.StatusInternalServerError, http.StatusInternalServerError)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	started := time.Now()
+	_, err := getDeploymentStatus(ctx, client, "d1")
+	if !errors.Is(err, context.Canceled) || *calls != 1 || time.Since(started) > 5*time.Second {
+		t.Errorf("err = %v after %d calls in %s, expected context.Canceled after 1 call at once", err, *calls, time.Since(started))
+	}
+}
+
 func TestStatusReadGivesUp(t *testing.T) {
 	t.Cleanup(shorten(&statusRetryDelay))
 	codes := make([]int, statusAttempts)
@@ -83,10 +136,7 @@ func TestDeploymentStateReadRidesOutA500(t *testing.T) {
 	})
 	r := &applicationDeploymentStateResource{provider: AxualProvider{client: client}}
 	ctx := context.Background()
-	var schemaResp resource.SchemaResponse
-	r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
-	state := tfsdk.State{Schema: schemaResp.Schema, Raw: tftypes.NewValue(schemaResp.Schema.Type().TerraformType(ctx), nil)}
-	state.Set(ctx, &applicationDeploymentStateResourceData{
+	state := stateFor(t, r, &applicationDeploymentStateResourceData{
 		Id: types.StringValue("d1"), ApplicationDeployment: types.StringValue("d1"),
 		State: types.StringValue("RUNNING"), CurrentState: types.StringValue("Running"),
 	})

@@ -594,7 +594,7 @@ func (r *applicationDeploymentResource) Read(ctx context.Context, req resource.R
 	applicationWithUrl := fmt.Sprintf("%s/applications/%v", r.provider.client.ApiURL, data.Application.ValueString())
 	environmentWithUrl := fmt.Sprintf("%s/environments/%v", r.provider.client.ApiURL, data.Environment.ValueString())
 	ApplicationDeploymentFindByApplicationAndEnvironmentResponse, err := r.provider.client.FindApplicationDeploymentByApplicationAndEnvironment(applicationWithUrl, environmentWithUrl)
-	if err != nil && !errors.Is(err, webclient.NotFoundError) {
+	if err != nil && !isGone(err) {
 		resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to read Application Deployment, got error: %s", err))
 		return
 	}
@@ -1217,8 +1217,7 @@ func stopWithRetry(ctx context.Context, client *webclient.Client, id string, dep
 	return fmt.Errorf("after %d attempts: %s", stopAttempts, err)
 }
 
-// isRetryableStopError reports whether a STOP may succeed when sent again: a 5xx or a failed request
-// can, a 4xx cannot.
+// isRetryableStopError reports a 5xx, a request that got no answer, or a conflict (409, optimistic lock).
 func isRetryableStopError(err error) bool {
 	return isConflict(err) || isTransientError(err)
 }
@@ -1239,12 +1238,7 @@ func deleteWithRetry(deploymentType string, delay time.Duration, deleteDeploymen
 		return Retry(flinkDeleteAttempts, delay, deleteDeployment)
 	}
 	// A concurrent change of the same deployment (409, optimistic lock) is retried.
-	err := deleteDeployment()
-	for attempt := 1; attempt < conflictAttempts && isConflict(err); attempt++ {
-		time.Sleep(conflictDelay)
-		err = deleteDeployment()
-	}
-	return err
+	return RetryIf(conflictAttempts, conflictDelay, isConflict, deleteDeployment)
 }
 
 // startApplicationDeployment starts or resumes the deployment and returns nil once it is running or

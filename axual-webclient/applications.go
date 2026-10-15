@@ -53,16 +53,14 @@ func (c *Client) CreateApplication(data ApplicationRequest) (*ApplicationRespons
 }
 
 func (c *Client) GetApplicationByNameOrShortName(params url.Values) (*ApplicationResponse, error) {
-    o := ApplicationResponse{}
-	endpoint := fmt.Sprintf("findByName?name=%s", params.Get("name")) 
+	o := ApplicationResponse{}
+	endpoint := fmt.Sprintf("findByName?name=%s", url.QueryEscape(params.Get("name")))
 	if params.Get("shortName") != "" {
-    	endpoint = fmt.Sprintf("findByShortName?shortName=%s", params.Get("shortName"))
+		endpoint = fmt.Sprintf("findByShortName?shortName=%s", url.QueryEscape(params.Get("shortName")))
 	}
-    url := fmt.Sprintf("%s/applications/search/%s", c.ApiURL, endpoint)
-	fmt.Println("URL", url)
-    err := c.RequestAndMap("GET", url, nil, nil, &o)
-    if err != nil {
-        return nil, err
-    }
-    return &o, nil
+	err := c.RequestAndMap("GET", fmt.Sprintf("%s/applications/search/%s", c.ApiURL, endpoint), nil, nil, &o)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
 }

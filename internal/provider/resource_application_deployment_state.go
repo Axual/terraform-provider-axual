@@ -3,7 +3,6 @@ package provider
 import (
 	webclient "axual-webclient"
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -126,7 +125,7 @@ func (r *applicationDeploymentStateResource) Read(ctx context.Context, req resou
 
 	deploymentType, err := r.deploymentType(data.ApplicationDeployment.ValueString())
 	if err != nil {
-		if errors.Is(err, webclient.NotFoundError) {
+		if isGone(err) {
 			tflog.Info(ctx, fmt.Sprintf("Application Deployment %s no longer exists, removing its state from Terraform", data.ApplicationDeployment.ValueString()))
 			resp.State.RemoveResource(ctx)
 			return
@@ -192,7 +191,7 @@ func (r *applicationDeploymentStateResource) Delete(ctx context.Context, req res
 func (r *applicationDeploymentStateResource) resetAfterStop(ctx context.Context, id string) (string, error) {
 	deploymentType, err := r.deploymentType(id)
 	if err != nil {
-		if errors.Is(err, webclient.NotFoundError) {
+		if isGone(err) {
 			return "", nil
 		}
 		return "", fmt.Errorf("unable to read Application Deployment %s, got error: %s", id, err)
@@ -209,7 +208,7 @@ func (r *applicationDeploymentStateResource) resetAfterStop(ctx context.Context,
 
 func (r *applicationDeploymentStateResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	if _, err := r.deploymentType(req.ID); err != nil {
-		if errors.Is(err, webclient.NotFoundError) {
+		if isGone(err) {
 			resp.Diagnostics.AddError("Application Deployment Not Found", fmt.Sprintf("Application Deployment with ID: %s not found.", req.ID))
 			return
 		}
@@ -374,9 +373,9 @@ func resetConnector(ctx context.Context, client *webclient.Client, id string) (s
 		time.Sleep(resetWaitDelay)
 	}
 	if state == connectorStateFailed {
-		return fmt.Sprintf("Application Deployment %s could not be reset: its connector is Failed, and this Platform Manager version "+
-			"does not allow RESET for a failed connector. Deleting its active principal can fail. Fix the cause and restart the "+
-			"connector, or delete the deployment in the Self-Service UI, then apply again.", id), nil
+		return fmt.Sprintf("Application Deployment %s could not be reset: its connector is Failed and Platform Manager "+
+			"does not offer RESET. Deleting its principal can fail. Restart the connector, or delete the deployment "+
+			"in the Self-Service UI, then apply again.", id), nil
 	}
 	if state == "" {
 		state = "unknown"

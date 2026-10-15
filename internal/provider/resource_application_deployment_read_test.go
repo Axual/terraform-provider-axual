@@ -1,40 +1,27 @@
 package provider
 
 import (
-	webclient "axual-webclient"
 	"context"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
 // readDeploymentAgainst reads a deployment from a fake Platform Manager that answers every request with handler.
 func readDeploymentAgainst(t *testing.T, handler http.HandlerFunc) resource.ReadResponse {
 	t.Helper()
-	server := httptest.NewServer(handler)
-	t.Cleanup(server.Close)
-	r := &applicationDeploymentResource{provider: AxualProvider{client: &webclient.Client{HTTPClient: server.Client(), ApiURL: server.URL}}}
-
-	ctx := context.Background()
-	var schemaResp resource.SchemaResponse
-	r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
-	state := tfsdk.State{Schema: schemaResp.Schema, Raw: tftypes.NewValue(schemaResp.Schema.Type().TerraformType(ctx), nil)}
-	if diags := state.Set(ctx, &ApplicationDeploymentResourceData{
+	r := &applicationDeploymentResource{provider: AxualProvider{client: fakePM(t, handler)}}
+	state := stateFor(t, r, &ApplicationDeploymentResourceData{
 		Id:          types.StringValue("dep1"),
 		Application: types.StringValue("app1"),
 		Environment: types.StringValue("env1"),
 		Configs:     types.MapNull(types.StringType),
-	}); diags.HasError() {
-		t.Fatalf("set state: %v", diags)
-	}
+	})
 
 	resp := resource.ReadResponse{State: state}
-	r.Read(ctx, resource.ReadRequest{State: state}, &resp)
+	r.Read(context.Background(), resource.ReadRequest{State: state}, &resp)
 	return resp
 }
 
