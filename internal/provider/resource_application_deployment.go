@@ -51,6 +51,15 @@ const legacyAxualConnectTargetPrefix = "axualconnect-"
 // startAttempts is how often a START is retried before the apply is failed.
 const startAttempts = 3
 
+// stopAttempts and stopRetryDelay retry a failed STOP. Variables so the unit tests can shorten them.
+var (
+	stopAttempts   = 3
+	stopRetryDelay = 5 * time.Second
+	// conflictAttempts and conflictDelay retry a delete that hit a concurrent change of the same row.
+	conflictAttempts = 3
+	conflictDelay    = 2 * time.Second
+)
+
 // stopWaitAttempts and stopWaitDelay bound how long an update or a delete waits for a stopped
 // deployment to stop running before it PATCHes or DELETEs it. Variables so the unit tests can
 // shorten them.
@@ -585,12 +594,14 @@ func (r *applicationDeploymentResource) Read(ctx context.Context, req resource.R
 	applicationWithUrl := fmt.Sprintf("%s/applications/%v", r.provider.client.ApiURL, data.Application.ValueString())
 	environmentWithUrl := fmt.Sprintf("%s/environments/%v", r.provider.client.ApiURL, data.Environment.ValueString())
 	ApplicationDeploymentFindByApplicationAndEnvironmentResponse, err := r.provider.client.FindApplicationDeploymentByApplicationAndEnvironment(applicationWithUrl, environmentWithUrl)
-	if err != nil {
-		if errors.Is(err, webclient.NotFoundError) {
-			resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to find Application Deployment with ID: %s, got error: %s", data.Id.ValueString(), err))
-		} else {
-			resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to read Application Deployment, got error: %s", err))
-		}
+	if err != nil && !isGone(err) {
+		resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to read Application Deployment, got error: %s", err))
+		return
+	}
+	// Deleted outside Terraform: plan to create it again, like the other resources do.
+	if err != nil || len(ApplicationDeploymentFindByApplicationAndEnvironmentResponse.Embedded.ApplicationDeploymentResponses) == 0 {
+		tflog.Warn(ctx, fmt.Sprintf("Application Deployment %s not found, removing it from the state", data.Id.ValueString()))
+		resp.State.RemoveResource(ctx)
 		return
 	}
 	err = mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(ctx, &data, ApplicationDeploymentFindByApplicationAndEnvironmentResponse)
@@ -647,7 +658,7 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 		return
 	}
 
-	status, err := r.provider.client.GetApplicationDeploymentStatus(planData.Id.ValueString())
+	status, err := getDeploymentStatus(ctx, r.provider.client, planData.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get Application Deployment status, got error: %s", err))
 		return
@@ -735,14 +746,17 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 	}
 
 	if err := stopDeploymentAndWait(ctx, r.provider.client, data.Id.ValueString(), data.Type.ValueString()); err != nil {
+		if deploymentGone(r.provider.client, data.Id.ValueString()) {
+			return
+		}
 		resp.Diagnostics.AddError("Client Error", err.Error())
 		return
 	}
 
 	// No `delete` rel pre-check (AXPD-11714): a draining Flink job still offers it, a failed
 	// deployment does not.
-	if err := deleteWithRetry(data.Type.ValueString(), flinkDeleteDelay, func() error {
-		return r.provider.client.DeleteApplicationDeployment(data.Id.ValueString())
+	if err := deleteWithRetry(ctx, data.Type.ValueString(), flinkDeleteDelay, func() error {
+		return ignoreGone(r.provider.client.DeleteApplicationDeployment(data.Id.ValueString()))
 	}); err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete Application Deployment, got error: %s", err))
 		return
@@ -753,9 +767,7 @@ func mapApplicationDeploymentByApplicationAndEnvironmentResponseToData(
 	ctx context.Context,
 	data *ApplicationDeploymentResourceData,
 	applicationDeploymentResponse *webclient.ApplicationDeploymentFindByApplicationAndEnvironmentResponse) error {
-	if len(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses) == 0 {
-		return fmt.Errorf("error processing mapping application deployment response, no application deployment found for the application and environment")
-	} else if len(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses) > 1 {
+	if len(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses) > 1 {
 		return fmt.Errorf("error processing mapping application deployment response, multiple application deployments found for the application and environment")
 	} else {
 		data.Id = types.StringValue(applicationDeploymentResponse.Embedded.ApplicationDeploymentResponses[0].Uid)
@@ -1146,7 +1158,7 @@ func isOnlyAutostartChange(state *ApplicationDeploymentResourceData, plan *Appli
 // `stop` and `delete` are already gone or offered while a Flink job is still draining.
 // Running out of attempts is not an error: the caller lets the API decide, as Delete always did.
 func stopDeploymentAndWait(ctx context.Context, client *webclient.Client, id string, deploymentType string) error {
-	status, err := client.GetApplicationDeploymentStatus(id)
+	status, err := getDeploymentStatus(ctx, client, id)
 	if err != nil {
 		return fmt.Errorf("unable to get Application Deployment status, got error: %s", err)
 	}
@@ -1154,7 +1166,7 @@ func stopDeploymentAndWait(ctx context.Context, client *webclient.Client, id str
 		return nil
 	}
 
-	if err := operateDeployment(client, id, actionStop); err != nil {
+	if err := stopWithRetry(ctx, client, id, deploymentType); err != nil {
 		return fmt.Errorf("unable to stop Application Deployment, got error: %s", err)
 	}
 
@@ -1163,7 +1175,7 @@ func stopDeploymentAndWait(ctx context.Context, client *webclient.Client, id str
 	started := time.Now()
 	for i := 0; i < attempts; i++ {
 		time.Sleep(delay)
-		status, err := client.GetApplicationDeploymentStatus(id)
+		status, err := getDeploymentStatus(ctx, client, id)
 		if err != nil {
 			return fmt.Errorf("unable to get Application Deployment status while waiting for it to stop, got error: %s", err)
 		}
@@ -1174,6 +1186,42 @@ func stopDeploymentAndWait(ctx context.Context, client *webclient.Client, id str
 	}
 	tflog.Warn(ctx, fmt.Sprintf("Application Deployment %s did not report a stopped state within %s, continuing", id, time.Duration(attempts)*delay))
 	return nil
+}
+
+// stopWithRetry retries a failed STOP, for example a 500 during a Connect rebalance (APCS-3090).
+// Before a retry it reads the status, so a STOP that went through is not sent again.
+func stopWithRetry(ctx context.Context, client *webclient.Client, id string, deploymentType string) error {
+	var err error
+	for i := 0; i < stopAttempts; i++ {
+		if i > 0 {
+			if waitErr := sleepCtx(ctx, stopRetryDelay); waitErr != nil {
+				return waitErr
+			}
+			status, statusErr := getDeploymentStatus(ctx, client, id)
+			if statusErr == nil && !shouldStopDeployment(deploymentType, status) {
+				return nil
+			}
+		}
+		if err = operateDeployment(client, id, actionStop); err == nil {
+			return nil
+		}
+		if isAlreadyStopped(err) {
+			return nil
+		}
+		if !isRetryableStopError(err) {
+			if status, statusErr := getDeploymentStatus(ctx, client, id); statusErr == nil && !shouldStopDeployment(deploymentType, status) {
+				return nil
+			}
+			return err
+		}
+		tflog.Warn(ctx, fmt.Sprintf("STOP of Application Deployment %s failed (attempt %d of %d): %s", id, i+1, stopAttempts, err))
+	}
+	return fmt.Errorf("after %d attempts: %s", stopAttempts, err)
+}
+
+// isRetryableStopError reports a 5xx, a request that got no answer, or a conflict (409, optimistic lock).
+func isRetryableStopError(err error) bool {
+	return isConflict(err) || isTransientError(err)
 }
 
 // stopWaitBudget is how long stopDeploymentAndWait waits for the given type to come to a halt.
@@ -1187,18 +1235,19 @@ func stopWaitBudget(deploymentType string) (int, time.Duration) {
 // deleteWithRetry retries only a FLINK_SQL delete: the stop wait gives up rather than failing, and
 // Ververica refuses the DELETE for as long as its job is not in a terminal state. Every other type
 // is deleted once and its error returned unchanged.
-func deleteWithRetry(deploymentType string, delay time.Duration, deleteDeployment func() error) error {
+func deleteWithRetry(ctx context.Context, deploymentType string, delay time.Duration, deleteDeployment func() error) error {
 	if isFlinkSQL(deploymentType) {
 		return Retry(flinkDeleteAttempts, delay, deleteDeployment)
 	}
-	return deleteDeployment()
+	// A concurrent change of the same deployment (409, optimistic lock) is retried.
+	return RetryIf(ctx, conflictAttempts, conflictDelay, isConflict, deleteDeployment)
 }
 
 // startApplicationDeployment starts or resumes the deployment and returns nil once it is running or
 // once the action was accepted; the caller decides whether the error fails the apply. A stopped
 // FLINK_SQL deployment offers `resume`, not `start`, so the rel decides which action is sent.
 func startApplicationDeployment(ctx context.Context, client *webclient.Client, id string, deploymentType string, retryDelay time.Duration) error {
-	status, err := client.GetApplicationDeploymentStatus(id)
+	status, err := getDeploymentStatus(ctx, client, id)
 	if err != nil {
 		return fmt.Errorf("unable to get Application Deployment status before starting it: %s", err)
 	}
@@ -1216,7 +1265,7 @@ func startApplicationDeployment(ctx context.Context, client *webclient.Client, i
 			return nil
 		}
 		time.Sleep(startWaitDelay)
-		if status, err = client.GetApplicationDeploymentStatus(id); err != nil {
+		if status, err = getDeploymentStatus(ctx, client, id); err != nil {
 			return fmt.Errorf("unable to get Application Deployment status while waiting for it to become startable: %s", err)
 		}
 		action = startActionFor(status)
@@ -1242,7 +1291,7 @@ func startApplicationDeployment(ctx context.Context, client *webclient.Client, i
 
 	// The START may still have gone through on a request whose response was lost, so a deployment
 	// that reports itself running counts as success rather than a failure.
-	if currentStatus, statusErr := client.GetApplicationDeploymentStatus(id); statusErr == nil && isDeploymentRunning(deploymentType, currentStatus) {
+	if currentStatus, statusErr := getDeploymentStatus(ctx, client, id); statusErr == nil && isDeploymentRunning(deploymentType, currentStatus) {
 		tflog.Info(ctx, "START reported an error but the Application Deployment is running")
 		return nil
 	}

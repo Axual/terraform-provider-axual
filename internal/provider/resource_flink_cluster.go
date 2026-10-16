@@ -3,7 +3,6 @@ package provider
 import (
 	webclient "axual-webclient"
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -196,7 +195,7 @@ func (r *flinkClusterResource) Read(ctx context.Context, req resource.ReadReques
 
 	flinkCluster, err := r.provider.client.GetFlinkCluster(data.InstanceId.ValueString(), data.ClusterId.ValueString(), data.Id.ValueString())
 	if err != nil {
-		if errors.Is(err, webclient.NotFoundError) {
+		if isGone(err) {
 			tflog.Warn(ctx, fmt.Sprintf("Flink Cluster not found. Id: %s", data.Id.ValueString()))
 			resp.State.RemoveResource(ctx)
 		} else {
@@ -245,7 +244,7 @@ func (r *flinkClusterResource) Delete(ctx context.Context, req resource.DeleteRe
 		return
 	}
 
-	err := r.provider.client.DeleteFlinkCluster(data.InstanceId.ValueString(), data.ClusterId.ValueString(), data.Id.ValueString())
+	err := ignoreGone(r.provider.client.DeleteFlinkCluster(data.InstanceId.ValueString(), data.ClusterId.ValueString(), data.Id.ValueString()))
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete Flink Cluster, got error: %s", err))
 		return

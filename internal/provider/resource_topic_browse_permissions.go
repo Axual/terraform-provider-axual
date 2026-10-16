@@ -142,7 +142,7 @@ func (r *topicBrowsePermissionsResource) Delete(ctx context.Context, req resourc
 		return
 	}
 
-	err = r.provider.client.DeleteTopicConfigPermissions(data.TopicConfig.ValueString(), *permissionRequest)
+	err = ignoreGone(r.provider.client.DeleteTopicConfigPermissions(data.TopicConfig.ValueString(), *permissionRequest))
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting browse permissions", fmt.Sprintf("Error message: %s", err.Error()))
 		return

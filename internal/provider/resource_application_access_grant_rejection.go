@@ -1,9 +1,7 @@
 package provider
 
 import (
-	webclient "axual-webclient"
 	"context"
-	"errors"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -153,7 +151,7 @@ func (r *applicationAccessGrantRejectionResource) Read(ctx context.Context, req 
 
 	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.ApplicationAccessGrant.ValueString())
 	if err != nil {
-		if errors.Is(err, webclient.NotFoundError) {
+		if isGone(err) {
 			tflog.Warn(ctx, fmt.Sprintf("Application Access Grant not found, removing rejection from state. Id: %s", data.ApplicationAccessGrant.ValueString()))
 			resp.State.RemoveResource(ctx)
 			return

@@ -28,7 +28,8 @@ type GroupRequest struct {
 type GetGroupByNameResponse struct {
 	Embedded struct {
 		Groups []struct {
-			Uid string `json:"uid"`
+			Name string `json:"name"`
+			Uid  string `json:"uid"`
 		} `json:"groups"`
 	} `json:"_embedded"`
 }

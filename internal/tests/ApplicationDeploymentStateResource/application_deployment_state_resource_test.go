@@ -56,6 +56,21 @@ func stopOutsideTerraform(t *testing.T, id *string) func() {
 	}
 }
 
+// deleteOutsideTerraform stops and deletes the deployment through the API, the way a user deleting it in
+// the Self-Service UI would.
+func deleteOutsideTerraform(t *testing.T, id *string) func() {
+	return func() {
+		stopOutsideTerraform(t, id)()
+		client, err := ApiClient()
+		if err != nil {
+			t.Fatalf("building API client: %v", err)
+		}
+		if err := client.DeleteApplicationDeployment(*id); err != nil {
+			t.Fatalf("deleting deployment %s: %v", *id, err)
+		}
+	}
+}
+
 func connectTest(t *testing.T) {
 	t.Helper()
 	config, err := LoadProviderConfig()
@@ -124,6 +139,21 @@ func TestApplicationDeploymentStateKafkaConnectMtls(t *testing.T) {
 					},
 				},
 				Check: resource.TestCheckResourceAttr(kcTlsState, "current_state", "Running"),
+			},
+			{
+				// The deployment is deleted outside Terraform. The plan creates it again.
+				PreConfig: deleteOutsideTerraform(t, &deploymentId),
+				Config:    GetConnectProvider() + GetFile("kc_tls_setup.tf", "kc_tls_deployment.tf", "kc_tls_state_running.tf"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(kcTlsDeployment, plancheck.ResourceActionCreate),
+						plancheck.ExpectResourceAction(kcTlsState, plancheck.ResourceActionCreate),
+					},
+				},
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(kcTlsState, "current_state", "Running"),
+					captureId(kcTlsDeployment, &deploymentId),
+				),
 			},
 			{
 				ResourceName:      kcTlsState,

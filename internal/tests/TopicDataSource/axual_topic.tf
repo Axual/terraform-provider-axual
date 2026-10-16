@@ -37,6 +37,7 @@ resource "axual_topic" "topic-avro-test" {
     propertyKey2 = "propertyValue2"
   }
   description = "Demo of deploying a topic via Terraform"
+  tags        = ["finance", "pii"]
 }
 
 data "axual_topic" "topic-test-imported" {

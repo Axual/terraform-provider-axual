@@ -53,9 +53,20 @@ For a full example which shows the capabilities of the latest TerraForm provider
 
 ## Import
 
-Import is supported using the following syntax:
+Import is supported by ID, or by topic name and the environment short name (`name:`):
 
 ```shell
 terraform import axual_topic_config.<LOCAL NAME> <TOPIC CONFIG UID>
 terraform import axual_topic_config.test_topic_config b21cf1d63a55436391463cee3f56e393
+terraform import axual_topic_config.<LOCAL NAME> name:<TOPIC NAME>/<ENVIRONMENT SHORT NAME>
+terraform import axual_topic_config.test_topic_config 'name:payments/dev'
+```
+
+The topic name and the environment short name must match exactly, case included. An `import` block (Terraform 1.5 or later) takes the same IDs:
+
+```terraform
+import {
+  to = axual_topic_config.test_topic_config
+  id = "name:payments/dev"
+}
 ```

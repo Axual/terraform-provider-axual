@@ -3,7 +3,6 @@ package provider
 import (
 	webclient "axual-webclient"
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -126,7 +125,7 @@ func (r *applicationDeploymentStateResource) Read(ctx context.Context, req resou
 
 	deploymentType, err := r.deploymentType(data.ApplicationDeployment.ValueString())
 	if err != nil {
-		if errors.Is(err, webclient.NotFoundError) {
+		if isGone(err) {
 			tflog.Info(ctx, fmt.Sprintf("Application Deployment %s no longer exists, removing its state from Terraform", data.ApplicationDeployment.ValueString()))
 			resp.State.RemoveResource(ctx)
 			return
@@ -134,7 +133,7 @@ func (r *applicationDeploymentStateResource) Read(ctx context.Context, req resou
 		resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to read Application Deployment %s, got error: %s", data.ApplicationDeployment.ValueString(), err))
 		return
 	}
-	status, err := r.provider.client.GetApplicationDeploymentStatus(data.ApplicationDeployment.ValueString())
+	status, err := getDeploymentStatus(ctx, r.provider.client, data.ApplicationDeployment.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to read the status of Application Deployment %s, got error: %s", data.ApplicationDeployment.ValueString(), err))
 		return
@@ -169,6 +168,10 @@ func (r *applicationDeploymentStateResource) Delete(ctx context.Context, req res
 		return
 	}
 	warning, err := r.resetAfterStop(ctx, data.ApplicationDeployment.ValueString())
+	if err != nil && deploymentGone(r.provider.client, data.ApplicationDeployment.ValueString()) {
+		// The deployment was deleted at the same time, for example by its own resource in this destroy.
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", err.Error())
 		return
@@ -188,7 +191,7 @@ func (r *applicationDeploymentStateResource) Delete(ctx context.Context, req res
 func (r *applicationDeploymentStateResource) resetAfterStop(ctx context.Context, id string) (string, error) {
 	deploymentType, err := r.deploymentType(id)
 	if err != nil {
-		if errors.Is(err, webclient.NotFoundError) {
+		if isGone(err) {
 			return "", nil
 		}
 		return "", fmt.Errorf("unable to read Application Deployment %s, got error: %s", id, err)
@@ -205,7 +208,7 @@ func (r *applicationDeploymentStateResource) resetAfterStop(ctx context.Context,
 
 func (r *applicationDeploymentStateResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	if _, err := r.deploymentType(req.ID); err != nil {
-		if errors.Is(err, webclient.NotFoundError) {
+		if isGone(err) {
 			resp.Diagnostics.AddError("Application Deployment Not Found", fmt.Sprintf("Application Deployment with ID: %s not found.", req.ID))
 			return
 		}
@@ -236,7 +239,7 @@ func (r *applicationDeploymentStateResource) apply(ctx context.Context, data *ap
 		return
 	}
 
-	status, err := r.provider.client.GetApplicationDeploymentStatus(id)
+	status, err := getDeploymentStatus(ctx, r.provider.client, id)
 	if err != nil {
 		addError("API Error", fmt.Sprintf("Unable to read the status of Application Deployment %s, got error: %s", id, err))
 		return
@@ -246,7 +249,7 @@ func (r *applicationDeploymentStateResource) apply(ctx context.Context, data *ap
 
 // run starts the deployment, or restarts it when it has failed, and waits until it runs.
 func (r *applicationDeploymentStateResource) run(ctx context.Context, id string, deploymentType string) error {
-	status, err := r.provider.client.GetApplicationDeploymentStatus(id)
+	status, err := getDeploymentStatus(ctx, r.provider.client, id)
 	if err != nil {
 		return fmt.Errorf("unable to get Application Deployment status: %s", err)
 	}
@@ -284,7 +287,7 @@ const failedPollsAfterRestart = 5
 // RESTART leaves failed tasks failed. It reports whether it restarted anything.
 func restartFailedConnector(ctx context.Context, client *webclient.Client, id string, status *webclient.ApplicationDeploymentStatusResponse) (bool, error) {
 	restarted := false
-	if strings.EqualFold(status.ConnectorState.State, "Failed") && status.Links.Has(webclient.RelRestart) {
+	if strings.EqualFold(status.ConnectorState.State, connectorStateFailed) && status.Links.Has(webclient.RelRestart) {
 		tflog.Info(ctx, fmt.Sprintf("Application Deployment %s has failed, restarting it", id))
 		if err := operateDeployment(client, id, actionRestart); err != nil {
 			return false, fmt.Errorf("unable to restart the failed Application Deployment: %s", err)
@@ -292,7 +295,7 @@ func restartFailedConnector(ctx context.Context, client *webclient.Client, id st
 		restarted = true
 	}
 	for _, task := range status.TaskStates {
-		if !strings.EqualFold(task.Status, "Failed") {
+		if !strings.EqualFold(task.Status, connectorStateFailed) {
 			continue
 		}
 		tflog.Info(ctx, fmt.Sprintf("Task %d of Application Deployment %s has failed, restarting it", task.Id, id))
@@ -309,7 +312,7 @@ func (r *applicationDeploymentStateResource) stop(ctx context.Context, id string
 	if err := stopDeploymentAndWait(ctx, r.provider.client, id, deploymentType); err != nil {
 		return err
 	}
-	status, err := r.provider.client.GetApplicationDeploymentStatus(id)
+	status, err := getDeploymentStatus(ctx, r.provider.client, id)
 	if err != nil {
 		return fmt.Errorf("unable to get Application Deployment status after stopping it: %s", err)
 	}
@@ -323,7 +326,7 @@ func (r *applicationDeploymentStateResource) waitUntilRunning(ctx context.Contex
 	var status *webclient.ApplicationDeploymentStatusResponse
 	var err error
 	for i := 0; i < runningWaitAttempts; i++ {
-		status, err = r.provider.client.GetApplicationDeploymentStatus(id)
+		status, err = getDeploymentStatus(ctx, r.provider.client, id)
 		if err != nil {
 			return fmt.Errorf("unable to get Application Deployment status while waiting for it to run: %s", err)
 		}
@@ -343,20 +346,25 @@ func (r *applicationDeploymentStateResource) waitUntilRunning(ctx context.Contex
 	return fmt.Errorf("the deployment did not report itself running within %s (%s)", time.Duration(runningWaitAttempts)*runningWaitDelay, describeDeploymentStatus(status))
 }
 
+// connectorStateFailed is the live state Platform Manager reports for a failed connector.
+const connectorStateFailed = "Failed"
+
 // resetConnector sends RESET once the API offers it. When it is never offered, it returns a warning
 // rather than an error: the destroy can still go on, but deleting the active principal may then fail.
 func resetConnector(ctx context.Context, client *webclient.Client, id string) (string, error) {
+	state := ""
 	for i := 0; i < resetWaitAttempts; i++ {
-		status, err := client.GetApplicationDeploymentStatus(id)
+		status, err := getDeploymentStatus(ctx, client, id)
 		if err != nil {
 			return "", fmt.Errorf("unable to get Application Deployment status before resetting it: %s", err)
 		}
+		state = status.ConnectorState.State
 		if status.Links.Has(webclient.RelReset) {
-			if err := operateDeployment(client, id, actionReset); err != nil {
-				return "", fmt.Errorf("unable to reset Application Deployment %s: %s", id, err)
-			}
-			tflog.Info(ctx, fmt.Sprintf("Reset Application Deployment %s", id))
-			return "", nil
+			return "", sendReset(ctx, client, id)
+		}
+		if strings.EqualFold(state, connectorStateFailed) {
+			// A failed connector stays Failed after STOP, so waiting for RESET does not help.
+			break
 		}
 		if !status.Links.Has(webclient.RelStop) && status.Links.Has(webclient.RelStart) && status.ConnectorState.State != "Stopped" {
 			// Nothing is deployed on the Connect cluster any more (for example never started, or already reset).
@@ -364,9 +372,25 @@ func resetConnector(ctx context.Context, client *webclient.Client, id string) (s
 		}
 		time.Sleep(resetWaitDelay)
 	}
+	if strings.EqualFold(state, connectorStateFailed) {
+		return fmt.Sprintf("Application Deployment %s could not be reset: its connector is Failed and Platform Manager "+
+			"does not offer RESET. Deleting its principal can fail. Restart the connector, or delete the deployment "+
+			"in the Self-Service UI, then apply again.", id), nil
+	}
+	if state == "" {
+		state = "unknown"
+	}
 	return fmt.Sprintf("Application Deployment %s was stopped, but Platform Manager did not offer RESET within %s. "+
-		"It stays STOPPED, so deleting its active principal can fail. Reset it in the Self-Service UI, then apply again.",
-		id, time.Duration(resetWaitAttempts)*resetWaitDelay), nil
+		"Its connector is %s, so deleting its active principal can fail. Reset it in the Self-Service UI, then apply again.",
+		id, time.Duration(resetWaitAttempts)*resetWaitDelay, state), nil
+}
+
+func sendReset(ctx context.Context, client *webclient.Client, id string) error {
+	if err := operateDeployment(client, id, actionReset); err != nil {
+		return fmt.Errorf("unable to reset Application Deployment %s: %s", id, err)
+	}
+	tflog.Info(ctx, fmt.Sprintf("Reset Application Deployment %s", id))
+	return nil
 }
 
 func (r *applicationDeploymentStateResource) deploymentType(id string) (string, error) {
@@ -387,7 +411,7 @@ func (r *applicationDeploymentStateResource) deploymentType(id string) (string, 
 func observedDeploymentState(deploymentType string, status *webclient.ApplicationDeploymentStatusResponse) string {
 	if isConnector(deploymentType) && status.ConnectorState.State == "Running" {
 		for _, task := range status.TaskStates {
-			if strings.EqualFold(task.Status, "Failed") {
+			if strings.EqualFold(task.Status, connectorStateFailed) {
 				return deploymentStateFailed
 			}
 		}
