@@ -36,9 +36,9 @@ func TestMapUserKeepsAnEmptyRoleSet(t *testing.T) {
 	}
 }
 
-// A state from 3.2.x has roles = null. With -refresh=false and another change, the plan has roles unknown:
-// Update keeps the roles the user has instead of failing.
-func TestUserUpdateKeepsTheRolesWhenThePlanDoesNotKnowThem(t *testing.T) {
+// A 3.2.x state of a user with no roles has roles = null. Applied with -refresh=false, the plan keeps
+// null: the user keeps its roles, and the state keeps the planned null, or Terraform rejects the result.
+func TestUserUpdateKeepsTheRolesWhenThePlanHasNone(t *testing.T) {
 	var sentRoles string
 	client := fakePM(t, func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -68,13 +68,28 @@ func TestUserUpdateKeepsTheRolesWhenThePlanDoesNotKnowThem(t *testing.T) {
 			"roles":         roles,
 		})
 	}
-	state := tfsdk.State{Schema: schemaResp.Schema, Raw: raw("Jane", tftypes.NewValue(rolesType, nil))}
-	plan := tfsdk.Plan{Schema: schemaResp.Schema, Raw: raw("Janet", tftypes.NewValue(rolesType, tftypes.UnknownValue))}
-	resp := resource.UpdateResponse{State: state}
+	tests := map[string]struct {
+		planned       tftypes.Value
+		expectedState string
+	}{
+		"null":    {tftypes.NewValue(rolesType, nil), "<null>"},
+		"unknown": {tftypes.NewValue(rolesType, tftypes.UnknownValue), `[{"name":"STREAM_AUTHOR"}]`},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			sentRoles = ""
+			state := tfsdk.State{Schema: schemaResp.Schema, Raw: raw("Jane", tftypes.NewValue(rolesType, nil))}
+			plan := tfsdk.Plan{Schema: schemaResp.Schema, Raw: raw("Janet", test.planned)}
+			resp := resource.UpdateResponse{State: state}
 
-	r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, &resp)
+			r.Update(ctx, resource.UpdateRequest{Plan: plan, State: state}, &resp)
 
-	if resp.Diagnostics.HasError() || sentRoles != `[{"name":"STREAM_AUTHOR"}]` {
-		t.Errorf("update = %v, sent roles %s, expected the user's current roles", resp.Diagnostics, sentRoles)
+			var saved userResourceData
+			resp.State.Get(ctx, &saved)
+			if resp.Diagnostics.HasError() || sentRoles != `[{"name":"STREAM_AUTHOR"}]` || saved.Roles.String() != test.expectedState {
+				t.Errorf("update = %v, sent roles %s, saved roles %s; expected the user's current roles sent and %s saved",
+					resp.Diagnostics, sentRoles, saved.Roles, test.expectedState)
+			}
+		})
 	}
 }

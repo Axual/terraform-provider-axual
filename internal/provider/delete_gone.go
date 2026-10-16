@@ -7,15 +7,31 @@ import (
 	"strings"
 )
 
+// goneAnswers are the texts of the 400 that Platform Manager answers instead of a 404 for some
+// resources that do not exist.
+var goneAnswers = []string{
+	"No such application access exists", // access grant
+	"converted to null",                 // environment, schema version, deployment status
+	"No Group found",                    // group delete
+	"No application found",              // credential of a deleted application
+}
+
 // isGone reports a 404, or the 400 that Platform Manager answers for some deleted resources.
 func isGone(err error) bool {
 	if errors.Is(err, webclient.NotFoundError) {
 		return true
 	}
 	var httpErr *webclient.HTTPError
-	return errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusBadRequest &&
-		(strings.Contains(httpErr.Body, "No such application access exists") ||
-			strings.Contains(httpErr.Body, "converted to null"))
+	if !errors.As(err, &httpErr) || httpErr.StatusCode != http.StatusBadRequest {
+		return false
+	}
+	for _, answer := range goneAnswers {
+		if strings.Contains(httpErr.Body, answer) {
+			return true
+		}
+	}
+	// Flink cluster: "Flink Cluster with ID <id> not found"
+	return strings.Contains(httpErr.Body, "Flink Cluster with ID") && strings.Contains(httpErr.Body, "not found")
 }
 
 // ignoreGone returns nil when err only says the resource is already gone.

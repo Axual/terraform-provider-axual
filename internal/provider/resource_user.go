@@ -166,7 +166,13 @@ func (r *userResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
+	planned := data.Roles
 	mapUserResponseToData(ctx, &data, user)
+	// Terraform requires the planned roles back. A null plan (a 3.2.x state applied with -refresh=false)
+	// stays null; the next refresh reads the roles.
+	if !planned.IsUnknown() {
+		data.Roles = planned
+	}
 	tflog.Info(ctx, "saving the resource to state")
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
@@ -195,8 +201,8 @@ func (r *userResource) ImportState(ctx context.Context, req resource.ImportState
 	})
 }
 
-// desiredRoles returns the roles to send. Unknown roles (left out, while the state has none, for example
-// a state from 3.2.x with -refresh=false) keep the roles the user has.
+// desiredRoles returns the roles to send. Null or unknown roles (left out while the state has none, for
+// example a state from 3.2.x applied with -refresh=false) keep the roles the user has.
 func (r *userResource) desiredRoles(ctx context.Context, data userResourceData) ([]Role, error) {
 	if data.Roles.IsUnknown() || data.Roles.IsNull() {
 		user, err := r.provider.client.GetUser(data.Id.ValueString())

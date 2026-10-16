@@ -24,12 +24,15 @@ func TestIsGone(t *testing.T) {
 		err  error
 		gone bool
 	}{
-		"404":                   {webclient.NotFoundError, true},
-		"grant gone (400)":      {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"No such application access exists with this request!"}`}, true},
-		"deployment gone (400)": {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"Required URI template variable 'uid' ... converted to null"}`}, true},
-		"other 400":             {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"Invalid action"}`}, false},
-		"500":                   {&webclient.HTTPError{StatusCode: 500}, false},
-		"no error":              {nil, false},
+		"404":                      {webclient.NotFoundError, true},
+		"grant gone (400)":         {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"No such application access exists with this request!"}`}, true},
+		"deployment gone (400)":    {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"Required URI template variable 'uid' ... converted to null"}`}, true},
+		"group gone (400)":         {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"No Group found"}`}, true},
+		"application gone (400)":   {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"No application found"}`}, true},
+		"flink cluster gone (400)": {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"Flink Cluster with ID f1 not found"}`}, true},
+		"other 400":                {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"Invalid action"}`}, false},
+		"500":                      {&webclient.HTTPError{StatusCode: 500}, false},
+		"no error":                 {nil, false},
 	}
 	for name, test := range tests {
 		if got := isGone(test.err); got != test.gone {
@@ -258,9 +261,10 @@ func TestRetryIfStopsWhenCancelled(t *testing.T) {
 	}
 }
 
-// Destroy of a resource that was deleted outside Terraform is done, not an error.
+// Destroy of a resource that was deleted outside Terraform is done, not an error. A gone group or
+// Flink cluster gets a 400, as on Platform Manager master.
 func TestDeleteAcceptsAGoneResource(t *testing.T) {
-	client := fakePM(t, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) })
+	client := fakePM(t, pmGoneAnswers)
 	provider := AxualProvider{client: client}
 	flinkCluster := &flinkClusterResource{provider: provider}
 	registries := emptyState(t, flinkCluster).Schema.GetAttributes()["schema_registries"].GetType().(types.ListType)
@@ -269,6 +273,9 @@ func TestDeleteAcceptsAGoneResource(t *testing.T) {
 		data     any
 	}{
 		"user": {&userResource{provider: provider}, &userResourceData{Id: types.StringValue("u1"), Roles: types.SetNull(roleObjectType)}},
+		"group": {&groupResource{provider: provider}, &groupResourceData{
+			Id: types.StringValue("g1"), Members: types.SetNull(types.StringType), Managers: types.SetNull(types.StringType),
+		}},
 		"flink cluster": {flinkCluster, &FlinkClusterResourceData{
 			Id: types.StringValue("f1"), InstanceId: types.StringValue("i1"), ClusterId: types.StringValue("c1"),
 			SchemaRegistries: types.ListNull(registries.ElemType),
@@ -285,5 +292,36 @@ func TestDeleteAcceptsAGoneResource(t *testing.T) {
 				t.Errorf("delete error = %v, expected none for a resource that is gone", resp.Diagnostics)
 			}
 		})
+	}
+}
+
+// pmGoneAnswers answers like Platform Manager master for resources that do not exist.
+func pmGoneAnswers(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case strings.Contains(r.URL.Path, "/flink-clusters/"):
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"detail":"Flink Cluster with ID f1 not found"}`))
+	case strings.Contains(r.URL.Path, "/groups/"):
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"detail":"No Group found"}`))
+	default:
+		w.WriteHeader(http.StatusNotFound)
+	}
+}
+
+// A Flink cluster deleted outside Terraform is removed from the state, so destroy and plan go on.
+func TestFlinkClusterReadDropsAGoneCluster(t *testing.T) {
+	r := &flinkClusterResource{provider: AxualProvider{client: fakePM(t, pmGoneAnswers)}}
+	registries := emptyState(t, r).Schema.GetAttributes()["schema_registries"].GetType().(types.ListType)
+	state := stateFor(t, r, &FlinkClusterResourceData{
+		Id: types.StringValue("f1"), InstanceId: types.StringValue("i1"), ClusterId: types.StringValue("c1"),
+		SchemaRegistries: types.ListNull(registries.ElemType),
+	})
+	resp := resource.ReadResponse{State: state}
+
+	r.Read(context.Background(), resource.ReadRequest{State: state}, &resp)
+
+	if resp.Diagnostics.HasError() || !resp.State.Raw.IsNull() {
+		t.Errorf("read = %v, state null = %t; expected the cluster removed from the state", resp.Diagnostics, resp.State.Raw.IsNull())
 	}
 }
