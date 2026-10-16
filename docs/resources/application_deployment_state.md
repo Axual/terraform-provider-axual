@@ -13,7 +13,7 @@ The desired running state of an Application Deployment: whether it should run or
   from `STOPPED` to `RUNNING`, and one that has failed from `FAILED` to `RUNNING`. For a Connector,
   a failed task counts as failed, even while Kafka Connect still reports the connector as running.
 - `current_state` is the live status as Platform Manager reports it, for example `Running`,
-  `Starting`, `Stopped`, `Failed` or `Undefined` for a Connector.
+  `Starting`, `Stopped`, `Failed` or `Undeployed` for a Connector (`Undefined` on older Platform Manager versions).
 - Destroying this resource stops the deployment and, for a Connector, resets it: the connector is
   removed from its Connect cluster, and the deployment, its configs and its offsets stay. This is
   the state the deployment was created in, and it lets Platform Manager delete the connector's
@@ -45,7 +45,7 @@ The desired running state of an Application Deployment: whether it should run or
 
 ### Read-Only
 
-- `current_state` (String) The live status Platform Manager reports for the deployment, for example `Running`, `Starting`, `Stopped`, `Failed` or `Undefined` for a Connector.
+- `current_state` (String) The live status Platform Manager reports for the deployment, for example `Running`, `Starting`, `Stopped`, `Failed` or `Undeployed` for a Connector (`Undefined` on older Platform Manager versions).
 - `id` (String) The Uid of the Application Deployment, the same as `application_deployment`.
 
 ## Example Usage
