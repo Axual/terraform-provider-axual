@@ -21,7 +21,7 @@ import (
 // STOP, RESTART and RESET move the state the way Kafka Connect does.
 type fakeConnector struct {
 	mu         sync.Mutex
-	state      string // Undefined, Starting, Running, Stopped, Failed
+	state      string // Undeployed (Undefined on older Platform Manager), Starting, Running, Stopped, Failed
 	taskStatus string // "" for no tasks, else Running or Failed
 	trace      string
 	// startsIn is how many status reads a START stays in Starting before it runs.
@@ -44,11 +44,12 @@ type fakeConnector struct {
 
 func (f *fakeConnector) links() map[string]webclient.Link {
 	rels := map[string][]string{
-		"Undefined": {"start"},
-		"Starting":  {"stop"},
-		"Running":   {"stop", "restart"},
-		"Failed":    {"stop", "restart"},
-		"Stopped":   {"start", "reset"},
+		"Undeployed": {"start"},
+		"Undefined":  {"start"},
+		"Starting":   {"stop"},
+		"Running":    {"stop", "restart"},
+		"Failed":     {"stop", "restart"},
+		"Stopped":    {"start", "reset"},
 	}[f.state]
 	if f.state == "Failed" && f.resetWhenFailed {
 		rels = append(rels, "reset")
@@ -131,7 +132,7 @@ func (f *fakeConnector) handler(w http.ResponseWriter, r *http.Request) {
 				f.state = "Stopped"
 			}
 		case "RESET":
-			f.state = "Undefined"
+			f.state = "Undeployed"
 		}
 		w.WriteHeader(http.StatusNoContent)
 	default:
@@ -171,15 +172,21 @@ func equalActions(got []string, want ...string) bool {
 	return strings.Join(got, ",") == strings.Join(want, ",")
 }
 
+// TestStateResourceRunStartsAnUndeployedConnector runs for `Undeployed` and for `Undefined`, which
+// Platform Manager reported for a never-started connector before 16.1.0.
 func TestStateResourceRunStartsAnUndeployedConnector(t *testing.T) {
-	fake := &fakeConnector{state: "Undefined", startsIn: 2}
-	r := newStateResourceAgainst(t, fake)
+	for _, state := range []string{"Undeployed", "Undefined"} {
+		t.Run(state, func(t *testing.T) {
+			fake := &fakeConnector{state: state, startsIn: 2}
+			r := newStateResourceAgainst(t, fake)
 
-	if err := r.run(context.Background(), "dep1", "Connector"); err != nil {
-		t.Fatalf("run() error = %v", err)
-	}
-	if !equalActions(fake.sent(), "START") {
-		t.Errorf("actions = %v, expected START", fake.sent())
+			if err := r.run(context.Background(), "dep1", "Connector"); err != nil {
+				t.Fatalf("run() error = %v", err)
+			}
+			if !equalActions(fake.sent(), "START") {
+				t.Errorf("actions = %v, expected START", fake.sent())
+			}
+		})
 	}
 }
 
@@ -259,7 +266,7 @@ func TestStateResourceRunTimesOutWhenTheConnectorNeverRuns(t *testing.T) {
 	old := runningWaitAttempts
 	runningWaitAttempts = 3
 	t.Cleanup(func() { runningWaitAttempts = old })
-	fake := &fakeConnector{state: "Undefined", startsIn: 100}
+	fake := &fakeConnector{state: "Undeployed", startsIn: 100}
 	r := newStateResourceAgainst(t, fake)
 
 	err := r.run(context.Background(), "dep1", "Connector")
@@ -302,7 +309,8 @@ func TestStateResourceDeleteStopsAndResets(t *testing.T) {
 	}{
 		{name: "running", state: "Running", want: []string{"STOP", "RESET"}},
 		{name: "stopped", state: "Stopped", want: []string{"RESET"}},
-		{name: "never started", state: "Undefined", want: nil},
+		{name: "never started", state: "Undeployed", want: nil},
+		{name: "never started on older platform manager", state: "Undefined", want: nil},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -383,6 +391,7 @@ func TestObservedDeploymentState(t *testing.T) {
 		{name: "connector running", deploymentType: "Connector", body: `{"connectorState":{"state":"Running"},"taskStates":[{"id":0,"status":"Running"}]}`, expected: deploymentStateRunning},
 		{name: "connector starting", deploymentType: "Connector", body: `{"connectorState":{"state":"Starting"}}`, expected: deploymentStateRunning},
 		{name: "connector stopped", deploymentType: "Connector", body: `{"connectorState":{"state":"Stopped"}}`, expected: deploymentStateStopped},
+		{name: "connector undeployed", deploymentType: "Connector", body: `{"connectorState":{"state":"Undeployed"}}`, expected: deploymentStateStopped},
 		{name: "connector undefined", deploymentType: "Connector", body: `{"connectorState":{"state":"Undefined"}}`, expected: deploymentStateStopped},
 		{name: "connector failed", deploymentType: "Connector", body: `{"connectorState":{"state":"Failed"}}`, expected: deploymentStateFailed},
 		{name: "connector running with a failed task", deploymentType: "Connector", body: `{"connectorState":{"state":"Running"},"taskStates":[{"id":0,"status":"Running"},{"id":1,"status":"Failed"}]}`, expected: deploymentStateFailed},

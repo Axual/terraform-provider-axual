@@ -1352,8 +1352,9 @@ func isDeploymentStopped(deploymentType string, status *webclient.ApplicationDep
 		// are end states with nothing running, so waiting for them to change wastes the full budget.
 		return live == "Undeployed" || live == "Failed" || live == "Completed"
 	}
-	// A Connector that never ran reports `Undefined` rather than `Stopped`, and a failed one stays `Failed`.
-	return live == "Stopped" || live == "Undefined" || live == "Failed"
+	// A Connector that is not on Connect reports `Undeployed` (`Undefined` before Platform Manager
+	// 16.1.0) rather than `Stopped`, and a failed one stays `Failed`.
+	return live == "Stopped" || live == "Undeployed" || live == "Undefined" || live == "Failed"
 }
 
 // isDeploymentRunning reports whether the deployment reports itself as running. Like

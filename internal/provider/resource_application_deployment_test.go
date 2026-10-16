@@ -24,6 +24,8 @@ func TestShouldStopDeployment(t *testing.T) {
 		expected       bool
 	}{
 		{name: "connector not running", deploymentType: "Connector", fixture: "deployment_status_connector_stopped.json", expected: false},
+		{name: "connector undeployed", deploymentType: "Connector", fixture: "deployment_status_connector_undeployed.json", expected: false},
+		{name: "connector undeployed but still deployed", deploymentType: "Connector", fixture: "deployment_status_connector_undeployed_stop.json", expected: true},
 		{name: "connector running", deploymentType: "Connector", fixture: "deployment_status_connector_running.json", expected: true},
 		{name: "flink undeployed", deploymentType: webclient.FlinkSQLApplicationType, fixture: "deployment_status_flink_undeployed.json", expected: false},
 		{name: "flink stopped", deploymentType: webclient.FlinkSQLApplicationType, fixture: "deployment_status_flink_stopped.json", expected: false},
@@ -55,6 +57,8 @@ func TestShouldStopDeploymentWithoutLinks(t *testing.T) {
 		{name: "no links at all", deploymentType: "Connector", body: `{}`, expected: false},
 		{name: "empty links", deploymentType: "Connector", body: `{"_links":{}}`, expected: false},
 		{name: "connector running", deploymentType: "Connector", body: `{"connectorState":{"state":"Running"}}`, expected: true},
+		{name: "connector undeployed", deploymentType: "Connector", body: `{"connectorState":{"state":"Undeployed"}}`, expected: false},
+		{name: "connector undefined", deploymentType: "Connector", body: `{"connectorState":{"state":"Undefined"}}`, expected: false},
 		{name: "ksml running", deploymentType: "Ksml", body: `{"ksmlStatus":{"status":"Running"}}`, expected: true},
 		{name: "ksml undeployed", deploymentType: "Ksml", body: `{"ksmlStatus":{"status":"Undeployed"}}`, expected: false},
 		{name: "flink running", deploymentType: webclient.FlinkSQLApplicationType, body: `{"flinkStatus":{"status":"Running"}}`, expected: true},
@@ -76,7 +80,7 @@ func TestShouldStopDeploymentWithoutLinks(t *testing.T) {
 
 // TestIsDeploymentStopped pins the states each application type is allowed to be deleted from. The
 // values are the ones the API reports: KSML never says `Stopped` (a stopped app is `Undeployed`),
-// and a Connector that never ran says `Undefined`.
+// and a Connector that is not on Connect says `Undeployed` (`Undefined` on older Platform Manager).
 func TestIsDeploymentStopped(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -85,7 +89,8 @@ func TestIsDeploymentStopped(t *testing.T) {
 		expected       bool
 	}{
 		{name: "connector stopped", deploymentType: "Connector", status: "Stopped", expected: true},
-		{name: "connector never ran", deploymentType: "Connector", status: "Undefined", expected: true},
+		{name: "connector undeployed", deploymentType: "Connector", status: "Undeployed", expected: true},
+		{name: "connector never ran on older platform manager", deploymentType: "Connector", status: "Undefined", expected: true},
 		{name: "connector failed", deploymentType: "Connector", status: "Failed", expected: true},
 		{name: "connector running", deploymentType: "Connector", status: "Running", expected: false},
 		{name: "connector starting", deploymentType: "Connector", status: "Starting", expected: false},

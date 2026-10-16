@@ -1,0 +1,24 @@
+{
+  "_links" : {
+    "start" : {
+      "href" : "https://platform.local/api/application_deployments/5314628dda53404c9cd7c8541b84ed28/start",
+      "title" : "Start deployment"
+    },
+    "status" : {
+      "href" : "https://platform.local/api/application_deployments/5314628dda53404c9cd7c8541b84ed28/operation?action=VIEW_STATUS"
+    },
+    "logs" : {
+      "href" : "https://platform.local/api/application_deployments/5314628dda53404c9cd7c8541b84ed28/operation?action=VIEW_LOGS"
+    },
+    "self" : {
+      "href" : "https://platform.local/api/5314628dda53404c9cd7c8541b84ed28/status",
+      "title" : "URI pointing to current request"
+    }
+  },
+  "connectorState" : {
+    "state" : "Undeployed",
+    "trace" : null,
+    "workerId" : null
+  },
+  "taskStates" : [ ]
+}

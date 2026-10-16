@@ -95,7 +95,7 @@ func (r *applicationDeploymentStateResource) Schema(_ context.Context, _ resourc
 				},
 			},
 			"current_state": schema.StringAttribute{
-				MarkdownDescription: "The live status Platform Manager reports for the deployment, for example `Running`, `Starting`, `Stopped`, `Failed` or `Undefined` for a Connector.",
+				MarkdownDescription: "The live status Platform Manager reports for the deployment, for example `Running`, `Starting`, `Stopped`, `Failed` or `Undeployed` for a Connector (`Undefined` on older Platform Manager versions).",
 				Computed:            true,
 			},
 		},
