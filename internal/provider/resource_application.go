@@ -6,13 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strings"
 	"time"
 
 	custom_validator "axual.com/terraform-provider-axual/internal/custom-validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -28,13 +26,6 @@ const (
 	applicationDeleteAttempts = 5
 	applicationDeleteDelay    = 3 * time.Second
 )
-
-// isDeleteConflict reports whether the error is the platform's transient commit conflict: the delete
-// cascade can lose an optimistic lock on a just-revoked access grant (AXPD-12049). Matched on the
-// status alone - the message text and even the status vary by platform version.
-func isDeleteConflict(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "status: 409")
-}
 
 var _ resource.Resource = &applicationResource{}
 var _ resource.ResourceWithImportState = &applicationResource{}
@@ -243,28 +234,25 @@ func (r *applicationResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	// Deleting an Application cascades over its deployments, principals, credentials and access
-	// grants (ApplicationEventHandler.deleteCascade). When Terraform has just revoked the grants,
-	// the platform is often still writing those `application_access` rows, so the cascade loses the
-	// optimistic lock and the whole delete is rejected with a 409 "Could not commit changes!".
-	// That conflict is transient, so it - and only it - is retried.
-	var err error
-	for attempt := 0; attempt < applicationDeleteAttempts; attempt++ {
-		err = r.provider.client.DeleteApplication(data.Id.ValueString())
-		if err == nil || !isDeleteConflict(err) {
-			break
+	// The delete cascades over just-revoked access grants and can lose the optimistic lock (409, or
+	// 403 OptimisticLocking). That conflict is transient, so it is retried.
+	err := RetryIf(ctx, applicationDeleteAttempts, applicationDeleteDelay, isConflict, func() error {
+		err := r.provider.client.DeleteApplication(data.Id.ValueString())
+		if isConflict(err) {
+			tflog.Info(ctx, fmt.Sprintf("Application %s could not be deleted yet (%s)", data.Id.ValueString(), err))
 		}
-		tflog.Info(ctx, fmt.Sprintf("Application %s could not be deleted yet (%s), retrying in %s", data.Id.ValueString(), err, applicationDeleteDelay))
-		time.Sleep(applicationDeleteDelay)
-	}
-	if err != nil {
+		return err
+	})
+	if err = ignoreGone(err); err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete Application, got error: %s", err))
 		return
 	}
 }
 
 func (r *applicationResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	importByIDOrKey(ctx, req, resp, importByNamePrefix, func(key string) (string, error) {
+		return findApplicationIDByName(r.provider.client, key)
+	})
 }
 
 func createApplicationRequestFromData(ctx context.Context, data *ApplicationResourceData, r applicationResource) (webclient.ApplicationRequest, error) {

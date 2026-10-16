@@ -1,30 +1,35 @@
 package provider
 
 import (
+	webclient "axual-webclient"
 	"errors"
+	"fmt"
 	"testing"
 )
 
-// TestIsDeleteConflict pins the matching rule of the delete retry: only the status is matched, never
-// the message. AXPD-12049 shows the wording comes from the platform's Spring version, and the same
-// cascade failure has also surfaced as a 403, so a stricter match would silently stop retrying.
-func TestIsDeleteConflict(t *testing.T) {
+// TestIsConflict pins which answers the deletes and STOP retry as a conflict: any 409 whatever its text,
+// which varies by platform version, and the 403 optimistic-lock answer. Only an HTTPError counts, also
+// when wrapped; the text of the error does not.
+func TestIsConflict(t *testing.T) {
 	tests := []struct {
 		name     string
 		err      error
 		expected bool
 	}{
 		{name: "no error", err: nil, expected: false},
-		{name: "commit conflict", err: errors.New(`status: 409, body: {"message":"Could not commit changes!"}`), expected: true},
-		{name: "conflict with other wording", err: errors.New(`status: 409, body: {"message":"Optimistic locking failed"}`), expected: true},
-		{name: "not found", err: errors.New(`status: 404, body: {"message":"Not found"}`), expected: false},
-		{name: "forbidden", err: errors.New(`status: 403, body: {"message":"Could not commit changes!"}`), expected: false},
+		{name: "commit conflict", err: &webclient.HTTPError{StatusCode: 409, Body: `{"message":"Could not commit changes!"}`}, expected: true},
+		{name: "conflict with other wording", err: &webclient.HTTPError{StatusCode: 409, Body: `{"message":"Optimistic locking failed"}`}, expected: true},
+		{name: "optimistic lock as 403", err: &webclient.HTTPError{StatusCode: 403, Body: "ObjectOptimisticLockingFailureException"}, expected: true},
+		{name: "not found", err: webclient.NotFoundError, expected: false},
+		{name: "forbidden", err: &webclient.HTTPError{StatusCode: 403, Body: `{"message":"Could not commit changes!"}`}, expected: false},
+		{name: "wrapped conflict", err: fmt.Errorf("delete: %w", &webclient.HTTPError{StatusCode: 409}), expected: true},
+		{name: "conflict as text only", err: errors.New("status: 409, body: x"), expected: false},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := isDeleteConflict(test.err); got != test.expected {
-				t.Errorf("isDeleteConflict() = %t, expected %t", got, test.expected)
+			if got := isConflict(test.err); got != test.expected {
+				t.Errorf("isConflict() = %t, expected %t", got, test.expected)
 			}
 		})
 	}

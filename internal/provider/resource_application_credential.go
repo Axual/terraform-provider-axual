@@ -269,7 +269,7 @@ func (r *applicationCredentialResource) Delete(ctx context.Context, req resource
 		Configs:       usernameConfig,
 	}
 
-	err := r.provider.client.DeleteApplicationCredential(applicationCredentialDeleteRequest)
+	err := ignoreGone(r.provider.client.DeleteApplicationCredential(applicationCredentialDeleteRequest))
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete application credential, got error: %s", err))
 		return

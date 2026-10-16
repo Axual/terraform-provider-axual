@@ -1,9 +1,7 @@
 package provider
 
 import (
-	webclient "axual-webclient"
 	"context"
-	"errors"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -149,7 +147,7 @@ func (r *applicationAccessGrantApprovalResource) Read(ctx context.Context, req r
 
 	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.ApplicationAccessGrant.ValueString())
 	if err != nil {
-		if errors.Is(err, webclient.NotFoundError) {
+		if isGone(err) {
 			tflog.Warn(ctx, fmt.Sprintf("Application Access Grant not found, removing approval from state. Id: %s", data.ApplicationAccessGrant.ValueString()))
 			resp.State.RemoveResource(ctx)
 			return
@@ -191,6 +189,10 @@ func (r *applicationAccessGrantApprovalResource) Delete(ctx context.Context, req
 	}
 
 	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.ApplicationAccessGrant.ValueString())
+	if isGone(err) || (err == nil && isGrantClosed(applicationAccessGrant.Status)) {
+		// Already revoked, or the grant is gone: for example the grant was destroyed at the same time.
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to get Application Access Grant", fmt.Sprintf("Error message: %s", err.Error()))
 		return
@@ -199,6 +201,11 @@ func (r *applicationAccessGrantApprovalResource) Delete(ctx context.Context, req
 	if applicationAccessGrant.Links.Revoke.Href != "" {
 		err := r.provider.client.RevokeOrDenyGrant(data.ApplicationAccessGrant.ValueString(), "Revoked in terraform")
 		if err != nil {
+			// Revoked or deleted at the same time by another resource in this destroy.
+			updated, fetchErr := r.provider.client.GetApplicationAccessGrant(data.ApplicationAccessGrant.ValueString())
+			if isGone(fetchErr) || (fetchErr == nil && isGrantClosed(updated.Status)) {
+				return
+			}
 			resp.Diagnostics.AddError("Failed to revoke approval for application access grant", fmt.Sprintf("Error message: %s", err.Error()))
 			return
 		}

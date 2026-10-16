@@ -273,7 +273,7 @@ func TestDeleteWithRetry(t *testing.T) {
 
 	t.Run("connector failure is not retried or wrapped", func(t *testing.T) {
 		calls := 0
-		err := deleteWithRetry("Connector", 0, func() error {
+		err := deleteWithRetry(context.Background(), "Connector", 0, func() error {
 			calls++
 			return apiErr
 		})
@@ -287,7 +287,7 @@ func TestDeleteWithRetry(t *testing.T) {
 
 	t.Run("flink failure is retried", func(t *testing.T) {
 		calls := 0
-		err := deleteWithRetry(webclient.FlinkSQLApplicationType, 0, func() error {
+		err := deleteWithRetry(context.Background(), webclient.FlinkSQLApplicationType, 0, func() error {
 			calls++
 			return apiErr
 		})
@@ -301,7 +301,7 @@ func TestDeleteWithRetry(t *testing.T) {
 
 	t.Run("flink succeeds on a later attempt", func(t *testing.T) {
 		calls := 0
-		err := deleteWithRetry(webclient.FlinkSQLApplicationType, 0, func() error {
+		err := deleteWithRetry(context.Background(), webclient.FlinkSQLApplicationType, 0, func() error {
 			calls++
 			if calls < 3 {
 				return apiErr

@@ -3,7 +3,6 @@ package provider
 import (
 	webclient "axual-webclient"
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -129,7 +128,7 @@ func (r *applicationAccessGrantResource) Read(ctx context.Context, req resource.
 	tflog.Info(ctx, fmt.Sprintf("Reading Application Access Grant. Id: %s", data.Id.ValueString()))
 	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.Id.ValueString())
 	if err != nil {
-		if errors.Is(err, webclient.NotFoundError) {
+		if isGone(err) {
 			tflog.Warn(ctx, fmt.Sprintf("Application Access Grant not found. Id: %s", data.Id.ValueString()))
 			resp.State.RemoveResource(ctx)
 			return
@@ -181,7 +180,7 @@ func (r *applicationAccessGrantResource) Delete(ctx context.Context, req resourc
 	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.Id.ValueString())
 	if err != nil {
 		// If grant not found, it's already deleted - success
-		if errors.Is(err, webclient.NotFoundError) {
+		if isGone(err) {
 			tflog.Info(ctx, fmt.Sprintf("Grant already deleted. Id: %s", data.Id.ValueString()))
 			return
 		}
@@ -192,9 +191,7 @@ func (r *applicationAccessGrantResource) Delete(ctx context.Context, req resourc
 	// Terminal states - grant is already "destroyed", just remove from state
 	// We check this BEFORE attempting any API calls to avoid "invalid state" errors
 	// This also handles the case where approval resource revoked the grant at the same time.
-	if applicationAccessGrant.Status == "Revoked" ||
-		applicationAccessGrant.Status == "Rejected" ||
-		applicationAccessGrant.Status == "Cancelled" {
+	if isGrantClosed(applicationAccessGrant.Status) {
 		tflog.Info(ctx, fmt.Sprintf("Grant is in terminal state (%s), removing from state. Id: %s",
 			applicationAccessGrant.Status, data.Id.ValueString()))
 		return
@@ -229,7 +226,7 @@ func (r *applicationAccessGrantResource) Delete(ctx context.Context, req resourc
 
 			updatedGrant, fetchErr := r.provider.client.GetApplicationAccessGrant(data.Id.ValueString())
 			if fetchErr != nil {
-				if errors.Is(fetchErr, webclient.NotFoundError) {
+				if isGone(fetchErr) {
 					tflog.Info(ctx, fmt.Sprintf("Grant was deleted by another process. Id: %s", data.Id.ValueString()))
 					return
 				}
@@ -239,9 +236,7 @@ func (r *applicationAccessGrantResource) Delete(ctx context.Context, req resourc
 			}
 
 			// If grant is now in terminal state, someone else handled it - success
-			if updatedGrant.Status == "Revoked" ||
-				updatedGrant.Status == "Rejected" ||
-				updatedGrant.Status == "Cancelled" {
+			if isGrantClosed(updatedGrant.Status) {
 				tflog.Info(ctx, fmt.Sprintf("Grant was revoked by another process (status: %s). Id: %s",
 					updatedGrant.Status, data.Id.ValueString()))
 				return

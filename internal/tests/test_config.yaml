@@ -29,6 +29,11 @@ resolvedTopicPrefix: ""
 # a group. Leave empty to skip that test.
 serviceAccountUid: ""
 
+# The email address of a user who logged in once (Terraform cannot create users). TestUserResource
+# imports it by email, changes its roles and puts them back at the end. Use a test user, not your
+# own: a failed run can leave it without roles. Leave empty to skip that test.
+testUserEmail: ""
+
 # Two Kafka Connect clusters already registered on one Instance-Cluster, used by the Kafka Connect
 # tests (ConnectClusterDataSource, ApplicationDeploymentStateResource): one MTLS, one SASL_SCRAM.
 # The tests never register them. They skip while any of these is still a YOUR_ placeholder.
