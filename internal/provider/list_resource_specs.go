@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/hashicorp/terraform-plugin-framework/list"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -27,8 +26,8 @@ var (
 	filterDeploymentOwners  = listFilter{"owners", "Only deployments of applications owned by this group. Takes the group's ID or its exact name."}
 )
 
-// listSpecs returns the list resources of the provider. Every type must also be wrapped with the
-// same identity attribute in Resources.
+// listSpecs returns the list resources of the provider. Resources wraps each type with the same
+// identity attribute.
 func listSpecs() []listSpec {
 	return []listSpec{
 		{
@@ -65,7 +64,7 @@ func listSpecs() []listSpec {
 			newResource: NewApplicationResource,
 			filters: []listFilter{filterName, filterOwners,
 				{"short_name", "Only applications whose short name contains this text (case-insensitive)."},
-				{"application_type", "Only applications of this type: `Custom`, `Connector`, `KSML` or `Flink`."},
+				{"application_type", "Only applications of this type, as in `axual_application`: `Custom`, `Connector`, `Ksml` or `FLINK_SQL`."},
 			},
 			find: findApplications,
 		},
@@ -167,15 +166,6 @@ func listSpecs() []listSpec {
 	}
 }
 
-// ListResources returns the list resources used by `terraform query`.
-func (p *AxualProvider) ListResources(_ context.Context) []func() list.ListResource {
-	var out []func() list.ListResource
-	for _, spec := range listSpecs() {
-		out = append(out, func() list.ListResource { return newListResource(*p, spec) })
-	}
-	return out
-}
-
 // grantFilters returns the filters of the grant list resources. For an approval or rejection,
 // owners is the topic's owner (the team that approves); for a grant, the application's owner.
 func grantFilters(approvalOrRejection bool) []listFilter {
@@ -191,28 +181,9 @@ func grantFilters(approvalOrRejection bool) []listFilter {
 		{"access_type", "Only grants of this access type: `PRODUCER` or `CONSUMER`."},
 	}
 	if !approvalOrRejection {
-		f = append(f, listFilter{"status", "Only grants with this status: `PENDING`, `APPROVED`, `REJECTED`, `REVOKED` or `CANCELLED`."})
+		f = append(f, listFilter{"status", "Only grants with this status: `PENDING`, `APPROVED`, `REJECTED`, `REVOKED` or `CANCELLED`. Without it, revoked and cancelled grants are left out."})
 	}
 	return f
-}
-
-// resolveOne returns the uid of the only item in found, or an error when there is none or more
-// than one.
-func resolveOne(kind, value string, found []webclient.ListItem, match func(webclient.ListItem) bool) (string, error) {
-	var ids []string
-	for _, it := range found {
-		if match == nil || match(it) {
-			ids = append(ids, it.String("uid"))
-		}
-	}
-	switch len(ids) {
-	case 0:
-		return "", fmt.Errorf("no %s found with ID or name %q", kind, value)
-	case 1:
-		return ids[0], nil
-	default:
-		return "", fmt.Errorf("more than one %s found with name %q; use its ID instead", kind, value)
-	}
 }
 
 // notAnID is true when a GET by ID failed because v is not an ID: the API answers 404, or 400 for
@@ -222,63 +193,13 @@ func notAnID(err error) bool {
 	return errors.Is(err, webclient.NotFoundError) || (errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusBadRequest)
 }
 
-// byName matches the exact (case-sensitive) value of one of the keys, like the data sources do.
-func byName(v string, keys ...string) func(webclient.ListItem) bool {
-	return func(it webclient.ListItem) bool {
-		for _, k := range keys {
-			if it.String(k) == v {
-				return true
-			}
-		}
-		return false
-	}
-}
-
 func resolveGroup(c *webclient.Client, v string) (string, error) {
 	if _, err := c.GetGroup(v); err == nil {
 		return v, nil
 	} else if !notAnID(err) {
 		return "", err
 	}
-	found, err := c.ListAll("groups/search/findByName", url.Values{"name": {v}})
-	if err != nil {
-		return "", err
-	}
-	return resolveOne("group", v, found, byName(v, "name"))
-}
-
-func resolveEnvironment(c *webclient.Client, v string) (string, error) {
-	if _, err := c.GetEnvironment(v); err == nil {
-		return v, nil
-	} else if !notAnID(err) {
-		return "", err
-	}
-	byShortName, err := c.ListAll("environments/search/findByShortName", url.Values{"shortName": {v}})
-	if err != nil {
-		return "", err
-	}
-	byFullName, err := c.ListAll("environments/search/findByName", url.Values{"name": {v}})
-	if err != nil {
-		return "", err
-	}
-	return resolveOne("environment", v, uniqueByUID(append(byShortName, byFullName...)), byName(v, "shortName", "name"))
-}
-
-func resolveApplication(c *webclient.Client, v string) (string, error) {
-	if _, err := c.GetApplication(v); err == nil {
-		return v, nil
-	} else if !notAnID(err) {
-		return "", err
-	}
-	byFullName, err := c.ListAll("applications/search/findByAttributes", url.Values{"name": {v}})
-	if err != nil {
-		return "", err
-	}
-	byShortName, err := c.ListAll("applications/search/findByAttributes", url.Values{"shortName": {v}})
-	if err != nil {
-		return "", err
-	}
-	return resolveOne("application", v, uniqueByUID(append(byFullName, byShortName...)), byName(v, "shortName", "name"))
+	return findGroupIDByName(c, v)
 }
 
 func resolveTopic(c *webclient.Client, v string) (string, error) {
@@ -287,20 +208,76 @@ func resolveTopic(c *webclient.Client, v string) (string, error) {
 	} else if !notAnID(err) {
 		return "", err
 	}
-	found, err := c.ListAll("streams/search/findByName", url.Values{"name": {v}})
-	if err != nil {
-		return "", err
-	}
-	return resolveOne("topic", v, found, byName(v, "name"))
+	return findTopicIDByName(c, v)
 }
 
-func uniqueByUID(items []webclient.ListItem) []webclient.ListItem {
+// resolveEnvironment takes an ID, a short name or an exact name.
+func resolveEnvironment(c *webclient.Client, v string) (string, error) {
+	if _, err := c.GetEnvironment(v); err == nil {
+		return v, nil
+	} else if !notAnID(err) {
+		return "", err
+	}
+	return onlyExactMatch("environment", v, func() ([]keyedID, error) {
+		var results []keyedID
+		for _, search := range []func(string) (*webclient.EnvironmentsResponse, error){c.GetEnvironmentByShortName, c.GetEnvironmentByName} {
+			found, err := search(v)
+			if err != nil && !errors.Is(err, webclient.NotFoundError) {
+				return nil, err
+			}
+			if found == nil {
+				continue
+			}
+			for _, e := range found.Embedded.Environments {
+				results = append(results, keyedID{matchingKey(v, e.ShortName, e.Name), e.Uid})
+			}
+		}
+		return uniqueIDs(results), nil
+	})
+}
+
+// resolveApplication takes an ID, a short name or an exact name.
+func resolveApplication(c *webclient.Client, v string) (string, error) {
+	if _, err := c.GetApplication(v); err == nil {
+		return v, nil
+	} else if !notAnID(err) {
+		return "", err
+	}
+	return onlyExactMatch("application", v, func() ([]keyedID, error) {
+		var results []keyedID
+		for _, key := range []string{"shortName", "name"} {
+			found, err := c.GetApplicationByNameOrShortName(url.Values{key: {v}})
+			if errors.Is(err, webclient.NotFoundError) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+			results = append(results, keyedID{matchingKey(v, found.ShortName, found.Name), found.Uid})
+		}
+		return uniqueIDs(results), nil
+	})
+}
+
+// matchingKey returns v when one of the keys equals it, so onlyExactMatch keeps the result.
+func matchingKey(v string, keys ...string) string {
+	for _, k := range keys {
+		if k == v {
+			return v
+		}
+	}
+	return keys[len(keys)-1]
+}
+
+// uniqueIDs drops results with an ID seen before: a search by name and by short name can find the
+// same resource.
+func uniqueIDs(results []keyedID) []keyedID {
 	seen := map[string]bool{}
-	var out []webclient.ListItem
-	for _, it := range items {
-		if !seen[it.String("uid")] {
-			seen[it.String("uid")] = true
-			out = append(out, it)
+	var out []keyedID
+	for _, r := range results {
+		if !seen[r.id] {
+			seen[r.id] = true
+			out = append(out, r)
 		}
 	}
 	return out
@@ -631,11 +608,14 @@ func findGrants(_ context.Context, c *webclient.Client, f map[string]string, sta
 	if f["access_type"] != "" {
 		params.Set("accessType", strings.ToUpper(f["access_type"]))
 	}
-	if status == "" {
-		status = strings.ToUpper(f["status"])
-	}
-	if status != "" {
+	switch {
+	case status != "":
 		params.Set("statuses", status)
+	case f["status"] != "":
+		params.Set("statuses", strings.ToUpper(f["status"]))
+	default:
+		// A revoked or cancelled grant has nothing left to manage.
+		params["statuses"] = []string{"PENDING", "APPROVED", "REJECTED"}
 	}
 
 	appFilters := map[string]string{"application": f["application"]}

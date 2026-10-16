@@ -38,6 +38,15 @@ func TestListAll(t *testing.T) {
 			wantCalls: 1,
 		},
 		{
+			desc: "an item on two pages is returned once",
+			pages: []string{
+				`{"_embedded":{"streams":[{"uid":"a"},{"uid":"b"}]},"page":{"totalPages":2}}`,
+				`{"_embedded":{"streams":[{"uid":"b"},{"uid":"c"}]},"page":{"totalPages":2}}`,
+			},
+			wantUIDs:  []string{"a", "b", "c"},
+			wantCalls: 2,
+		},
+		{
 			desc:      "plain JSON array",
 			pages:     []string{`[{"uid":"p"},{"uid":"q"}]`},
 			wantUIDs:  []string{"p", "q"},
@@ -53,6 +62,9 @@ func TestListAll(t *testing.T) {
 				}
 				if got := r.URL.Query().Get("name"); got != "orders" {
 					t.Errorf("name = %q, want the filter to be passed on", got)
+				}
+				if got := r.URL.Query().Get("sort"); got != "id,asc" {
+					t.Errorf("sort = %q, want a fixed order", got)
 				}
 				_, _ = w.Write([]byte(tt.pages[calls]))
 				calls++

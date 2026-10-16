@@ -15,7 +15,8 @@ Create an empty folder with a file `main.tf`:
 terraform {
   required_providers {
     axual = {
-      source = "axual/axual"
+      source  = "axual/axual"
+      version = ">= 3.3.0" # the first release with terraform query
     }
   }
 }
@@ -79,13 +80,16 @@ terraform plan
 terraform apply
 ```
 
-The plan says `will be imported` for each resource; nothing is created or changed. After the apply,
-`terraform plan` says `No changes`, and the resources are managed by Terraform.
+The plan says `will be imported` for each resource. Nothing is created on the platform; a principal
+also shows an update the first time (see "Good to know"). After the apply, `terraform plan` says
+`No changes`, and the resources are managed by Terraform.
 
 ## Good to know
 
 - Secret values (certificates, private keys, connector `configs`) are not exported. Terraform writes
   `null # sensitive`; fill them in before step 5. For a deployment, the plan stops with
-  `Missing configs` until you do.
+  `Missing configs` until you do. A principal's private key is stored again by the first apply.
+- After the import, `terraform destroy` or removing a block deletes the resource on the platform, also
+  a user. Use a `removed` block with `lifecycle { destroy = false }` to stop managing it instead.
 - Move `generated.tf` away before you run `terraform query` again.
 - A list returns at most 100 resources; add `limit = 1000` inside the `list` block for more.

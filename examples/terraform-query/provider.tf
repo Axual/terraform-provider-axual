@@ -1,8 +1,8 @@
 terraform {
   required_providers {
     axual = {
-      source = "Axual/axual"
-      # terraform query needs a provider version with list resources (see the CHANGELOG)
+      source  = "Axual/axual"
+      version = ">= 3.3.0" # the first release with terraform query
     }
   }
 }

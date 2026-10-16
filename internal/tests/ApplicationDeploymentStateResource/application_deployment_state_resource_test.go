@@ -322,7 +322,8 @@ func TestImportThenApply(t *testing.T) {
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectResourceAction("axual_application_principal.imp", plancheck.ResourceActionUpdate),
-						plancheck.ExpectResourceAction("axual_application_deployment.imp", plancheck.ResourceActionUpdate),
+						// Imported with autostart = false already, the only value a Kafka Connect target allows.
+						plancheck.ExpectResourceAction("axual_application_deployment.imp", plancheck.ResourceActionNoop),
 					},
 				},
 				Check: resource.ComposeTestCheckFunc(

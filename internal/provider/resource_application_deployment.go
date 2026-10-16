@@ -141,13 +141,13 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				},
 			},
 			"configs": schema.MapAttribute{
-				MarkdownDescription: "Connector config for Application Deployment. Required for Connector deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. All available application plugin class names, plugin types and plugin configs are listed here in API- `GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass` and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/connect-plugins-catalog/connect-plugins-catalog.html",
+				MarkdownDescription: "Connector config for Application Deployment. Required for Connector deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. All available application plugin class names, plugin types and plugin configs are listed here in API- `GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass` and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/connect-plugins-catalog/connect-plugins-catalog.html. Leaving it out of a deployment that has configs stops the plan with `Missing configs`; to remove it, replace the deployment with `terraform apply -replace`.",
 				Optional:            true,
 				ElementType:         types.StringType,
 				Sensitive:           true,
 			},
 			"definition": schema.StringAttribute{
-				MarkdownDescription: "KSML definition for Application Deployment. Required for KSML deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.",
+				MarkdownDescription: "KSML definition for Application Deployment. Required for KSML deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. Leaving it out of a deployment that has one stops the plan with `Missing definition`; to remove it, replace the deployment with `terraform apply -replace`.",
 				Optional:            true,
 				Sensitive:           true,
 			},
@@ -197,7 +197,7 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				},
 			},
 			"sql_script": schema.StringAttribute{
-				MarkdownDescription: "The user-authored Flink SQL script. Required for FLINK_SQL deployments. Each statement must be a `CREATE TEMPORARY TABLE` or an `INSERT INTO ... SELECT`; two or more top-level `INSERT INTO` statements must be wrapped in `BEGIN STATEMENT SET; ... END;`. With `generate_tables_sql = true` the platform generates the `CREATE TEMPORARY TABLE` statements from the application's approved topic access and the script carries only the `INSERT INTO ... SELECT`; with `false` you write the table DDL yourself. Kafka and schema registry connection options (`bootstrap.servers`, `properties.security.protocol`, `properties.sasl.*`, `ssl.*`, and the `avro-confluent` `url`/`basic-auth.*`/`bearer-auth.*` options) are injected by the platform and are rejected here, `connector` must stay `kafka` or `upsert-kafka`, and each side is declared with `key.format`/`value.format` rather than Flink's `format` shorthand. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.",
+				MarkdownDescription: "The user-authored Flink SQL script. Required for FLINK_SQL deployments. Each statement must be a `CREATE TEMPORARY TABLE` or an `INSERT INTO ... SELECT`; two or more top-level `INSERT INTO` statements must be wrapped in `BEGIN STATEMENT SET; ... END;`. With `generate_tables_sql = true` the platform generates the `CREATE TEMPORARY TABLE` statements from the application's approved topic access and the script carries only the `INSERT INTO ... SELECT`; with `false` you write the table DDL yourself. Kafka and schema registry connection options (`bootstrap.servers`, `properties.security.protocol`, `properties.sasl.*`, `ssl.*`, and the `avro-confluent` `url`/`basic-auth.*`/`bearer-auth.*` options) are injected by the platform and are rejected here, `connector` must stay `kafka` or `upsert-kafka`, and each side is declared with `key.format`/`value.format` rather than Flink's `format` shorthand. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. Leaving it out of a deployment that has one stops the plan with `Missing sql_script`; to remove it, replace the deployment with `terraform apply -replace`.",
 				Optional:            true,
 				Sensitive:           true,
 			},
@@ -256,8 +256,9 @@ func (m deploymentTypePlanModifier) PlanModifyString(ctx context.Context, req pl
 	}
 }
 
-// ModifyPlan refuses autostart = true on a Kafka Connect target at plan time. It can only do that
-// when the application already exists; otherwise Create and Update still refuse it at apply time.
+// ModifyPlan refuses a plan that clears configs, a definition or a SQL script, and autostart = true
+// on a Kafka Connect target. The autostart check only runs when the application already exists;
+// otherwise Create and Update still refuse it at apply time.
 func (r *applicationDeploymentResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	if req.Plan.Raw.IsNull() || r.provider.client == nil {
 		return
@@ -270,7 +271,9 @@ func (r *applicationDeploymentResource) ModifyPlan(ctx context.Context, req reso
 	if !req.State.Raw.IsNull() {
 		var state ApplicationDeploymentResourceData
 		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-		refuseClearingDeployment(&plan, &state, &resp.Diagnostics)
+		if !deploymentIsReplaced(&plan, &state) {
+			refuseClearingDeployment(&plan, &state, &resp.Diagnostics)
+		}
 		if resp.Diagnostics.HasError() {
 			return
 		}
@@ -577,19 +580,27 @@ func (r *applicationDeploymentResource) checkStartPrerequisites(data *Applicatio
 // while the deployment has one. The apply would remove it on the platform and stop the deployment.
 // A configuration from `terraform query -generate-config-out` has these sensitive values as null.
 func refuseClearingDeployment(plan, state *ApplicationDeploymentResourceData, diags *diag.Diagnostics) {
+	const howTo = "Set it (configuration generated by `terraform query` leaves it out, because it is sensitive), " +
+		"or replace the deployment with `terraform apply -replace` to remove it."
 	if plan.Configs.IsNull() && len(state.Configs.Elements()) > 0 {
 		diags.AddAttributeError(path.Root("configs"), "Missing configs",
-			"configs is null, but the deployment has a configuration. This apply would remove it and stop the deployment. Set configs; "+
-				"a configuration written by `terraform query -generate-config-out` leaves it out because it is sensitive.")
+			"configs is not set, but the deployment has configs. This apply would remove them and stop the deployment. "+howTo)
 	}
 	if plan.Definition.IsNull() && state.Definition.ValueString() != "" {
 		diags.AddAttributeError(path.Root("definition"), "Missing definition",
-			"definition is null, but the deployment has a KSML definition. Set definition; it is left out of generated configuration because it is sensitive.")
+			"definition is not set, but the deployment has a KSML definition. This apply would remove it. "+howTo)
 	}
 	if plan.SqlScript.IsNull() && state.SqlScript.ValueString() != "" {
 		diags.AddAttributeError(path.Root("sql_script"), "Missing sql_script",
-			"sql_script is null, but the deployment has a SQL script. Set sql_script; it is left out of generated configuration because it is sensitive.")
+			"sql_script is not set, but the deployment has a SQL script. This apply would remove it. "+howTo)
 	}
+}
+
+// deploymentIsReplaced reports a plan that creates a new deployment: another application or
+// environment, or another target of a FLINK_SQL deployment. Nothing is cleared then.
+func deploymentIsReplaced(plan, state *ApplicationDeploymentResourceData) bool {
+	return !plan.Application.Equal(state.Application) || !plan.Environment.Equal(state.Environment) ||
+		(isFlinkSQL(state.Type.ValueString()) && !plan.TargetId.IsUnknown() && !plan.TargetId.Equal(state.TargetId))
 }
 
 // isKafkaConnectTarget reports whether a Connector deployment targets a registered Kafka Connect

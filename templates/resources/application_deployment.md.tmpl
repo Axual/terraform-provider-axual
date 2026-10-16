@@ -47,6 +47,7 @@ A `FLINK_SQL` deployment needs all of the following before it can be created. Th
 ### Config values: `null` vs `""`
 
 - `configs` values are sent to the API **exactly as written** — no transformation is applied.
+- Leaving out `configs`, `definition` or `sql_script` of a deployment that has them stops the plan with `Missing configs` (or `definition`, `sql_script`), because the apply would remove them and stop the deployment. To remove them, replace the deployment with `terraform apply -replace`.
 - `null` is **not** a valid config value. Terraform does not allow `null` as a map element value, and the API rejects it; omit the key entirely if you do not want to set it.
 - An empty string `""` **is** a valid config value and is sent as an empty string (not converted to `null`). It is the right value for configs that accept "no value".
 
@@ -112,3 +113,16 @@ terraform import axual_application_deployment.connector_axual_application_deploy
 ```
 
 A deployment can be imported in any state, running or not. `autostart` is not stored on the platform, so it is imported as `true`; when the configuration says `autostart = false`, the next plan shows an in-place change of `autostart` only, which changes nothing on the platform.
+
+In Terraform 1.12 or later, an `import` block can use `identity` instead of `id`:
+
+```terraform
+import {
+  to = axual_application_deployment.example
+  identity = {
+    id = "b21cf1d63a55436391463cee3f56e393"
+  }
+}
+```
+
+{{ .IdentitySchemaMarkdown | trimspace }}

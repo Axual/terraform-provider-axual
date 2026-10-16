@@ -130,7 +130,8 @@ terraform plan
 terraform apply
 ```
 
-The plan shows the resources as `will be imported`. Nothing is created again.
+The plan shows the resources as `will be imported`. Nothing is created on the platform. An
+`axual_application_principal` also shows an update the first time: its private key is stored again.
 
 ## Things to know
 
@@ -144,12 +145,25 @@ The plan shows the resources as `will be imported`. Nothing is created again.
   - `axual_application_credential`: the password is never returned. A credential applied to another
     environment or installation is a new credential with a new password.
 - **Schema versions**: Terraform writes a JSON body with `jsonencode(...)`, which changes only the
-  whitespace. The first apply stores the new text and does not change the schema on the platform.
+  whitespace. That is not a change: the plan keeps the stored body.
 - **IDs belong to one installation.** Generated configuration refers to groups, environments and
   other resources by ID. To apply it in another environment, tenant or installation, replace the IDs
   with references or data sources first, and remove the `import` blocks.
+- **After the import, Terraform manages these resources.** `terraform destroy`, or removing a block,
+  deletes the resource on the platform. Removing an `axual_user` deletes the user, and Terraform
+  cannot create it again. Removing an approval revokes the grant. Removing a deployment state stops
+  the deployment. To stop managing a resource without deleting it, use a `removed` block with
+  `lifecycle { destroy = false }`.
+- **Generated configuration has no references**, so Terraform does not know the order between the
+  resources and `terraform destroy` deletes them all at the same time. Platform Manager refuses some
+  deletes until others are done, for example an environment that still has topics, or a principal of
+  an application that has active grants or is deployed. Run `terraform destroy` again; a resource that
+  another delete already removed counts as deleted. Replace IDs with references before you manage the
+  set long term.
 - **Users, instances and clusters** cannot be created with Terraform. `axual_user` can be listed, but
   only to manage users that already exist.
+- **Access grants**: revoked and cancelled grants are left out, unless the `status` filter asks for
+  them.
 - **Deployments on a Kafka Connect cluster** are generated with `autostart = false`, the only value
   allowed there; add an `axual_application_deployment_state` to keep them running.
 - **Deployment states**: `terraform query` lists every deployment, but `-generate-config-out` writes

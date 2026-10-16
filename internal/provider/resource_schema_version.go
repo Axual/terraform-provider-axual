@@ -53,8 +53,11 @@ func (r *schemaVersionResource) Schema(ctx context.Context, req resource.SchemaR
 
 		Attributes: map[string]schema.Attribute{
 			"body": schema.StringAttribute{
-				MarkdownDescription: "Schema definition. For AVRO schemas, provide valid JSON. For PROTOBUF, provide .proto file content. For JSON_SCHEMA, provide valid JSON Schema definition.",
+				MarkdownDescription: "Schema definition. For AVRO schemas, provide valid JSON. For PROTOBUF, provide .proto file content. For JSON_SCHEMA, provide valid JSON Schema definition. A change in JSON whitespace only is not a change.",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					sameJSONBody{},
+				},
 			},
 			"version": schema.StringAttribute{
 				MarkdownDescription: "The version of the schema",
@@ -184,22 +187,26 @@ func (r *schemaVersionResource) Read(ctx context.Context, req resource.ReadReque
 }
 
 func (r *schemaVersionResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan, state schemaVersionResourceData
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Same JSON with other whitespace (for example from jsonencode): only store the new text.
-	if sameJSON(plan.Body.ValueString(), state.Body.ValueString()) && plan.Type.Equal(state.Type) &&
-		plan.Version.Equal(state.Version) && plan.Description.Equal(state.Description) && plan.Owners.Equal(state.Owners) {
-		state.Body = plan.Body
-		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
-		return
-	}
-
 	resp.Diagnostics.AddError("Client Error", "API does not allow update of schema version. Please create another version of the schema")
+}
+
+// sameJSONBody keeps the stored body when the config has the same JSON with other whitespace, for
+// example from jsonencode or a formatted file.
+type sameJSONBody struct{}
+
+func (sameJSONBody) Description(context.Context) string {
+	return "A body with the same JSON in other whitespace keeps the stored body."
+}
+
+func (m sameJSONBody) MarkdownDescription(ctx context.Context) string { return m.Description(ctx) }
+
+func (sameJSONBody) PlanModifyString(_ context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+	if req.StateValue.IsNull() || req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if sameJSON(req.StateValue.ValueString(), req.ConfigValue.ValueString()) {
+		resp.PlanValue = req.StateValue
+	}
 }
 
 // sameJSON is true when a and b are both valid JSON with the same content.

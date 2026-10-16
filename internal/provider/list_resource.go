@@ -7,11 +7,13 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/list"
 	listschema "github.com/hashicorp/terraform-plugin-framework/list/schema"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
@@ -23,6 +25,13 @@ var _ list.ListResource = &axualListResource{}
 type listFilter struct {
 	name        string
 	description string
+}
+
+// filterValues are the values a filter accepts, in any case. The API takes them in upper case.
+var filterValues = map[string][]string{
+	"application_type": {"Custom", "Connector", "Ksml", "FLINK_SQL"},
+	"access_type":      {"PRODUCER", "CONSUMER"},
+	"status":           {"PENDING", "APPROVED", "REJECTED", "REVOKED", "CANCELLED"},
 }
 
 // listFound is one resource a list resource found: the value of its identity attribute and the
@@ -68,7 +77,11 @@ func (l *axualListResource) Metadata(_ context.Context, req resource.MetadataReq
 func (l *axualListResource) ListResourceConfigSchema(_ context.Context, _ list.ListResourceSchemaRequest, resp *list.ListResourceSchemaResponse) {
 	attrs := map[string]listschema.Attribute{}
 	for _, f := range l.spec.filters {
-		attrs[f.name] = listschema.StringAttribute{Optional: true, Description: f.description, MarkdownDescription: f.description}
+		var validators []validator.String
+		if values, ok := filterValues[f.name]; ok {
+			validators = append(validators, stringvalidator.OneOfCaseInsensitive(values...))
+		}
+		attrs[f.name] = listschema.StringAttribute{Optional: true, Description: f.description, MarkdownDescription: f.description, Validators: validators}
 	}
 	resp.Schema = listschema.Schema{
 		Description:         l.spec.description,

@@ -28,8 +28,25 @@ func (c *Client) ListAll(path string, params url.Values) ([]ListItem, error) {
 		q[k] = v
 	}
 	q.Set("size", strconv.Itoa(listPageSize))
+	if q.Get("sort") == "" {
+		// A fixed order, so pages do not overlap or skip an item. Every list endpoint takes "id";
+		// "uid" is refused.
+		q.Set("sort", "id,asc")
+	}
 
 	var items []ListItem
+	seen := map[string]bool{}
+	add := func(found []ListItem) {
+		for _, it := range found {
+			if uid := it.String("uid"); uid != "" {
+				if seen[uid] {
+					continue
+				}
+				seen[uid] = true
+			}
+			items = append(items, it)
+		}
+	}
 	for page := 0; page < listMaxPages; page++ {
 		q.Set("page", strconv.Itoa(page))
 		var raw json.RawMessage
@@ -45,7 +62,8 @@ func (c *Client) ListAll(path string, params url.Values) ([]ListItem, error) {
 			if err := json.Unmarshal(raw, &arr); err != nil {
 				return nil, err
 			}
-			return append(items, arr...), nil
+			add(arr)
+			return items, nil
 		}
 
 		var body struct {
@@ -58,7 +76,7 @@ func (c *Client) ListAll(path string, params url.Values) ([]ListItem, error) {
 			return nil, err
 		}
 		for _, v := range body.Embedded {
-			items = append(items, v...)
+			add(v)
 		}
 		if body.Page == nil || page+1 >= body.Page.TotalPages {
 			return items, nil

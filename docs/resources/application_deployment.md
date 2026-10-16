@@ -47,6 +47,7 @@ A `FLINK_SQL` deployment needs all of the following before it can be created. Th
 ### Config values: `null` vs `""`
 
 - `configs` values are sent to the API **exactly as written** — no transformation is applied.
+- Leaving out `configs`, `definition` or `sql_script` of a deployment that has them stops the plan with `Missing configs` (or `definition`, `sql_script`), because the apply would remove them and stop the deployment. To remove them, replace the deployment with `terraform apply -replace`.
 - `null` is **not** a valid config value. Terraform does not allow `null` as a map element value, and the API rejects it; omit the key entirely if you do not want to set it.
 - An empty string `""` **is** a valid config value and is sent as an empty string (not converted to `null`). It is the right value for configs that accept "no value".
 
@@ -83,12 +84,12 @@ cannot upgrade, run with `-parallelism=1`.
 ### Optional
 
 - `autostart` (Boolean) Whether this resource starts the deployment. Defaults to `true`: the deployment is created only after an approved `axual_application_access_grant` and an Application Principal or Credential exist, and it is started on create and after every update. Set it to `false` to only store the deployment target and configs, the same way the Self-Service UI does when a deployment target is confirmed. The deployment is then created before the principal or credential and is not started; an `axual_application_deployment_state` resource starts and stops it. `false` is required for a Connector on a registered Kafka Connect cluster (`target_id` set), on MTLS and SASL_SCRAM clusters alike. A legacy Axual Connect Connector supports both values. With `false`, an update that has to stop the deployment starts it again only if it was running before. Changing only this value changes nothing on the platform.
-- `configs` (Map of String, Sensitive) Connector config for Application Deployment. Required for Connector deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. All available application plugin class names, plugin types and plugin configs are listed here in API- `GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass` and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/connect-plugins-catalog/connect-plugins-catalog.html
-- `definition` (String, Sensitive) KSML definition for Application Deployment. Required for KSML deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.
+- `configs` (Map of String, Sensitive) Connector config for Application Deployment. Required for Connector deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. All available application plugin class names, plugin types and plugin configs are listed here in API- `GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass` and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/connect-plugins-catalog/connect-plugins-catalog.html. Leaving it out of a deployment that has configs stops the plan with `Missing configs`; to remove it, replace the deployment with `terraform apply -replace`.
+- `definition` (String, Sensitive) KSML definition for Application Deployment. Required for KSML deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. Leaving it out of a deployment that has one stops the plan with `Missing definition`; to remove it, replace the deployment with `terraform apply -replace`.
 - `deployment_size` (String) The t-shirt size of the deployment. Optional for KSML and FLINK_SQL deployments; for FLINK_SQL it sizes the Flink TaskManager. The accepted sizes are configured per Platform Manager install (`axual.application-deployment.flink.deployment-sizes`, `...ksml.deployment-sizes`) and default to `XS`, `S`, `M`, `L` and `XL`, so your instance may accept a different set; the match is case-insensitive. No endpoint lists them, so an unknown size is only rejected once the apply reaches the API. If not specified, the Platform Manager will assign a default value.
 - `generate_tables_sql` (Boolean) For FLINK_SQL deployments, whether to auto-generate the `CREATE TABLE` statements for the topics referenced by `sql_script`. Optional for FLINK_SQL deployments; defaults to `false`.
 - `restart_policy` (String) The restart policy for KSML applications. Valid values are 'on_exit' and 'never'. Required for KSML deployments.
-- `sql_script` (String, Sensitive) The user-authored Flink SQL script. Required for FLINK_SQL deployments. Each statement must be a `CREATE TEMPORARY TABLE` or an `INSERT INTO ... SELECT`; two or more top-level `INSERT INTO` statements must be wrapped in `BEGIN STATEMENT SET; ... END;`. With `generate_tables_sql = true` the platform generates the `CREATE TEMPORARY TABLE` statements from the application's approved topic access and the script carries only the `INSERT INTO ... SELECT`; with `false` you write the table DDL yourself. Kafka and schema registry connection options (`bootstrap.servers`, `properties.security.protocol`, `properties.sasl.*`, `ssl.*`, and the `avro-confluent` `url`/`basic-auth.*`/`bearer-auth.*` options) are injected by the platform and are rejected here, `connector` must stay `kafka` or `upsert-kafka`, and each side is declared with `key.format`/`value.format` rather than Flink's `format` shorthand. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.
+- `sql_script` (String, Sensitive) The user-authored Flink SQL script. Required for FLINK_SQL deployments. Each statement must be a `CREATE TEMPORARY TABLE` or an `INSERT INTO ... SELECT`; two or more top-level `INSERT INTO` statements must be wrapped in `BEGIN STATEMENT SET; ... END;`. With `generate_tables_sql = true` the platform generates the `CREATE TEMPORARY TABLE` statements from the application's approved topic access and the script carries only the `INSERT INTO ... SELECT`; with `false` you write the table DDL yourself. Kafka and schema registry connection options (`bootstrap.servers`, `properties.security.protocol`, `properties.sasl.*`, `ssl.*`, and the `avro-confluent` `url`/`basic-auth.*`/`bearer-auth.*` options) are injected by the platform and are rejected here, `connector` must stay `kafka` or `upsert-kafka`, and each side is declared with `key.format`/`value.format` rather than Flink's `format` shorthand. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. Leaving it out of a deployment that has one stops the plan with `Missing sql_script`; to remove it, replace the deployment with `terraform apply -replace`.
 - `target_id` (String) The id of the deployment target to deploy to. Required for FLINK_SQL deployments, where it must be the id of an `axual_flink_cluster` registered for the environment. For other deployment types the Platform Manager assigns a default target if not specified. Changing this value replaces a FLINK_SQL Application Deployment, whose deployment target can only be set when the deployment is created; for the other types the target is updated in place. Available targets can be listed via `GET /applications/{applicationId}/deployment-targets?environmentId={environmentId}`.
 - `target_version` (String) The plugin version to deploy on the deployment target named by `target_id`. Only meaningful for a Connector deployment targeting a registered Kafka Connect cluster; omit it for legacy Axual Connect and for other deployment types - for legacy Axual Connect this value is always overwritten on read with the actually-deployed plugin version, so setting it explicitly can produce a diff that never clears. Changing this value updates the deployment in place, the same way changing `target_id` does for every type except FLINK_SQL.
 
@@ -135,3 +136,21 @@ terraform import axual_application_deployment.connector_axual_application_deploy
 ```
 
 A deployment can be imported in any state, running or not. `autostart` is not stored on the platform, so it is imported as `true`; when the configuration says `autostart = false`, the next plan shows an in-place change of `autostart` only, which changes nothing on the platform.
+
+In Terraform 1.12 or later, an `import` block can use `identity` instead of `id`:
+
+```terraform
+import {
+  to = axual_application_deployment.example
+  identity = {
+    id = "b21cf1d63a55436391463cee3f56e393"
+  }
+}
+```
+
+<!-- schema generated by tfplugindocs -->
+### Identity Schema
+
+#### Required
+
+- `id` (String) The ID used to import this resource.

@@ -143,8 +143,10 @@ func TestListResources(t *testing.T) {
 					querycheck.ExpectLength("axual_topic.topic", 1),
 					querycheck.ExpectLength("axual_topic_config.topic_config", 1),
 					querycheck.ExpectLengthAtLeast("axual_application.apps", 2),
-					querycheck.ExpectResourceDisplayName("axual_application.apps",
-						queryfilter.ByDisplayName(knownvalue.StringExact("tf-query-connector")), knownvalue.StringExact("tf-query-connector")),
+					// The display name of an application is its name.
+					querycheck.ExpectResourceKnownValues("axual_application.apps",
+						queryfilter.ByDisplayName(knownvalue.StringExact("tf-query-connector")),
+						[]querycheck.KnownValueCheck{{Path: tfjsonpath.New("name"), KnownValue: knownvalue.StringExact("tf-query-connector")}}),
 					querycheck.ExpectLength("axual_application_principal.principal", 1),
 					querycheck.ExpectLength("axual_topic_browse_permissions.browse", 1),
 					querycheck.ExpectResourceKnownValues("axual_application_access_grant_rejection.rejection",
@@ -161,11 +163,12 @@ func TestListResources(t *testing.T) {
 					querycheck.ExpectLength("axual_application_deployment_state.deployment_state", 1),
 					querycheck.ExpectLength("axual_schema_version.schema", 1),
 
+					// One result each, so select it by identity and check its display name.
 					querycheck.ExpectResourceDisplayName("axual_topic_config.topic_config",
-						queryfilter.ByDisplayName(knownvalue.StringExact("tf-query-topic on tfqueryenv")),
+						queryfilter.ByResourceIdentity(map[string]knownvalue.Check{"id": knownvalue.NotNull()}),
 						knownvalue.StringExact("tf-query-topic on tfqueryenv")),
 					querycheck.ExpectResourceDisplayName("axual_application_deployment.deployment",
-						queryfilter.ByDisplayName(knownvalue.StringExact("tfqueryconnector on tfqueryenv")),
+						queryfilter.ByResourceIdentity(map[string]knownvalue.Check{"id": knownvalue.NotNull()}),
 						knownvalue.StringExact("tfqueryconnector on tfqueryenv")),
 
 					querycheck.ExpectResourceKnownValues("axual_topic.topic",
@@ -206,8 +209,10 @@ func TestListResources(t *testing.T) {
 				Query:  true,
 				Config: fmt.Sprintf(queryGroupAndUser, config.GroupName, config.UserEmail),
 				QueryResultChecks: []querycheck.QueryResultCheck{
-					querycheck.ExpectResourceDisplayName("axual_group.group",
-						queryfilter.ByDisplayName(knownvalue.StringExact(config.GroupName)), knownvalue.StringExact(config.GroupName)),
+					// The display name of a group is its name.
+					querycheck.ExpectResourceKnownValues("axual_group.group",
+						queryfilter.ByDisplayName(knownvalue.StringExact(config.GroupName)),
+						[]querycheck.KnownValueCheck{{Path: tfjsonpath.New("name"), KnownValue: knownvalue.StringExact(config.GroupName)}}),
 					querycheck.ExpectLength("axual_user.user", 1),
 				},
 			},
@@ -219,7 +224,7 @@ list "axual_topic_config" "missing" {
   config { environment = "tf-query-no-such-env" }
 }
 `,
-				ExpectError: regexp.MustCompile(`no environment found with ID or name "tf-query-no-such-env"`),
+				ExpectError: regexp.MustCompile(`no environment "tf-query-no-such-env" found`),
 			},
 			{
 				// Import with an `identity` instead of an ID, for resources with an "id" identity and one

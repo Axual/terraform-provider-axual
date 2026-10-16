@@ -21,5 +21,5 @@ Lists application access grants (requests of an application to produce to or con
 - `application` (String) Only grants of this application. Takes the application's ID, short name or exact name.
 - `environment` (String) Only grants on this environment. Takes the environment's ID, short name or exact name.
 - `owners` (String) Only grants of applications owned by this group. Takes the group's ID or its exact name.
-- `status` (String) Only grants with this status: `PENDING`, `APPROVED`, `REJECTED`, `REVOKED` or `CANCELLED`.
+- `status` (String) Only grants with this status: `PENDING`, `APPROVED`, `REJECTED`, `REVOKED` or `CANCELLED`. Without it, revoked and cancelled grants are left out.
 - `topic` (String) Only grants on this topic. Takes the topic's ID or exact name.

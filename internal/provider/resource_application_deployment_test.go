@@ -10,7 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"net/http"
 )
 
 // TestShouldStopDeployment asserts that the decision to stop a deployment follows the `stop`
@@ -433,6 +437,81 @@ func TestUpdateRequestSendsTargetOnlyWhenItChanges(t *testing.T) {
 				if fields["targetVersion"] != tt.plan.TargetVersion.ValueString() {
 					t.Errorf("targetVersion = %v, want %s (body %s)", fields["targetVersion"], tt.plan.TargetVersion.ValueString(), body)
 				}
+			}
+		})
+	}
+}
+
+// A plan that leaves out configs, a definition or a SQL script of a deployment that has one is
+// refused, unless the deployment is replaced: a replace creates a new deployment and clears nothing.
+func TestRefuseClearingDeployment(t *testing.T) {
+	configs := types.MapValueMust(types.StringType, map[string]attr.Value{"topic": types.StringValue("orders")})
+	state := ApplicationDeploymentResourceData{
+		Application: types.StringValue("app1"), Environment: types.StringValue("env1"), Type: types.StringValue("Connector"),
+		Configs: configs, Definition: types.StringNull(), SqlScript: types.StringNull(), TargetId: types.StringValue("t1"),
+	}
+	tests := []struct {
+		name    string
+		change  func(*ApplicationDeploymentResourceData)
+		wantErr string
+	}{
+		{"configs kept", func(*ApplicationDeploymentResourceData) {}, ""},
+		{"configs left out", func(p *ApplicationDeploymentResourceData) { p.Configs = types.MapNull(types.StringType) }, "Missing configs"},
+		{"other application (replace)", func(p *ApplicationDeploymentResourceData) {
+			p.Configs, p.Application = types.MapNull(types.StringType), types.StringValue("app2")
+		}, ""},
+		{"application not known yet (replace)", func(p *ApplicationDeploymentResourceData) {
+			p.Configs, p.Application = types.MapNull(types.StringType), types.StringUnknown()
+		}, ""},
+		{"other environment (replace)", func(p *ApplicationDeploymentResourceData) {
+			p.Configs, p.Environment = types.MapNull(types.StringType), types.StringValue("env2")
+		}, ""},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			plan := state
+			test.change(&plan)
+			var diags diag.Diagnostics
+			if !deploymentIsReplaced(&plan, &state) {
+				refuseClearingDeployment(&plan, &state, &diags)
+			}
+			got := ""
+			if diags.HasError() {
+				got = diags.Errors()[0].Summary()
+			}
+			if got != test.wantErr {
+				t.Errorf("error = %q, expected %q", got, test.wantErr)
+			}
+		})
+	}
+
+	flink := ApplicationDeploymentResourceData{
+		Application: types.StringValue("app1"), Environment: types.StringValue("env1"), Type: types.StringValue("FLINK_SQL"),
+		Configs: types.MapNull(types.StringType), SqlScript: types.StringValue("INSERT INTO a SELECT * FROM b"), TargetId: types.StringValue("f1"),
+	}
+	plan := flink
+	plan.SqlScript, plan.TargetId = types.StringNull(), types.StringValue("f2")
+	if !deploymentIsReplaced(&plan, &flink) {
+		t.Error("another target of a FLINK_SQL deployment replaces it")
+	}
+}
+
+// An imported deployment on a Kafka Connect cluster gets autostart = false, the only value allowed
+// there; one on Axual Connect keeps the default true.
+func TestDeploymentImportSetsAutostart(t *testing.T) {
+	for target, want := range map[string]bool{"cc00000000000000000000000jsonlog": false, "axualconnect-alpha": true} {
+		t.Run(target, func(t *testing.T) {
+			client := fakePM(t, func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte(`{"uid":"dep1","targetId":"` + target + `","configs":[{"configKey":"topic","configValue":"orders"}],` +
+					`"_embedded":{"application":{"uid":"app1","applicationType":"Connector"},"environment":{"uid":"env1"}}}`))
+			})
+			r := &applicationDeploymentResource{provider: AxualProvider{client: client}}
+			resp := resource.ImportStateResponse{State: emptyState(t, r)}
+			r.ImportState(context.Background(), resource.ImportStateRequest{ID: "dep1"}, &resp)
+			var data ApplicationDeploymentResourceData
+			resp.State.Get(context.Background(), &data)
+			if resp.Diagnostics.HasError() || data.Autostart.ValueBool() != want {
+				t.Errorf("import = %v, autostart = %v; expected %v", resp.Diagnostics, data.Autostart, want)
 			}
 		})
 	}

@@ -17,7 +17,7 @@ Lists applications the user can see.
 
 ### Optional
 
-- `application_type` (String) Only applications of this type: `Custom`, `Connector`, `KSML` or `Flink`.
+- `application_type` (String) Only applications of this type, as in `axual_application`: `Custom`, `Connector`, `Ksml` or `FLINK_SQL`.
 - `name` (String) Only resources whose name contains this text (case-insensitive).
 - `owners` (String) Only resources owned by this group. Takes the group's ID or its exact name.
 - `short_name` (String) Only applications whose short name contains this text (case-insensitive).
