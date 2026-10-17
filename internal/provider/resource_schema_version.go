@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -53,8 +54,11 @@ func (r *schemaVersionResource) Schema(ctx context.Context, req resource.SchemaR
 
 		Attributes: map[string]schema.Attribute{
 			"body": schema.StringAttribute{
-				MarkdownDescription: "Schema definition. For AVRO schemas, provide valid JSON. For PROTOBUF, provide .proto file content. For JSON_SCHEMA, provide valid JSON Schema definition.",
+				MarkdownDescription: "Schema definition. For AVRO schemas, provide valid JSON. For PROTOBUF, provide .proto file content. For JSON_SCHEMA, provide valid JSON Schema definition. A change in JSON whitespace only is not a change.",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					sameJSONBody{},
+				},
 			},
 			"version": schema.StringAttribute{
 				MarkdownDescription: "The version of the schema",
@@ -185,6 +189,48 @@ func (r *schemaVersionResource) Read(ctx context.Context, req resource.ReadReque
 
 func (r *schemaVersionResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	resp.Diagnostics.AddError("Client Error", "API does not allow update of schema version. Please create another version of the schema")
+}
+
+// sameJSONBody keeps the stored body when the config has the same JSON with other whitespace, for
+// example from jsonencode or a formatted file.
+type sameJSONBody struct{}
+
+func (sameJSONBody) Description(context.Context) string {
+	return "A body with the same JSON in other whitespace keeps the stored body."
+}
+
+func (m sameJSONBody) MarkdownDescription(ctx context.Context) string { return m.Description(ctx) }
+
+func (sameJSONBody) PlanModifyString(_ context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+	if req.StateValue.IsNull() || req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if sameJSON(req.StateValue.ValueString(), req.ConfigValue.ValueString()) {
+		resp.PlanValue = req.StateValue
+	}
+}
+
+// sameJSON is true when a and b are both valid JSON with the same content. Numbers are compared
+// as written, so a change in a big number is still a change.
+func sameJSON(a, b string) bool {
+	na, errA := exactJSON(a)
+	nb, errB := exactJSON(b)
+	return errA == nil && errB == nil && na == nb
+}
+
+// exactJSON returns s as compact JSON with sorted keys, keeping numbers as written.
+func exactJSON(s string) (string, error) {
+	d := json.NewDecoder(strings.NewReader(s))
+	d.UseNumber()
+	var v any
+	if err := d.Decode(&v); err != nil {
+		return "", err
+	}
+	if d.More() {
+		return "", errors.New("more than one JSON value")
+	}
+	out, err := json.Marshal(v)
+	return string(out), err
 }
 
 func (r *schemaVersionResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

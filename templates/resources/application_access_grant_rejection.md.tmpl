@@ -57,3 +57,16 @@ The `reason` attribute is stored as `comment` in the API. After import, the reas
 
 - The grant UID can be found in the Axual Self-Service UI or via the API
 - After import, the `application_access_grant` attribute will contain the grant UID
+
+In Terraform 1.12 or later, an `import` block can use `identity` instead of `id`:
+
+```terraform
+import {
+  to = axual_application_access_grant_rejection.example
+  identity = {
+    application_access_grant = "b21cf1d63a55436391463cee3f56e393"
+  }
+}
+```
+
+{{ .IdentitySchemaMarkdown | trimspace }}

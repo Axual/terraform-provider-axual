@@ -105,6 +105,11 @@ func (r *topicBrowsePermissionsResource) Read(ctx context.Context, req resource.
 	}
 
 	perms, err := r.provider.client.GetTopicConfigPermissions(data.TopicConfig.ValueString(), "browse")
+	if isGone(err) {
+		// The topic configuration was deleted, and its permissions with it.
+		resp.State.RemoveResource(ctx)
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading browse permissions", fmt.Sprintf("Error message: %s", err.Error()))
 		return
@@ -136,13 +141,27 @@ func (r *topicBrowsePermissionsResource) Delete(ctx context.Context, req resourc
 		return
 	}
 
-	permissionRequest, err := createPermissionRequestFromData(ctx, &data, r)
+	// Remove only the permissions that still exist: a request that names a user or group deleted
+	// meanwhile is refused with "Non existing group specified".
+	current, err := r.provider.client.GetTopicConfigPermissions(data.TopicConfig.ValueString(), "browse")
+	if isGone(err) {
+		return
+	}
 	if err != nil {
-		resp.Diagnostics.AddError("Error creating permission request", fmt.Sprintf("Error message: %s", err.Error()))
+		resp.Diagnostics.AddError("Error reading browse permissions", fmt.Sprintf("Error message: %s", err.Error()))
+		return
+	}
+	existing := map[string]bool{}
+	for _, perm := range current {
+		existing[perm.Uid] = true
+	}
+	users, groups = onlyExisting(users, existing), onlyExisting(groups, existing)
+	if len(users) == 0 && len(groups) == 0 {
 		return
 	}
 
-	err = ignoreGone(r.provider.client.DeleteTopicConfigPermissions(data.TopicConfig.ValueString(), *permissionRequest))
+	err = ignoreGone(r.provider.client.DeleteTopicConfigPermissions(data.TopicConfig.ValueString(),
+		webclient.PermissionRequest{Type: "browse", Users: users, Groups: groups}))
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting browse permissions", fmt.Sprintf("Error message: %s", err.Error()))
 		return
@@ -201,4 +220,15 @@ func setToStringSlice(set types.Set) []string {
 		result = append(result, elem.(types.String).ValueString())
 	}
 	return result
+}
+
+// onlyExisting returns the ids that are in existing.
+func onlyExisting(ids []string, existing map[string]bool) []string {
+	var out []string
+	for _, id := range ids {
+		if existing[id] {
+			out = append(out, id)
+		}
+	}
+	return out
 }

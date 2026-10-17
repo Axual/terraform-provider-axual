@@ -95,3 +95,16 @@ Import is supported using the following syntax:
 terraform import axual_schema_version.<RESOURCE_NAME> <SCHEMA_VERSION_UID>
 terraform import axual_schema_version.test_schema_version b21cf1d63a55436391463cee3f56e393
 ```
+
+In Terraform 1.12 or later, an `import` block can use `identity` instead of `id`:
+
+```terraform
+import {
+  to = axual_schema_version.example
+  identity = {
+    id = "b21cf1d63a55436391463cee3f56e393"
+  }
+}
+```
+
+{{ .IdentitySchemaMarkdown | trimspace }}

@@ -109,6 +109,9 @@ type ApplicationDeploymentResourceData struct {
 
 func (r *applicationDeploymentResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_application_deployment"
+	// Read finds the deployment by application and environment, so a deployment made again outside
+	// Terraform comes back with a new ID.
+	resp.ResourceBehavior.MutableIdentity = true
 }
 func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
@@ -138,13 +141,13 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				},
 			},
 			"configs": schema.MapAttribute{
-				MarkdownDescription: "Connector config for Application Deployment. Required for Connector deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. All available application plugin class names, plugin types and plugin configs are listed here in API- `GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass` and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/connect-plugins-catalog/connect-plugins-catalog.html",
+				MarkdownDescription: "Connector config for Application Deployment. Required for Connector deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. All available application plugin class names, plugin types and plugin configs are listed here in API- `GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass` and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/connect-plugins-catalog/connect-plugins-catalog.html. Once set, it cannot be left out; use `{}` to remove all configs (Platform Manager 16.0.0 or later).",
 				Optional:            true,
 				ElementType:         types.StringType,
 				Sensitive:           true,
 			},
 			"definition": schema.StringAttribute{
-				MarkdownDescription: "KSML definition for Application Deployment. Required for KSML deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.",
+				MarkdownDescription: "KSML definition for Application Deployment. Required for KSML deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. Once set, it cannot be left out.",
 				Optional:            true,
 				Sensitive:           true,
 			},
@@ -194,7 +197,7 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				},
 			},
 			"sql_script": schema.StringAttribute{
-				MarkdownDescription: "The user-authored Flink SQL script. Required for FLINK_SQL deployments. Each statement must be a `CREATE TEMPORARY TABLE` or an `INSERT INTO ... SELECT`; two or more top-level `INSERT INTO` statements must be wrapped in `BEGIN STATEMENT SET; ... END;`. With `generate_tables_sql = true` the platform generates the `CREATE TEMPORARY TABLE` statements from the application's approved topic access and the script carries only the `INSERT INTO ... SELECT`; with `false` you write the table DDL yourself. Kafka and schema registry connection options (`bootstrap.servers`, `properties.security.protocol`, `properties.sasl.*`, `ssl.*`, and the `avro-confluent` `url`/`basic-auth.*`/`bearer-auth.*` options) are injected by the platform and are rejected here, `connector` must stay `kafka` or `upsert-kafka`, and each side is declared with `key.format`/`value.format` rather than Flink's `format` shorthand. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands.",
+				MarkdownDescription: "The user-authored Flink SQL script. Required for FLINK_SQL deployments. Each statement must be a `CREATE TEMPORARY TABLE` or an `INSERT INTO ... SELECT`; two or more top-level `INSERT INTO` statements must be wrapped in `BEGIN STATEMENT SET; ... END;`. With `generate_tables_sql = true` the platform generates the `CREATE TEMPORARY TABLE` statements from the application's approved topic access and the script carries only the `INSERT INTO ... SELECT`; with `false` you write the table DDL yourself. Kafka and schema registry connection options (`bootstrap.servers`, `properties.security.protocol`, `properties.sasl.*`, `ssl.*`, and the `avro-confluent` `url`/`basic-auth.*`/`bearer-auth.*` options) are injected by the platform and are rejected here, `connector` must stay `kafka` or `upsert-kafka`, and each side is declared with `key.format`/`value.format` rather than Flink's `format` shorthand. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. Once set, it cannot be left out.",
 				Optional:            true,
 				Sensitive:           true,
 			},
@@ -253,15 +256,29 @@ func (m deploymentTypePlanModifier) PlanModifyString(ctx context.Context, req pl
 	}
 }
 
-// ModifyPlan refuses autostart = true on a Kafka Connect target at plan time. It can only do that
-// when the application already exists; otherwise Create and Update still refuse it at apply time.
+// ModifyPlan refuses a plan that clears configs, a definition or a SQL script, and autostart = true
+// on a Kafka Connect target. The autostart check only runs when the application already exists;
+// otherwise Create and Update still refuse it at apply time.
 func (r *applicationDeploymentResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	if req.Plan.Raw.IsNull() || r.provider.client == nil {
 		return
 	}
 	var plan ApplicationDeploymentResourceData
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	if resp.Diagnostics.HasError() || plan.Autostart.IsUnknown() || !isAutostart(plan.Autostart) || plan.Application.IsUnknown() {
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if !req.State.Raw.IsNull() {
+		var state ApplicationDeploymentResourceData
+		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+		if !deploymentIsReplaced(&plan, &state) {
+			refuseClearingDeployment(&plan, &state, &resp.Diagnostics)
+		}
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+	if plan.Autostart.IsUnknown() || !isAutostart(plan.Autostart) || plan.Application.IsUnknown() {
 		return
 	}
 	if plan.TargetId.IsNull() || plan.TargetId.IsUnknown() || plan.TargetId.ValueString() == "" ||
@@ -557,6 +574,33 @@ func (r *applicationDeploymentResource) checkStartPrerequisites(data *Applicatio
 		return false, diags
 	}
 	return true, diags
+}
+
+// refuseClearingDeployment stops a plan that sets `configs`, `definition` or `sql_script` to null
+// while the deployment has one. The apply would remove it on the platform and stop the deployment.
+// A configuration from `terraform query -generate-config-out` has these sensitive values as null.
+func refuseClearingDeployment(plan, state *ApplicationDeploymentResourceData, diags *diag.Diagnostics) {
+	const howTo = "Set it. Configuration from `terraform query` leaves it out, because it is sensitive."
+	if plan.Configs.IsNull() && len(state.Configs.Elements()) > 0 {
+		diags.AddAttributeError(path.Root("configs"), "Missing configs",
+			"configs is not set, but the deployment has configs. This apply would remove them and stop the deployment. "+
+				howTo+" To remove all configs, set `configs = {}` (Platform Manager 16.0.0 or later).")
+	}
+	if plan.Definition.IsNull() && state.Definition.ValueString() != "" {
+		diags.AddAttributeError(path.Root("definition"), "Missing definition",
+			"definition is not set, but the deployment has a KSML definition. This apply would remove it. "+howTo)
+	}
+	if plan.SqlScript.IsNull() && state.SqlScript.ValueString() != "" {
+		diags.AddAttributeError(path.Root("sql_script"), "Missing sql_script",
+			"sql_script is not set, but the deployment has a SQL script. This apply would remove it. "+howTo)
+	}
+}
+
+// deploymentIsReplaced reports a plan that creates a new deployment: another application or
+// environment, or another target of a FLINK_SQL deployment. Nothing is cleared then.
+func deploymentIsReplaced(plan, state *ApplicationDeploymentResourceData) bool {
+	return !plan.Application.Equal(state.Application) || !plan.Environment.Equal(state.Environment) ||
+		(isFlinkSQL(state.Type.ValueString()) && !plan.TargetId.IsUnknown() && !plan.TargetId.Equal(state.TargetId))
 }
 
 // isKafkaConnectTarget reports whether a Connector deployment targets a registered Kafka Connect
@@ -900,10 +944,11 @@ func (r *applicationDeploymentResource) ImportState(ctx context.Context, req res
 
 	// Any state can be imported: a deployment created with `autostart = false` is not running until
 	// an axual_application_deployment_state starts it. `autostart` is not stored on the platform, so
-	// the default is imported; a configuration that says `false` then only updates the state.
+	// the default is imported; a configuration that says otherwise then only updates the state. A
+	// deployment on a Kafka Connect cluster imports as `false`, the only value allowed there.
 	var data ApplicationDeploymentResourceData
 	mapApplicationDeploymentByIdResponseToData(ctx, &data, applicationDeployment)
-	data.Autostart = types.BoolValue(true)
+	data.Autostart = types.BoolValue(!isKafkaConnectTarget(&data))
 
 	// Validate that the mapped data is complete
 	if data.Id.IsNull() || data.Id.ValueString() == "" {
@@ -1048,10 +1093,11 @@ func mapResponseConfigsToData(ctx context.Context, data *ApplicationDeploymentRe
 			data.Type = types.StringValue("Connector")
 		}
 		if len(configs) == 0 {
-			// `configs` is Optional and not Computed, so a deployment the API reports no configs
-			// for has to map back to null: an empty map would not match the null config value and
-			// Terraform would reject the apply with "inconsistent values for sensitive attribute".
-			data.Configs = types.MapNull(types.StringType)
+			// `configs` is Optional and not Computed: no configs map back to null, unless the
+			// configuration asked for `{}` (remove all), which is kept so there is no diff.
+			if data.Configs.IsNull() || data.Configs.IsUnknown() || len(data.Configs.Elements()) > 0 {
+				data.Configs = types.MapNull(types.StringType)
+			}
 		} else {
 			mapValue, diags := types.MapValue(types.StringType, configs)
 			if diags.HasError() {

@@ -43,6 +43,8 @@ type applicationPrincipalResourceData struct {
 
 func (r *applicationPrincipalResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_application_principal"
+	// A new certificate rotates the principal to a new one with a new ID, inside Update.
+	resp.ResourceBehavior.MutableIdentity = true
 }
 
 // trimSpaceSemanticallyEqual suppresses diffs caused only by surrounding whitespace.
