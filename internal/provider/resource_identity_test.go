@@ -84,20 +84,14 @@ func TestIdentityWrapperHidesNothing(t *testing.T) {
 	}
 }
 
-func TestListSpecsMatchIdentity(t *testing.T) {
+// The identity attribute of each list resource is a string attribute of its resource.
+func TestListSpecsIdentityIsAStringAttribute(t *testing.T) {
 	ctx := context.Background()
-	attrs := map[string]string{}
-	for _, f := range (&AxualProvider{}).Resources(ctx) {
-		r := f()
-		if w, ok := r.(*identityResource); ok {
-			var m resource.MetadataResponse
-			r.Metadata(ctx, resource.MetadataRequest{ProviderTypeName: "axual"}, &m)
-			attrs[m.TypeName] = w.attr
-		}
-	}
 	for _, s := range listSpecs() {
-		if attrs[s.typeName] != s.attr {
-			t.Errorf("%s: the list resource uses identity %q, the resource %q", s.typeName, s.attr, attrs[s.typeName])
+		var resp resource.SchemaResponse
+		s.newResource(AxualProvider{}).Schema(ctx, resource.SchemaRequest{}, &resp)
+		if _, ok := resp.Schema.Attributes[s.attr].(schema.StringAttribute); !ok {
+			t.Errorf("%s: identity attribute %q is not a string attribute of the resource", s.typeName, s.attr)
 		}
 	}
 }

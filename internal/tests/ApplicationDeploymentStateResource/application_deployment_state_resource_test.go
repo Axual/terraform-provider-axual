@@ -279,7 +279,7 @@ func TestApplicationDeploymentStateAxualConnectMtls(t *testing.T) {
 
 // TestImportThenApply imports a deployment and its active principal into a state that does not
 // have them - the real `terraform import` case - and applies. The apply only fills in what the
-// platform does not return (`autostart`, and `active` and `private_key` on the principal). It used
+// platform does not return (`active` and `private_key` on the principal). It used
 // to fail: the provider activated the already active principal, which Platform Manager answers with
 // a 403. It must also not rotate the certificate.
 func TestImportThenApply(t *testing.T) {
@@ -417,6 +417,120 @@ resource "axual_application_deployment_state" "import_target" {
 }
 `,
 				ExpectError: regexp.MustCompile("Application Deployment Not Found"),
+			},
+		},
+	})
+}
+
+// acExportDeployment is the AC deployment and its state as configuration from `terraform query`
+// has them: autostart = false, so the state resource decides whether the deployment runs.
+func acExportDeployment(state, endpoint string) string {
+	return fmt.Sprintf(`
+resource "axual_application_deployment" "ac_exp" {
+  application = axual_application.ac_exp.id
+  environment = axual_environment.ac_exp.id
+  autostart   = false
+  configs = {
+    "topics"          = "tf-ds-ac-export-topic",
+    "endpoint"        = "%s",
+    "key.converter"   = "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter" = "org.apache.kafka.connect.storage.StringConverter",
+    "tasks.max"       = "1",
+  }
+}
+
+resource "axual_application_deployment_state" "ac_exp" {
+  application_deployment = axual_application_deployment.ac_exp.id
+  state                  = "%s"
+  depends_on             = [axual_application_access_grant_approval.ac_exp, axual_application_principal.ac_exp]
+}
+`, endpoint, state)
+}
+
+const acExportForget = `
+removed {
+  from = axual_application_deployment.ac_exp
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = axual_application_deployment_state.ac_exp
+  lifecycle {
+    destroy = false
+  }
+}
+`
+
+// TestExportedAxualConnectDeploymentStaysStopped imports a stopped Axual Connect deployment and its
+// state the way exported configuration does. The import gives autostart = true and the
+// configuration says false: an update of autostart only. Then a config change leaves the
+// deployment stopped.
+func TestExportedAxualConnectDeploymentStaysStopped(t *testing.T) {
+	const deployment, state = "axual_application_deployment.ac_exp", "axual_application_deployment_state.ac_exp"
+	var deploymentId string
+	base := GetProvider() + GetFile("ac_export_setup.tf")
+	stopped := base + acExportDeployment("STOPPED", "http://http-sink-target.kafka.svc.cluster.local:8080/")
+	idOf := func(*terraform.State) (string, error) { return deploymentId, nil }
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: base + acExportDeployment("RUNNING", "http://http-sink-target.kafka.svc.cluster.local:8080/"),
+				Check: resource.ComposeTestCheckFunc(
+					captureId(deployment, &deploymentId),
+					resource.TestCheckResourceAttr(state, "current_state", "Running"),
+				),
+			},
+			{
+				Config: stopped,
+				Check:  resource.TestCheckResourceAttr(state, "current_state", "Stopped"),
+			},
+			{
+				Config: base + acExportForget,
+			},
+			{
+				ResourceName:       deployment,
+				ImportState:        true,
+				ImportStatePersist: true,
+				ImportStateIdFunc:  idOf,
+				Config:             stopped,
+			},
+			{
+				ResourceName:       state,
+				ImportState:        true,
+				ImportStatePersist: true,
+				ImportStateIdFunc:  idOf,
+				Config:             stopped,
+			},
+			{
+				Config: stopped,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						// Imported as autostart = true: an update that changes nothing on the platform.
+						plancheck.ExpectResourceAction(deployment, plancheck.ResourceActionUpdate),
+						plancheck.ExpectResourceAction(state, plancheck.ResourceActionNoop),
+					},
+				},
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(deployment, "autostart", "false"),
+					resource.TestCheckResourceAttr(state, "current_state", "Stopped"),
+				),
+			},
+			{
+				// A config change must not start the stopped deployment.
+				Config: base + acExportDeployment("STOPPED", "http://http-sink-target.kafka.svc.cluster.local:8080/v2"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PostApplyPostRefresh: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+				Check: resource.TestCheckResourceAttr(state, "current_state", "Stopped"),
+			},
+			{
+				Destroy: true,
+				Config:  base + acExportDeployment("STOPPED", "http://http-sink-target.kafka.svc.cluster.local:8080/v2"),
 			},
 		},
 	})

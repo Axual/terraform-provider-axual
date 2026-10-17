@@ -15,7 +15,7 @@ Create an empty folder with a file `main.tf`:
 terraform {
   required_providers {
     axual = {
-      source  = "axual/axual"
+      source  = "Axual/axual"
       version = ">= 3.3.0" # the first release with terraform query
     }
   }
@@ -81,12 +81,14 @@ terraform apply
 ```
 
 The plan says `will be imported` for each resource. Nothing is created on the platform; a principal
-also shows an update the first time (see "Good to know"). After the apply, `terraform plan` says
-`No changes`, and the resources are managed by Terraform.
+and a deployment can also show an update the first time, for its private key and `autostart`, in
+the Terraform state only. After the apply, `terraform plan` says `No changes`, and the resources are
+managed by Terraform.
 
 ## Good to know
 
-- Secret values (certificates, private keys, connector `configs`) are not exported. Terraform writes
+- Secret values (certificates, private keys, connector `configs`, KSML `definition` and Flink
+  `sql_script`) are not exported. Terraform writes
   `null # sensitive`; fill them in before step 5. For a deployment, the plan stops with
   `Missing configs` until you do. A principal's private key is stored again by the first apply.
 - After the import, `terraform destroy` or removing a block deletes the resource on the platform, also

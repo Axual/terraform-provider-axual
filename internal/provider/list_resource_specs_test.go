@@ -158,3 +158,94 @@ func TestGrantListStatuses(t *testing.T) {
 		}
 	}
 }
+
+// An exported deployment gets autostart = false, so an axual_application_deployment_state decides
+// whether it runs and an update leaves a stopped deployment stopped.
+func TestExportedDeploymentHasAutostartFalse(t *testing.T) {
+	ctx := context.Background()
+	for _, spec := range listSpecs() {
+		if spec.typeName != "axual_application_deployment" {
+			continue
+		}
+		r := spec.newResource(AxualProvider{})
+		state := stateFor(t, r, &ApplicationDeploymentResourceData{
+			Id: types.StringValue("d1"), Autostart: types.BoolValue(true), Configs: types.MapNull(types.StringType),
+		})
+		if spec.adjust == nil {
+			t.Fatal("the deployment list resource does not adjust autostart")
+		}
+		if diags := spec.adjust(ctx, &state); diags.HasError() {
+			t.Fatalf("adjust: %v", diags)
+		}
+		var autostart types.Bool
+		state.GetAttribute(ctx, path.Root("autostart"), &autostart)
+		if autostart.ValueBool() {
+			t.Error("autostart = true, expected false")
+		}
+	}
+}
+
+// A topic configuration whose permissions the user may not manage (403) is left out; the others
+// are still listed.
+func TestBrowsePermissionsListSkipsForbidden(t *testing.T) {
+	c := fakeAPI(t, map[string]struct {
+		status int
+		body   string
+	}{
+		"/environments/env1":                       {http.StatusOK, `{"uid":"env1","name":"Dev","shortName":"dev"}`},
+		"/stream_configs/search/findByEnvironment": {http.StatusOK, `{"_embedded":{"stream_configs":[{"uid":"tc1"},{"uid":"tc2"}]}}`},
+		"/stream_configs/tc1/permissions":          {http.StatusForbidden, `{"detail":"Access Denied"}`},
+		"/stream_configs/tc2/permissions":          {http.StatusOK, `[{"uid":"u1","type":"USER"}]`},
+	})
+	found, err := findTopicBrowsePermissions(context.Background(), c, map[string]string{"environment": "env1"})
+	if err != nil || len(found) != 1 || found[0].id != "tc2" {
+		t.Errorf("found %v, %v; expected only tc2", found, err)
+	}
+}
+
+// The skip warning names the state that cannot be configured.
+func TestDeploymentStateSkipReason(t *testing.T) {
+	r := &applicationDeploymentStateResource{}
+	state := stateFor(t, r, &applicationDeploymentStateResourceData{
+		Id: types.StringValue("d1"), ApplicationDeployment: types.StringValue("d1"),
+		State: types.StringValue("FAILED"), CurrentState: types.StringValue("Running"),
+	})
+	if got := deploymentStateSkipReason(context.Background(), state); !strings.Contains(got, "its state is FAILED") {
+		t.Errorf("reason = %q, expected it to name the FAILED state", got)
+	}
+}
+
+// A short name is unique, so an exact short name wins over another environment's or application's name.
+func TestResolveShortNameWins(t *testing.T) {
+	c := fakeAPI(t, map[string]struct {
+		status int
+		body   string
+	}{
+		"/environments/search/findByShortName": {http.StatusOK, `{"_embedded":{"environments":[{"uid":"a","shortName":"dev","name":"Development"}]}}`},
+		"/environments/search/findByName":      {http.StatusOK, `{"_embedded":{"environments":[{"uid":"b","shortName":"dev2","name":"dev"}]}}`},
+		"/applications/search/findByShortName": {http.StatusOK, `{"uid":"x","shortName":"orders","name":"Orders"}`},
+		"/applications/search/findByName":      {http.StatusOK, `{"uid":"y","shortName":"orders2","name":"orders"}`},
+	})
+	if id, err := resolveEnvironment(c, "dev"); err != nil || id != "a" {
+		t.Errorf("environment: got %q, %v; want a", id, err)
+	}
+	if id, err := resolveApplication(c, "orders"); err != nil || id != "x" {
+		t.Errorf("application: got %q, %v; want x", id, err)
+	}
+}
+
+// The schema filter is exact, also in case; the API search ignores case.
+func TestSchemaFilterIsExact(t *testing.T) {
+	c := fakeAPI(t, map[string]struct {
+		status int
+		body   string
+	}{
+		"/schema_versions/search/findBySchemaNameAndTenant": {http.StatusOK, `{"_embedded":{"schema_versions":[` +
+			`{"uid":"v1","version":"1.0.0","_embedded":{"schema":{"name":"io.axual.Person"}}},` +
+			`{"uid":"v2","version":"1.0.0","_embedded":{"schema":{"name":"io.axual.person"}}}]}}`},
+	})
+	found, err := findSchemaVersions(context.Background(), c, map[string]string{"schema": "io.axual.Person"})
+	if err != nil || len(found) != 1 || found[0].id != "v1" {
+		t.Errorf("found %v, %v; expected only v1", found, err)
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,7 +15,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"net/http"
 )
 
 // TestShouldStopDeployment asserts that the decision to stop a deployment follows the `stop`
@@ -514,5 +514,30 @@ func TestDeploymentImportSetsAutostart(t *testing.T) {
 				t.Errorf("import = %v, autostart = %v; expected %v", resp.Diagnostics, data.Autostart, want)
 			}
 		})
+	}
+}
+
+// configs = {} removes all configs: the guard lets it through, and Read keeps {} so there is no diff.
+func TestEmptyConfigsRemoveAll(t *testing.T) {
+	configs := types.MapValueMust(types.StringType, map[string]attr.Value{"topic": types.StringValue("orders")})
+	state := ApplicationDeploymentResourceData{Application: types.StringValue("a"), Environment: types.StringValue("e"), Configs: configs}
+	plan := state
+	plan.Configs = types.MapValueMust(types.StringType, map[string]attr.Value{})
+	var diags diag.Diagnostics
+	refuseClearingDeployment(&plan, &state, &diags)
+	if diags.HasError() {
+		t.Errorf("configs = {} refused: %v", diags)
+	}
+
+	ctx := context.Background()
+	kept := ApplicationDeploymentResourceData{Configs: types.MapValueMust(types.StringType, map[string]attr.Value{})}
+	mapResponseConfigsToData(ctx, &kept, "CONNECTOR", nil)
+	if kept.Configs.IsNull() || len(kept.Configs.Elements()) != 0 {
+		t.Errorf("configs = %v, expected {} kept", kept.Configs)
+	}
+	unset := ApplicationDeploymentResourceData{Configs: types.MapNull(types.StringType)}
+	mapResponseConfigsToData(ctx, &unset, "CONNECTOR", nil)
+	if !unset.Configs.IsNull() {
+		t.Errorf("configs = %v, expected null", unset.Configs)
 	}
 }

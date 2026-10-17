@@ -18,4 +18,4 @@ Lists users in the tenant. Users cannot be created with Terraform, so a generate
 ### Optional
 
 - `email` (String) Only users whose email address contains this text (case-insensitive).
-- `role` (String) Only users with this role, for example `TENANT_ADMIN`.
+- `role` (String) Only users with this role, for example `TENANT_ADMIN`. Platform Manager checks the value.

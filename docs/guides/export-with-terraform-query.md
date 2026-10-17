@@ -97,8 +97,9 @@ terraform query -generate-config-out=generated.tf
 
 `generated.tf` now has a `resource` block and an `import` block for every resource found. The
 results come in a stable order, so a second export of the same resources gives each one the same
-name. Terraform loads every `.tf` file in the folder, so move `generated.tf` away (or write it to
-another folder) before you run `terraform query` again.
+name, if no resource was added or removed in between. Terraform loads every `.tf` file in the
+folder, so move `generated.tf` away (or write it to another folder) before you run
+`terraform query` again.
 
 ```terraform
 resource "axual_topic" "team_a_0" {
@@ -130,8 +131,9 @@ terraform plan
 terraform apply
 ```
 
-The plan shows the resources as `will be imported`. Nothing is created on the platform. An
-`axual_application_principal` also shows an update the first time: its private key is stored again.
+The plan shows the resources as `will be imported`. Nothing is created on the platform. A principal
+and a deployment can also show an update the first time: the private key and `autostart` are stored
+in the Terraform state only.
 
 ## Things to know
 
@@ -144,8 +146,8 @@ The plan shows the resources as `will be imported`. Nothing is created on the pl
     applying `null` would remove them on the platform and stop the deployment.
   - `axual_application_credential`: the password is never returned. A credential applied to another
     environment or installation is a new credential with a new password.
-- **Schema versions**: Terraform writes a JSON body with `jsonencode(...)`, which changes only the
-  whitespace. That is not a change: the plan keeps the stored body.
+- **Schema versions**: Terraform writes a JSON body with `jsonencode(...)`, which changes only
+  whitespace and key order. That is not a change: the plan keeps the stored body.
 - **IDs belong to one installation.** Generated configuration refers to groups, environments and
   other resources by ID. To apply it in another environment, tenant or installation, replace the IDs
   with references or data sources first, and remove the `import` blocks.
@@ -164,8 +166,8 @@ The plan shows the resources as `will be imported`. Nothing is created on the pl
   only to manage users that already exist.
 - **Access grants**: revoked and cancelled grants are left out, unless the `status` filter asks for
   them.
-- **Deployments on a Kafka Connect cluster** are generated with `autostart = false`, the only value
-  allowed there; add an `axual_application_deployment_state` to keep them running.
+- **Deployments** are generated with `autostart = false`, so an `axual_application_deployment_state`
+  decides whether they run, and a change leaves a stopped deployment stopped.
 - **Deployment states**: `terraform query` lists every deployment, but `-generate-config-out` writes
   only those that are `Running` or `Stopped`; the others are skipped with a warning. A resource that
   cannot be read is also skipped with a warning, so one broken resource does not stop the export.

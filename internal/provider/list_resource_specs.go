@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -45,7 +47,7 @@ func listSpecs() []listSpec {
 			newResource: NewUserResource,
 			filters: []listFilter{
 				{"email", "Only users whose email address contains this text (case-insensitive)."},
-				{"role", "Only users with this role, for example `TENANT_ADMIN`."},
+				{"role", "Only users with this role, for example `TENANT_ADMIN`. Platform Manager checks the value."},
 			},
 			find: findUsers,
 		},
@@ -153,6 +155,11 @@ func listSpecs() []listSpec {
 			newResource: NewApplicationDeploymentResource,
 			filters:     []listFilter{filterApp, filterEnv, filterDeploymentOwners},
 			find:        findDeployments,
+			// An exported deployment can get an axual_application_deployment_state, which needs
+			// autostart = false; with it an update leaves a stopped deployment stopped.
+			adjust: func(ctx context.Context, state *tfsdk.State) diag.Diagnostics {
+				return state.SetAttribute(ctx, path.Root("autostart"), false)
+			},
 		},
 		{
 			typeName:    "axual_application_deployment_state",
@@ -211,11 +218,21 @@ func resolveTopic(c *webclient.Client, v string) (string, error) {
 	return findTopicIDByName(c, v)
 }
 
-// resolveEnvironment takes an ID, a short name or an exact name.
+// resolveEnvironment takes an ID, a short name or an exact name. A short name is unique, so it wins
+// over another environment's name.
 func resolveEnvironment(c *webclient.Client, v string) (string, error) {
 	if _, err := c.GetEnvironment(v); err == nil {
 		return v, nil
 	} else if !notAnID(err) {
+		return "", err
+	}
+	if found, err := c.GetEnvironmentByShortName(v); err == nil {
+		for _, e := range found.Embedded.Environments {
+			if e.ShortName == v {
+				return e.Uid, nil
+			}
+		}
+	} else if !errors.Is(err, webclient.NotFoundError) {
 		return "", err
 	}
 	return onlyExactMatch("environment", v, func() ([]keyedID, error) {
@@ -236,11 +253,17 @@ func resolveEnvironment(c *webclient.Client, v string) (string, error) {
 	})
 }
 
-// resolveApplication takes an ID, a short name or an exact name.
+// resolveApplication takes an ID, a short name or an exact name. A short name is unique, so it wins
+// over another application's name.
 func resolveApplication(c *webclient.Client, v string) (string, error) {
 	if _, err := c.GetApplication(v); err == nil {
 		return v, nil
 	} else if !notAnID(err) {
+		return "", err
+	}
+	if found, err := c.GetApplicationByNameOrShortName(url.Values{"shortName": {v}}); err == nil && found.ShortName == v {
+		return found.Uid, nil
+	} else if err != nil && !errors.Is(err, webclient.NotFoundError) {
 		return "", err
 	}
 	return onlyExactMatch("application", v, func() ([]keyedID, error) {
@@ -458,6 +481,10 @@ func findTopicBrowsePermissions(_ context.Context, c *webclient.Client, f map[st
 	var out []listFound
 	for _, it := range items {
 		perms, err := c.GetTopicConfigPermissions(it.String("uid"), "browse")
+		var httpErr *webclient.HTTPError
+		if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusForbidden {
+			continue // the user may not manage the permissions of this topic configuration
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -476,6 +503,10 @@ func findSchemaVersions(_ context.Context, c *webclient.Client, f map[string]str
 	items, err := c.ListAll(path, params)
 	if err != nil {
 		return nil, err
+	}
+	if want := f["schema"]; want != "" {
+		// The API search ignores case; the filter is exact, like the other name filters.
+		items = slices.DeleteFunc(items, func(it webclient.ListItem) bool { return it.Embedded("schema", "name") != want })
 	}
 	return toFound(items, func(it webclient.ListItem) string {
 		return fmt.Sprintf("%s %s", it.Embedded("schema", "name"), it.String("version"))
@@ -671,9 +702,11 @@ func deploymentStateSkipReason(ctx context.Context, state tfsdk.State) string {
 		return ""
 	}
 	if st := v.ValueString(); st != deploymentStateRunning && st != deploymentStateStopped {
-		var current types.String
-		state.GetAttribute(ctx, path.Root("current_state"), &current)
-		return fmt.Sprintf("the deployment is %q; only %s and %s can be configured", current.ValueString(), deploymentStateRunning, deploymentStateStopped)
+		if st == "" {
+			st = "unknown"
+		}
+		return fmt.Sprintf("its state is %s (a failed connector task counts as failed); only %s and %s can be configured",
+			st, deploymentStateRunning, deploymentStateStopped)
 	}
 	return ""
 }

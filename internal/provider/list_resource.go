@@ -56,6 +56,8 @@ type listSpec struct {
 	// skipReason, when set, is called with the state of each found resource. A non-empty reason
 	// leaves the resource out, because its state cannot be written as configuration.
 	skipReason func(ctx context.Context, state tfsdk.State) string
+	// adjust, when set, changes the state of each found resource before it is written as configuration.
+	adjust func(ctx context.Context, state *tfsdk.State) diag.Diagnostics
 }
 
 // axualListResource lets `terraform query` find existing resources of one type. For every match it
@@ -133,8 +135,8 @@ func (l *axualListResource) List(ctx context.Context, req list.ListRequest, stre
 		if req.Limit > 0 && int64(len(found)) > req.Limit {
 			var cut list.ListResult
 			cut.Diagnostics.AddWarning(
-				fmt.Sprintf("Only %d of %d %s results returned", req.Limit, len(found), l.spec.typeName),
-				fmt.Sprintf("The list block stops at its limit of %d. Set `limit` in the list block to %d or more to get all of them.", req.Limit, len(found)),
+				fmt.Sprintf("Found %d %s, returning the first %d", len(found), l.spec.typeName, req.Limit),
+				fmt.Sprintf("The list block stops at its limit of %d. Set `limit` in the list block to %d or more to get all of them; some can still be skipped with a warning.", req.Limit, len(found)),
 			)
 			if !push(cut) {
 				return
@@ -206,6 +208,11 @@ func (l *axualListResource) fillResource(ctx context.Context, req list.ListReque
 	if l.spec.skipReason != nil {
 		if reason := l.spec.skipReason(ctx, readResp.State); reason != "" {
 			diags.AddError("Cannot be configured", reason)
+			return
+		}
+	}
+	if l.spec.adjust != nil {
+		if diags.Append(l.spec.adjust(ctx, &readResp.State)...); diags.HasError() {
 			return
 		}
 	}

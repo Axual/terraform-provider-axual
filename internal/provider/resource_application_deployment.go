@@ -141,13 +141,13 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				},
 			},
 			"configs": schema.MapAttribute{
-				MarkdownDescription: "Connector config for Application Deployment. Required for Connector deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. All available application plugin class names, plugin types and plugin configs are listed here in API- `GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass` and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/connect-plugins-catalog/connect-plugins-catalog.html. Leaving it out of a deployment that has configs stops the plan with `Missing configs`; to remove it, replace the deployment with `terraform apply -replace`.",
+				MarkdownDescription: "Connector config for Application Deployment. Required for Connector deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. All available application plugin class names, plugin types and plugin configs are listed here in API- `GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass` and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/connect-plugins-catalog/connect-plugins-catalog.html. Once set, it cannot be left out; use `{}` to remove all configs (Platform Manager 16.0.0 or later).",
 				Optional:            true,
 				ElementType:         types.StringType,
 				Sensitive:           true,
 			},
 			"definition": schema.StringAttribute{
-				MarkdownDescription: "KSML definition for Application Deployment. Required for KSML deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. Leaving it out of a deployment that has one stops the plan with `Missing definition`; to remove it, replace the deployment with `terraform apply -replace`.",
+				MarkdownDescription: "KSML definition for Application Deployment. Required for KSML deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. Once set, it cannot be left out.",
 				Optional:            true,
 				Sensitive:           true,
 			},
@@ -197,7 +197,7 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				},
 			},
 			"sql_script": schema.StringAttribute{
-				MarkdownDescription: "The user-authored Flink SQL script. Required for FLINK_SQL deployments. Each statement must be a `CREATE TEMPORARY TABLE` or an `INSERT INTO ... SELECT`; two or more top-level `INSERT INTO` statements must be wrapped in `BEGIN STATEMENT SET; ... END;`. With `generate_tables_sql = true` the platform generates the `CREATE TEMPORARY TABLE` statements from the application's approved topic access and the script carries only the `INSERT INTO ... SELECT`; with `false` you write the table DDL yourself. Kafka and schema registry connection options (`bootstrap.servers`, `properties.security.protocol`, `properties.sasl.*`, `ssl.*`, and the `avro-confluent` `url`/`basic-auth.*`/`bearer-auth.*` options) are injected by the platform and are rejected here, `connector` must stay `kafka` or `upsert-kafka`, and each side is declared with `key.format`/`value.format` rather than Flink's `format` shorthand. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. Leaving it out of a deployment that has one stops the plan with `Missing sql_script`; to remove it, replace the deployment with `terraform apply -replace`.",
+				MarkdownDescription: "The user-authored Flink SQL script. Required for FLINK_SQL deployments. Each statement must be a `CREATE TEMPORARY TABLE` or an `INSERT INTO ... SELECT`; two or more top-level `INSERT INTO` statements must be wrapped in `BEGIN STATEMENT SET; ... END;`. With `generate_tables_sql = true` the platform generates the `CREATE TEMPORARY TABLE` statements from the application's approved topic access and the script carries only the `INSERT INTO ... SELECT`; with `false` you write the table DDL yourself. Kafka and schema registry connection options (`bootstrap.servers`, `properties.security.protocol`, `properties.sasl.*`, `ssl.*`, and the `avro-confluent` `url`/`basic-auth.*`/`bearer-auth.*` options) are injected by the platform and are rejected here, `connector` must stay `kafka` or `upsert-kafka`, and each side is declared with `key.format`/`value.format` rather than Flink's `format` shorthand. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. Once set, it cannot be left out.",
 				Optional:            true,
 				Sensitive:           true,
 			},
@@ -580,11 +580,11 @@ func (r *applicationDeploymentResource) checkStartPrerequisites(data *Applicatio
 // while the deployment has one. The apply would remove it on the platform and stop the deployment.
 // A configuration from `terraform query -generate-config-out` has these sensitive values as null.
 func refuseClearingDeployment(plan, state *ApplicationDeploymentResourceData, diags *diag.Diagnostics) {
-	const howTo = "Set it (configuration generated by `terraform query` leaves it out, because it is sensitive), " +
-		"or replace the deployment with `terraform apply -replace` to remove it."
+	const howTo = "Set it. Configuration from `terraform query` leaves it out, because it is sensitive."
 	if plan.Configs.IsNull() && len(state.Configs.Elements()) > 0 {
 		diags.AddAttributeError(path.Root("configs"), "Missing configs",
-			"configs is not set, but the deployment has configs. This apply would remove them and stop the deployment. "+howTo)
+			"configs is not set, but the deployment has configs. This apply would remove them and stop the deployment. "+
+				howTo+" To remove all configs, set `configs = {}` (Platform Manager 16.0.0 or later).")
 	}
 	if plan.Definition.IsNull() && state.Definition.ValueString() != "" {
 		diags.AddAttributeError(path.Root("definition"), "Missing definition",
@@ -1093,10 +1093,11 @@ func mapResponseConfigsToData(ctx context.Context, data *ApplicationDeploymentRe
 			data.Type = types.StringValue("Connector")
 		}
 		if len(configs) == 0 {
-			// `configs` is Optional and not Computed, so a deployment the API reports no configs
-			// for has to map back to null: an empty map would not match the null config value and
-			// Terraform would reject the apply with "inconsistent values for sensitive attribute".
-			data.Configs = types.MapNull(types.StringType)
+			// `configs` is Optional and not Computed: no configs map back to null, unless the
+			// configuration asked for `{}` (remove all), which is kept so there is no diff.
+			if data.Configs.IsNull() || data.Configs.IsUnknown() || len(data.Configs.Elements()) > 0 {
+				data.Configs = types.MapNull(types.StringType)
+			}
 		} else {
 			mapValue, diags := types.MapValue(types.StringType, configs)
 			if diags.HasError() {

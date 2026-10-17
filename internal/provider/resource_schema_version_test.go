@@ -15,7 +15,9 @@ func TestSameJSON(t *testing.T) {
 	}{
 		{`{"type":"record","name":"A"}`, "{\n  \"name\": \"A\",\n  \"type\": \"record\"\n}", true},
 		{`{"name":"A"}`, `{"name":"B"}`, false},
-		{`syntax = "proto3";`, `syntax = "proto3";`, false}, // not JSON
+		{`syntax = "proto3";`, `syntax = "proto3";`, false},                     // not JSON
+		{`{"default":9007199254740993}`, `{"default":9007199254740992}`, false}, // a big number keeps its digits
+		{`{"default":1.50}`, `{"default":1.50}`, true},
 	}
 	for _, tt := range tests {
 		if got := sameJSON(tt.a, tt.b); got != tt.want {

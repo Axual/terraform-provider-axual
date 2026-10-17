@@ -193,7 +193,8 @@ func TestListResources(t *testing.T) {
 					querycheck.ExpectResourceKnownValues("axual_application_deployment.deployment",
 						queryfilter.ByDisplayName(knownvalue.StringExact("tfqueryconnector on tfqueryenv")),
 						[]querycheck.KnownValueCheck{
-							{Path: tfjsonpath.New("autostart"), KnownValue: knownvalue.Bool(true)},
+							// Exported with autostart = false, so a deployment state decides whether it runs.
+							{Path: tfjsonpath.New("autostart"), KnownValue: knownvalue.Bool(false)},
 							{Path: tfjsonpath.New("configs").AtMapKey("logger.name"), KnownValue: knownvalue.StringExact("tfquerylogger")},
 						}),
 				},

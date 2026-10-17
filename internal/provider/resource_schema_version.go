@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -209,11 +210,27 @@ func (sameJSONBody) PlanModifyString(_ context.Context, req planmodifier.StringR
 	}
 }
 
-// sameJSON is true when a and b are both valid JSON with the same content.
+// sameJSON is true when a and b are both valid JSON with the same content. Numbers are compared
+// as written, so a change in a big number is still a change.
 func sameJSON(a, b string) bool {
-	na, errA := normalizeJSON(a)
-	nb, errB := normalizeJSON(b)
+	na, errA := exactJSON(a)
+	nb, errB := exactJSON(b)
 	return errA == nil && errB == nil && na == nb
+}
+
+// exactJSON returns s as compact JSON with sorted keys, keeping numbers as written.
+func exactJSON(s string) (string, error) {
+	d := json.NewDecoder(strings.NewReader(s))
+	d.UseNumber()
+	var v any
+	if err := d.Decode(&v); err != nil {
+		return "", err
+	}
+	if d.More() {
+		return "", errors.New("more than one JSON value")
+	}
+	out, err := json.Marshal(v)
+	return string(out), err
 }
 
 func (r *schemaVersionResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
