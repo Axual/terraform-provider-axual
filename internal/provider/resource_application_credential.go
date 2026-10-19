@@ -322,7 +322,7 @@ func mapApplicationCredentialResponseToData(_ context.Context, data *application
 
 	// Derive target from types: the API does not persist the target field,
 	// but we can infer it from the credential types.
-	// SCHEMA_REGISTRY_BASIC_AUTH only -> SCHEMA_REGISTRY, otherwise -> KAFKA.
+	// A Schema Registry type -> SCHEMA_REGISTRY, otherwise -> KAFKA.
 	data.Target = types.StringValue(deriveTargetFromTypes(applicationCredential.Types))
 }
 
@@ -334,17 +334,15 @@ func convertAuthTypeListToTypesStringList(input []webclient.AuthType) []types.St
 	return result
 }
 
-// deriveTargetFromTypes infers the target from credential types.
-// When all types are SCHEMA_REGISTRY_BASIC_AUTH, the target is SCHEMA_REGISTRY.
-// Otherwise (e.g. SCRAM_SHA_512), the target is KAFKA.
+// deriveTargetFromTypes infers the target from credential types, the same way Platform Manager does
+// (ApplicationCredential.targetResource()): a SCHEMA_REGISTRY_BASIC_AUTH or SCHEMA_REGISTRY_OAUTH type
+// means SCHEMA_REGISTRY. Otherwise (e.g. SCRAM_SHA_512), the target is KAFKA. A delete with the wrong
+// target answers 404, which Delete takes for an already deleted credential.
 func deriveTargetFromTypes(authTypes []webclient.AuthType) string {
-	if len(authTypes) == 0 {
-		return "KAFKA"
-	}
 	for _, t := range authTypes {
-		if t.Type != "SCHEMA_REGISTRY_BASIC_AUTH" {
-			return "KAFKA"
+		if t.Type == "SCHEMA_REGISTRY_BASIC_AUTH" || t.Type == "SCHEMA_REGISTRY_OAUTH" {
+			return "SCHEMA_REGISTRY"
 		}
 	}
-	return "SCHEMA_REGISTRY"
+	return "KAFKA"
 }

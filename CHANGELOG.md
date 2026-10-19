@@ -4,9 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 ### Fixed
-* Destroying an `axual_application_credential` that is already gone no longer fails. Platform
-  Manager answers `404` when the credential does not exist (AXPD-12383), or `400 No application
-  found` when its application is already deleted
+* Destroying an `axual_application_credential` whose credential or application is already gone no
+  longer fails. Platform Manager answers `404` when the credential does not exist, or `400 No
+  application found` when its application is already deleted
+* An imported `axual_application_credential` of a Schema Registry that uses OAuth now gets
+  `target = "SCHEMA_REGISTRY"` instead of `"KAFKA"`, so its destroy deletes it. A configuration that
+  sets `target = "KAFKA"` for such a credential must change it to `"SCHEMA_REGISTRY"`
 
 ## [3.2.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.2.0) - 2026-10-08
 ### Added
