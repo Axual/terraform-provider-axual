@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+* Destroying an `axual_application_credential` that is already gone no longer fails. Platform
+  Manager answers `404` when the credential does not exist (AXPD-12383), or `400 No application
+  found` when its application is already deleted
+* The error for a refused `axual_application_credential` delete now says "credential" instead of
+  "principal"
+
+## [3.0.1](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.0.1) - 2026-09-22
 * Fix `axual_schema_version` data source: looking up any schema version other than the latest
   one failed with "Schema version matching the name you requested was not found", even though
   the version existed
