@@ -69,7 +69,7 @@ func onlyExactMatch(kind string, key string, search func() ([]keyedID, error)) (
 		}
 		return "", fmt.Errorf("no %s %q found; it must match exactly, case included", kind, key)
 	default:
-		return "", fmt.Errorf("%d %ss match %q; import this one by its ID", len(ids), kind, key)
+		return "", fmt.Errorf("%d %ss match %q; use the ID instead", len(ids), kind, key)
 	}
 }
 

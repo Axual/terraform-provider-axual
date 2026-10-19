@@ -6,9 +6,13 @@ All notable changes to this project will be documented in this file.
 ### Added
 * `tags` on `axual_topic` and the `axual_topic` data source: the topic tags shown in the Self-Service UI. Leaving out `tags` keeps the tags the topic has; `tags = []` removes them ([#177](https://github.com/Axual/terraform-provider-axual/issues/177))
 * Import by name instead of ID: `name:<name>` for `axual_topic`, `axual_environment`, `axual_application` and `axual_group`, `email:<email address>` for `axual_user`, and `name:<topic name>/<environment short name>` for `axual_topic_config`, for example `terraform import axual_topic.payments name:payments`. Works in `import` blocks too ([#114](https://github.com/Axual/terraform-provider-axual/issues/114))
+* `terraform query` support (Terraform 1.14 or newer): list resources with filters, so `terraform query -generate-config-out` writes `resource` and `import` blocks for resources that already exist. Not for `axual_flink_cluster`. The access grant list leaves out revoked and cancelled grants unless its `status` filter asks for them
+* Resource identity for every resource except `axual_flink_cluster`, so an `import` block can use `identity` instead of `id`
+* Guides: `Quick start: export your resources with terraform query` and `Exporting existing resources with terraform query`, and an example in `examples/terraform-query`
 
 ### Changed
 * Leaving out `roles` on an `axual_user` now keeps the roles the user has. Only `roles = []` removes them
+* A plan that leaves out `configs`, `definition` or `sql_script` of an `axual_application_deployment` that has them stops with `Missing configs` (or `definition`, `sql_script`), unless the application or environment changes. `configs = {}` removes all configs (Platform Manager 16.0.0 or later). Before, the apply removed them and stopped the deployment
 
 ### Fixed
 * A STOP that fails with a `5xx` (for example while the Connect worker rebalances) is retried, like START. It is not sent again once the deployment has stopped
@@ -18,6 +22,9 @@ All notable changes to this project will be documented in this file.
 * A deployment status read retries a `5xx` for up to 2 minutes, for example right after the Kafka Connect workers restart. A `plan` can wait that long when a Connect cluster does not answer
 * Destroy no longer fails when a resource is already gone, for example removed by another resource in the same destroy. A delete that gets `409 Could not commit changes` is retried
 * Destroying the `axual_application_deployment_state` of a `Failed` connector now warns at once when Platform Manager cannot reset it, and says how to fix it
+* An `axual_application_deployment` on a Kafka Connect cluster is imported with `autostart = false`. Before, the next apply failed with `Kafka Connect cluster needs autostart = false`
+* An `axual_schema_version` `body` that differs from the stored body only in JSON whitespace or key order is not a change any more. Before, the apply failed with `API does not allow update of schema version`
+* An `axual_topic_browse_permissions` whose topic configuration was deleted is removed from the state, and its destroy skips users and groups that were deleted meanwhile. Before, plan and destroy failed
 
 ## [3.2.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.2.0) - 2026-10-08
 ### Added

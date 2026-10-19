@@ -280,6 +280,7 @@ Execute the [`.run/Run all the tests.run.xml`](.run/Run%20all%20the%20tests.run.
 **Environment Variables:**
 - `TF_ACC=1` - Built-in safety variable to prevent accidentally running tests on a live environment
 - `TF_ACC_TERRAFORM_PATH` - Path to Terraform binary (e.g., `/opt/homebrew/bin/terraform`)
+  - `TestListResources` (`terraform query`) needs Terraform 1.14 or newer. With an older binary it is skipped.
 - `TF_LOG=INFO` - Optional but highly recommended for debugging
 
 **Go Tool Arguments:**

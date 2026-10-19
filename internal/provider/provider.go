@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/function"
+	"github.com/hashicorp/terraform-plugin-framework/list"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -17,6 +18,7 @@ import (
 
 var _ provider.Provider = &AxualProvider{}
 var _ provider.ProviderWithFunctions = &AxualProvider{}
+var _ provider.ProviderWithListResources = &AxualProvider{}
 
 type AxualProvider struct {
 	// client can contain the upstream provider SDK or HTTP client used to
@@ -138,25 +140,25 @@ func (p *AxualProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	p.client = client
 }
 
-func (p *AxualProvider) Resources(ctx context.Context) []func() resource.Resource {
-	return []func() resource.Resource{
-		func() resource.Resource { return NewApplicationResource(*p) },
-		func() resource.Resource { return NewUserResource(*p) },
-		func() resource.Resource { return NewGroupResource(*p) },
-		func() resource.Resource { return NewTopicResource(*p) },
-		func() resource.Resource { return NewTopicConfigResource(*p) },
-		func() resource.Resource { return NewEnvironmentResource(*p) },
-		func() resource.Resource { return NewApplicationPrincipalResource(*p) },
-		func() resource.Resource { return NewSchemaVersionResource(*p) },
-		func() resource.Resource { return NewApplicationAccessGrantResource(*p) },
-		func() resource.Resource { return NewApplicationAccessGrantRejectionResource(*p) },
-		func() resource.Resource { return NewApplicationAccessGrantApprovalResource(*p) },
-		func() resource.Resource { return NewApplicationDeploymentResource(*p) },
-		func() resource.Resource { return NewApplicationDeploymentStateResource(*p) },
-		func() resource.Resource { return NewTopicBrowsePermissionsResource(*p) },
-		func() resource.Resource { return NewApplicationCredentialResource(*p) },
+// Resources wraps every resource that has a list resource with the same identity attribute, so
+// both are defined once, in listSpecs.
+func (p *AxualProvider) Resources(_ context.Context) []func() resource.Resource {
+	out := []func() resource.Resource{
 		func() resource.Resource { return NewFlinkClusterResource(*p) },
 	}
+	for _, spec := range listSpecs() {
+		out = append(out, func() resource.Resource { return withIdentity(spec.newResource(*p), spec.attr) })
+	}
+	return out
+}
+
+// ListResources returns the list resources used by `terraform query`.
+func (p *AxualProvider) ListResources(_ context.Context) []func() list.ListResource {
+	var out []func() list.ListResource
+	for _, spec := range listSpecs() {
+		out = append(out, func() list.ListResource { return newListResource(*p, spec) })
+	}
+	return out
 }
 
 func (p *AxualProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
