@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+### Fixed
+* Destroying an `axual_application_credential` that is already gone no longer fails. Platform
+  Manager answers `404` when the credential does not exist (AXPD-12383), or `400 No application
+  found` when its application is already deleted
+
 ## [3.2.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.2.0) - 2026-10-08
 ### Added
 * Service account authentication with a client ID and secret: `client_id` and `client_secret`, or the `AXUAL_CLIENT_ID` and `AXUAL_CLIENT_SECRET` environment variables
