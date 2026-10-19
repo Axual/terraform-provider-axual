@@ -54,7 +54,7 @@ func (r *schemaVersionResource) Schema(ctx context.Context, req resource.SchemaR
 
 		Attributes: map[string]schema.Attribute{
 			"body": schema.StringAttribute{
-				MarkdownDescription: "Schema definition. For AVRO schemas, provide valid JSON. For PROTOBUF, provide .proto file content. For JSON_SCHEMA, provide valid JSON Schema definition. A change in JSON whitespace only is not a change.",
+				MarkdownDescription: "Schema definition. For AVRO schemas, provide valid JSON. For PROTOBUF, provide .proto file content. For JSON_SCHEMA, provide valid JSON Schema definition. A change only in JSON whitespace or key order is not a change.",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					sameJSONBody{},
@@ -191,12 +191,12 @@ func (r *schemaVersionResource) Update(ctx context.Context, req resource.UpdateR
 	resp.Diagnostics.AddError("Client Error", "API does not allow update of schema version. Please create another version of the schema")
 }
 
-// sameJSONBody keeps the stored body when the config has the same JSON with other whitespace, for
-// example from jsonencode or a formatted file.
+// sameJSONBody keeps the stored body when the config has the same JSON with other whitespace or key
+// order, for example from jsonencode or a formatted file.
 type sameJSONBody struct{}
 
 func (sameJSONBody) Description(context.Context) string {
-	return "A body with the same JSON in other whitespace keeps the stored body."
+	return "A body with the same JSON in other whitespace or key order keeps the stored body."
 }
 
 func (m sameJSONBody) MarkdownDescription(ctx context.Context) string { return m.Description(ctx) }

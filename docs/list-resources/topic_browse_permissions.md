@@ -3,12 +3,12 @@
 page_title: "axual_topic_browse_permissions List Resource - terraform-provider-axual"
 subcategory: ""
 description: |-
-  Lists the browse permissions of topic configurations. Only topic configurations that have at least one user or group with browse permission are returned.
+  Lists the browse permissions of topic configurations. Only topic configurations that have at least one user or group with browse permission are returned. Topic configurations whose browse permissions you may not manage are left out with a warning.
 ---
 
 # axual_topic_browse_permissions (List Resource)
 
-Lists the browse permissions of topic configurations. Only topic configurations that have at least one user or group with browse permission are returned.
+Lists the browse permissions of topic configurations. Only topic configurations that have at least one user or group with browse permission are returned. Topic configurations whose browse permissions you may not manage are left out with a warning.
 
 
 

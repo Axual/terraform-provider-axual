@@ -22,7 +22,7 @@ All notable changes to this project will be documented in this file.
 * Destroy no longer fails when a resource is already gone, for example removed by another resource in the same destroy. A delete that gets `409 Could not commit changes` is retried
 * Destroying the `axual_application_deployment_state` of a `Failed` connector now warns at once when Platform Manager cannot reset it, and says how to fix it
 * An `axual_application_deployment` on a Kafka Connect cluster is imported with `autostart = false`. Before, the next apply failed with `Kafka Connect cluster needs autostart = false`
-* An `axual_schema_version` `body` that differs from the stored body only in JSON whitespace is not a change any more. Before, the apply failed with `API does not allow update of schema version`
+* An `axual_schema_version` `body` that differs from the stored body only in JSON whitespace or key order is not a change any more. Before, the apply failed with `API does not allow update of schema version`
 * An `axual_topic_browse_permissions` whose topic configuration was deleted is removed from the state, and its destroy skips users and groups that were deleted meanwhile. Before, plan and destroy failed
 
 ## [3.2.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.2.0) - 2026-10-08

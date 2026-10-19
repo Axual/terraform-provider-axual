@@ -4,6 +4,7 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -39,6 +40,8 @@ var filterValues = map[string][]string{
 type listFound struct {
 	id          string
 	displayName string
+	// forbidden: the user may not manage it, so it is left out with a warning.
+	forbidden bool
 }
 
 // listSpec describes the list resource of one managed resource type.
@@ -60,9 +63,8 @@ type listSpec struct {
 	adjust func(ctx context.Context, state *tfsdk.State) diag.Diagnostics
 }
 
-// axualListResource lets `terraform query` find existing resources of one type. For every match it
-// runs the resource's own ImportState and Read, so the generated configuration is the same as
-// after a manual `terraform import`.
+// axualListResource lets `terraform query` find existing resources of one type. It fills each result
+// with the resource's own ImportState and Read, then the spec's adjust.
 type axualListResource struct {
 	provider AxualProvider
 	spec     listSpec
@@ -129,8 +131,25 @@ func (l *axualListResource) List(ctx context.Context, req list.ListRequest, stre
 		}
 		return found[i].id < found[j].id
 	})
+	var forbidden []string
+	found = slices.DeleteFunc(found, func(f listFound) bool {
+		if f.forbidden {
+			forbidden = append(forbidden, f.displayName)
+		}
+		return f.forbidden
+	})
 
 	stream.Results = func(push func(list.ListResult) bool) {
+		if len(forbidden) > 0 {
+			var skipped list.ListResult
+			skipped.Diagnostics.AddWarning(
+				fmt.Sprintf("Skipped %d %s", len(forbidden), l.spec.typeName),
+				fmt.Sprintf("You may not manage them, so no configuration is generated: %s.", shortList(forbidden, 10)),
+			)
+			if !push(skipped) {
+				return
+			}
+		}
 		// Terraform stops reading at the limit, so warn before the results, not after them.
 		if req.Limit > 0 && int64(len(found)) > req.Limit {
 			var cut list.ListResult
@@ -226,4 +245,12 @@ func errorSummary(diags diag.Diagnostics) string {
 		parts = append(parts, d.Summary()+": "+d.Detail())
 	}
 	return strings.Join(parts, "; ")
+}
+
+// shortList joins the first n names and says how many more there are.
+func shortList(names []string, n int) string {
+	if len(names) <= n {
+		return strings.Join(names, ", ")
+	}
+	return fmt.Sprintf("%s, and %d more", strings.Join(names[:n], ", "), len(names)-n)
 }

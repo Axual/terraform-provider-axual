@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"slices"
@@ -89,7 +90,7 @@ func listSpecs() []listSpec {
 		{
 			typeName:    "axual_topic_browse_permissions",
 			attr:        "topic_config",
-			description: "Lists the browse permissions of topic configurations. Only topic configurations that have at least one user or group with browse permission are returned.",
+			description: "Lists the browse permissions of topic configurations. Only topic configurations that have at least one user or group with browse permission are returned. Topic configurations whose browse permissions you may not manage are left out with a warning.",
 			newResource: NewTopicBrowsePermissionsResource,
 			filters:     []listFilter{filterTopic, filterEnv, filterTopicConfigOwners},
 			find:        findTopicBrowsePermissions,
@@ -201,7 +202,7 @@ func notAnID(err error) bool {
 }
 
 func resolveGroup(c *webclient.Client, v string) (string, error) {
-	if _, err := c.GetGroup(v); err == nil {
+	if _, err := c.GetGroup(url.PathEscape(v)); err == nil {
 		return v, nil
 	} else if !notAnID(err) {
 		return "", err
@@ -210,7 +211,7 @@ func resolveGroup(c *webclient.Client, v string) (string, error) {
 }
 
 func resolveTopic(c *webclient.Client, v string) (string, error) {
-	if _, err := c.GetTopic(v); err == nil {
+	if _, err := c.GetTopic(url.PathEscape(v)); err == nil {
 		return v, nil
 	} else if !notAnID(err) {
 		return "", err
@@ -221,7 +222,7 @@ func resolveTopic(c *webclient.Client, v string) (string, error) {
 // resolveEnvironment takes an ID, a short name or an exact name. A short name is unique, so it wins
 // over another environment's name.
 func resolveEnvironment(c *webclient.Client, v string) (string, error) {
-	if _, err := c.GetEnvironment(v); err == nil {
+	if _, err := c.GetEnvironment(url.PathEscape(v)); err == nil {
 		return v, nil
 	} else if !notAnID(err) {
 		return "", err
@@ -256,7 +257,7 @@ func resolveEnvironment(c *webclient.Client, v string) (string, error) {
 // resolveApplication takes an ID, a short name or an exact name. A short name is unique, so it wins
 // over another application's name.
 func resolveApplication(c *webclient.Client, v string) (string, error) {
-	if _, err := c.GetApplication(v); err == nil {
+	if _, err := c.GetApplication(url.PathEscape(v)); err == nil {
 		return v, nil
 	} else if !notAnID(err) {
 		return "", err
@@ -386,9 +387,7 @@ func ownedItems(c *webclient.Client, path string, f map[string]string, extra url
 		return nil, err
 	}
 	params := url.Values{}
-	for k, v := range extra {
-		params[k] = v
-	}
+	maps.Copy(params, extra)
 	if f["name"] != "" {
 		params.Set("name", f["name"])
 	}
@@ -442,7 +441,7 @@ func topicConfigItems(c *webclient.Client, f map[string]string) ([]webclient.Lis
 		return c.ListAll("stream_configs/search/findByEnvironment", url.Values{"environment": {resourceURL(c, "environments", f["environment"])}})
 	}
 
-	ids, err := topicIDs(c, f)
+	ids, err := idsOwnedBy(c, "streams/search/findByAttributes", f["topic"], f["owners"])
 	if err != nil {
 		return nil, err
 	}
@@ -483,7 +482,8 @@ func findTopicBrowsePermissions(_ context.Context, c *webclient.Client, f map[st
 		perms, err := c.GetTopicConfigPermissions(it.String("uid"), "browse")
 		var httpErr *webclient.HTTPError
 		if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusForbidden {
-			continue // the user may not manage the permissions of this topic configuration
+			out = append(out, listFound{id: it.String("uid"), displayName: topicConfigName(it), forbidden: true})
+			continue
 		}
 		if err != nil {
 			return nil, err
@@ -513,39 +513,21 @@ func findSchemaVersions(_ context.Context, c *webclient.Client, f map[string]str
 	}), nil
 }
 
-// applicationIDs returns the applications to look at for a resource that belongs to an
-// application: the one in the application filter, or all applications of the owners filter, or
-// all applications the user can see.
-func applicationIDs(c *webclient.Client, f map[string]string) ([]string, error) {
-	if f["application"] != "" && f["owners"] == "" {
-		return []string{f["application"]}, nil
+// idsOwnedBy returns the applications or topics (path) to look at: id, or all of the owners group,
+// or all the user can see. With both id and owners, only id when that group owns it.
+func idsOwnedBy(c *webclient.Client, path, id, owners string) ([]string, error) {
+	if id != "" && owners == "" {
+		return []string{id}, nil
 	}
 	params := url.Values{}
-	if f["owners"] != "" {
-		params.Set("groupId", f["owners"])
+	if owners != "" {
+		params.Set("groupId", owners)
 	}
-	apps, err := c.ListAll("applications/search/findByAttributes", params)
+	items, err := c.ListAll(path, params)
 	if err != nil {
 		return nil, err
 	}
-	return uidsMatching(apps, f["application"]), nil
-}
-
-// topicIDs returns the topics to look at: the one in the topic filter, or all topics of the owners
-// filter, or all topics. With both filters, only the topic when that group owns it.
-func topicIDs(c *webclient.Client, f map[string]string) ([]string, error) {
-	if f["topic"] != "" && f["owners"] == "" {
-		return []string{f["topic"]}, nil
-	}
-	params := url.Values{}
-	if f["owners"] != "" {
-		params.Set("groupId", f["owners"])
-	}
-	topics, err := c.ListAll("streams/search/findByAttributes", params)
-	if err != nil {
-		return nil, err
-	}
-	return uidsMatching(topics, f["topic"]), nil
+	return uidsMatching(items, id), nil
 }
 
 // uidsMatching returns the uid of every item, or only want when it is set.
@@ -570,7 +552,7 @@ func perApplication(c *webclient.Client, f map[string]string, search func(appID 
 	if err != nil {
 		return nil, err
 	}
-	ids, err := applicationIDs(c, f)
+	ids, err := idsOwnedBy(c, "applications/search/findByAttributes", f["application"], f["owners"])
 	if err != nil {
 		return nil, err
 	}
@@ -658,12 +640,12 @@ func findGrants(_ context.Context, c *webclient.Client, f map[string]string, sta
 	}
 	appIDs, streamIDs := []string{""}, []string{""}
 	if appFilters["application"] != "" || appFilters["owners"] != "" {
-		if appIDs, err = applicationIDs(c, appFilters); err != nil {
+		if appIDs, err = idsOwnedBy(c, "applications/search/findByAttributes", appFilters["application"], appFilters["owners"]); err != nil {
 			return nil, err
 		}
 	}
 	if topicFilters["topic"] != "" || topicFilters["owners"] != "" {
-		if streamIDs, err = topicIDs(c, topicFilters); err != nil {
+		if streamIDs, err = idsOwnedBy(c, "streams/search/findByAttributes", topicFilters["topic"], topicFilters["owners"]); err != nil {
 			return nil, err
 		}
 	}
@@ -672,9 +654,7 @@ func findGrants(_ context.Context, c *webclient.Client, f map[string]string, sta
 	for _, appID := range appIDs {
 		for _, streamID := range streamIDs {
 			p := url.Values{}
-			for k, v := range params {
-				p[k] = v
-			}
+			maps.Copy(p, params)
 			if appID != "" {
 				p.Set("applicationId", appID)
 			}

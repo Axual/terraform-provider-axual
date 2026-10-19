@@ -77,6 +77,18 @@ func TestResolveGroupKeepsRealErrors(t *testing.T) {
 	}
 }
 
+// A name with `%` is not a valid URL path. Trying it as an ID must give "not found", not a URL error.
+func TestResolversEscapeTheValue(t *testing.T) {
+	c := fakeAPI(t, nil)
+	for name, resolve := range map[string]func(*webclient.Client, string) (string, error){
+		"group": resolveGroup, "topic": resolveTopic, "environment": resolveEnvironment, "application": resolveApplication,
+	} {
+		if _, err := resolve(c, "Team 50%"); err != nil && strings.Contains(err.Error(), "invalid URL escape") {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+}
+
 // An application is found by its short name or by its exact name.
 func TestResolveApplicationByShortOrFullName(t *testing.T) {
 	c := fakeAPI(t, map[string]struct {
@@ -185,8 +197,8 @@ func TestExportedDeploymentHasAutostartFalse(t *testing.T) {
 	}
 }
 
-// A topic configuration whose permissions the user may not manage (403) is left out; the others
-// are still listed.
+// A topic configuration whose permissions the user may not manage (403) is marked forbidden, so List
+// leaves it out with a warning; the others are still listed.
 func TestBrowsePermissionsListSkipsForbidden(t *testing.T) {
 	c := fakeAPI(t, map[string]struct {
 		status int
@@ -198,8 +210,8 @@ func TestBrowsePermissionsListSkipsForbidden(t *testing.T) {
 		"/stream_configs/tc2/permissions":          {http.StatusOK, `[{"uid":"u1","type":"USER"}]`},
 	})
 	found, err := findTopicBrowsePermissions(context.Background(), c, map[string]string{"environment": "env1"})
-	if err != nil || len(found) != 1 || found[0].id != "tc2" {
-		t.Errorf("found %v, %v; expected only tc2", found, err)
+	if err != nil || len(found) != 2 || found[0].id != "tc1" || !found[0].forbidden || found[1].id != "tc2" || found[1].forbidden {
+		t.Errorf("found %+v, %v; expected tc1 forbidden and tc2", found, err)
 	}
 }
 

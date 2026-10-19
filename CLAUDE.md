@@ -38,6 +38,7 @@ This is the Terraform Provider for Axual Platform, allowing users to manage Axua
 - **axual-webclient/**: HTTP client library for Axual API interactions
   - Handles authentication, API requests, and response processing
   - Each resource type has corresponding client methods
+  - List resources (`terraform query`) use the generic pager `ListAll(path, params)`; their search paths are in `internal/provider/list_resource_specs.go`
 - **internal/tests/**: Acceptance tests organized by resource type
   - `test_provider.go`: Test provider configuration
   - `test_config.yaml`: Test environment configuration

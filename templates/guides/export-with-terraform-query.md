@@ -26,7 +26,8 @@ Use the normal provider configuration in a `.tf` file:
 terraform {
   required_providers {
     axual = {
-      source = "axual/axual"
+      source  = "axual/axual"
+      version = ">= 3.3.0" # the first release with terraform query
     }
   }
 }
@@ -72,7 +73,8 @@ list "axual_topic_config" "team_a" {
 ```
 
 A `list` block returns at most 100 resources unless you set `limit`, for example `limit = 1000`.
-When there are more, `terraform query` warns `Only 100 of N ... results returned`.
+When there are more, the provider warns `Found N axual_topic, returning the first 100` (with the
+number and the resource type of that list).
 
 ## Step 3: run the query
 
@@ -166,6 +168,8 @@ in the Terraform state only.
   only to manage users that already exist.
 - **Access grants**: revoked and cancelled grants are left out, unless the `status` filter asks for
   them.
+- **Browse permissions**: topic configurations whose browse permissions you may not manage are left
+  out, with one warning that names them.
 - **Deployments** are generated with `autostart = false`, so an `axual_application_deployment_state`
   decides whether they run, and a change leaves a stopped deployment stopped.
 - **Deployment states**: `terraform query` lists every deployment, but `-generate-config-out` writes

@@ -10,7 +10,7 @@ Schema version resource. None of the fields can be updated. Read more: https://d
 
 ### Required
 
-- `body` (String) Schema definition. For AVRO schemas, provide valid JSON. For PROTOBUF, provide .proto file content. For JSON_SCHEMA, provide valid JSON Schema definition. A change in JSON whitespace only is not a change.
+- `body` (String) Schema definition. For AVRO schemas, provide valid JSON. For PROTOBUF, provide .proto file content. For JSON_SCHEMA, provide valid JSON Schema definition. A change only in JSON whitespace or key order is not a change.
 - `version` (String) The version of the schema
 
 ### Optional

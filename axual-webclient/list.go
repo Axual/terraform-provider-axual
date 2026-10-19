@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/url"
 	"strconv"
 )
@@ -17,16 +18,11 @@ const listMaxPages = 1000
 // ListItem is one entity from a Platform Manager list or search response, as plain JSON.
 type ListItem map[string]any
 
-// ListAll calls a Platform Manager list or search endpoint and returns the items of every page.
-//
-// path is relative to the API URL, for example "streams/search/findByAttributes". It handles the
-// three response shapes the API uses: paged HAL (`_embedded` plus `page`), unpaged HAL (`_embedded`
-// only) and a plain JSON array.
+// ListAll returns the items of every page. path is relative to the API URL. It accepts paged HAL,
+// unpaged HAL and a plain JSON array.
 func (c *Client) ListAll(path string, params url.Values) ([]ListItem, error) {
 	q := url.Values{}
-	for k, v := range params {
-		q[k] = v
-	}
+	maps.Copy(q, params)
 	q.Set("size", strconv.Itoa(listPageSize))
 	if q.Get("sort") == "" {
 		// A fixed order, so pages do not overlap or skip an item. Every list endpoint takes "id";

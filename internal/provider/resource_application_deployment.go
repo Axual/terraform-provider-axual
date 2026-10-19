@@ -256,9 +256,8 @@ func (m deploymentTypePlanModifier) PlanModifyString(ctx context.Context, req pl
 	}
 }
 
-// ModifyPlan refuses a plan that clears configs, a definition or a SQL script, and autostart = true
-// on a Kafka Connect target. The autostart check only runs when the application already exists;
-// otherwise Create and Update still refuse it at apply time.
+// ModifyPlan runs refuseClearingDeployment and refuses autostart = true on a Kafka Connect target.
+// The autostart check needs the application to exist; otherwise Create and Update refuse it.
 func (r *applicationDeploymentResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	if req.Plan.Raw.IsNull() || r.provider.client == nil {
 		return
@@ -576,9 +575,8 @@ func (r *applicationDeploymentResource) checkStartPrerequisites(data *Applicatio
 	return true, diags
 }
 
-// refuseClearingDeployment stops a plan that sets `configs`, `definition` or `sql_script` to null
-// while the deployment has one. The apply would remove it on the platform and stop the deployment.
-// A configuration from `terraform query -generate-config-out` has these sensitive values as null.
+// refuseClearingDeployment stops a plan that clears configs, a definition or a SQL script. Generated
+// configuration leaves these sensitive values null, and applying it would stop the deployment.
 func refuseClearingDeployment(plan, state *ApplicationDeploymentResourceData, diags *diag.Diagnostics) {
 	const howTo = "Set it. Configuration from `terraform query` leaves it out, because it is sensitive."
 	if plan.Configs.IsNull() && len(state.Configs.Elements()) > 0 {

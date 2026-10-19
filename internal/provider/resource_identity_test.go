@@ -43,7 +43,7 @@ func TestIdentityAfterReadOfRemovedResource(t *testing.T) {
 	if diags := state.SetAttribute(ctx, path.Root("id"), "abc"); diags.HasError() {
 		t.Fatalf("set id: %v", diags)
 	}
-	// No prior identity, as in a state written by 3.2.0.
+	// No prior identity, as in an older state.
 	identity := &tfsdk.ResourceIdentity{Schema: identityResp.IdentitySchema, Raw: tftypes.NewValue(identityResp.IdentitySchema.Type().TerraformType(ctx), nil)}
 
 	resp := resource.ReadResponse{State: state, Identity: identity}
@@ -69,6 +69,9 @@ func TestIdentityWrapperHidesNothing(t *testing.T) {
 		w, ok := f().(*identityResource)
 		if !ok {
 			continue
+		}
+		if _, ok := w.Resource.(resource.ResourceWithImportState); !ok {
+			t.Errorf("%T: needs ImportState, the wrapper calls it", w.Resource)
 		}
 		hidden := map[string]bool{}
 		_, hidden["ValidateConfig"] = w.Resource.(resource.ResourceWithValidateConfig)

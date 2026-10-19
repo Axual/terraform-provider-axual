@@ -47,7 +47,7 @@ func (w *identityResource) Create(ctx context.Context, req resource.CreateReques
 func (w *identityResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	w.Resource.Read(ctx, req, resp)
 	if resp.State.Raw.IsNull() {
-		// Removed, but the framework still needs an identity, also for a state without one (3.2.0).
+		// Removed, but the framework still needs an identity, also for an older state without one.
 		w.copyIdentity(ctx, req.State, resp.Identity, &resp.Diagnostics)
 		return
 	}
