@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 * A STOP that fails with a `5xx` (for example while the Connect worker rebalances) is retried, like START. It is not sent again once the deployment has stopped
 * An `axual_application_deployment` deleted outside Terraform no longer breaks `plan` and `destroy` with `no application deployment found`; it is removed from the state and planned again
 * `roles = []` on an `axual_user` removes all roles instead of failing with `Required request body is missing` (AXPD-9562)
+* A Connector that is not on Kafka Connect, which Platform Manager now reports as `Undeployed` instead of `Undefined`, counts as stopped when an `axual_application_deployment` waits for it to stop before an update or delete
 * A deployment status read retries a `5xx` for up to 2 minutes, for example right after the Kafka Connect workers restart. A `plan` can wait that long when a Connect cluster does not answer
 * Destroy no longer fails when a resource is already gone, for example removed by another resource in the same destroy. A delete that gets `409 Could not commit changes` is retried
 * Destroying the `axual_application_deployment_state` of a `Failed` connector now warns at once when Platform Manager cannot reset it, and says how to fix it
