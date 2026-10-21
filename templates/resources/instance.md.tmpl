@@ -1,0 +1,65 @@
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+## Usage
+- `clusters` lists the Clusters of the Instance (at least one). Topics and ACLs of an environment mapped to the Instance are created on every one of them.
+- Removing a Cluster from `clusters` also removes its schema registry configuration. Platform Manager refuses it while a Kafka Connect or Flink cluster is registered on that Instance-Cluster.
+- `granular_browse_permission` turns on per-topic browse permissions; manage them with `axual_topic_browse_permissions`.
+- `authentication_methods` must be methods the tenant supports. Platform Manager enables `MUTUAL_TLS` when it is not set, and refuses removing a method that is in use.
+- An Instance can only be deleted when no environment, Kafka Connect cluster, Flink cluster or connector deployment uses it.
+- The `axual_instance` data source looks up an existing Instance.
+
+## Prerequisites
+- With `MUTUAL_TLS` enabled and a Cluster with `ssl_auth_mode = "fullChainCertificate"`, `ca_certificates` must hold the CA that signs application certificates.
+
+## Platform Manager version
+- Platform Manager 16.0.0 or later.
+- Platform Manager refuses a change of `short_name` while the Instance has environments. Some Platform Manager versions delete the schema registry of the Instance-Clusters when `short_name` changes; the next `terraform apply` configures it again from `axual_instance_cluster`.
+
+## Required Roles
+- TENANT_ADMIN
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Example Usage
+
+```hcl
+resource "axual_instance" "production" {
+  name                       = "Production"
+  short_name                 = "prod"
+  description                = "Production instance"
+  clusters                   = [axual_cluster.production.id]
+  ca_certificates            = [file("application-ca.crt")]
+  authentication_methods     = ["MUTUAL_TLS", "SCRAM_SHA_512"]
+  granular_browse_permission = true
+  self_approval              = false
+  certificate_reuse_prevention = "INSTANCE"
+}
+```
+
+For a full example of an Instance with its Cluster and schema registry, see `axual_instance_cluster`.
+
+## Import
+
+Import is supported by ID, or by name (`name:`):
+
+```shell
+terraform import axual_instance.<LOCAL NAME> <INSTANCE UID>
+terraform import axual_instance.production 9b4b1e3a1e2f4b5f8a1c0d2e3f4a5b6c
+terraform import axual_instance.<LOCAL NAME> name:<INSTANCE NAME>
+terraform import axual_instance.production 'name:Production'
+```
+
+In Terraform 1.12 or later, an `import` block can use `identity` instead of `id`:
+
+```terraform
+import {
+  to = axual_instance.production
+  identity = {
+    id = "9b4b1e3a1e2f4b5f8a1c0d2e3f4a5b6c"
+  }
+}
+```
+
+{{ .IdentitySchemaMarkdown | trimspace }}

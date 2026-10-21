@@ -43,3 +43,19 @@ connectClusterMtlsId: "YOUR_CONNECT_CLUSTER_MTLS_ID"
 connectClusterMtlsName: "YOUR_CONNECT_CLUSTER_MTLS_NAME"
 connectClusterSaslId: "YOUR_CONNECT_CLUSTER_SASL_ID"
 connectClusterSaslName: "YOUR_CONNECT_CLUSTER_SASL_NAME"
+
+# A Kafka cluster that TestClusterResource, TestInstanceResource and TestInstanceClusterResource
+# register with Terraform: its bootstrap servers and PEM files of a client certificate that is a
+# superuser there (an MTLS listener), the CA chain of the brokers, and the CA that signs application
+# certificates (for an Instance's ca_certificates). The tests skip while any is a YOUR_ placeholder.
+kafkaBootstrapServers: "YOUR_KAFKA_BOOTSTRAP_SERVERS"
+kafkaClientCertificateFile: "YOUR_KAFKA_CLIENT_CERTIFICATE_FILE"
+kafkaClientPrivateKeyFile: "YOUR_KAFKA_CLIENT_PRIVATE_KEY_FILE"
+kafkaTruststoreFile: "YOUR_KAFKA_TRUSTSTORE_FILE"
+instanceCaCertificateFile: "YOUR_INSTANCE_CA_CERTIFICATE_FILE"
+
+# An Apicurio registry for TestInstanceClusterResource: the URL Platform Manager uses and a Basic-Auth
+# login. The test also creates an AVRO topic on it. It skips while any is a YOUR_ placeholder.
+schemaRegistryUrl: "YOUR_SCHEMA_REGISTRY_URL"
+schemaRegistryUsername: "YOUR_SCHEMA_REGISTRY_USERNAME"
+schemaRegistryPassword: "YOUR_SCHEMA_REGISTRY_PASSWORD"

@@ -60,6 +60,19 @@ type ProviderConfig struct {
 	ConnectClusterMtlsName   string `yaml:"connectClusterMtlsName"`
 	ConnectClusterSaslId     string `yaml:"connectClusterSaslId"`
 	ConnectClusterSaslName   string `yaml:"connectClusterSaslName"`
+	// A Kafka cluster the Cluster, Instance and Instance-Cluster tests register with Terraform: its
+	// bootstrap servers and PEM files of a client certificate that is a superuser there. Several test
+	// clusters point at the same Kafka cluster; Platform Manager only checks it can connect.
+	KafkaBootstrapServers      string `yaml:"kafkaBootstrapServers"`
+	KafkaClientCertificateFile string `yaml:"kafkaClientCertificateFile"`
+	KafkaClientPrivateKeyFile  string `yaml:"kafkaClientPrivateKeyFile"`
+	KafkaTruststoreFile        string `yaml:"kafkaTruststoreFile"`
+	// A PEM file of the CA that signs application certificates, for the Instance's ca_certificates.
+	InstanceCaCertificateFile string `yaml:"instanceCaCertificateFile"`
+	// An Apicurio registry for the Instance-Cluster tests.
+	SchemaRegistryUrl      string `yaml:"schemaRegistryUrl"`
+	SchemaRegistryUsername string `yaml:"schemaRegistryUsername"`
+	SchemaRegistryPassword string `yaml:"schemaRegistryPassword"`
 }
 
 // LoadProviderConfig Function to load the configuration from a YAML file
@@ -121,6 +134,39 @@ func SkipWithoutConnectCluster(t *testing.T, config ProviderConfig) {
 	} {
 		if field.value == "" || strings.HasPrefix(field.value, "YOUR_") {
 			t.Skipf("%s is not set in test_config.yaml, so no registered Kafka Connect cluster is available", field.key)
+		}
+	}
+}
+
+// SkipWithoutKafkaCluster skips a Cluster or Instance test unless test_config.yaml names a Kafka
+// cluster Terraform can register.
+func SkipWithoutKafkaCluster(t *testing.T, config ProviderConfig) {
+	t.Helper()
+	for _, field := range []struct{ key, value string }{
+		{"kafkaBootstrapServers", config.KafkaBootstrapServers},
+		{"kafkaClientCertificateFile", config.KafkaClientCertificateFile},
+		{"kafkaClientPrivateKeyFile", config.KafkaClientPrivateKeyFile},
+		{"kafkaTruststoreFile", config.KafkaTruststoreFile},
+		{"instanceCaCertificateFile", config.InstanceCaCertificateFile},
+	} {
+		if field.value == "" || strings.HasPrefix(field.value, "YOUR_") {
+			t.Skipf("%s is not set in test_config.yaml, so no Kafka cluster can be registered", field.key)
+		}
+	}
+}
+
+// SkipWithoutSchemaRegistry skips an Instance-Cluster test unless test_config.yaml names an
+// Apicurio registry.
+func SkipWithoutSchemaRegistry(t *testing.T, config ProviderConfig) {
+	t.Helper()
+	SkipWithoutKafkaCluster(t, config)
+	for _, field := range []struct{ key, value string }{
+		{"schemaRegistryUrl", config.SchemaRegistryUrl},
+		{"schemaRegistryUsername", config.SchemaRegistryUsername},
+		{"schemaRegistryPassword", config.SchemaRegistryPassword},
+	} {
+		if field.value == "" || strings.HasPrefix(field.value, "YOUR_") {
+			t.Skipf("%s is not set in test_config.yaml, so no schema registry is available", field.key)
 		}
 	}
 }
@@ -274,6 +320,28 @@ func GetConnectProvider() string {
 	  connect_cluster_mtls_name = "` + config.ConnectClusterMtlsName + `"
 	  connect_cluster_sasl_id = "` + config.ConnectClusterSaslId + `"
 	  connect_cluster_sasl_name = "` + config.ConnectClusterSaslName + `"
+	}
+	`
+}
+
+// GetClusterProvider returns GetProvider() plus the locals the Cluster, Instance and
+// Instance-Cluster fixtures read.
+func GetClusterProvider() string {
+	config, err := LoadProviderConfig()
+	if err != nil {
+		log.Panicf("Error loading provider configuration: %s", err)
+	}
+
+	return GetProvider() + `
+	locals {
+	  kafka_bootstrap_servers = "` + config.KafkaBootstrapServers + `"
+	  kafka_client_certificate_file = "` + config.KafkaClientCertificateFile + `"
+	  kafka_client_private_key_file = "` + config.KafkaClientPrivateKeyFile + `"
+	  kafka_truststore_file = "` + config.KafkaTruststoreFile + `"
+	  instance_ca_certificate_file = "` + config.InstanceCaCertificateFile + `"
+	  schema_registry_url = "` + config.SchemaRegistryUrl + `"
+	  schema_registry_username = "` + config.SchemaRegistryUsername + `"
+	  schema_registry_password = "` + config.SchemaRegistryPassword + `"
 	}
 	`
 }

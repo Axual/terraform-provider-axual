@@ -1,0 +1,1 @@
+{"type":"record","name":"TfTestIcKey","namespace":"io.axual.terraform.test","fields":[{"name":"id","type":"string"}]}

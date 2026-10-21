@@ -34,6 +34,22 @@ var (
 func listSpecs() []listSpec {
 	return []listSpec{
 		{
+			typeName:    "axual_cluster",
+			attr:        "id",
+			description: "Lists clusters the user can see. Platform Manager never returns the broker private key and passwords, so add them to a generated `axual_cluster` before applying it.",
+			newResource: NewClusterResource,
+			filters:     []listFilter{filterName},
+			find:        findClusters,
+		},
+		{
+			typeName:    "axual_instance",
+			attr:        "id",
+			description: "Lists instances in the tenant.",
+			newResource: NewInstanceResource,
+			filters:     []listFilter{filterName},
+			find:        findInstances,
+		},
+		{
 			typeName:    "axual_group",
 			attr:        "id",
 			description: "Lists groups in the tenant.",
@@ -353,6 +369,30 @@ func findGroups(_ context.Context, c *webclient.Client, f map[string]string) ([]
 	path, params := "groups", url.Values{}
 	if f["name"] != "" {
 		path, params = "groups/search/findByNameContaining", url.Values{"name": {f["name"]}}
+	}
+	items, err := c.ListAll(path, params)
+	if err != nil {
+		return nil, err
+	}
+	return toFound(items, byKey("name")), nil
+}
+
+func findClusters(_ context.Context, c *webclient.Client, f map[string]string) ([]listFound, error) {
+	path, params := "clusters", url.Values{}
+	if f["name"] != "" {
+		path, params = "clusters/search/findByNameContaining", url.Values{"name": {f["name"]}}
+	}
+	items, err := c.ListAll(path, params)
+	if err != nil {
+		return nil, err
+	}
+	return toFound(items, byKey("name")), nil
+}
+
+func findInstances(_ context.Context, c *webclient.Client, f map[string]string) ([]listFound, error) {
+	path, params := "instances", url.Values{}
+	if f["name"] != "" {
+		path, params = "instances/search/findByAttributes", url.Values{"name": {f["name"]}}
 	}
 	items, err := c.ListAll(path, params)
 	if err != nil {

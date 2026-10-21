@@ -1,0 +1,81 @@
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+## Usage
+- The Cluster must be in the Instance's `clusters`. Use a reference such as `axual_instance.production.id`, so the Instance is created first and destroyed last.
+- `certificate`, `private_key` and `truststore` take PEM. Platform Manager keeps them base64-encoded, the way the Self-Service UI sends them, so the provider does the encoding. An already base64-encoded value is also accepted.
+- The password, private key and Keycloak admin password are stored in Vault. Platform Manager never returns them, so they are kept as written in the configuration and cannot be imported.
+- Platform Manager does not contact the registry to check the URL or credentials. A wrong value shows up when a topic with a schema is configured.
+- Destroying the resource removes the schema registry from the Instance-Cluster. Platform Manager refuses it while an application has a schema registry credential there.
+
+## Platform Manager version
+- Platform Manager 16.0.0 or later.
+- Platform Manager 16.0.x uses the Apicurio Registry 2.x API (`/apis/registry/v2`); the next release after 16.0.x uses the 3.x API (`/apis/registry/v3`).
+- Some Platform Manager versions delete this configuration when the Instance's `short_name` or the Cluster's name changes. Terraform sees that on the next plan and configures it again.
+
+## Required Roles
+- TENANT_ADMIN
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Example Usage
+
+```hcl
+resource "axual_cluster" "production" {
+  name          = "production-ams"
+  provider_type = "apache-kafka"
+  broker = {
+    bootstrap_servers = "kafka-0.example.com:9093"
+    protocol          = "MTLS"
+    certificate       = file("pm-client.crt")
+    private_key       = file("pm-client.key")
+    truststore        = file("kafka-ca.crt")
+  }
+  topic_pattern = "{tenant}-{instance}-{environment}-{topic}"
+}
+
+resource "axual_instance" "production" {
+  name            = "Production"
+  short_name      = "prod"
+  clusters        = [axual_cluster.production.id]
+  ca_certificates = [file("application-ca.crt")]
+}
+
+resource "axual_instance_cluster" "production" {
+  instance = axual_instance.production.id
+  cluster  = axual_cluster.production.id
+  schema_registry = {
+    type           = "APICURIO"
+    url            = "https://apicurio.example.com/apis/registry/v3"
+    authentication = "Basic-Auth"
+    username       = "platform-manager"
+    password       = "YOUR_PASSWORD" # replace with the registry password
+  }
+}
+```
+
+A Confluent registry without authentication:
+
+```hcl
+resource "axual_instance_cluster" "test" {
+  instance = axual_instance.test.id
+  cluster  = axual_cluster.test.id
+  schema_registry = {
+    type           = "CONFLUENT"
+    url            = "https://schema-registry.example.com"
+    authentication = "No-Auth"
+  }
+}
+```
+
+## Import
+
+Import is supported using the Instance ID and the Cluster ID, separated by `/`:
+
+```shell
+terraform import axual_instance_cluster.<LOCAL NAME> <INSTANCE UID>/<CLUSTER UID>
+terraform import axual_instance_cluster.production 9b4b1e3a1e2f4b5f8a1c0d2e3f4a5b6c/3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c
+```
+
+After importing, add the `password` or `private_key` to your configuration: Platform Manager does not return it.

@@ -164,8 +164,10 @@ in the Terraform state only.
   an application that has active grants or is deployed. Run `terraform destroy` again; a resource that
   another delete already removed counts as deleted. Replace IDs with references before you manage the
   set long term.
-- **Users, instances and clusters** cannot be created with Terraform. `axual_user` can be listed, but
-  only to manage users that already exist.
+- **Users** cannot be created with Terraform. `axual_user` can be listed, but only to manage users
+  that already exist.
+- **Clusters**: Platform Manager never returns the broker private key or passwords, so add them to a
+  generated `axual_cluster` before you apply it.
 - **Access grants**: revoked and cancelled grants are left out, unless the `status` filter asks for
   them.
 - **Browse permissions**: topic configurations whose browse permissions you may not manage are left
@@ -181,6 +183,8 @@ in the Terraform state only.
 
 | List resource | Filters |
 |---|---|
+| `axual_cluster` | `name` |
+| `axual_instance` | `name` |
 | `axual_group` | `name` |
 | `axual_user` | `email`, `role` |
 | `axual_environment` | `name`, `owners` |
@@ -205,12 +209,13 @@ in the Terraform state only.
   that approves; for `axual_application_access_grant` it is the owner of the application.
 - When you set more than one filter, a resource must match all of them.
 
-`axual_flink_cluster` has no list resource: it needs an instance and cluster ID.
+`axual_flink_cluster` and `axual_instance_cluster` have no list resource: they need an instance and
+cluster ID.
 
 ## Importing a single resource by identity
 
-Every resource except `axual_flink_cluster` also accepts an `identity` in an `import` block, as an
-alternative to `id`:
+Every resource except `axual_flink_cluster` and `axual_instance_cluster` also accepts an `identity` in
+an `import` block, as an alternative to `id`:
 
 ```terraform
 import {
