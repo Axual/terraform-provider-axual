@@ -18,6 +18,10 @@ All notable changes to this project will be documented in this file.
 * `request_again`, `decision_reason`, `decided_at` and `decided_by` on `axual_application_access_grant`, and the decision fields on its data source: the application team sees the answer and asks again by changing `request_again` (AXPD-12412)
 * `axual_application_access_grants` data source: lists grants, for example the open requests on a topic (AXPD-12412)
 * Guide: `IAM-managed groups`, how to link a group to a group in your identity system with `iam_reference`, and how service accounts work with such groups (AXPD-12492)
+* `axual_cluster`: register a Kafka cluster with Platform Manager, with its broker connection and credentials, topic patterns and SSL principal mode. The broker private key and passwords are sent, never read back. Also a list resource and import by `name:` (AXPD-10169)
+* `axual_instance`: manage an Instance, its Clusters, authentication methods, CA certificates and settings such as `granular_browse_permission` (AXPD-9322)
+* `axual_instance_cluster`: the schema registry of a Cluster in an Instance, Apicurio or Confluent (AXPD-10170)
+* `axual_cluster` data source: look up a Cluster by name
 
 ### Changed
 * **Breaking:** `owners` is required on `axual_flink_cluster`, and a changed `name` now replaces the Flink Cluster instead of renaming it, because Platform Manager does not allow renaming. Add `owners`, and `authorized_groups` with the Group of every application that deploys to the Flink Cluster, before you upgrade: an `axual_application_deployment` of a `FLINK_SQL` application is refused with `403 Forbidden` when its application owner Group is not authorized on the Flink Cluster
