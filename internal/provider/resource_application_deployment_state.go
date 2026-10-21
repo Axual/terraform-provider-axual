@@ -109,8 +109,18 @@ func (r *applicationDeploymentStateResource) Create(ctx context.Context, req res
 		return
 	}
 	data.Id = data.ApplicationDeployment
-	r.apply(ctx, &data, resp.Diagnostics.AddError)
+	sent := r.apply(ctx, &data, resp.Diagnostics.AddError)
 	if resp.Diagnostics.HasError() {
+		// A START can be accepted and the connector fail afterwards. Without a state Terraform forgets
+		// the resource, so destroy never stops the deployment and Platform Manager then refuses to
+		// delete the principal. Saved with the error, the resource is tainted: destroy stops it, and the
+		// next apply tries again.
+		if sent {
+			if data.CurrentState.IsUnknown() {
+				data.CurrentState = types.StringNull()
+			}
+			resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+		}
 		return
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -154,7 +164,7 @@ func (r *applicationDeploymentStateResource) Update(ctx context.Context, req res
 		return
 	}
 	data.Id = data.ApplicationDeployment
-	r.apply(ctx, &data, resp.Diagnostics.AddError)
+	_ = r.apply(ctx, &data, resp.Diagnostics.AddError)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -220,12 +230,13 @@ func (r *applicationDeploymentStateResource) ImportState(ctx context.Context, re
 }
 
 // apply brings the deployment to the desired state in data and records the live status it ends in.
-func (r *applicationDeploymentStateResource) apply(ctx context.Context, data *applicationDeploymentStateResourceData, addError func(string, string)) {
+// It reports whether it got as far as sending a state change, so that a failed create is still saved.
+func (r *applicationDeploymentStateResource) apply(ctx context.Context, data *applicationDeploymentStateResourceData, addError func(string, string)) bool {
 	id := data.ApplicationDeployment.ValueString()
 	deploymentType, err := r.deploymentType(id)
 	if err != nil {
 		addError("API Error", fmt.Sprintf("Unable to read Application Deployment %s, got error: %s", id, err))
-		return
+		return false
 	}
 
 	switch data.State.ValueString() {
@@ -236,15 +247,16 @@ func (r *applicationDeploymentStateResource) apply(ctx context.Context, data *ap
 	}
 	if err != nil {
 		addError("Application Deployment state not reached", err.Error())
-		return
+		return true
 	}
 
 	status, err := getDeploymentStatus(ctx, r.provider.client, id)
 	if err != nil {
 		addError("API Error", fmt.Sprintf("Unable to read the status of Application Deployment %s, got error: %s", id, err))
-		return
+		return true
 	}
 	data.CurrentState = types.StringValue(liveDeploymentStatus(deploymentType, status))
+	return true
 }
 
 // run starts the deployment, or restarts it when it has failed, and waits until it runs.

@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -378,6 +380,59 @@ func TestStateResourceApplyReportsAMissingDeployment(t *testing.T) {
 	r.apply(context.Background(), &data, func(summary, detail string) { errs = append(errs, summary) })
 	if len(errs) != 1 {
 		t.Fatalf("apply() errors = %v, expected one", errs)
+	}
+}
+
+// createState runs Create of r for a deployment that should run, against a fake Platform Manager.
+func createState(t *testing.T, r *applicationDeploymentStateResource) resource.CreateResponse {
+	t.Helper()
+	planned := stateFor(t, r, applicationDeploymentStateResourceData{
+		Id:                    types.StringUnknown(),
+		ApplicationDeployment: types.StringValue("dep1"),
+		State:                 types.StringValue(deploymentStateRunning),
+		CurrentState:          types.StringUnknown(),
+	})
+	resp := resource.CreateResponse{State: emptyState(t, r)}
+	r.Create(context.Background(), resource.CreateRequest{Plan: tfsdk.Plan{Schema: planned.Schema, Raw: planned.Raw}}, &resp)
+	return resp
+}
+
+// A START that is accepted, after which the connector fails, is still saved with the error, so that
+// Terraform marks it tainted and destroy stops the deployment.
+func TestStateResourceCreateSavesAStartThatFailedAfterwards(t *testing.T) {
+	fake := &fakeConnector{state: "Undeployed", failAfter: true, trace: "org.apache.kafka.common.errors.TopicAuthorizationException"}
+	r := newStateResourceAgainst(t, fake)
+
+	resp := createState(t, r)
+
+	if !resp.Diagnostics.HasError() {
+		t.Fatal("Create() reported no error, expected the failed start")
+	}
+	if resp.State.Raw.IsNull() {
+		t.Fatal("Create() saved no state, expected the resource so that destroy can stop it")
+	}
+	var saved applicationDeploymentStateResourceData
+	resp.State.Get(context.Background(), &saved)
+	if saved.ApplicationDeployment.ValueString() != "dep1" || saved.Id.ValueString() != "dep1" {
+		t.Errorf("saved = %+v, expected application_deployment and id dep1", saved)
+	}
+	if got := fake.sent(); len(got) == 0 || got[0] != "START" {
+		t.Errorf("sent %v, expected a START", got)
+	}
+}
+
+// Nothing was sent when the deployment cannot be read, so there is nothing to save.
+func TestStateResourceCreateSavesNothingWhenTheDeploymentIsMissing(t *testing.T) {
+	fake := &fakeConnector{gone: true}
+	r := newStateResourceAgainst(t, fake)
+
+	resp := createState(t, r)
+
+	if !resp.Diagnostics.HasError() {
+		t.Fatal("Create() reported no error, expected the missing deployment")
+	}
+	if !resp.State.Raw.IsNull() {
+		t.Error("Create() saved a state for a deployment it could not read")
 	}
 }
 
