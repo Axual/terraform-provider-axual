@@ -38,6 +38,10 @@ var (
 	runningWaitDelay    = 2 * time.Second
 )
 
+// flinkRunningWaitAttempts is the same bound for a FLINK_SQL deployment. Its job first waits for
+// Ververica to bring up a cluster, which takes minutes.
+const flinkRunningWaitAttempts = 150
+
 // resetWaitAttempts and resetWaitDelay bound how long a destroy waits, after STOP, for the API to
 // offer RESET. RESET is only offered once the connector reports `Stopped`.
 var (
@@ -109,13 +113,11 @@ func (r *applicationDeploymentStateResource) Create(ctx context.Context, req res
 		return
 	}
 	data.Id = data.ApplicationDeployment
-	sent := r.apply(ctx, &data, resp.Diagnostics.AddError)
+	keep := r.apply(ctx, &data, resp.Diagnostics.AddError)
 	if resp.Diagnostics.HasError() {
-		// A START can be accepted and the connector fail afterwards. Without a state Terraform forgets
-		// the resource, so destroy never stops the deployment and Platform Manager then refuses to
-		// delete the principal. Saved with the error, the resource is tainted: destroy stops it, and the
-		// next apply tries again.
-		if sent {
+		// Saved with the error, so Terraform taints it and destroy stops it. Unlike
+		// axual_application_deployment, a warning here would hide a failed start.
+		if keep {
 			if data.CurrentState.IsUnknown() {
 				data.CurrentState = types.StringNull()
 			}
@@ -164,7 +166,7 @@ func (r *applicationDeploymentStateResource) Update(ctx context.Context, req res
 		return
 	}
 	data.Id = data.ApplicationDeployment
-	_ = r.apply(ctx, &data, resp.Diagnostics.AddError)
+	r.apply(ctx, &data, resp.Diagnostics.AddError)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -230,7 +232,7 @@ func (r *applicationDeploymentStateResource) ImportState(ctx context.Context, re
 }
 
 // apply brings the deployment to the desired state in data and records the live status it ends in.
-// It reports whether it got as far as sending a state change, so that a failed create is still saved.
+// It reports whether a failed create must still be saved, because destroy has something to undo.
 func (r *applicationDeploymentStateResource) apply(ctx context.Context, data *applicationDeploymentStateResourceData, addError func(string, string)) bool {
 	id := data.ApplicationDeployment.ValueString()
 	deploymentType, err := r.deploymentType(id)
@@ -247,7 +249,7 @@ func (r *applicationDeploymentStateResource) apply(ctx context.Context, data *ap
 	}
 	if err != nil {
 		addError("Application Deployment state not reached", err.Error())
-		return true
+		return r.destroyHasWork(ctx, id, deploymentType)
 	}
 
 	status, err := getDeploymentStatus(ctx, r.provider.client, id)
@@ -257,6 +259,17 @@ func (r *applicationDeploymentStateResource) apply(ctx context.Context, data *ap
 	}
 	data.CurrentState = types.StringValue(liveDeploymentStatus(deploymentType, status))
 	return true
+}
+
+// destroyHasWork reports whether Delete would change the deployment: the API offers STOP, as it does
+// once a START was accepted, or RESET for a Connector. A status that cannot be read counts as work,
+// so that destroy still tries.
+func (r *applicationDeploymentStateResource) destroyHasWork(ctx context.Context, id string, deploymentType string) bool {
+	status, err := getDeploymentStatus(ctx, r.provider.client, id)
+	if err != nil {
+		return true
+	}
+	return shouldStopDeployment(deploymentType, status) || (isConnector(deploymentType) && status.Links.Has(webclient.RelReset))
 }
 
 // run starts the deployment, or restarts it when it has failed, and waits until it runs.
@@ -337,7 +350,8 @@ func (r *applicationDeploymentStateResource) stop(ctx context.Context, id string
 func (r *applicationDeploymentStateResource) waitUntilRunning(ctx context.Context, id string, deploymentType string, failedPollsAllowed int) error {
 	var status *webclient.ApplicationDeploymentStatusResponse
 	var err error
-	for i := 0; i < runningWaitAttempts; i++ {
+	attempts := runningWaitBudget(deploymentType)
+	for i := 0; i < attempts; i++ {
 		status, err = getDeploymentStatus(ctx, r.provider.client, id)
 		if err != nil {
 			return fmt.Errorf("unable to get Application Deployment status while waiting for it to run: %s", err)
@@ -355,7 +369,15 @@ func (r *applicationDeploymentStateResource) waitUntilRunning(ctx context.Contex
 		}
 		time.Sleep(runningWaitDelay)
 	}
-	return fmt.Errorf("the deployment did not report itself running within %s (%s)", time.Duration(runningWaitAttempts)*runningWaitDelay, describeDeploymentStatus(status))
+	return fmt.Errorf("the deployment did not report itself running within %s (%s)", time.Duration(attempts)*runningWaitDelay, describeDeploymentStatus(status))
+}
+
+// runningWaitBudget is how many status reads a START or RESTART waits for the given type to run.
+func runningWaitBudget(deploymentType string) int {
+	if isFlinkSQL(deploymentType) {
+		return flinkRunningWaitAttempts
+	}
+	return runningWaitAttempts
 }
 
 // connectorStateFailed is the live state Platform Manager reports for a failed connector.

@@ -31,6 +31,7 @@ type fakeConnector struct {
 	failAfter bool // a START ends in Failed instead of Running
 	gone      bool // the deployment does not exist
 	noReset   bool // a stopped connector is never offered RESET
+	noStart   bool // START is never offered, as before the access grant is approved
 	// resetWhenFailed: a failed connector is offered RESET, as on newer Platform Manager versions.
 	resetWhenFailed bool
 	// recoversIn is how many status reads a Failed connector stays failed before it runs on its own.
@@ -58,7 +59,7 @@ func (f *fakeConnector) links() map[string]webclient.Link {
 	}
 	links := map[string]webclient.Link{}
 	for _, rel := range rels {
-		if rel == "reset" && f.noReset {
+		if (rel == "reset" && f.noReset) || (rel == "start" && f.noStart) {
 			continue
 		}
 		links[rel] = webclient.Link{Href: "http://pm/" + rel}
@@ -416,8 +417,52 @@ func TestStateResourceCreateSavesAStartThatFailedAfterwards(t *testing.T) {
 	if saved.ApplicationDeployment.ValueString() != "dep1" || saved.Id.ValueString() != "dep1" {
 		t.Errorf("saved = %+v, expected application_deployment and id dep1", saved)
 	}
+	if saved.State.ValueString() != deploymentStateRunning || !saved.CurrentState.IsNull() {
+		t.Errorf("saved = %+v, expected state RUNNING and no current_state", saved)
+	}
 	if got := fake.sent(); len(got) == 0 || got[0] != "START" {
 		t.Errorf("sent %v, expected a START", got)
+	}
+}
+
+// A START that is not offered, for example before the access grant is approved, is saved only when
+// destroy has something to undo: a stopped connector still offers RESET, a never started one nothing.
+func TestStateResourceCreateWhenStartIsNotOffered(t *testing.T) {
+	for _, test := range []struct {
+		state string
+		saved bool
+	}{
+		{state: "Undeployed", saved: false},
+		{state: "Stopped", saved: true},
+	} {
+		t.Run(test.state, func(t *testing.T) {
+			fake := &fakeConnector{state: test.state, noStart: true}
+			r := newStateResourceAgainst(t, fake)
+
+			resp := createState(t, r)
+
+			if !resp.Diagnostics.HasError() {
+				t.Fatal("Create() reported no error, expected that START is not offered")
+			}
+			if saved := !resp.State.Raw.IsNull(); saved != test.saved {
+				t.Errorf("Create() saved a state: %t, expected %t", saved, test.saved)
+			}
+			if got := fake.sent(); len(got) != 0 {
+				t.Errorf("sent %v, expected nothing", got)
+			}
+		})
+	}
+}
+
+func TestRunningWaitBudget(t *testing.T) {
+	for deploymentType, attempts := range map[string]int{
+		webclient.FlinkSQLApplicationType: flinkRunningWaitAttempts,
+		"Connector":                       runningWaitAttempts,
+		"Ksml":                            runningWaitAttempts,
+	} {
+		if got := runningWaitBudget(deploymentType); got != attempts {
+			t.Errorf("runningWaitBudget(%q) = %d, expected %d", deploymentType, got, attempts)
+		}
 	}
 }
 
