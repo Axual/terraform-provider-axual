@@ -164,7 +164,7 @@ func TestStopAfterA4xxIsDoneWhenTheStatusShowsStopped(t *testing.T) {
 	fake := &fakeConnector{state: "Running", taskStatus: "Running", stopFails: 1, stopFailsAfterApplying: true, stopFailStatus: http.StatusBadRequest}
 	r := newStateResourceAgainst(t, fake)
 
-	if err := stopDeploymentAndWait(context.Background(), r.provider.client, "dep1", connectorApplicationType); err != nil {
+	if _, err := stopDeploymentAndWait(context.Background(), r.provider.client, "dep1", connectorApplicationType); err != nil {
 		t.Fatalf("stop error = %v, expected none", err)
 	}
 	if !equalActions(fake.sent(), "STOP") {

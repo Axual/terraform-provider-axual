@@ -32,6 +32,9 @@ type fakeConnector struct {
 	gone      bool // the deployment does not exist
 	noReset   bool // a stopped connector is never offered RESET
 	noStart   bool // START is never offered, as before the access grant is approved
+	// statusFailFrom: from this status read on (1 is the first), every status read answers 403.
+	statusFailFrom int
+	statusReads    int
 	// resetWhenFailed: a failed connector is offered RESET, as on newer Platform Manager versions.
 	resetWhenFailed bool
 	// recoversIn is how many status reads a Failed connector stays failed before it runs on its own.
@@ -76,6 +79,12 @@ func (f *fakeConnector) handler(w http.ResponseWriter, r *http.Request) {
 	}
 	switch {
 	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/status"):
+		f.statusReads++
+		if f.statusFailFrom > 0 && f.statusReads >= f.statusFailFrom {
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = fmt.Fprint(w, `{"detail":"status not readable","status":403}`)
+			return
+		}
 		if f.state == "Starting" {
 			if f.startsIn <= 0 {
 				f.state = "Running"
@@ -183,7 +192,7 @@ func TestStateResourceRunStartsAnUndeployedConnector(t *testing.T) {
 			fake := &fakeConnector{state: state, startsIn: 2}
 			r := newStateResourceAgainst(t, fake)
 
-			if err := r.run(context.Background(), "dep1", "Connector"); err != nil {
+			if _, err := r.run(context.Background(), "dep1", "Connector"); err != nil {
 				t.Fatalf("run() error = %v", err)
 			}
 			if !equalActions(fake.sent(), "START") {
@@ -197,7 +206,7 @@ func TestStateResourceRunRestartsAFailedConnector(t *testing.T) {
 	fake := &fakeConnector{state: "Failed", trace: "boom"}
 	r := newStateResourceAgainst(t, fake)
 
-	if err := r.run(context.Background(), "dep1", "Connector"); err != nil {
+	if _, err := r.run(context.Background(), "dep1", "Connector"); err != nil {
 		t.Fatalf("run() error = %v", err)
 	}
 	if !equalActions(fake.sent(), "RESTART") {
@@ -209,7 +218,7 @@ func TestStateResourceRunRestartsAConnectorWithAFailedTask(t *testing.T) {
 	fake := &fakeConnector{state: "Running", taskStatus: "Failed", trace: "task died"}
 	r := newStateResourceAgainst(t, fake)
 
-	if err := r.run(context.Background(), "dep1", "Connector"); err != nil {
+	if _, err := r.run(context.Background(), "dep1", "Connector"); err != nil {
 		t.Fatalf("run() error = %v", err)
 	}
 	if !equalActions(fake.sent(), "RESTART_TASK") {
@@ -222,7 +231,7 @@ func TestStateResourceRunRestartsAFailedConnectorAndItsFailedTask(t *testing.T) 
 	fake := &fakeConnector{state: "Failed", taskStatus: "Failed", trace: "boom"}
 	r := newStateResourceAgainst(t, fake)
 
-	if err := r.run(context.Background(), "dep1", "Connector"); err != nil {
+	if _, err := r.run(context.Background(), "dep1", "Connector"); err != nil {
 		t.Fatalf("run() error = %v", err)
 	}
 	if !equalActions(fake.sent(), "RESTART", "RESTART_TASK") {
@@ -234,7 +243,7 @@ func TestStateResourceRunLeavesARunningConnectorAlone(t *testing.T) {
 	fake := &fakeConnector{state: "Running", taskStatus: "Running"}
 	r := newStateResourceAgainst(t, fake)
 
-	if err := r.run(context.Background(), "dep1", "Connector"); err != nil {
+	if _, err := r.run(context.Background(), "dep1", "Connector"); err != nil {
 		t.Fatalf("run() error = %v", err)
 	}
 	if len(fake.sent()) != 0 {
@@ -246,7 +255,7 @@ func TestStateResourceRunReportsAConnectorThatFailsAfterStart(t *testing.T) {
 	fake := &fakeConnector{state: "Stopped", failAfter: true, trace: "org.apache.kafka.common.errors.TopicAuthorizationException\n\tat ..."}
 	r := newStateResourceAgainst(t, fake)
 
-	err := r.run(context.Background(), "dep1", "Connector")
+	_, err := r.run(context.Background(), "dep1", "Connector")
 	if err == nil {
 		t.Fatal("run() error = nil, expected the failure to be reported")
 	}
@@ -260,7 +269,7 @@ func TestStateResourceRunWaitsOutAShortFailureAfterStart(t *testing.T) {
 	fake := &fakeConnector{state: "Stopped", failAfter: true, recoversIn: 2, trace: "Not authorized"}
 	r := newStateResourceAgainst(t, fake)
 
-	if err := r.run(context.Background(), "dep1", "Connector"); err != nil {
+	if _, err := r.run(context.Background(), "dep1", "Connector"); err != nil {
 		t.Fatalf("run() error = %v, expected the short failure to be waited out", err)
 	}
 }
@@ -272,7 +281,7 @@ func TestStateResourceRunTimesOutWhenTheConnectorNeverRuns(t *testing.T) {
 	fake := &fakeConnector{state: "Undeployed", startsIn: 100}
 	r := newStateResourceAgainst(t, fake)
 
-	err := r.run(context.Background(), "dep1", "Connector")
+	_, err := r.run(context.Background(), "dep1", "Connector")
 	if err == nil || !strings.Contains(err.Error(), "did not report itself running") {
 		t.Fatalf("run() error = %v, expected a timeout", err)
 	}
@@ -282,7 +291,7 @@ func TestStateResourceStopStopsARunningConnector(t *testing.T) {
 	fake := &fakeConnector{state: "Running", taskStatus: "Running"}
 	r := newStateResourceAgainst(t, fake)
 
-	if err := r.stop(context.Background(), "dep1", "Connector"); err != nil {
+	if _, err := r.stop(context.Background(), "dep1", "Connector"); err != nil {
 		t.Fatalf("stop() error = %v", err)
 	}
 	if !equalActions(fake.sent(), "STOP") {
@@ -294,7 +303,7 @@ func TestStateResourceStopLeavesAStoppedConnectorAlone(t *testing.T) {
 	fake := &fakeConnector{state: "Stopped", taskStatus: "Running"}
 	r := newStateResourceAgainst(t, fake)
 
-	if err := r.stop(context.Background(), "dep1", "Connector"); err != nil {
+	if _, err := r.stop(context.Background(), "dep1", "Connector"); err != nil {
 		t.Fatalf("stop() error = %v", err)
 	}
 	if len(fake.sent()) != 0 {
@@ -384,13 +393,13 @@ func TestStateResourceApplyReportsAMissingDeployment(t *testing.T) {
 	}
 }
 
-// createState runs Create of r for a deployment that should run, against a fake Platform Manager.
-func createState(t *testing.T, r *applicationDeploymentStateResource) resource.CreateResponse {
+// createState runs Create of r for the desired state, against a fake Platform Manager.
+func createState(t *testing.T, r *applicationDeploymentStateResource, state string) resource.CreateResponse {
 	t.Helper()
 	planned := stateFor(t, r, applicationDeploymentStateResourceData{
 		Id:                    types.StringUnknown(),
 		ApplicationDeployment: types.StringValue("dep1"),
-		State:                 types.StringValue(deploymentStateRunning),
+		State:                 types.StringValue(state),
 		CurrentState:          types.StringUnknown(),
 	})
 	resp := resource.CreateResponse{State: emptyState(t, r)}
@@ -404,7 +413,7 @@ func TestStateResourceCreateSavesAStartThatFailedAfterwards(t *testing.T) {
 	fake := &fakeConnector{state: "Undeployed", failAfter: true, trace: "org.apache.kafka.common.errors.TopicAuthorizationException"}
 	r := newStateResourceAgainst(t, fake)
 
-	resp := createState(t, r)
+	resp := createState(t, r, deploymentStateRunning)
 
 	if !resp.Diagnostics.HasError() {
 		t.Fatal("Create() reported no error, expected the failed start")
@@ -413,7 +422,9 @@ func TestStateResourceCreateSavesAStartThatFailedAfterwards(t *testing.T) {
 		t.Fatal("Create() saved no state, expected the resource so that destroy can stop it")
 	}
 	var saved applicationDeploymentStateResourceData
-	resp.State.Get(context.Background(), &saved)
+	if diags := resp.State.Get(context.Background(), &saved); diags.HasError() {
+		t.Fatalf("read saved state: %v", diags)
+	}
 	if saved.ApplicationDeployment.ValueString() != "dep1" || saved.Id.ValueString() != "dep1" {
 		t.Errorf("saved = %+v, expected application_deployment and id dep1", saved)
 	}
@@ -439,7 +450,7 @@ func TestStateResourceCreateWhenStartIsNotOffered(t *testing.T) {
 			fake := &fakeConnector{state: test.state, noStart: true}
 			r := newStateResourceAgainst(t, fake)
 
-			resp := createState(t, r)
+			resp := createState(t, r, deploymentStateRunning)
 
 			if !resp.Diagnostics.HasError() {
 				t.Fatal("Create() reported no error, expected that START is not offered")
@@ -449,6 +460,52 @@ func TestStateResourceCreateWhenStartIsNotOffered(t *testing.T) {
 			}
 			if got := fake.sent(); len(got) != 0 {
 				t.Errorf("sent %v, expected nothing", got)
+			}
+		})
+	}
+}
+
+// A status that cannot be read is saved only when an action was sent: a create that sent nothing
+// leaves nothing for destroy to undo. A deployment that reached its state is kept, without an error,
+// when only the last read fails.
+func TestStateResourceCreateWhenTheStatusCannotBeRead(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		live      string
+		desired   string
+		failFrom  int
+		wantError bool
+		wantSaved bool
+		wantSent  string
+	}{
+		{name: "start, status never readable", live: "Undeployed", desired: deploymentStateRunning, failFrom: 1, wantError: true},
+		{name: "start accepted, then status lost", live: "Undeployed", desired: deploymentStateRunning, failFrom: 3, wantError: true, wantSaved: true, wantSent: "START"},
+		{name: "running, only the last read fails", live: "Running", desired: deploymentStateRunning, failFrom: 2, wantSaved: true},
+		{name: "stop, status never readable", live: "Running", desired: deploymentStateStopped, failFrom: 1, wantError: true},
+		{name: "stop sent, then status lost", live: "Running", desired: deploymentStateStopped, failFrom: 2, wantError: true, wantSaved: true, wantSent: "STOP"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			fake := &fakeConnector{state: test.live, statusFailFrom: test.failFrom}
+			r := newStateResourceAgainst(t, fake)
+
+			resp := createState(t, r, test.desired)
+
+			if got := resp.Diagnostics.HasError(); got != test.wantError {
+				t.Errorf("Create() error = %t, expected %t: %v", got, test.wantError, resp.Diagnostics)
+			}
+			if saved := !resp.State.Raw.IsNull(); saved != test.wantSaved {
+				t.Errorf("Create() saved a state: %t, expected %t", saved, test.wantSaved)
+			} else if saved {
+				var data applicationDeploymentStateResourceData
+				if diags := resp.State.Get(context.Background(), &data); diags.HasError() {
+					t.Fatalf("read saved state: %v", diags)
+				}
+				if !data.CurrentState.IsNull() {
+					t.Errorf("saved current_state = %s, expected none: the status was not readable", data.CurrentState)
+				}
+			}
+			if got := strings.Join(fake.sent(), ","); got != test.wantSent {
+				t.Errorf("sent %q, expected %q", got, test.wantSent)
 			}
 		})
 	}
@@ -471,7 +528,7 @@ func TestStateResourceCreateSavesNothingWhenTheDeploymentIsMissing(t *testing.T)
 	fake := &fakeConnector{gone: true}
 	r := newStateResourceAgainst(t, fake)
 
-	resp := createState(t, r)
+	resp := createState(t, r, deploymentStateRunning)
 
 	if !resp.Diagnostics.HasError() {
 		t.Fatal("Create() reported no error, expected the missing deployment")
@@ -635,7 +692,7 @@ func TestStopIsRetried(t *testing.T) {
 	fake := &fakeConnector{state: "Running", taskStatus: "Running", stopFails: 2}
 	r := newStateResourceAgainst(t, fake)
 
-	if err := stopDeploymentAndWait(context.Background(), r.provider.client, "dep1", connectorApplicationType); err != nil {
+	if _, err := stopDeploymentAndWait(context.Background(), r.provider.client, "dep1", connectorApplicationType); err != nil {
 		t.Fatalf("stop error = %v", err)
 	}
 	if !equalActions(fake.sent(), "STOP", "STOP", "STOP") {
@@ -648,7 +705,7 @@ func TestStopIsNotSentTwiceWhenItWentThrough(t *testing.T) {
 	fake := &fakeConnector{state: "Running", taskStatus: "Running", stopFails: 1, stopFailsAfterApplying: true}
 	r := newStateResourceAgainst(t, fake)
 
-	if err := stopDeploymentAndWait(context.Background(), r.provider.client, "dep1", connectorApplicationType); err != nil {
+	if _, err := stopDeploymentAndWait(context.Background(), r.provider.client, "dep1", connectorApplicationType); err != nil {
 		t.Fatalf("stop error = %v", err)
 	}
 	if !equalActions(fake.sent(), "STOP") {
@@ -660,7 +717,7 @@ func TestStopGivesUpAfterTheLastAttempt(t *testing.T) {
 	fake := &fakeConnector{state: "Running", taskStatus: "Running", stopFails: 10}
 	r := newStateResourceAgainst(t, fake)
 
-	err := stopDeploymentAndWait(context.Background(), r.provider.client, "dep1", connectorApplicationType)
+	_, err := stopDeploymentAndWait(context.Background(), r.provider.client, "dep1", connectorApplicationType)
 	if err == nil || !strings.Contains(err.Error(), "after 3 attempts") {
 		t.Fatalf("stop error = %v, expected it to give up after 3 attempts", err)
 	}
@@ -688,7 +745,7 @@ func TestStopIsNotRetriedForAClientError(t *testing.T) {
 	fake := &fakeConnector{state: "Running", taskStatus: "Running", stopFails: 10, stopFailStatus: http.StatusBadRequest}
 	r := newStateResourceAgainst(t, fake)
 
-	err := stopDeploymentAndWait(context.Background(), r.provider.client, "dep1", connectorApplicationType)
+	_, err := stopDeploymentAndWait(context.Background(), r.provider.client, "dep1", connectorApplicationType)
 	if err == nil || strings.Contains(err.Error(), "after 3 attempts") {
 		t.Fatalf("stop error = %v, expected the 400 at once", err)
 	}

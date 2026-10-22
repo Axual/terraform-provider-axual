@@ -113,17 +113,13 @@ func (r *applicationDeploymentStateResource) Create(ctx context.Context, req res
 		return
 	}
 	data.Id = data.ApplicationDeployment
-	keep := r.apply(ctx, &data, resp.Diagnostics.AddError)
-	if resp.Diagnostics.HasError() {
-		// Saved with the error, so Terraform taints it and destroy stops it. Unlike
-		// axual_application_deployment, a warning here would hide a failed start.
-		if keep {
-			if data.CurrentState.IsUnknown() {
-				data.CurrentState = types.StringNull()
-			}
-			resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-		}
+	// Saved also after an error, so Terraform taints it and destroy stops it. Unlike
+	// axual_application_deployment, a warning here would hide a failed start.
+	if save := r.apply(ctx, &data, resp.Diagnostics.AddError); !save {
 		return
+	}
+	if data.CurrentState.IsUnknown() {
+		data.CurrentState = types.StringNull()
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -209,7 +205,7 @@ func (r *applicationDeploymentStateResource) resetAfterStop(ctx context.Context,
 		return "", fmt.Errorf("unable to read Application Deployment %s, got error: %s", id, err)
 	}
 
-	if err := stopDeploymentAndWait(ctx, r.provider.client, id, deploymentType); err != nil {
+	if _, err := stopDeploymentAndWait(ctx, r.provider.client, id, deploymentType); err != nil {
 		return "", err
 	}
 	if isConnector(deploymentType) {
@@ -232,7 +228,7 @@ func (r *applicationDeploymentStateResource) ImportState(ctx context.Context, re
 }
 
 // apply brings the deployment to the desired state in data and records the live status it ends in.
-// It reports whether a failed create must still be saved, because destroy has something to undo.
+// It reports whether Create must save the state, also after an error.
 func (r *applicationDeploymentStateResource) apply(ctx context.Context, data *applicationDeploymentStateResourceData, addError func(string, string)) bool {
 	id := data.ApplicationDeployment.ValueString()
 	deploymentType, err := r.deploymentType(id)
@@ -241,66 +237,71 @@ func (r *applicationDeploymentStateResource) apply(ctx context.Context, data *ap
 		return false
 	}
 
+	var sent bool
 	switch data.State.ValueString() {
 	case deploymentStateRunning:
-		err = r.run(ctx, id, deploymentType)
+		sent, err = r.run(ctx, id, deploymentType)
 	case deploymentStateStopped:
-		err = r.stop(ctx, id, deploymentType)
+		sent, err = r.stop(ctx, id, deploymentType)
 	}
 	if err != nil {
 		addError("Application Deployment state not reached", err.Error())
-		return r.destroyHasWork(ctx, id, deploymentType)
+		return sent || r.destroyHasWork(ctx, id, deploymentType)
 	}
 
 	status, err := getDeploymentStatus(ctx, r.provider.client, id)
 	if err != nil {
-		addError("API Error", fmt.Sprintf("Unable to read the status of Application Deployment %s, got error: %s", id, err))
+		// The state was reached; the next refresh fills in current_state.
+		tflog.Warn(ctx, fmt.Sprintf("Unable to read the status of Application Deployment %s: %s", id, err))
+		data.CurrentState = types.StringNull()
 		return true
 	}
 	data.CurrentState = types.StringValue(liveDeploymentStatus(deploymentType, status))
 	return true
 }
 
-// destroyHasWork reports whether Delete would change the deployment: the API offers STOP, as it does
-// once a START was accepted, or RESET for a Connector. A status that cannot be read counts as work,
-// so that destroy still tries.
+// destroyHasWork reports whether Delete would send STOP, or RESET for a Connector. An unreadable
+// status counts as no work: apply already knows whether it sent anything.
 func (r *applicationDeploymentStateResource) destroyHasWork(ctx context.Context, id string, deploymentType string) bool {
 	status, err := getDeploymentStatus(ctx, r.provider.client, id)
 	if err != nil {
-		return true
+		return false
 	}
 	return shouldStopDeployment(deploymentType, status) || (isConnector(deploymentType) && status.Links.Has(webclient.RelReset))
 }
 
-// run starts the deployment, or restarts it when it has failed, and waits until it runs.
-func (r *applicationDeploymentStateResource) run(ctx context.Context, id string, deploymentType string) error {
+// run starts the deployment, or restarts it when it has failed, and waits until it runs. It reports
+// whether the API accepted a START or a RESTART.
+func (r *applicationDeploymentStateResource) run(ctx context.Context, id string, deploymentType string) (bool, error) {
 	status, err := getDeploymentStatus(ctx, r.provider.client, id)
 	if err != nil {
-		return fmt.Errorf("unable to get Application Deployment status: %s", err)
+		return false, fmt.Errorf("unable to get Application Deployment status: %s", err)
 	}
+	sent := false
 	switch observedDeploymentState(deploymentType, status) {
 	case deploymentStateRunning:
 		if isDeploymentRunning(deploymentType, status) {
 			tflog.Info(ctx, fmt.Sprintf("Application Deployment %s is already running", id))
-			return nil
+			return false, nil
 		}
 		// Starting: nothing to send, only wait.
 	case deploymentStateFailed:
 		// A failed connector is still on its Connect cluster: the API offers RESTART, not START.
 		restarted, err := restartFailedConnector(ctx, r.provider.client, id, status)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if restarted {
-			return r.waitUntilRunning(ctx, id, deploymentType, failedPollsAfterRestart)
+			return true, r.waitUntilRunning(ctx, id, deploymentType, failedPollsAfterRestart)
 		}
 		fallthrough
 	default:
 		if err := startApplicationDeployment(ctx, r.provider.client, id, deploymentType, 5*time.Second); err != nil {
-			return err
+			return false, err
 		}
+		sent = true
 	}
-	return r.waitUntilRunning(ctx, id, deploymentType, failedPollsAfterRestart)
+	return sent, r.waitUntilRunning(ctx, id, deploymentType, failedPollsAfterRestart)
 }
 
 // failedPollsAfterRestart is how many status reads may still show a failure after a start or restart:
@@ -332,19 +333,21 @@ func restartFailedConnector(ctx context.Context, client *webclient.Client, id st
 	return restarted, nil
 }
 
-// stop stops the deployment and fails when it is still running afterwards.
-func (r *applicationDeploymentStateResource) stop(ctx context.Context, id string, deploymentType string) error {
-	if err := stopDeploymentAndWait(ctx, r.provider.client, id, deploymentType); err != nil {
-		return err
+// stop stops the deployment and fails when it is still running afterwards. It reports whether it sent
+// a STOP.
+func (r *applicationDeploymentStateResource) stop(ctx context.Context, id string, deploymentType string) (bool, error) {
+	sent, err := stopDeploymentAndWait(ctx, r.provider.client, id, deploymentType)
+	if err != nil {
+		return sent, err
 	}
 	status, err := getDeploymentStatus(ctx, r.provider.client, id)
 	if err != nil {
-		return fmt.Errorf("unable to get Application Deployment status after stopping it: %s", err)
+		return sent, fmt.Errorf("unable to get Application Deployment status after stopping it: %s", err)
 	}
 	if isDeploymentRunning(deploymentType, status) {
-		return fmt.Errorf("the deployment is still running after STOP (%s)", describeDeploymentStatus(status))
+		return sent, fmt.Errorf("the deployment is still running after STOP (%s)", describeDeploymentStatus(status))
 	}
-	return nil
+	return sent, nil
 }
 
 func (r *applicationDeploymentStateResource) waitUntilRunning(ctx context.Context, id string, deploymentType string, failedPollsAllowed int) error {
