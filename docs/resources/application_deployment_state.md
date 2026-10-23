@@ -9,6 +9,10 @@ The desired running state of an Application Deployment: whether it should run or
   deployment itself, and the two resources would both decide whether it runs.
 - `state = "RUNNING"` starts the deployment (or restarts a failed connector) and waits until it
   runs. `state = "STOPPED"` stops it.
+- When the apply fails and the deployment still has something to stop (or, for a Connector, to
+  reset), the resource is kept as tainted. `terraform destroy` then stops it, and resets a
+  Connector. The next `apply` replaces it: it stops the deployment, resets a Connector, and sets
+  `state` again.
 - Every plan reads the real status. A deployment stopped outside Terraform shows `state` changing
   from `STOPPED` to `RUNNING`, and one that has failed from `FAILED` to `RUNNING`. For a Connector,
   a failed task counts as failed, even while Kafka Connect still reports the connector as running.

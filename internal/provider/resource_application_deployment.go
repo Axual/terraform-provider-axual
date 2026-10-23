@@ -713,7 +713,7 @@ func (r *applicationDeploymentResource) Update(ctx context.Context, req resource
 	// A running deployment cannot be updated: `beforeUpdateImpl` rejects a save while the desired
 	// state is RUNNING, and `saveFlinkSql` rejects one while a Flink job actually is. Stop it and
 	// wait, exactly as Delete does.
-	if err := stopDeploymentAndWait(ctx, r.provider.client, planData.Id.ValueString(), planData.Type.ValueString()); err != nil {
+	if _, err := stopDeploymentAndWait(ctx, r.provider.client, planData.Id.ValueString(), planData.Type.ValueString()); err != nil {
 		resp.Diagnostics.AddError("Client Error", err.Error())
 		return
 	}
@@ -787,7 +787,7 @@ func (r *applicationDeploymentResource) Delete(ctx context.Context, req resource
 		return
 	}
 
-	if err := stopDeploymentAndWait(ctx, r.provider.client, data.Id.ValueString(), data.Type.ValueString()); err != nil {
+	if _, err := stopDeploymentAndWait(ctx, r.provider.client, data.Id.ValueString(), data.Type.ValueString()); err != nil {
 		if deploymentGone(r.provider.client, data.Id.ValueString()) {
 			return
 		}
@@ -1201,17 +1201,18 @@ func isOnlyAutostartChange(state *ApplicationDeploymentResourceData, plan *Appli
 // for the per-type status to report a terminal state - the rels cannot answer that, because both
 // `stop` and `delete` are already gone or offered while a Flink job is still draining.
 // Running out of attempts is not an error: the caller lets the API decide, as Delete always did.
-func stopDeploymentAndWait(ctx context.Context, client *webclient.Client, id string, deploymentType string) error {
+// It reports whether it sent a STOP.
+func stopDeploymentAndWait(ctx context.Context, client *webclient.Client, id string, deploymentType string) (bool, error) {
 	status, err := getDeploymentStatus(ctx, client, id)
 	if err != nil {
-		return fmt.Errorf("unable to get Application Deployment status, got error: %s", err)
+		return false, fmt.Errorf("unable to get Application Deployment status, got error: %s", err)
 	}
 	if !shouldStopDeployment(deploymentType, status) {
-		return nil
+		return false, nil
 	}
 
 	if err := stopWithRetry(ctx, client, id, deploymentType); err != nil {
-		return fmt.Errorf("unable to stop Application Deployment, got error: %s", err)
+		return true, fmt.Errorf("unable to stop Application Deployment, got error: %s", err)
 	}
 
 	attempts, delay := stopWaitBudget(deploymentType)
@@ -1221,15 +1222,15 @@ func stopDeploymentAndWait(ctx context.Context, client *webclient.Client, id str
 		time.Sleep(delay)
 		status, err := getDeploymentStatus(ctx, client, id)
 		if err != nil {
-			return fmt.Errorf("unable to get Application Deployment status while waiting for it to stop, got error: %s", err)
+			return true, fmt.Errorf("unable to get Application Deployment status while waiting for it to stop, got error: %s", err)
 		}
 		if isDeploymentStopped(deploymentType, status) {
 			tflog.Info(ctx, fmt.Sprintf("Application Deployment %s stopped after %s (%s)", id, time.Since(started).Round(time.Second), describeDeploymentStatus(status)))
-			return nil
+			return true, nil
 		}
 	}
 	tflog.Warn(ctx, fmt.Sprintf("Application Deployment %s did not report a stopped state within %s, continuing", id, time.Duration(attempts)*delay))
-	return nil
+	return true, nil
 }
 
 // stopWithRetry retries a failed STOP, for example a 500 during a Connect rebalance (APCS-3090).
