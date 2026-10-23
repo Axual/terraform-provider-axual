@@ -38,6 +38,9 @@ type ProviderConfig struct {
 	ServiceAccountUid string `yaml:"serviceAccountUid"`
 	// The email of a user who logged in once and may have its roles changed: TestUserResource imports it.
 	TestUserEmail string `yaml:"testUserEmail"`
+	// The short name of the tenant the credentials belong to. Only needed by the IAM group tests,
+	// when the credentials (a Super Admin) see more than one tenant and the realm is not its name.
+	TenantShortName string `yaml:"tenantShortName"`
 	// The Ververica values the Flink suites need. The API validates the workspace, namespace and
 	// deployment target live, so a developer whose namespace differs sets them here rather than
 	// editing the fixtures; they default to defaultworkspace / default / default-target.
@@ -334,6 +337,63 @@ func apiClient() (*webclient.Client, error) {
 			Scopes:   []string{"openid", "profile", "email"},
 		},
 	)
+}
+
+// RequireIamGroupManagement makes the tenant allow IAM-managed groups for the length of the test, and
+// puts the setting back afterwards. It skips the test when it cannot tell which tenant the
+// credentials belong to (see tenantShortName in test_config.yaml), or when the tenant does not allow
+// Axual-managed groups (the tests also need those).
+func RequireIamGroupManagement(t *testing.T) {
+	t.Helper()
+	if os.Getenv(resource.EnvTfAcc) == "" {
+		t.Skipf("Acceptance tests skipped unless env '%s' set", resource.EnvTfAcc)
+	}
+	client, err := apiClient()
+	if err != nil {
+		t.Fatalf("unable to build API client: %v", err)
+	}
+	var tenants struct {
+		Embedded struct {
+			Tenants []struct {
+				ShortName string         `json:"shortName"`
+				Settings  map[string]any `json:"settings"`
+			} `json:"tenants"`
+		} `json:"_embedded"`
+	}
+	headers := map[string]string{"Accept": "application/hal+json"}
+	if err := client.RequestAndMap("GET", client.ApiURL+"/tenants", nil, headers, &tenants); err != nil {
+		t.Fatalf("unable to read the tenant settings: %v", err)
+	}
+	config, err := LoadProviderConfig()
+	if err != nil {
+		t.Fatalf("unable to load the provider config: %v", err)
+	}
+	settings := map[string]any(nil)
+	for _, tenant := range tenants.Embedded.Tenants {
+		if len(tenants.Embedded.Tenants) == 1 || tenant.ShortName == config.TenantShortName || (config.TenantShortName == "" && tenant.ShortName == config.Realm) {
+			settings = tenant.Settings
+		}
+	}
+	if settings == nil {
+		t.Skip("the IAM group tests cannot tell which tenant the credentials belong to: set tenantShortName in test_config.yaml")
+	}
+	if fmt.Sprint(settings["axualGroupManagementEnabled"]) == "false" {
+		t.Skip("the IAM group tests also need Axual group management in the tenant settings")
+	}
+	if fmt.Sprint(settings["iamGroupManagementEnabled"]) == "true" {
+		return
+	}
+	post := func(body string) error {
+		return client.RequestAndMap("POST", client.ApiURL+"/tenant/settings/group-management", strings.NewReader(body), map[string]string{"Content-Type": "application/json"}, nil)
+	}
+	if err := post(`{"iamGroupManagement":{"enabled":true}}`); err != nil {
+		t.Skipf("unable to enable IAM group management (Tenant Admin needed): %v", err)
+	}
+	t.Cleanup(func() {
+		if err := post(`{"iamGroupManagement":{"enabled":false}}`); err != nil {
+			t.Errorf("unable to switch IAM group management off again: %v", err)
+		}
+	})
 }
 
 // CheckPrincipalActiveInAPI asserts the LIVE API activation status of the principal backing the

@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -17,10 +18,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"regexp"
+	"strings"
 )
 
 var _ resource.Resource = &groupResource{}
 var _ resource.ResourceWithImportState = &groupResource{}
+var _ resource.ResourceWithModifyPlan = &groupResource{}
 
 type groupResourceType struct{}
 
@@ -34,12 +37,17 @@ type groupResource struct {
 	provider AxualProvider
 }
 
+// iamReferenceFormat is the value of the group claim in the token. The API gateway joins the claim values
+// with commas, so a comma can never match. Spaces around the value are not kept by the provider.
+var iamReferenceFormat = regexp.MustCompile(`^[^\s,](?:[^,]*[^\s,])?$`)
+
 type groupResourceData struct {
 	Name         types.String `tfsdk:"name"`
 	EmailAddress types.String `tfsdk:"email_address"`
 	PhoneNumber  types.String `tfsdk:"phone_number"`
 	Members      types.Set    `tfsdk:"members"`
 	Managers     types.Set    `tfsdk:"managers"`
+	IamReference types.String `tfsdk:"iam_reference"`
 	Id           types.String `tfsdk:"id"`
 }
 
@@ -83,6 +91,15 @@ func (r *groupResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				ElementType:         types.StringType,
 				Validators: []validator.Set{
 					custom_validator.NewNonEmptySetValidator(),
+				},
+			},
+			"iam_reference": schema.StringAttribute{
+				MarkdownDescription: "The identifier of this group in the IAM system (for example the group name or id your SSO provider sends). A group with an `iam_reference` is IAM-managed (also called externalized): the IAM system decides who is a member, at login, so `members` and `managers` are ignored. Adding it to an existing group externalizes the group, removing it internalizes the group again. Needs IAM group management in the tenant settings to externalize, and Axual group management to internalize. The reference must be unique in the tenant.",
+				Optional:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(1, 255),
+					stringvalidator.RegexMatches(iamReferenceFormat,
+						"must not start or end with a space, and must not contain a comma"),
 				},
 			},
 			"id": schema.StringAttribute{
@@ -153,14 +170,61 @@ func (r *groupResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r *groupResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+// ModifyPlan warns when members or managers are set on an IAM-managed group: the IAM system decides
+// who is a member, so Platform Manager never uses the lists the provider could send.
+func (r *groupResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() {
+		return
+	}
 	var data groupResourceData
+	if diags := req.Plan.Get(ctx, &data); diags.HasError() {
+		return
+	}
+	if isIamManaged(data) && (!data.Members.IsNull() || !data.Managers.IsNull()) {
+		resp.Diagnostics.AddAttributeWarning(path.Root("iam_reference"),
+			"Members and managers are ignored",
+			"This group has an iam_reference, so the IAM system decides who is a member of it, at login. The provider does not send members or managers for it. Remove them from the configuration.")
+	}
+
+	// Leaving out iam_reference on a group that has one makes it Axual-managed again, and Platform
+	// Manager then uses the members it has stored for the group. Say so in the plan.
+	var state groupResourceData
+	if req.State.Raw.IsNull() || req.State.Get(ctx, &state).HasError() {
+		return
+	}
+	if !state.IamReference.IsNull() && data.IamReference.IsNull() {
+		resp.Diagnostics.AddAttributeWarning(path.Root("iam_reference"),
+			"The group becomes Axual-managed again",
+			fmt.Sprintf("The group is linked to IAM group %q, and iam_reference is not in the configuration. Applying makes the group Axual-managed: the members and managers Platform Manager has stored for it are used again, and the IAM system no longer decides.", state.IamReference.ValueString()))
+	}
+}
+
+func (r *groupResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data, state groupResourceData
 
 	diags := req.Plan.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	// Link or unlink the IAM group first: Platform Manager checks the tenant settings before it
+	// changes anything, so a refused link leaves the group as it was. Changing the reference of an
+	// IAM-managed group is a normal update.
+	id := data.Id.ValueString()
+	switch {
+	case state.IamReference.IsNull() && !data.IamReference.IsNull():
+		if _, err := r.provider.client.ExternalizeGroup(id, data.IamReference.ValueString()); err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to link the group to IAM group %q, got error: %s", data.IamReference.ValueString(), err))
+			return
+		}
+	case !state.IamReference.IsNull() && data.IamReference.IsNull():
+		if _, err := r.provider.client.InternalizeGroup(id); err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to make the group Axual-managed again, got error: %s", err))
+			return
+		}
 	}
 
 	groupRequest, err := createGroupRequestFromData(ctx, &data)
@@ -168,7 +232,7 @@ func (r *groupResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		resp.Diagnostics.AddError("Error creating UPDATE request struct for group resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
-	group, err := r.provider.client.UpdateGroup(data.Id.ValueString(), groupRequest)
+	group, err := r.provider.client.UpdateGroup(id, groupRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update group, got error: %s", err))
 		return
@@ -216,6 +280,20 @@ func mapGroupResponseToData(ctx context.Context, data *groupResourceData, group 
 	data.Id = types.StringValue(group.Uid)
 	data.Name = types.StringValue(group.Name)
 
+	iamReference := strings.TrimSpace(group.IamReference)
+	if iamReference == "" {
+		data.IamReference = types.StringNull()
+	} else {
+		data.IamReference = types.StringValue(group.IamReference)
+	}
+
+	// For an IAM-managed group the IAM system decides who is a member. The lists Platform Manager
+	// stores are not used, so they stay as the configuration has them (null after an import).
+	if iamReference != "" {
+		mapGroupContactToData(ctx, data, group)
+		return
+	}
+
 	// Handle members
 	if group.Embedded.Members == nil || len(group.Embedded.Members) == 0 {
 		data.Members = types.SetNull(types.StringType)
@@ -244,6 +322,10 @@ func mapGroupResponseToData(ctx context.Context, data *groupResourceData, group 
 		}
 	}
 
+	mapGroupContactToData(ctx, data, group)
+}
+
+func mapGroupContactToData(ctx context.Context, data *groupResourceData, group *webclient.GroupResponse) {
 	// optional fields
 	if group.EmailAddress.Email == "" {
 		data.EmailAddress = types.StringNull()
@@ -256,6 +338,10 @@ func mapGroupResponseToData(ctx context.Context, data *groupResourceData, group 
 	} else {
 		data.PhoneNumber = types.StringValue(group.PhoneNumber.(string))
 	}
+}
+
+func isIamManaged(data groupResourceData) bool {
+	return !data.IamReference.IsNull() && !data.IamReference.IsUnknown()
 }
 
 func createGroupRequestFromData(ctx context.Context, data *groupResourceData) (webclient.GroupRequest, error) {
@@ -295,6 +381,11 @@ func createGroupRequestFromData(ctx context.Context, data *groupResourceData) (w
 		Managers: managers,
 	}
 
+	if isIamManaged(*data) {
+		groupRequest.IamReference = data.IamReference.ValueString()
+		groupRequest.SkipMembers = true
+	}
+
 	// Optional fields
 	if !data.PhoneNumber.IsNull() {
 		tflog.Info(ctx, "phone number is not null")
@@ -306,6 +397,6 @@ func createGroupRequestFromData(ctx context.Context, data *groupResourceData) (w
 		groupRequest.EmailAddress = data.EmailAddress.ValueString()
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("group request %q", groupRequest))
+	tflog.Info(ctx, fmt.Sprintf("group request %+v", groupRequest))
 	return groupRequest, nil
 }

@@ -20,6 +20,7 @@ Group resource. Read more: https://docs.axual.io/axual/2026.1/self-service/user-
 ### Optional
 
 - `email_address` (String) Group's email address
+- `iam_reference` (String) The identifier of this group in the IAM system (for example the group name or id your SSO provider sends). A group with an `iam_reference` is IAM-managed (also called externalized): the IAM system decides who is a member, at login, so `members` and `managers` are ignored. Adding it to an existing group externalizes the group, removing it internalizes the group again. Needs IAM group management in the tenant settings to externalize, and Axual group management to internalize. The reference must be unique in the tenant.
 - `managers` (Set of String) A Group Manager can edit this group, including adding or removing users and other group managers. Each entry is the uid of a user or of a service account, and must also be listed in `members`. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#making-a-group-member-manager-of-the-group
 - `members` (Set of String) Group's members. Each entry is the uid of a user or of a service account. Adding a service account requires Tenant Admin; once it is a member, a group manager may promote or remove it.
 - `phone_number` (String) Group's phone number
@@ -45,6 +46,26 @@ resource "axual_group" "team-awesome" {
       	]
 }
 ```
+
+## IAM-managed groups
+
+A group can be linked to a group in your IAM system (for example your SSO provider) with `iam_reference`. The IAM system then decides who is a member of the group, at login. The members and managers that Platform Manager stores for the group are not used, so leave `members` and `managers` out: the provider does not send them, and warns when they are set.
+
+```hcl
+resource "axual_group" "payments" {
+  name          = "Payments Team"
+  email_address = "payments@example.com"
+  iam_reference = "payments-team"
+}
+```
+
+- IAM group management has to be switched on in the tenant settings, by a Tenant Admin. The provider does not change these settings. In a tenant with IAM group management only, Terraform can create groups that have an `iam_reference`, not groups without one.
+- Adding `iam_reference` to a group that has none links it to the IAM group. Removing it makes the group Axual-managed again, and then Platform Manager uses the members it has stored for the group. The plan warns about this. Axual group management has to be switched on for that.
+- The `iam_reference` has to be unique in the tenant. Changing it moves the group to another IAM group.
+- A group that Platform Manager created from your IAM groups at login can be imported. Import fills `iam_reference` and leaves `members` and `managers` out of the state.
+- The `iam_reference` has to be exactly the value that your IAM system puts in the group claim of the token (for example the object id of an Azure AD group). It must not start or end with a space and must not contain a comma, because the API gateway joins the values with commas and a value with a comma can never match. The provider refuses such a value when it plans.
+- A change in the IAM system reaches Axual when the person signs in again, not at the next token renewal.
+- People who are members only through their token can see the resources of the group. A pipeline identity (a service account) has no group claim: it works on the resources of an IAM-managed group only if it was added to the group with the service account API, or if it has the role `TENANT_ADMIN` or `APPLICATION_ADMIN`.
 
 For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 
