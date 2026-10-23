@@ -2,6 +2,7 @@ package GroupResource
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -90,6 +91,77 @@ func TestGroupResourceServiceAccountMemberAndManager(t *testing.T) {
 				ResourceName:      "axual_group.team-service-accounts",
 				ImportState:       true,
 				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+// An IAM-managed group is an ordinary group with an iam_reference. Adding the reference to a group
+// links it to the IAM system, and removing it makes the group Axual-managed again. The IAM system
+// decides who is a member, so no members are kept in state.
+func TestGroupResourceIamManaged(t *testing.T) {
+	RequireIamGroupManagement(t)
+	const name = "axual_group.team-iam"
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+
+		Steps: []resource.TestStep{
+			{
+				Config: GetProvider() + GetFile("axual_group_iam_initial.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(name, "name", "testiamgroup9999"),
+					resource.TestCheckResourceAttr(name, "iam_reference", "tf-test-iam-group-9999"),
+					resource.TestCheckResourceAttr(name, "email_address", "test.iam@axual.com"),
+					resource.TestCheckNoResourceAttr(name, "members.#"),
+				),
+			},
+			{
+				// Email, phone and the reference itself change in place.
+				Config: GetProvider() + GetFile("axual_group_iam_updated.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(name, "iam_reference", "tf-test-iam-group-9999-b"),
+					resource.TestCheckResourceAttr(name, "email_address", "updated.iam@axual.com"),
+					resource.TestCheckResourceAttr(name, "phone_number", "+61123456789"),
+				),
+			},
+			{
+				ResourceName:      name,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			{
+				ResourceName:      name,
+				ImportState:       true,
+				ImportStateId:     "name:testiamgroup9999",
+				ImportStateVerify: true,
+			},
+			{
+				// No iam_reference: the group is Axual-managed again and its members are Terraform's.
+				Config: GetProvider() + GetFile("axual_group_iam_axual_managed.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckNoResourceAttr(name, "iam_reference"),
+					resource.TestCheckResourceAttr(name, "members.#", "1"),
+				),
+			},
+			{
+				// Linked again, without members.
+				Config: GetProvider() + GetFile("axual_group_iam_linked_again.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(name, "iam_reference", "tf-test-iam-group-9999-c"),
+					resource.TestCheckNoResourceAttr(name, "members.#"),
+				),
+			},
+			{
+				// Platform Manager keeps the reference unique within the tenant.
+				Config:      GetProvider() + GetFile("axual_group_iam_duplicate.tf"),
+				ExpectError: regexp.MustCompile("IAM Reference already exists"),
+			},
+			{
+				// To ensure cleanup if one of the test cases had an error
+				Destroy: true,
+				Config:  GetProvider() + GetFile("axual_group_iam_linked_again.tf"),
 			},
 		},
 	})
