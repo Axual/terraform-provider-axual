@@ -9,6 +9,10 @@ All notable changes to this project will be documented in this file.
 * `terraform query` support (Terraform 1.14 or newer): list resources with filters, so `terraform query -generate-config-out` writes `resource` and `import` blocks for resources that already exist. Not for `axual_flink_cluster`. The access grant list leaves out revoked and cancelled grants unless its `status` filter asks for them
 * Resource identity for every resource except `axual_flink_cluster`, so an `import` block can use `identity` instead of `id`
 * Guides: `Quick start: export your resources with terraform query` and `Exporting existing resources with terraform query`, and an example in `examples/terraform-query`
+* `axual_cluster`: register a Kafka cluster with Platform Manager, with its broker connection and credentials, topic patterns and SSL principal mode. The broker private key and passwords are sent, never read back. Also a list resource and import by `name:` (AXPD-10169)
+* `axual_instance`: manage an Instance, its Clusters, authentication methods, CA certificates and settings such as `granular_browse_permission` (AXPD-9322)
+* `axual_instance_cluster`: the schema registry of a Cluster in an Instance, Apicurio or Confluent (AXPD-10170)
+* `axual_cluster` data source: look up a Cluster by name
 
 ### Changed
 * Leaving out `roles` on an `axual_user` now keeps the roles the user has. Only `roles = []` removes them

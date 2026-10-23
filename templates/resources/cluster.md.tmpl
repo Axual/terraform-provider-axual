@@ -1,0 +1,92 @@
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+## Usage
+- An `axual_cluster` registers a Kafka cluster with Platform Manager. To use it, add it to an Instance with `axual_instance`, and give the Instance-Cluster a schema registry with `axual_instance_cluster`.
+- `broker` is how Platform Manager itself connects to the brokers, to create topics and ACLs. The client must be allowed to do that, for example a superuser.
+  - For `MTLS`, set `certificate` and `private_key` (PEM). For `SASL/...`, set `username` and `password`.
+  - `certificate`, `private_key` and `truststore` take PEM. Platform Manager keeps them base64-encoded, the way the Self-Service UI sends them, so the provider does the encoding. An already base64-encoded value is also accepted.
+- The private key and the passwords are stored in Vault. Platform Manager never returns them, so they are sent from the configuration on every update and cannot be imported.
+- `shared` and `provider_type` cannot change: changing either one replaces the Cluster.
+- A Tenant Admin keeps the default `shared = false`. Only a Super Admin can change or delete a shared Cluster.
+- Platform Manager refuses a change of `topic_pattern`, `group_pattern` or `transactional_pattern` once topics exist on the Cluster.
+- A Cluster can only be deleted when no Instance uses it.
+
+## Prerequisites
+- With `ssl_auth_mode = "fullChainCertificate"`, the brokers must run the Axual principal builder, and an Instance on the Cluster needs `ca_certificates`.
+- Platform Manager connects to the brokers when the Cluster is created. A bootstrap host it cannot reach fails the apply. Some Platform Manager versions do not refuse credentials the brokers reject; they only log a warning, so check that a topic can be created.
+
+## Platform Manager version
+- Platform Manager 16.0.0 or later. `provider_type = "strimzi"` needs the next Platform Manager release after 16.0.x.
+- Some Platform Manager versions delete the schema registry of the Instance-Clusters when a Cluster is renamed. The next `terraform apply` configures it again from `axual_instance_cluster`.
+
+## Required Roles
+- TENANT_ADMIN, or SUPER_ADMIN for a shared Cluster
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Example Usage
+
+```hcl
+resource "axual_cluster" "production" {
+  name          = "production-ams"
+  description   = "Production Kafka cluster in Amsterdam"
+  location      = "Amsterdam"
+  provider_type = "apache-kafka"
+  broker = {
+    bootstrap_servers = "kafka-0.example.com:9093"
+    protocol          = "MTLS"
+    certificate       = file("pm-client.crt") # Platform Manager's client certificate
+    private_key       = file("pm-client.key")
+    truststore        = file("kafka-ca.crt")
+  }
+  topic_pattern                    = "{tenant}-{instance}-{environment}-{topic}"
+  group_pattern                    = "{tenant}-{instance}-{environment}-{group}"
+  transactional_pattern            = "{tenant}-{instance}-{environment}-{transactional.id}"
+  bootstrap_urls_by_authentication = { MUTUAL_TLS = "kafka.example.com:9093" }
+  ssl_auth_mode                    = "fullChainCertificate"
+}
+```
+
+A SASL connection:
+
+```hcl
+resource "axual_cluster" "sasl" {
+  name          = "test-cluster"
+  provider_type = "apache-kafka"
+  broker = {
+    bootstrap_servers = "kafka-test.example.com:9094"
+    protocol          = "SASL/SCRAM-SHA-512"
+    username          = "platform-manager"
+    password          = "YOUR_PASSWORD" # replace with the SCRAM password
+    truststore        = file("kafka-ca.crt")
+  }
+}
+```
+
+## Import
+
+Import is supported by ID, or by name (`name:`):
+
+```shell
+terraform import axual_cluster.<LOCAL NAME> <CLUSTER UID>
+terraform import axual_cluster.production 3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c
+terraform import axual_cluster.<LOCAL NAME> name:<CLUSTER NAME>
+terraform import axual_cluster.production 'name:production-ams'
+```
+
+The name must match exactly, case included. After importing, add the `private_key` or `password` to your configuration: Platform Manager does not return it.
+
+In Terraform 1.12 or later, an `import` block can use `identity` instead of `id`:
+
+```terraform
+import {
+  to = axual_cluster.production
+  identity = {
+    id = "3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c"
+  }
+}
+```
+
+{{ .IdentitySchemaMarkdown | trimspace }}

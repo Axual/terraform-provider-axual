@@ -1,0 +1,22 @@
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+## Platform Manager version
+- Platform Manager 16.0.0 or later.
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Example Usage
+
+```hcl
+data "axual_cluster" "existing" {
+  name = "alpha"
+}
+
+resource "axual_instance" "test" {
+  name       = "Test"
+  short_name = "test"
+  clusters   = [data.axual_cluster.existing.id]
+}
+```
