@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 * `iam_reference` on `axual_group`, and on the `axual_group` data source: the group in your IAM system that decides who is a member. Setting it on a new group creates an IAM-managed group, on an existing group it links the group, and removing it makes the group Axual-managed again. Needs IAM group management in the tenant settings. `members` and `managers` are ignored for an IAM-managed group, with a warning. An IAM-managed group can be imported. An `iam_reference` that has a space at the start or end, or a comma, is refused at plan time (AXPD-12492)
 * Resource identity for every resource except `axual_flink_cluster`, so an `import` block can use `identity` instead of `id`
 * Guides: `Quick start: export your resources with terraform query` and `Exporting existing resources with terraform query`, and an example in `examples/terraform-query`
+* Guide: `IAM-managed groups`, how to link a group to a group in your identity system with `iam_reference`, and how service accounts work with such groups (AXPD-12492)
 
 ### Changed
 * Leaving out `roles` on an `axual_user` now keeps the roles the user has. Only `roles = []` removes them
