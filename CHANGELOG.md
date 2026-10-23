@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
 * A list resource for the decision, so `terraform query` can export existing decisions (AXPD-12412)
 * `request_again`, `decision_reason`, `decided_at` and `decided_by` on `axual_application_access_grant`, and the decision fields on its data source: the application team sees the answer and asks again by changing `request_again` (AXPD-12412)
 * `axual_application_access_grants` data source: lists grants, for example the open requests on a topic (AXPD-12412)
+* Guide: `IAM-managed groups`, how to link a group to a group in your identity system with `iam_reference`, and how service accounts work with such groups (AXPD-12492)
 
 ### Changed
 * **Breaking:** `owners` is required on `axual_flink_cluster`, and a changed `name` now replaces the Flink Cluster instead of renaming it, because Platform Manager does not allow renaming. Add `owners`, and `authorized_groups` with the Group of every application that deploys to the Flink Cluster, before you upgrade: an `axual_application_deployment` of a `FLINK_SQL` application is refused with `403 Forbidden` when its application owner Group is not authorized on the Flink Cluster
