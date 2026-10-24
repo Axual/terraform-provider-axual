@@ -336,6 +336,56 @@ func apiClient() (*webclient.Client, error) {
 	)
 }
 
+// RequireIamGroupManagement makes the tenant of the credentials allow IAM-managed groups for the length of
+// the test, and puts the settings back afterwards. It skips the test when the tenant does not allow
+// Axual-managed groups (the tests also need those).
+//
+// While the test runs, automatic creation of IAM groups is switched off, so that real sign-ins on a shared
+// tenant do not create groups. A run that is stopped (Ctrl-C or -timeout) does not run the cleanup, and
+// leaves IAM group management on: switch it off in the tenant settings then.
+func RequireIamGroupManagement(t *testing.T) {
+	t.Helper()
+	if os.Getenv(resource.EnvTfAcc) == "" {
+		t.Skipf("Acceptance tests skipped unless env '%s' set", resource.EnvTfAcc)
+	}
+	client, err := apiClient()
+	if err != nil {
+		t.Fatalf("unable to build API client: %v", err)
+	}
+	// The tenant of the signed-in user: the same tenant that the settings call below changes.
+	var tenant struct {
+		Settings map[string]any `json:"settings"`
+	}
+	if err := client.RequestAndMap("GET", client.ApiURL+"/tenant", nil, map[string]string{"Accept": "application/hal+json"}, &tenant); err != nil {
+		t.Fatalf("unable to read the tenant settings: %v", err)
+	}
+	settings := tenant.Settings
+	if fmt.Sprint(settings["axualGroupManagementEnabled"]) == "false" {
+		t.Skip("the IAM group tests also need Axual group management in the tenant settings")
+	}
+	if fmt.Sprint(settings["iamGroupManagementEnabled"]) == "true" {
+		return
+	}
+	post := func(body string) error {
+		return client.RequestAndMap("POST", client.ApiURL+"/tenant/settings/group-management", strings.NewReader(body), map[string]string{"Content-Type": "application/json"}, nil)
+	}
+	automatic := fmt.Sprint(settings["autoIAMGroupCreationEnabled"]) == "true"
+	if err := post(`{"iamGroupManagement":{"enabled":true,"automaticGroupCreationEnabled":false}}`); err != nil {
+		t.Skipf("unable to enable IAM group management (Tenant Admin needed): %v", err)
+	}
+	t.Cleanup(func() {
+		// The automatic setting can only be changed while IAM group management is on.
+		if automatic {
+			if err := post(`{"iamGroupManagement":{"enabled":true,"automaticGroupCreationEnabled":true}}`); err != nil {
+				t.Errorf("unable to put automatic IAM group creation back: %v", err)
+			}
+		}
+		if err := post(`{"iamGroupManagement":{"enabled":false}}`); err != nil {
+			t.Errorf("unable to switch IAM group management off again: %v", err)
+		}
+	})
+}
+
 // CheckPrincipalActiveInAPI asserts the LIVE API activation status of the principal backing the
 // given resource (looked up by its state `id`). The provider treats `active` as write-only intent
 // and never refreshes it from the API, so state-based checks cannot observe activation inherited

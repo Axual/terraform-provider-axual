@@ -43,3 +43,9 @@ connectClusterMtlsId: "YOUR_CONNECT_CLUSTER_MTLS_ID"
 connectClusterMtlsName: "YOUR_CONNECT_CLUSTER_MTLS_NAME"
 connectClusterSaslId: "YOUR_CONNECT_CLUSTER_SASL_ID"
 connectClusterSaslName: "YOUR_CONNECT_CLUSTER_SASL_NAME"
+
+# The short name of the tenant the credentials above belong to. Only the IAM group tests
+# (TestGroupResourceIamManaged, TestGroupDataSourceIamManaged) need it, and only when the credentials (a Super
+# Admin) see more than one tenant and the realm is not the tenant's name. While they run, they switch IAM group
+# management on for the tenant (a Tenant Admin may), and off again afterwards. Leave empty if you see one tenant.
+tenantShortName: ""
