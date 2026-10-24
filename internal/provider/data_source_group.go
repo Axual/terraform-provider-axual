@@ -66,12 +66,12 @@ func (d *groupDataSource) Schema(ctx context.Context, req datasource.SchemaReque
 				Computed:            true,
 			},
 			"members": schema.SetAttribute{
-				MarkdownDescription: "Group's members. Each entry is the uid of a user or of a service account. For an IAM-managed group (see `iam_reference`) this is the list Platform Manager stores. It is not used: the IAM system decides who is a member.",
+				MarkdownDescription: "Group's members. Each entry is the uid of a user or of a service account. For an IAM-managed group (see `iam_reference`) this is the stored list. It holds service accounts and managers, not the people in the IAM group.",
 				Computed:            true,
 				ElementType:         types.StringType,
 			},
 			"iam_reference": schema.StringAttribute{
-				MarkdownDescription: "The identifier of this group in the IAM system. Empty for an Axual-managed group.",
+				MarkdownDescription: "The identifier of this group in the IAM system. Null for an Axual-managed group.",
 				Computed:            true,
 			},
 		},
