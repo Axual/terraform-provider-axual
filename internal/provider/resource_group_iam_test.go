@@ -202,6 +202,42 @@ func TestGroupUpdate_removingTheReferenceInternalizesFirst(t *testing.T) {
 	}
 }
 
+// The state of an IAM-managed group has no members, so the plan cannot show the lists that Platform
+// Manager stores. Unlinking must not clear them unseen: the next plan shows them.
+func TestGroupUpdate_unlinkingWithoutMembersKeepsTheStoredLists(t *testing.T) {
+	pm := &groupPM{}
+
+	resp, saved := updateGroup(t, pm, groupData("engineering"), groupData(""))
+
+	if resp.Diagnostics.HasError() {
+		t.Fatalf("update failed: %v", resp.Diagnostics)
+	}
+	body := pm.bodies["PATCH /groups/g1"]
+	if hasKey(body, "members") || hasKey(body, "managers") {
+		t.Errorf("PATCH body %v has members or managers, expected neither so that Platform Manager keeps the stored lists", body)
+	}
+	if !saved.Members.IsNull() || !saved.Managers.IsNull() {
+		t.Errorf("saved members = %s, managers = %s, expected null for both (they are not in the configuration)", saved.Members, saved.Managers)
+	}
+}
+
+func TestGroupUpdate_unlinkingWithOnlyMembersKeepsTheStoredManagers(t *testing.T) {
+	pm := &groupPM{}
+
+	resp, saved := updateGroup(t, pm, groupData("engineering"), groupData("", "m1"))
+
+	if resp.Diagnostics.HasError() {
+		t.Fatalf("update failed: %v", resp.Diagnostics)
+	}
+	body := pm.bodies["PATCH /groups/g1"]
+	if !hasKey(body, "members") || hasKey(body, "managers") {
+		t.Errorf("PATCH body %v, expected the members and no managers", body)
+	}
+	if !saved.Managers.IsNull() {
+		t.Errorf("saved managers = %s, expected null (they are not in the configuration)", saved.Managers)
+	}
+}
+
 func TestGroupUpdate_changingTheReferenceIsOnePatch(t *testing.T) {
 	pm := &groupPM{}
 
@@ -266,15 +302,15 @@ func groupDataFromResponse(body string) groupResourceData {
 	return data
 }
 
-func TestGroupModifyPlan_warnsAboutMembersOfAnIamManagedGroup(t *testing.T) {
+func TestGroupModifyPlan_refusesMembersOfAnIamManagedGroup(t *testing.T) {
 	r := &groupResource{}
 	plan := stateFor(t, r, groupData("engineering", "m1"))
 	resp := resource.ModifyPlanResponse{}
 
 	r.ModifyPlan(context.Background(), resource.ModifyPlanRequest{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}, State: emptyState(t, r)}, &resp)
 
-	if resp.Diagnostics.HasError() || resp.Diagnostics.WarningsCount() != 1 || resp.Diagnostics.Warnings()[0].Summary() != "Members and managers are ignored" {
-		t.Errorf("diagnostics = %v, expected one warning about ignored members", resp.Diagnostics)
+	if resp.Diagnostics.ErrorsCount() != 1 || resp.Diagnostics.Errors()[0].Summary() != "Members and managers not supported" {
+		t.Errorf("diagnostics = %v, expected one error about members of an IAM-managed group", resp.Diagnostics)
 	}
 }
 
@@ -322,6 +358,11 @@ func TestIamReferenceValidation(t *testing.T) {
 		"data-team ":                           false,
 		"ops,team":                             false,
 		",":                                    false,
+		"a\nb":                                 false,
+		"a\tb":                                 false,
+		"\u00a0a":                              false,
+		"a\u00a0":                              false,
+		"a\u00a0b":                             true,
 		strings.Repeat("a", 256):               false,
 	}
 	for value, valid := range cases {

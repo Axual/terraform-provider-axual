@@ -38,9 +38,6 @@ type ProviderConfig struct {
 	ServiceAccountUid string `yaml:"serviceAccountUid"`
 	// The email of a user who logged in once and may have its roles changed: TestUserResource imports it.
 	TestUserEmail string `yaml:"testUserEmail"`
-	// The short name of the tenant the credentials belong to. Only needed by the IAM group tests,
-	// when the credentials (a Super Admin) see more than one tenant and the realm is not its name.
-	TenantShortName string `yaml:"tenantShortName"`
 	// The Ververica values the Flink suites need. The API validates the workspace, namespace and
 	// deployment target live, so a developer whose namespace differs sets them here rather than
 	// editing the fixtures; they default to defaultworkspace / default / default-target.
@@ -339,10 +336,13 @@ func apiClient() (*webclient.Client, error) {
 	)
 }
 
-// RequireIamGroupManagement makes the tenant allow IAM-managed groups for the length of the test, and
-// puts the setting back afterwards. It skips the test when it cannot tell which tenant the
-// credentials belong to (see tenantShortName in test_config.yaml), or when the tenant does not allow
+// RequireIamGroupManagement makes the tenant of the credentials allow IAM-managed groups for the length of
+// the test, and puts the settings back afterwards. It skips the test when the tenant does not allow
 // Axual-managed groups (the tests also need those).
+//
+// While the test runs, automatic creation of IAM groups is switched off, so that real sign-ins on a shared
+// tenant do not create groups. A run that is stopped (Ctrl-C or -timeout) does not run the cleanup, and
+// leaves IAM group management on: switch it off in the tenant settings then.
 func RequireIamGroupManagement(t *testing.T) {
 	t.Helper()
 	if os.Getenv(resource.EnvTfAcc) == "" {
@@ -352,31 +352,14 @@ func RequireIamGroupManagement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to build API client: %v", err)
 	}
-	var tenants struct {
-		Embedded struct {
-			Tenants []struct {
-				ShortName string         `json:"shortName"`
-				Settings  map[string]any `json:"settings"`
-			} `json:"tenants"`
-		} `json:"_embedded"`
+	// The tenant of the signed-in user: the same tenant that the settings call below changes.
+	var tenant struct {
+		Settings map[string]any `json:"settings"`
 	}
-	headers := map[string]string{"Accept": "application/hal+json"}
-	if err := client.RequestAndMap("GET", client.ApiURL+"/tenants", nil, headers, &tenants); err != nil {
+	if err := client.RequestAndMap("GET", client.ApiURL+"/tenant", nil, map[string]string{"Accept": "application/hal+json"}, &tenant); err != nil {
 		t.Fatalf("unable to read the tenant settings: %v", err)
 	}
-	config, err := LoadProviderConfig()
-	if err != nil {
-		t.Fatalf("unable to load the provider config: %v", err)
-	}
-	settings := map[string]any(nil)
-	for _, tenant := range tenants.Embedded.Tenants {
-		if len(tenants.Embedded.Tenants) == 1 || tenant.ShortName == config.TenantShortName || (config.TenantShortName == "" && tenant.ShortName == config.Realm) {
-			settings = tenant.Settings
-		}
-	}
-	if settings == nil {
-		t.Skip("the IAM group tests cannot tell which tenant the credentials belong to: set tenantShortName in test_config.yaml")
-	}
+	settings := tenant.Settings
 	if fmt.Sprint(settings["axualGroupManagementEnabled"]) == "false" {
 		t.Skip("the IAM group tests also need Axual group management in the tenant settings")
 	}
@@ -386,10 +369,17 @@ func RequireIamGroupManagement(t *testing.T) {
 	post := func(body string) error {
 		return client.RequestAndMap("POST", client.ApiURL+"/tenant/settings/group-management", strings.NewReader(body), map[string]string{"Content-Type": "application/json"}, nil)
 	}
-	if err := post(`{"iamGroupManagement":{"enabled":true}}`); err != nil {
+	automatic := fmt.Sprint(settings["autoIAMGroupCreationEnabled"]) == "true"
+	if err := post(`{"iamGroupManagement":{"enabled":true,"automaticGroupCreationEnabled":false}}`); err != nil {
 		t.Skipf("unable to enable IAM group management (Tenant Admin needed): %v", err)
 	}
 	t.Cleanup(func() {
+		// The automatic setting can only be changed while IAM group management is on.
+		if automatic {
+			if err := post(`{"iamGroupManagement":{"enabled":true,"automaticGroupCreationEnabled":true}}`); err != nil {
+				t.Errorf("unable to put automatic IAM group creation back: %v", err)
+			}
+		}
 		if err := post(`{"iamGroupManagement":{"enabled":false}}`); err != nil {
 			t.Errorf("unable to switch IAM group management off again: %v", err)
 		}
