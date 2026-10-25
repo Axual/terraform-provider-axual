@@ -193,6 +193,11 @@ func (r *groupResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanR
 	if req.State.Raw.IsNull() || req.State.Get(ctx, &state).HasError() {
 		return
 	}
+	if state.IamReference.IsNull() && !data.IamReference.IsNull() && (!state.Members.IsNull() || !state.Managers.IsNull()) {
+		resp.Diagnostics.AddAttributeWarning(path.Root("iam_reference"),
+			"Stored members and managers stay in Platform Manager",
+			"Linking does not remove the members and managers stored for this group. They still count for service accounts and for creating applications, topics and environments for the group. This plan shows them as removed from the Terraform state only. Do not empty them just to be clean: today Platform Manager lets only a stored member (or a Tenant Admin or Application Admin) create resources for the group.")
+	}
 	if !state.IamReference.IsNull() && data.IamReference.IsNull() {
 		resp.Diagnostics.AddAttributeWarning(path.Root("iam_reference"),
 			"The group becomes Axual-managed again",

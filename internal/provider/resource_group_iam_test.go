@@ -327,6 +327,32 @@ func TestGroupModifyPlan_warnsWhenRemovingTheReferenceInternalizes(t *testing.T)
 	}
 }
 
+func TestGroupModifyPlan_warnsWhenLinkingAGroupThatHasStoredMembers(t *testing.T) {
+	r := &groupResource{}
+	state := stateFor(t, r, groupData("", "m1"))
+	plan := stateFor(t, r, groupData("engineering"))
+	resp := resource.ModifyPlanResponse{}
+
+	r.ModifyPlan(context.Background(), resource.ModifyPlanRequest{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}, State: state}, &resp)
+
+	if resp.Diagnostics.HasError() || resp.Diagnostics.WarningsCount() != 1 || resp.Diagnostics.Warnings()[0].Summary() != "Stored members and managers stay in Platform Manager" {
+		t.Errorf("diagnostics = %v, expected one warning that the stored members stay", resp.Diagnostics)
+	}
+}
+
+func TestGroupModifyPlan_isQuietWhenLinkingAGroupWithoutMembers(t *testing.T) {
+	r := &groupResource{}
+	state := stateFor(t, r, groupData(""))
+	plan := stateFor(t, r, groupData("engineering"))
+	resp := resource.ModifyPlanResponse{}
+
+	r.ModifyPlan(context.Background(), resource.ModifyPlanRequest{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}, State: state}, &resp)
+
+	if len(resp.Diagnostics) != 0 {
+		t.Errorf("diagnostics = %v, expected none", resp.Diagnostics)
+	}
+}
+
 func TestGroupModifyPlan_isQuietForAnOrdinaryGroup(t *testing.T) {
 	r := &groupResource{}
 	state := stateFor(t, r, groupData("", "m1"))

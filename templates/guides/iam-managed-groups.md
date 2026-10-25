@@ -44,7 +44,7 @@ Both are updates in place: the group stays, and so do the topics and application
 
 | You change | What happens |
 |---|---|
-| Add `iam_reference` | The group is linked. The members stored in Axual stay, and Platform Manager still uses them in some places (service accounts, group managers, creating applications, topics and environments). To remove them, take them out of `members` and apply, then add `iam_reference`. |
+| Add `iam_reference` | The group is linked. The members stored in Axual stay, and Platform Manager still uses them in some places (service accounts, group managers, creating applications, topics and environments). The plan shows them as removed from the Terraform state, and a warning says that they stay in Platform Manager. Keep them: today Platform Manager lets a person create applications, topics and environments for the group only when the person is a stored member (or a Tenant Admin or Application Admin). |
 | Change `iam_reference` | The group moves to another IAM group. |
 | Remove `iam_reference` | The group is Axual-managed again. Its stored members and managers count again. The plan warns you, and the next plan shows them: add them to `members` and `managers` to keep them, or the next apply removes them. |
 
