@@ -7,10 +7,13 @@ All notable changes to this project will be documented in this file.
 * `tags` on `axual_topic` and the `axual_topic` data source: the topic tags shown in the Self-Service UI. Leaving out `tags` keeps the tags the topic has; `tags = []` removes them ([#177](https://github.com/Axual/terraform-provider-axual/issues/177))
 * Import by name instead of ID: `name:<name>` for `axual_topic`, `axual_environment`, `axual_application` and `axual_group`, `email:<email address>` for `axual_user`, and `name:<topic name>/<environment short name>` for `axual_topic_config`, for example `terraform import axual_topic.payments name:payments`. Works in `import` blocks too ([#114](https://github.com/Axual/terraform-provider-axual/issues/114))
 * `terraform query` support (Terraform 1.14 or newer): list resources with filters, so `terraform query -generate-config-out` writes `resource` and `import` blocks for resources that already exist. Not for `axual_flink_cluster`. The access grant list leaves out revoked and cancelled grants unless its `status` filter asks for them
+* `iam_reference` on `axual_group` and its data source: link a group to a group in your identity system. Add it to link, remove it to unlink. `members` and `managers` are refused for a linked group. Needs IAM group management in the tenant settings (AXPD-12492)
 * Resource identity for every resource except `axual_flink_cluster`, so an `import` block can use `identity` instead of `id`
 * Guides: `Quick start: export your resources with terraform query` and `Exporting existing resources with terraform query`, and an example in `examples/terraform-query`
+* Guide: `IAM-managed groups`, how to link a group to a group in your identity system with `iam_reference`, and how service accounts work with such groups (AXPD-12492)
 
 ### Changed
+* `axual_group` now reads `iam_reference`. A group that was linked to an IAM group outside Terraform (for example in Self-Service) is planned to be unlinked. Add its `iam_reference` to the configuration before you apply (AXPD-12492)
 * Leaving out `roles` on an `axual_user` now keeps the roles the user has. Only `roles = []` removes them
 * A plan that leaves out `configs`, `definition` or `sql_script` of an `axual_application_deployment` that has them stops with `Missing configs` (or `definition`, `sql_script`), unless the application or environment changes. `configs = {}` removes all configs (Platform Manager 16.0.0 or later). Before, the apply removed them and stopped the deployment
 

@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"regexp"
+	"strings"
 )
 
 var _ datasource.DataSource = &groupDataSource{}
@@ -31,6 +32,7 @@ type groupDataSourceData struct {
 	EmailAddress types.String `tfsdk:"email_address"`
 	PhoneNumber  types.String `tfsdk:"phone_number"`
 	Members      types.Set    `tfsdk:"members"`
+	IamReference types.String `tfsdk:"iam_reference"`
 	Id           types.String `tfsdk:"id"`
 }
 
@@ -64,9 +66,13 @@ func (d *groupDataSource) Schema(ctx context.Context, req datasource.SchemaReque
 				Computed:            true,
 			},
 			"members": schema.SetAttribute{
-				MarkdownDescription: "Group's members. Each entry is the uid of a user or of a service account.",
+				MarkdownDescription: "Group's members. Each entry is the uid of a user or of a service account. For an IAM-managed group (see `iam_reference`) this is the stored list. It holds service accounts and managers, not the people in the IAM group.",
 				Computed:            true,
 				ElementType:         types.StringType,
+			},
+			"iam_reference": schema.StringAttribute{
+				MarkdownDescription: "The identifier of this group in the IAM system. Null for an Axual-managed group.",
+				Computed:            true,
 			},
 		},
 	}
@@ -113,6 +119,11 @@ func mapGroupDataSourceResponseToData(ctx context.Context, data *groupDataSource
 
 	data.Id = types.StringValue(group.Uid)
 	data.Name = types.StringValue(group.Name)
+	if strings.TrimSpace(group.IamReference) == "" {
+		data.IamReference = types.StringNull()
+	} else {
+		data.IamReference = types.StringValue(group.IamReference)
+	}
 	var members []attr.Value
 	for _, member := range group.Embedded.Members {
 		members = append(members, types.StringValue(member.Uid))
