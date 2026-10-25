@@ -7,7 +7,7 @@ description: |-
 
 # IAM-managed groups
 
-Needs Platform Manager 15.0.7 or later. Service accounts need 16.0.0 or later.
+Needs Platform Manager 15.0.7 or later. Service accounts need 16.0.0 or later. A person who is not an admin and gets into the group through the token needs a Platform Manager version with the fix for AXPD-12554 to create or save applications, topics and environments for the group (see "Known Platform Manager problems").
 
 A normal group (**Axual-managed**) has a member list that is stored in Axual. An
 **IAM-managed** group has no member list that counts. Your identity system decides who is in
@@ -102,12 +102,15 @@ account with `groupIds` in the service account API. For how to sign in as a serv
 
 ## Known Platform Manager problems
 
-These Platform Manager problems (seen on 15.0.7, 16.0.1 and the 2026-10-23 master) can affect IAM-managed groups:
+These problems can affect IAM-managed groups (seen on 15.0.7, 16.0.1 and the 2026-10-23 master):
 
 - A person who is a member only through the token cannot create an application, topic or environment for the
   group, and cannot save an application in Self-Service. A person who left the IAM group but is still stored can
-  still create them.
-- A person with more than about 65 groups in the token gets an error on every call.
+  still create them. This is fixed in Platform Manager by AXPD-12554 (not released yet). Tenant Admins and
+  service accounts are not affected, so a Terraform pipeline that signs in as one of them works.
+- A person with more than about 65 groups in the token gets an error on every call. Not fixed yet.
+- Azure AD "group overage": for a person in about 200 or more groups, Azure AD sends a link instead of the list
+  of groups. Platform Manager does not handle this. It was not tested with a real Azure AD.
 - A group manager can change the `iam_reference` of a group, although only a Tenant Admin can link or unlink it.
 
 ## Errors
