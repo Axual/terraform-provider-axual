@@ -330,6 +330,7 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 		DecisionChanged: !create && !plan.Decision.Equal(state.Decision),
 		ReviewChanged:   !create && !plan.Review.Equal(state.Review),
 		NextRequest:     state.NextRequest.ValueString(),
+		Imported:        !create && state.Decision.IsNull(),
 	})
 	plan.CurrentStatus = types.StringValue(out.PlannedStatus)
 	plan.NextRequest = stringOrNull(out.NextRequest)
@@ -339,6 +340,12 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 	}
 	resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
 
+	if g != nil && known(plan.Id) {
+		if other := r.provider.grants.claim(g.Uid, plan.Id.ValueString()); other != "" {
+			resp.Diagnostics.AddWarning(fmt.Sprintf("Two decisions manage %s", r.label(plan, g)),
+				fmt.Sprintf("The decisions with id %q and %q point at the same grant. Keep one of them: with two, the result depends on the order of the apply.", other, plan.Id.ValueString()))
+		}
+	}
 	r.warn(ctx, req, plan, g, out, resp)
 }
 
@@ -475,6 +482,7 @@ func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDeci
 		DecisionChanged: !create && !plan.Decision.Equal(state.Decision),
 		ReviewChanged:   !create && !plan.Review.Equal(state.Review),
 		NextRequest:     state.NextRequest.ValueString(),
+		Imported:        !create && state.Decision.IsNull(),
 	})
 	planned := plan.CurrentStatus
 	switch o.Action {
