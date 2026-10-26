@@ -225,6 +225,22 @@ func (r *applicationAccessGrantResource) ModifyPlan(ctx context.Context, req res
 	var plan, state applicationAccessGrantData
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	// Fail in the plan, not only at apply: the API can't move a grant to another application, topic,
+	// environment or access type.
+	for _, c := range []struct {
+		name        string
+		plan, state types.String
+	}{{"application", plan.ApplicationId, state.ApplicationId}, {"topic", plan.TopicId, state.TopicId},
+		{"environment", plan.EnvironmentId, state.EnvironmentId}, {"access_type", plan.AccessType, state.AccessType}} {
+		if !c.plan.IsUnknown() && !c.plan.Equal(c.state) {
+			resp.Diagnostics.AddAttributeError(path.Root(c.name), "Application Access Grant cannot be updated",
+				fmt.Sprintf("%s can't change on an existing grant. Add a new axual_application_access_grant block for the new access, "+
+					"and remove this one when it is no longer needed (removing an Approved grant revokes it).", c.name))
+		}
+	}
 	if resp.Diagnostics.HasError() || plan.ApplicationId.IsUnknown() {
 		return
 	}

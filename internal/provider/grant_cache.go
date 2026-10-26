@@ -23,6 +23,7 @@ type grantCache struct {
 	topics   map[string]string
 	read     map[string]bool
 	version  *string
+	claims   map[string]string
 }
 
 func newGrantCache(client *webclient.Client) *grantCache {
@@ -32,6 +33,7 @@ func newGrantCache(client *webclient.Client) *grantCache {
 		envs:     map[string]*webclient.EnvironmentResponse{},
 		topics:   map[string]string{},
 		read:     map[string]bool{},
+		claims:   map[string]string{},
 	}
 }
 
@@ -127,6 +129,18 @@ func versionBefore(version string, major, minor, patch int) bool {
 		}
 	}
 	return false
+}
+
+// claim records that the decision with this id manages the grant, and returns the id of another
+// decision that claimed the same grant in this run, or "".
+func (c *grantCache) claim(grantUid, id string) string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if other, ok := c.claims[grantUid]; ok && other != id {
+		return other
+	}
+	c.claims[grantUid] = id
+	return ""
 }
 
 // markRead records that Read ran for the decision in this process, so ModifyPlan knows whether the

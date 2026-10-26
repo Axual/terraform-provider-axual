@@ -29,6 +29,10 @@ type decisionInput struct {
 	ReviewChanged   bool
 	// NextRequest is the stored next_request: nextRequestApprove pre-approves the next request.
 	NextRequest string
+	// Imported is true for the first plan after an import: the state has no decision yet. Like a
+	// create it reviews a Pending request, but it never pre-approves a closed grant, so a bulk import
+	// can't re-open access that was rejected or revoked.
+	Imported bool
 }
 
 // decisionOutcome is what the provider does and plans.
@@ -50,7 +54,8 @@ const (
 //   - A Pending request is approved when it is covered: the block is created, decision or review
 //     changed, or next_request is "approve".
 //   - next_request becomes "approve" only through a create or a change of decision to APPROVED
-//     while nothing is Pending. The first request that arrives uses it up.
+//     while nothing is Pending, and never for a closed grant right after an import. The first
+//     request that arrives uses it up.
 //   - DENIED rejects a Pending request and revokes an Approved one, without any coverage.
 func decide(in decisionInput) decisionOutcome {
 	if in.Decision == decisionDenied {
@@ -75,6 +80,9 @@ func decide(in decisionInput) decisionOutcome {
 	case statusNotFound:
 		return decisionOutcome{PlannedStatus: in.Status, NextRequest: keepOrApprove(in.NextRequest, preApprove), Warning: warnWaitingForRequest}
 	default: // Rejected, Revoked, Cancelled
+		if in.Imported {
+			preApprove = false
+		}
 		return decisionOutcome{PlannedStatus: in.Status, NextRequest: keepOrApprove(in.NextRequest, preApprove), Warning: warnClosed}
 	}
 }
