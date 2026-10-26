@@ -4,7 +4,6 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -20,6 +19,7 @@ import (
 
 var _ resource.Resource = &applicationAccessGrantResource{}
 var _ resource.ResourceWithImportState = &applicationAccessGrantResource{}
+var _ resource.ResourceWithModifyPlan = &applicationAccessGrantResource{}
 
 func NewApplicationAccessGrantResource(provider AxualProvider) resource.Resource {
 	return &applicationAccessGrantResource{
@@ -37,6 +37,8 @@ type applicationAccessGrantData struct {
 	EnvironmentId types.String `tfsdk:"environment"`
 	Status        types.String `tfsdk:"status"`
 	AccessType    types.String `tfsdk:"access_type"`
+	RequestAgain  types.String `tfsdk:"request_again"`
+	decisionFields
 }
 
 func (r *applicationAccessGrantResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -77,6 +79,16 @@ func (r *applicationAccessGrantResource) Schema(ctx context.Context, req resourc
 					stringvalidator.OneOf("CONSUMER", "PRODUCER"),
 				},
 			},
+			"request_again": schema.StringAttribute{
+				MarkdownDescription: "Free text. Changing the value asks for access again, once, when the grant is " +
+					"`Rejected`, `Revoked` or `Cancelled`: the same grant reopens. On a `Pending` or `Approved` grant a " +
+					"change does nothing. It never revokes. A good value is the reason or ticket, for example " +
+					"`\"INC-1300: consumer group fixed\"`.",
+				Optional: true,
+			},
+			"decision_reason": decisionReasonAttribute(),
+			"decided_at":      decidedAtAttribute(),
+			"decided_by":      decidedByAttribute(),
 		},
 	}
 }
@@ -109,6 +121,11 @@ func (r *applicationAccessGrantResource) Create(ctx context.Context, req resourc
 	data.TopicId = types.StringValue(data.TopicId.ValueString())
 	data.EnvironmentId = types.StringValue(ApplicationAccessGrant.Environment.Id)
 	data.ApplicationId = types.StringValue(data.ApplicationId.ValueString())
+	data.decisionFields = decisionFields{}.null()
+	if g, err := r.provider.client.GetGrantView(ApplicationAccessGrant.Uid); err == nil {
+		data.Status = types.StringValue(g.Status)
+		data.decisionFields = decisionFieldsOf(*g)
+	}
 
 	tflog.Info(ctx, "Saving Application Access Grant resource to state")
 	diags = resp.State.Set(ctx, &data)
@@ -126,7 +143,7 @@ func (r *applicationAccessGrantResource) Read(ctx context.Context, req resource.
 	}
 
 	tflog.Info(ctx, fmt.Sprintf("Reading Application Access Grant. Id: %s", data.Id.ValueString()))
-	applicationAccessGrant, err := r.provider.client.GetApplicationAccessGrant(data.Id.ValueString())
+	applicationAccessGrant, err := r.provider.client.GetGrantView(data.Id.ValueString())
 	if err != nil {
 		if isGone(err) {
 			tflog.Warn(ctx, fmt.Sprintf("Application Access Grant not found. Id: %s", data.Id.ValueString()))
@@ -141,13 +158,12 @@ func (r *applicationAccessGrantResource) Read(ctx context.Context, req resource.
 	tflog.Info(ctx, "mapping the resource")
 	data.Id = types.StringValue(applicationAccessGrant.Uid)
 	data.Status = types.StringValue(applicationAccessGrant.Status)
-	data.ApplicationId = types.StringValue(applicationAccessGrant.Embedded.Application.Uid)
-	data.TopicId = types.StringValue(applicationAccessGrant.Embedded.Stream.Uid)
-	data.EnvironmentId = types.StringValue(applicationAccessGrant.Embedded.Environment.Uid)
-	// The direct GET endpoint returns access type in title case ("Producer"/"Consumer"),
-	// while the schema and config use upper case ("PRODUCER"/"CONSUMER"). Normalize to
-	// upper case to prevent a perpetual refresh diff.
-	data.AccessType = types.StringValue(strings.ToUpper(applicationAccessGrant.AccessType))
+	data.ApplicationId = types.StringValue(applicationAccessGrant.ApplicationUid)
+	data.TopicId = types.StringValue(applicationAccessGrant.TopicUid)
+	data.EnvironmentId = types.StringValue(applicationAccessGrant.EnvironmentUid)
+	// GrantView upper-cases the access type ("Producer" from the API, "PRODUCER" in config).
+	data.AccessType = types.StringValue(applicationAccessGrant.AccessType)
+	data.decisionFields = decisionFieldsOf(*applicationAccessGrant)
 
 	tflog.Info(ctx, "Saving Application Access Grant resource to state")
 	diags = resp.State.Set(ctx, &data)
@@ -155,16 +171,98 @@ func (r *applicationAccessGrantResource) Read(ctx context.Context, req resource.
 }
 
 func (r *applicationAccessGrantResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	resp.Diagnostics.AddError(
-		"Application Access Grant cannot be updated",
-		`The Axual API does not support updating grant attributes. To change access_type, application, topic, or environment:
-
-1. Delete the axual_application_access_grant_approval resource (this revokes the grant)
-2. Delete the axual_application_access_grant resource
-3. Recreate the axual_application_access_grant with new attributes
-4. Recreate the axual_application_access_grant_approval
+	var plan, state applicationAccessGrantData
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if !plan.ApplicationId.Equal(state.ApplicationId) || !plan.TopicId.Equal(state.TopicId) ||
+		!plan.EnvironmentId.Equal(state.EnvironmentId) || !plan.AccessType.Equal(state.AccessType) {
+		resp.Diagnostics.AddError(
+			"Application Access Grant cannot be updated",
+			`The Axual API does not support changing the application, topic, environment or access_type of a grant.
+Add a new axual_application_access_grant block for the new access, and remove this one when it is no longer needed
+(removing an Approved grant revokes it).
 
 For detailed instructions, see: https://registry.terraform.io/providers/Axual/axual/latest/docs/guides/manage-application-access-to-topics`)
+		return
+	}
+
+	// Only request_again can change in place.
+	g, err := r.provider.client.GetGrantView(state.Id.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to read Application Access Grant", err.Error())
+		return
+	}
+	if !plan.RequestAgain.Equal(state.RequestAgain) && !plan.RequestAgain.IsNull() && g.IsClosed() {
+		tflog.Info(ctx, fmt.Sprintf("Requesting grant %s again (was %s)", g.Uid, g.Status))
+		if _, err := r.provider.client.CreateApplicationAccessGrant(webclient.ApplicationAccessGrantRequest{
+			EnvironmentId: state.EnvironmentId.ValueString(),
+			StreamId:      state.TopicId.ValueString(),
+			ApplicationId: state.ApplicationId.ValueString(),
+			AccessType:    state.AccessType.ValueString(),
+		}); err != nil {
+			resp.Diagnostics.AddError("Failed to request access again", err.Error())
+			return
+		}
+		if g, err = r.provider.client.GetGrantView(state.Id.ValueString()); err != nil {
+			resp.Diagnostics.AddError("Failed to read Application Access Grant", err.Error())
+			return
+		}
+	}
+	plan.Id = state.Id
+	plan.Status = types.StringValue(g.Status)
+	plan.decisionFields = decisionFieldsOf(*g)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+// ModifyPlan explains a closed grant, and plans the result of a changed request_again.
+func (r *applicationAccessGrantResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() || req.State.Raw.IsNull() {
+		return
+	}
+	var plan, state applicationAccessGrantData
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() || plan.ApplicationId.IsUnknown() {
+		return
+	}
+	status := state.Status.ValueString()
+	changed := !plan.RequestAgain.Equal(state.RequestAgain) && !plan.RequestAgain.IsNull()
+	closed := status == "Rejected" || status == "Revoked" || status == "Cancelled"
+	if !changed && !closed {
+		return
+	}
+	name := grantName(webclient.GrantView{ApplicationUid: state.ApplicationId.ValueString(), AccessType: state.AccessType.ValueString(),
+		TopicUid: state.TopicId.ValueString(), EnvironmentUid: state.EnvironmentId.ValueString()})
+	if g, err := r.provider.client.GetGrantView(state.Id.ValueString()); err == nil {
+		name = grantName(*g)
+	}
+
+	switch {
+	case changed && closed:
+		// Pending in a Stream owner environment, Approved in an Auto environment.
+		plan.Status = types.StringUnknown()
+		plan.decisionFields = decisionFields{}.unknown()
+		resp.Diagnostics.AddWarning(fmt.Sprintf("Grant %s will be requested again", name),
+			fmt.Sprintf("The grant is %s and request_again changed, so the apply asks for access again.", status))
+	case changed:
+		plan.Status = state.Status
+		plan.decisionFields = state.decisionFields
+		resp.Diagnostics.AddWarning(fmt.Sprintf("Grant %s is %s, nothing to request", name, status),
+			"request_again changed, but only a Rejected, Revoked or Cancelled grant can be requested again. The new value is stored.")
+	case closed:
+		detail := "Change request_again in a PR to ask again, or request again in the UI."
+		if reason := state.DecisionReason.ValueString(); reason != "" {
+			detail = fmt.Sprintf("Reason from the topic team: %q.\n%s", reason, detail)
+		}
+		resp.Diagnostics.AddWarning(fmt.Sprintf("Grant %s is %s", name, status), detail)
+		return
+	default:
+		return
+	}
+	resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
 }
 
 func (r *applicationAccessGrantResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
