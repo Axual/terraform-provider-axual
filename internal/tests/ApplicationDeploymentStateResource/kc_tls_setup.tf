@@ -67,6 +67,8 @@ resource "axual_application_access_grant" "kc_tls" {
   depends_on  = [axual_topic_config.kc_tls, axual_application_principal.kc_tls]
 }
 
-resource "axual_application_access_grant_approval" "kc_tls" {
-  application_access_grant = axual_application_access_grant.kc_tls.id
+resource "axual_application_access_grant_decision" "kc_tls" {
+  grant             = axual_application_access_grant.kc_tls.id
+  decision          = "APPROVED"
+  revoke_on_destroy = true
 }

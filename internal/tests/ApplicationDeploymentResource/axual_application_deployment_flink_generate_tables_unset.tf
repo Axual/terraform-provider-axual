@@ -10,7 +10,7 @@ resource "axual_application_deployment" "flink_axual_application_deployment" {
   SQL
 
   depends_on = [
-    axual_application_access_grant_approval.tf-test-flink-application-access-grant-approval,
-    axual_application_access_grant_approval.tf-test-flink-application-access-grant-approval-out,
+    axual_application_access_grant_decision.tf-test-flink-application-access-grant-approval,
+    axual_application_access_grant_decision.tf-test-flink-application-access-grant-approval-out,
   ]
 }

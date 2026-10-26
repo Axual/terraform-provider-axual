@@ -4,6 +4,6 @@ resource "axual_application_deployment" "ksml_axual_application_deployment" {
   definition      = file("definitions/ksml-definition.yaml")
   deployment_size = "M"
   depends_on = [
-    axual_application_access_grant_approval.tf-test-ksml-application-access-grant-approval,
+    axual_application_access_grant_decision.tf-test-ksml-application-access-grant-approval,
   ]
 }

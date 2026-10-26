@@ -5,6 +5,6 @@ resource "axual_application_deployment" "ksml_axual_application_deployment" {
   deployment_size = "M"
   restart_policy = "invalid_policy"
   depends_on = [
-    axual_application_access_grant_approval.tf-test-ksml-application-access-grant-approval,
+    axual_application_access_grant_decision.tf-test-ksml-application-access-grant-approval,
   ]
 }

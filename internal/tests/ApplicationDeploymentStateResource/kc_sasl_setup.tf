@@ -78,6 +78,8 @@ resource "axual_application_access_grant" "kc_sasl" {
   depends_on  = [axual_topic_config.kc_sasl, axual_application_credential.kc_sasl]
 }
 
-resource "axual_application_access_grant_approval" "kc_sasl" {
-  application_access_grant = axual_application_access_grant.kc_sasl.id
+resource "axual_application_access_grant_decision" "kc_sasl" {
+  grant             = axual_application_access_grant.kc_sasl.id
+  decision          = "APPROVED"
+  revoke_on_destroy = true
 }
