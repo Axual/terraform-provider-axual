@@ -79,8 +79,9 @@ resource "axual_application_access_grant" "example" {
   depends_on  = [axual_topic_config.example, axual_application_principal.example]
 }
 
-resource "axual_application_access_grant_approval" "example" {
-  application_access_grant = axual_application_access_grant.example.id
+resource "axual_application_access_grant_decision" "example" {
+  grant    = axual_application_access_grant.example.id
+  decision = "APPROVED"
 }
 
 # 3. The deployment: no target_id (legacy Axual Connect). Creating it starts the connector.
@@ -94,5 +95,5 @@ resource "axual_application_deployment" "example" {
     "value.converter" = "org.apache.kafka.connect.storage.StringConverter",
     "tasks.max"       = "1",
   }
-  depends_on = [axual_application_access_grant_approval.example]
+  depends_on = [axual_application_access_grant_decision.example]
 }

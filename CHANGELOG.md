@@ -9,10 +9,18 @@ All notable changes to this project will be documented in this file.
 * `terraform query` support (Terraform 1.14 or newer): list resources with filters, so `terraform query -generate-config-out` writes `resource` and `import` blocks for resources that already exist. Not for `axual_flink_cluster`. The access grant list leaves out revoked and cancelled grants unless its `status` filter asks for them
 * Resource identity for every resource except `axual_flink_cluster`, so an `import` block can use `identity` instead of `id`
 * Guides: `Quick start: export your resources with terraform query` and `Exporting existing resources with terraform query`, and an example in `examples/terraform-query`
+* `axual_application_access_grant_decision`: the topic team's decision (`APPROVED` or `DENIED` with a `reason`) about one application's access. It finds the grant itself by application name or UID, topic, environment and access type, so it works across repositories, for private applications (Platform Manager 15.0.4 or later), and before the request exists. A request made again after a reject or revoke waits for a change of `review`. Removing the block doesn't revoke unless `revoke_on_destroy = true`. Existing `_approval` and `_rejection` blocks move with a `moved` block (Terraform 1.8 or later). With a list resource for `terraform query` (AXPD-12412)
+* `request_again`, `decision_reason`, `decided_at` and `decided_by` on `axual_application_access_grant`, and the decision fields on its data source: the application team sees the answer and asks again by changing `request_again` (AXPD-12412)
+* `axual_application_access_grants` data source: lists grants, for example the open requests on a topic (AXPD-12412)
 
 ### Changed
 * Leaving out `roles` on an `axual_user` now keeps the roles the user has. Only `roles = []` removes them
+* Changing `application`, `topic`, `environment` or `access_type` of an `axual_application_access_grant` fails in the plan instead of at apply (AXPD-12412)
+* The access guides describe the platform correctly: Rejected, Revoked and Cancelled grants are closed, not final; a new request reopens the same grant (AXPD-12412)
 * A plan that leaves out `configs`, `definition` or `sql_script` of an `axual_application_deployment` that has them stops with `Missing configs` (or `definition`, `sql_script`), unless the application or environment changes. `configs = {}` removes all configs (Platform Manager 16.0.0 or later). Before, the apply removed them and stopped the deployment
+
+### Deprecated
+* `axual_application_access_grant_approval` and `axual_application_access_grant_rejection`: use `axual_application_access_grant_decision` (AXPD-12412)
 
 ### Fixed
 * A STOP that fails with a `5xx` (for example while the Connect worker rebalances) is retried, like START. It is not sent again once the deployment has stopped

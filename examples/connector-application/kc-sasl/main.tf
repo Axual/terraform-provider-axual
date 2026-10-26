@@ -102,8 +102,9 @@ resource "axual_application_access_grant" "example" {
   depends_on  = [axual_topic_config.example, axual_application_credential.example]
 }
 
-resource "axual_application_access_grant_approval" "example" {
-  application_access_grant = axual_application_access_grant.example.id
+resource "axual_application_access_grant_decision" "example" {
+  grant    = axual_application_access_grant.example.id
+  decision = "APPROVED"
 }
 
 # 4. Run it. To stop the connector, change state to "STOPPED" and apply. Removing this resource
@@ -111,7 +112,7 @@ resource "axual_application_access_grant_approval" "example" {
 resource "axual_application_deployment_state" "example" {
   application_deployment = axual_application_deployment.example.id
   state                  = "RUNNING"
-  depends_on             = [axual_application_access_grant_approval.example, axual_application_credential.example]
+  depends_on             = [axual_application_access_grant_decision.example, axual_application_credential.example]
 }
 
 output "current_state" {

@@ -195,8 +195,9 @@ resource "axual_application_access_grant" "my-app-consume-events" {
 }
 
 # Approve the access grant
-resource "axual_application_access_grant_approval" "approve-access" {
-  application_access_grant = axual_application_access_grant.my-app-consume-events.id
+resource "axual_application_access_grant_decision" "approve-access" {
+  grant    = axual_application_access_grant.my-app-consume-events.id
+  decision = "APPROVED"
 }
 ```
 

@@ -153,8 +153,9 @@ resource "axual_application_access_grant" "consume_avro_in" {
   ]
 }
 
-resource "axual_application_access_grant_approval" "consume_avro_in" {
-  application_access_grant = axual_application_access_grant.consume_avro_in.id
+resource "axual_application_access_grant_decision" "consume_avro_in" {
+  grant    = axual_application_access_grant.consume_avro_in.id
+  decision = "APPROVED"
 }
 
 resource "axual_application_access_grant" "produce_string_out" {
@@ -169,8 +170,9 @@ resource "axual_application_access_grant" "produce_string_out" {
   ]
 }
 
-resource "axual_application_access_grant_approval" "produce_string_out" {
-  application_access_grant = axual_application_access_grant.produce_string_out.id
+resource "axual_application_access_grant_decision" "produce_string_out" {
+  grant    = axual_application_access_grant.produce_string_out.id
+  decision = "APPROVED"
 }
 
 # generate_tables_sql = true auto-generates the CREATE TABLE DDL for the granted
@@ -189,7 +191,7 @@ resource "axual_application_deployment" "example" {
   SQL
 
   depends_on = [
-    axual_application_access_grant_approval.consume_avro_in,
-    axual_application_access_grant_approval.produce_string_out,
+    axual_application_access_grant_decision.consume_avro_in,
+    axual_application_access_grant_decision.produce_string_out,
   ]
 }
