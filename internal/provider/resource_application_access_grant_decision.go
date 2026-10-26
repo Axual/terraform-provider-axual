@@ -235,7 +235,6 @@ func (r *grantDecisionResource) Read(ctx context.Context, req resource.ReadReque
 		b, _ := json.Marshal(p)
 		resp.Diagnostics.Append(resp.Private.SetKey(ctx, grantDecisionPrivateKey, b)...)
 	}
-	r.provider.grants.markRead(d.Id.ValueString())
 	resp.Diagnostics.Append(resp.State.Set(ctx, &d)...)
 	r.setIdentity(ctx, d, resp.Identity, &resp.Diagnostics)
 }
@@ -272,13 +271,15 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 		plan.Grant = types.StringNull()
 	}
 
-	// The grant this plan is about. On create, after a lookup change, or when Read didn't run in this
-	// process (-refresh=false), look it up; otherwise use what Read stored.
+	// The grant this plan is about. On create or after a lookup change, look it up; otherwise use only
+	// what Read stored. Terraform plans again when it applies a saved plan, so an update plan must not
+	// depend on a new API call: the same state must give the same plan. The apply looks the grant up
+	// itself and fails with the real status when it changed.
 	lookupChanged := !create && ((!configGrant.IsNull() && !plan.Grant.Equal(state.Grant)) || !plan.Application.Equal(state.Application) ||
 		!plan.Topic.Equal(state.Topic) || !plan.Environment.Equal(state.Environment) || !plan.AccessType.Equal(state.AccessType))
 	var g *webclient.GrantView
 	status := state.CurrentStatus.ValueString()
-	if create || lookupChanged || !r.provider.grants.wasRead(state.Id.ValueString()) {
+	if create || lookupChanged {
 		if unknownLookup(plan) {
 			r.planUnknown(ctx, &plan, resp, create)
 			return
@@ -339,6 +340,16 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 	plan.GrantId = types.StringNull()
 	if g != nil {
 		plan.GrantId = types.StringValue(g.Uid)
+	}
+	if create {
+		// The request can arrive or change between a saved plan and its apply, and Terraform checks the
+		// apply's plan against the saved one. So a new block only warns what it will do.
+		plan.CurrentStatus, plan.GrantId, plan.NextRequest = types.StringUnknown(), types.StringUnknown(), types.StringUnknown()
+		if out.Action != actionNone {
+			resp.Diagnostics.AddWarning(fmt.Sprintf("%s will be %s by this apply", r.label(plan, g), map[string]string{
+				actionApprove: "approved", actionReject: "rejected", actionRevoke: "revoked"}[out.Action]),
+				fmt.Sprintf("The grant is %s now.", status))
+		}
 	}
 	resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
 

@@ -21,7 +21,6 @@ type grantCache struct {
 	searches map[string][]webclient.GrantView
 	envs     map[string]*webclient.EnvironmentResponse
 	topics   map[string]string
-	read     map[string]bool
 	version  *string
 	claims   map[string]string
 }
@@ -32,7 +31,6 @@ func newGrantCache(client *webclient.Client) *grantCache {
 		searches: map[string][]webclient.GrantView{},
 		envs:     map[string]*webclient.EnvironmentResponse{},
 		topics:   map[string]string{},
-		read:     map[string]bool{},
 		claims:   map[string]string{},
 	}
 }
@@ -141,20 +139,6 @@ func (c *grantCache) claim(grantUid, id string) string {
 	}
 	c.claims[grantUid] = id
 	return ""
-}
-
-// markRead records that Read ran for the decision in this process, so ModifyPlan knows whether the
-// state is fresh (it isn't with -refresh=false).
-func (c *grantCache) markRead(id string) {
-	c.mu.Lock()
-	c.read[id] = true
-	c.mu.Unlock()
-}
-
-func (c *grantCache) wasRead(id string) bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.read[id]
 }
 
 var uidPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
