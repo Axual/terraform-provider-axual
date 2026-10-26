@@ -37,3 +37,12 @@ func TestCompositeDecisionID(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
+
+func TestVersionBefore(t *testing.T) {
+	tests := map[string]bool{"15.0.1": true, "15.0.3": true, "15.0.4": false, "15.1.0": false, "16.0.0": false, "16.1.0-SNAPSHOT": false, "": false, "dev": false}
+	for v, want := range tests {
+		if got := versionBefore(v, 15, 0, 4); got != want {
+			t.Errorf("versionBefore(%q) = %v, want %v", v, got, want)
+		}
+	}
+}

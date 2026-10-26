@@ -356,10 +356,14 @@ func (r *grantDecisionResource) warn(ctx context.Context, req resource.ModifyPla
 	name := r.label(plan, g)
 	switch out.Warning {
 	case warnWaitingForRequest:
-		if plan.Decision.ValueString() == decisionApproved {
+		if plan.Decision.ValueString() == decisionApproved && r.provider.grants.hidesPrivateRequests() {
+			resp.Diagnostics.AddWarning(fmt.Sprintf("%s: no request found that this user can see", name),
+				"This Platform Manager is older than 15.0.4: a topic owner can't see the requests of private applications. "+
+					"If the application is private, its request may exist; approve it in the UI, or upgrade to 15.0.4 or later. "+
+					"Otherwise the application team hasn't requested access yet; the next request is approved without a new PR (next_request = \"approve\").")
+		} else if plan.Decision.ValueString() == decisionApproved {
 			resp.Diagnostics.AddWarning(fmt.Sprintf("%s is waiting for a request", name),
-				"No request found that you can see. The application team may not have requested access yet; the next request is approved without a new PR (next_request = \"approve\").\n\n"+
-					"On Platform Manager before 15.0.4, requests of private applications are not visible to the topic owner, and show as \"Not found\" here.")
+				"No request found that you can see. The application team may not have requested access yet; the next request is approved without a new PR (next_request = \"approve\").")
 		}
 	case warnReopened:
 		resp.Diagnostics.AddWarning(fmt.Sprintf("%s: new request since the last decision", name),
