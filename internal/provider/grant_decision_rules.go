@@ -1,0 +1,87 @@
+package provider
+
+// The rules of axual_application_access_grant_decision, without Terraform or API types, so they
+// can be tested on their own.
+
+const (
+	decisionApproved = "APPROVED"
+	decisionDenied   = "DENIED"
+
+	statusNotFound = "Not found"
+
+	nextRequestApprove = "approve"
+	nextRequestReview  = "review"
+
+	actionNone    = ""
+	actionApprove = "approve"
+	actionReject  = "reject"
+	actionRevoke  = "revoke"
+)
+
+// decisionInput is what the rules look at for one decision in one plan or apply.
+type decisionInput struct {
+	Status   string // the grant's status, or statusNotFound
+	Decision string // decisionApproved or decisionDenied
+	// Create is true when the block is new in this plan (the PR that adds it reviews the request).
+	Create bool
+	// DecisionChanged and ReviewChanged compare the plan with the state.
+	DecisionChanged bool
+	ReviewChanged   bool
+	// NextRequest is the stored next_request: nextRequestApprove pre-approves the next request.
+	NextRequest string
+}
+
+// decisionOutcome is what the provider does and plans.
+type decisionOutcome struct {
+	Action        string
+	PlannedStatus string
+	NextRequest   string // "" means null
+	Warning       string // one of the warn* kinds, or ""
+}
+
+const (
+	warnWaitingForRequest = "waiting"
+	warnReopened          = "reopened"
+	warnClosed            = "closed"
+)
+
+// decide applies the coverage rule:
+//
+//   - A Pending request is approved when it is covered: the block is created, decision or review
+//     changed, or next_request is "approve".
+//   - next_request becomes "approve" only through a create or a change of decision to APPROVED
+//     while nothing is Pending. The first request that arrives uses it up.
+//   - DENIED rejects a Pending request and revokes an Approved one, without any coverage.
+func decide(in decisionInput) decisionOutcome {
+	if in.Decision == decisionDenied {
+		switch in.Status {
+		case "Pending":
+			return decisionOutcome{Action: actionReject, PlannedStatus: "Rejected"}
+		case "Approved":
+			return decisionOutcome{Action: actionRevoke, PlannedStatus: "Revoked"}
+		}
+		return decisionOutcome{PlannedStatus: in.Status}
+	}
+
+	preApprove := in.Create || in.DecisionChanged
+	switch in.Status {
+	case "Pending":
+		if in.Create || in.DecisionChanged || in.ReviewChanged || in.NextRequest == nextRequestApprove {
+			return decisionOutcome{Action: actionApprove, PlannedStatus: "Approved", NextRequest: nextRequestReview}
+		}
+		return decisionOutcome{PlannedStatus: "Pending", NextRequest: nextRequestReview, Warning: warnReopened}
+	case "Approved":
+		return decisionOutcome{PlannedStatus: "Approved", NextRequest: nextRequestReview}
+	case statusNotFound:
+		return decisionOutcome{PlannedStatus: in.Status, NextRequest: keepOrApprove(in.NextRequest, preApprove), Warning: warnWaitingForRequest}
+	default: // Rejected, Revoked, Cancelled
+		return decisionOutcome{PlannedStatus: in.Status, NextRequest: keepOrApprove(in.NextRequest, preApprove), Warning: warnClosed}
+	}
+}
+
+func keepOrApprove(current string, preApprove bool) string {
+	if preApprove || current == nextRequestApprove {
+		return nextRequestApprove
+	}
+	return nextRequestReview
+}
