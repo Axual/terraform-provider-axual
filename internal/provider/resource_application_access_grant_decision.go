@@ -389,11 +389,11 @@ func (r *grantDecisionResource) warn(ctx context.Context, req resource.ModifyPla
 		resp.Diagnostics.AddWarning(fmt.Sprintf("%s: new request since the last decision", name),
 			"The application team requested access again. Change review (for example to this PR's number) or decision in a PR to approve it.")
 	case warnClosed:
-		if plan.NextRequest.ValueString() == nextRequestApprove {
-			resp.Diagnostics.AddWarning(fmt.Sprintf("%s is %s, the next request will be approved", name, plan.CurrentStatus.ValueString()),
+		if out.NextRequest == nextRequestApprove {
+			resp.Diagnostics.AddWarning(fmt.Sprintf("%s is %s, the next request will be approved", name, out.PlannedStatus),
 				"next_request = \"approve\": when the application team requests again, the next apply approves it without a new PR.")
 		} else {
-			resp.Diagnostics.AddWarning(fmt.Sprintf("%s is %s, waiting for a new request", name, plan.CurrentStatus.ValueString()),
+			resp.Diagnostics.AddWarning(fmt.Sprintf("%s is %s, waiting for a new request", name, out.PlannedStatus),
 				"When the application team requests again, change review or decision in a PR to approve it.")
 		}
 	}
@@ -407,7 +407,8 @@ func (r *grantDecisionResource) warn(ctx context.Context, req resource.ModifyPla
 		if g != nil && (g.CanApprove || g.CanDeny || g.CanRevoke) {
 			offered = map[string]bool{actionApprove: g.CanApprove, actionReject: g.CanDeny, actionRevoke: g.CanRevoke}[out.Action]
 		}
-		if p.Known && !offered {
+		// Read stored the links; on create the lookup returned them.
+		if (p.Known || (g != nil && g.TopicUid != "")) && !offered {
 			resp.Diagnostics.AddWarning(fmt.Sprintf("%s: the platform doesn't offer %s to this user now", name, out.Action),
 				"The grant has no \""+out.Action+"\" link for the signed-in user. Possible reasons: the user doesn't own the topic, or self-approval is disabled on the instance and this user made the request. The apply still tries.")
 		}
