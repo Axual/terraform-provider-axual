@@ -150,9 +150,12 @@ func (p *AxualProvider) Configure(ctx context.Context, req provider.ConfigureReq
 func (p *AxualProvider) Resources(_ context.Context) []func() resource.Resource {
 	out := []func() resource.Resource{
 		func() resource.Resource { return NewFlinkClusterResource(*p) },
-		func() resource.Resource { return NewApplicationAccessGrantDecisionResource(*p) },
 	}
 	for _, spec := range listSpecs() {
+		if spec.ownIdentity {
+			out = append(out, func() resource.Resource { return spec.newResource(*p) })
+			continue
+		}
 		out = append(out, func() resource.Resource { return withIdentity(spec.newResource(*p), spec.attr) })
 	}
 	return out
