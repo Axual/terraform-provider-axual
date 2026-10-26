@@ -184,6 +184,7 @@ func (p *AxualProvider) DataSources(ctx context.Context) []func() datasource.Dat
 		func() datasource.DataSource { return NewEnvironmentDataSource(*p) },
 		func() datasource.DataSource { return NewSchemaVersionDataSource(*p) },
 		func() datasource.DataSource { return NewApplicationAccessGrantDataSource(*p) },
+		func() datasource.DataSource { return NewApplicationAccessGrantsDataSource(*p) },
 		func() datasource.DataSource { return NewInstanceDataSource(*p) },
 		func() datasource.DataSource { return NewUserDataSource(*p) },
 		func() datasource.DataSource { return NewConnectClusterDataSource(*p) },
