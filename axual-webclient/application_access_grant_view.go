@@ -24,6 +24,8 @@ type GrantView struct {
 	RequestedAt     string
 	ProcessedAt     string
 	ProcessedBy     string
+	// RequestedBy is who made the last request; a request made again overwrites it.
+	RequestedBy string
 	// The actions the signed-in user is offered on the grant now (its _links).
 	CanApprove bool
 	CanDeny    bool
@@ -74,12 +76,8 @@ func (c *Client) SearchGrants(topic, environment, accessType, application string
 func grantViewFromItem(i ListItem) GrantView {
 	links, _ := i["_links"].(map[string]any)
 	has := func(rel string) bool { _, ok := links[rel]; return ok }
-	processedBy := i.String("processedBy")
-	if processedBy == "" {
-		if u, ok := i["processedByUser"].(map[string]any); ok {
-			processedBy, _ = u["email"].(string)
-		}
-	}
+	processedBy := userEmail(i, "processedBy", "processedByUser")
+	requestedBy := userEmail(i, "requestedBy", "requestedByUser")
 	return GrantView{
 		Uid:             i.String("uid"),
 		Status:          i.String("status"),
@@ -94,11 +92,31 @@ func grantViewFromItem(i ListItem) GrantView {
 		RequestedAt:     firstNonEmpty(i.String("requestedAt"), i.String("requested_at")),
 		ProcessedAt:     firstNonEmpty(i.String("processedAt"), i.String("processed_at")),
 		ProcessedBy:     processedBy,
+		RequestedBy:     requestedBy,
 		CanApprove:      has("approve"),
 		CanDeny:         has("deny"),
 		CanRevoke:       has("revoke"),
 		CanCancel:       has("cancel"),
 	}
+}
+
+// userEmail reads a user as the GET returns it (an email in key) or as the search returns it (a
+// user object in objectKey, with the email in emailAddress.email).
+func userEmail(i ListItem, key, objectKey string) string {
+	if s := i.String(key); s != "" {
+		return s
+	}
+	u, ok := i[objectKey].(map[string]any)
+	if !ok {
+		return ""
+	}
+	if e, ok := u["emailAddress"].(map[string]any); ok {
+		if s, _ := e["email"].(string); s != "" {
+			return s
+		}
+	}
+	s, _ := u["email"].(string)
+	return s
 }
 
 func firstNonEmpty(values ...string) string {
@@ -124,4 +142,15 @@ func (c *Client) GetPlatformVersion() (string, error) {
 		return "", err
 	}
 	return info.Version, nil
+}
+
+// GetMyEmail returns the email address of the signed-in user (GET /me), or "" when it has none.
+func (c *Client) GetMyEmail() (string, error) {
+	var me struct {
+		Email string `json:"email"`
+	}
+	if err := c.RequestAndMap("GET", fmt.Sprintf("%s/me", c.ApiURL), nil, nil, &me); err != nil {
+		return "", err
+	}
+	return me.Email, nil
 }

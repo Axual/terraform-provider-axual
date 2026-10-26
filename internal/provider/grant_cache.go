@@ -22,6 +22,7 @@ type grantCache struct {
 	envs     map[string]*webclient.EnvironmentResponse
 	topics   map[string]string
 	version  *string
+	me       *string
 	claims   map[string]string
 }
 
@@ -95,6 +96,25 @@ func (c *grantCache) topicName(uid string) string {
 	return name
 }
 
+// myEmail returns the signed-in user's email address, or "" when it isn't known.
+func (c *grantCache) myEmail() string {
+	c.mu.Lock()
+	v := c.me
+	c.mu.Unlock()
+	if v != nil {
+		return *v
+	}
+	got, _, _ := c.group.Do("me", func() (any, error) {
+		email, _ := c.client.GetMyEmail()
+		return email, nil
+	})
+	email := got.(string)
+	c.mu.Lock()
+	c.me = &email
+	c.mu.Unlock()
+	return email
+}
+
 // hidesPrivateRequests reports whether Platform Manager is older than 15.0.4, where a topic owner
 // can't see the requests of private applications. False when the version is unknown.
 func (c *grantCache) hidesPrivateRequests() bool {
@@ -143,9 +163,17 @@ func (c *grantCache) claim(grantUid, id string) string {
 
 var uidPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
-// matchGrant finds the grant of an application, given as a UID or a name. A UID matches first,
-// because application names are unique per tenant but a name could look like a UID.
-func matchGrant(grants []webclient.GrantView, application string) *webclient.GrantView {
+// matchGrant finds the grant of an application. The grant UID from the last Read matches first, so a
+// renamed application keeps its grant; then the application UID, then its name (names are unique
+// per tenant, but a name could look like a UID).
+func matchGrant(grants []webclient.GrantView, application, grantID string) *webclient.GrantView {
+	if grantID != "" {
+		for i := range grants {
+			if grants[i].Uid == grantID {
+				return &grants[i]
+			}
+		}
+	}
 	if uidPattern.MatchString(strings.ToLower(application)) {
 		for i := range grants {
 			if strings.EqualFold(grants[i].ApplicationUid, application) {

@@ -21,7 +21,7 @@ func TestMatchGrant(t *testing.T) {
 	}
 	for _, tt := range tests {
 		got := ""
-		if g := matchGrant(grants, tt.application); g != nil {
+		if g := matchGrant(grants, tt.application, ""); g != nil {
 			got = g.Uid
 		}
 		if got != tt.want {
@@ -43,6 +43,33 @@ func TestVersionBefore(t *testing.T) {
 	for v, want := range tests {
 		if got := versionBefore(v, 15, 0, 4); got != want {
 			t.Errorf("versionBefore(%q) = %v, want %v", v, got, want)
+		}
+	}
+}
+
+func TestMatchGrantByGrantIDFirst(t *testing.T) {
+	grants := []webclient.GrantView{{Uid: "g1", ApplicationName: "Log Scraper Renamed"}, {Uid: "g2", ApplicationName: "Log Scraper"}}
+	if g := matchGrant(grants, "Log Scraper", "g1"); g == nil || g.Uid != "g1" {
+		t.Errorf("a renamed application must keep its grant, got %+v", g)
+	}
+}
+
+func TestClosedByRequester(t *testing.T) {
+	tests := []struct {
+		desc                       string
+		status, processed, req, me string
+		want                       bool
+	}{
+		{"application team revoked or cancelled and asked again", "Pending", "alex@x", "alex@x", "tom@x", true},
+		{"topic team revoked", "Pending", "tom@x", "alex@x", "tom@x", false},
+		{"one account for both sides", "Pending", "ci@x", "ci@x", "ci@x", false},
+		{"first request, never decided", "Pending", "", "alex@x", "tom@x", false},
+		{"own identity unknown", "Pending", "alex@x", "alex@x", "", false},
+		{"not pending", "Approved", "alex@x", "alex@x", "tom@x", false},
+	}
+	for _, tt := range tests {
+		if got := closedByRequester(tt.status, tt.processed, tt.req, tt.me); got != tt.want {
+			t.Errorf("%s: got %v", tt.desc, got)
 		}
 	}
 }

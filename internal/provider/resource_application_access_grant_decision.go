@@ -70,6 +70,8 @@ type grantDecisionPrivate struct {
 	CanDeny    bool `json:"can_deny"`
 	CanRevoke  bool `json:"can_revoke"`
 	Known      bool `json:"known"`
+	// ClosedByRequester: the grant was reopened after the application team closed it itself.
+	ClosedByRequester bool `json:"closed_by_requester"`
 }
 
 const grantDecisionPrivateKey = "grant_decision"
@@ -184,7 +186,11 @@ func (r *grantDecisionResource) find(d grantDecisionData, fresh bool) (*webclien
 		if err != nil {
 			return nil, err
 		}
-		return matchGrant(grants, d.Application.ValueString()), nil
+		grantID := ""
+		if known(d.GrantId) {
+			grantID = d.GrantId.ValueString()
+		}
+		return matchGrant(grants, d.Application.ValueString(), grantID), nil
 	}
 	if known(d.Grant) {
 		g, err := r.provider.client.GetGrantView(d.Grant.ValueString())
@@ -220,7 +226,12 @@ func (r *grantDecisionResource) Read(ctx context.Context, req resource.ReadReque
 	p := grantDecisionPrivate{Known: true}
 	if g != nil {
 		d.CurrentStatus, d.GrantId = types.StringValue(g.Status), types.StringValue(g.Uid)
-		p = grantDecisionPrivate{CanApprove: g.CanApprove, CanDeny: g.CanDeny, CanRevoke: g.CanRevoke, Known: true}
+		p = grantDecisionPrivate{CanApprove: g.CanApprove, CanDeny: g.CanDeny, CanRevoke: g.CanRevoke, Known: true,
+			ClosedByRequester: closedByRequester(g.Status, g.ProcessedBy, g.RequestedBy, r.provider.grants.myEmail())}
+		if app := d.Application.ValueString(); app != "" && !strings.EqualFold(app, g.ApplicationUid) && g.ApplicationName != "" && app != g.ApplicationName {
+			resp.Diagnostics.AddWarning(fmt.Sprintf("Application %q is now named %q", app, g.ApplicationName),
+				fmt.Sprintf("The decision still finds its grant (%s). Update application to %q, or to the application UID %s.", g.Uid, g.ApplicationName, g.ApplicationUid))
+		}
 		// A decision moved from an approval or rejection only knows the grant UID: MoveState runs
 		// before the provider is configured, so the lookup attributes and id are filled here.
 		fillUnknown(&d.Topic, g.TopicUid)
@@ -326,14 +337,23 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 		}
 	}
 
+	closed := false
+	if g != nil && g.TopicUid != "" { // looked up in this plan
+		closed = closedByRequester(g.Status, g.ProcessedBy, g.RequestedBy, r.provider.grants.myEmail())
+	} else if b, _ := req.Private.GetKey(ctx, grantDecisionPrivateKey); len(b) > 0 {
+		var p grantDecisionPrivate
+		_ = json.Unmarshal(b, &p)
+		closed = p.ClosedByRequester
+	}
 	out := decide(decisionInput{
-		Status:          status,
-		Decision:        plan.Decision.ValueString(),
-		Create:          create,
-		DecisionChanged: !create && !plan.Decision.Equal(state.Decision),
-		ReviewChanged:   !create && !plan.Review.Equal(state.Review),
-		NextRequest:     state.NextRequest.ValueString(),
-		Imported:        !create && state.Decision.IsNull(),
+		Status:            status,
+		Decision:          plan.Decision.ValueString(),
+		Create:            create,
+		DecisionChanged:   !create && !plan.Decision.Equal(state.Decision),
+		ReviewChanged:     !create && !plan.Review.Equal(state.Review),
+		NextRequest:       state.NextRequest.ValueString(),
+		Imported:          !create && state.Decision.IsNull(),
+		ClosedByRequester: closed,
 	})
 	plan.CurrentStatus = types.StringValue(out.PlannedStatus)
 	plan.NextRequest = stringOrNull(out.NextRequest)
@@ -385,6 +405,10 @@ func (r *grantDecisionResource) warn(ctx context.Context, req resource.ModifyPla
 			resp.Diagnostics.AddWarning(fmt.Sprintf("%s is waiting for a request", name),
 				"No request found that you can see. The application team may not have requested access yet; the next request is approved without a new PR (next_request = \"approve\").")
 		}
+	case warnApprovedAgain:
+		resp.Diagnostics.AddWarning(fmt.Sprintf("%s will be approved again", name),
+			"The application team closed the grant itself (it cancelled or removed its grant) and requested access again. "+
+				"With decision = \"APPROVED\" that needs no new review. After a reject or revoke by the topic team, a new request waits for a review change.")
 	case warnReopened:
 		resp.Diagnostics.AddWarning(fmt.Sprintf("%s: new request since the last decision", name),
 			"The application team requested access again. Change review (for example to this PR's number) or decision in a PR to approve it.")
@@ -489,14 +513,16 @@ func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDeci
 	if plan.Id.IsUnknown() {
 		plan.Id = types.StringValue(compositeDecisionID(plan))
 	}
+	closed := g != nil && closedByRequester(g.Status, g.ProcessedBy, g.RequestedBy, r.provider.grants.myEmail())
 	o := decide(decisionInput{
-		Status:          status,
-		Decision:        plan.Decision.ValueString(),
-		Create:          create,
-		DecisionChanged: !create && !plan.Decision.Equal(state.Decision),
-		ReviewChanged:   !create && !plan.Review.Equal(state.Review),
-		NextRequest:     state.NextRequest.ValueString(),
-		Imported:        !create && state.Decision.IsNull(),
+		Status:            status,
+		Decision:          plan.Decision.ValueString(),
+		Create:            create,
+		DecisionChanged:   !create && !plan.Decision.Equal(state.Decision),
+		ReviewChanged:     !create && !plan.Review.Equal(state.Review),
+		NextRequest:       state.NextRequest.ValueString(),
+		Imported:          !create && state.Decision.IsNull(),
+		ClosedByRequester: closed,
 	})
 	planned := plan.CurrentStatus
 	switch o.Action {
