@@ -2,6 +2,8 @@
 
 Application Access Grant Rejection: Reject a request to access a topic
 
+~> **Deprecated:** use [`axual_application_access_grant_decision`](application_access_grant_decision) with `decision = "DENIED"`. Existing blocks move with a `moved` block (Terraform 1.8 or later); see that page.
+
 ## Note
 - Rejection cannot be edited
 - Only Pending grants can be rejected
