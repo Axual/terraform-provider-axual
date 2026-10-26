@@ -76,16 +76,24 @@ To approve it, change `review` in a PR, for example to the PR number:
 - Changing `application` from a name to a UID (or the reverse) is an in-place update without an action.
 - Changing `application`, `topic`, `environment` or `access_type` to another grant replaces the block. The plan warns that the old grant stays `Approved`.
 
+## The id
+
+`id` is `<topic>/<environment>/<access_type>/<application>` with the values the block was created (or imported) with, and it never changes. After you change `application` from a name to a UID, `id` still contains the name. That is expected: `grant_id` holds the grant UID.
+
+## One decision per grant
+
+Keep one decision block per grant. When two decisions in one run point at the same grant (for example one by name and one by UID), the plan warns.
+
 ## Auto environments
 
-In an Auto environment the platform approves every request straight away. `decision = "DENIED"` revokes, but the next request is approved again, and every plan warns about it.
+In an Auto environment the platform approves every request straight away. `decision = "DENIED"` revokes, but the next request is approved again, and every plan warns about it. The provider reads the environment to find out; when the topic team may not read the environment (a private environment of another team), there is no warning, and warnings show the environment UID instead of its name.
 
 ## Platform Manager versions
 
 | Platform Manager | Support |
 |---|---|
 | 15.0.4 and later, 16.x | Public and private applications |
-| 15.0.1 to 15.0.3 | Public applications. Requests of private applications aren't visible to the topic owner and show as `Not found`. |
+| 15.0.1 to 15.0.3 | Public applications. Requests of private applications aren't visible to the topic owner and show as `Not found`; the provider reads the Platform Manager version and says so in the warning. |
 
 ## Import
 
@@ -96,7 +104,7 @@ terraform import axual_application_access_grant_decision.example 4fa97a80527f497
 terraform import axual_application_access_grant_decision.example a7b9346f4e9a49ebb6934553dbc246c3
 ```
 
-The first plan after an import sets `decision` from the configuration.
+The first plan after an import sets `decision` from the configuration. Like a new block, it approves a `Pending` request; unlike a new block, it never pre-approves a `Rejected`, `Revoked` or `Cancelled` grant, so importing many grants at once can't give back access that was taken away.
 
 In Terraform 1.12 or later, an `import` block can use `identity`:
 

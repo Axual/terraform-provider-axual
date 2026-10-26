@@ -90,6 +90,17 @@ Reason from the topic team: "Not allowed to read logs, see INC-1234".
 Change request_again in a PR to ask again, or request again in the UI.
 ```
 
+A plan doesn't show an approval as a change: the new `status` appears after the next apply, or with `terraform apply -refresh-only`. To see it in CI, add a `check` block:
+
+```hcl
+check "logs_access_approved" {
+  assert {
+    condition     = axual_application_access_grant.log_scraper_reads_logs.status == "Approved"
+    error_message = "Access to logs is ${axual_application_access_grant.log_scraper_reads_logs.status}."
+  }
+}
+```
+
 ### Requesting Again
 
 Change `request_again` (free text) in a PR. When the grant is Rejected, Revoked or Cancelled, the apply sends one request and the same grant reopens. On a Pending or Approved grant a change does nothing; it never revokes.
@@ -101,7 +112,7 @@ resource "axual_application_access_grant" "log_scraper_reads_logs" {
 }
 ```
 
-If the topic team rejects again, nothing more happens until `request_again` changes again.
+If the topic team rejects again, nothing more happens until `request_again` changes again. A change while the grant is Pending or Approved is stored and does nothing, also not later: after a reject, change the value again.
 
 ### Cancelling or Giving Up Access
 
@@ -153,6 +164,8 @@ data "axual_application_access_grants" "open" {
   statuses    = ["Pending"]
 }
 ```
+
+`data.axual_application_access_grants` shows the grants as they were when the plan started, before the decisions of the same run.
 
 ### Removing a Decision
 
