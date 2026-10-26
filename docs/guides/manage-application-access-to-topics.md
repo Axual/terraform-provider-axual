@@ -133,7 +133,7 @@ One block for all decisions on a topic and environment:
 ```hcl
 locals {
   logs_dev_consumers = {
-    "Log Scraper" = { decision = "APPROVED", review = "PR-41" }
+    "Log Scraper" = { decision = "APPROVED" }
     "POC Secret"  = { decision = "DENIED", reason = "Not allowed to read logs, see INC-1234" }
   }
 }
@@ -152,8 +152,10 @@ resource "axual_application_access_grant_decision" "logs_dev_consumers" {
 
 - **Approve:** merge a PR with `decision = "APPROVED"`. The two repositories can apply in either order: before the request exists, the plan only warns, and the first request is approved by the next apply (`next_request = "approve"`).
 - **Reject or revoke:** `decision = "DENIED"` with a `reason`. The application team reads the reason.
-- **A request made again** after a reject or revoke is not approved automatically. The plan warns; change `review` (for example to the PR number) in a PR to approve it.
-- **Every action is an in-place change** of `current_status` in the plan, for example `"Pending" -> "Approved"`.
+- **A request made again after the topic team rejected or revoked** is not approved automatically. The plan warns; change `review` (for example to the PR number) in a PR to approve it.
+- **A request made again after the application team closed the grant itself** (it removed its grant, or cancelled, and asked again) is approved again under `decision = "APPROVED"`, with a warning. If both repositories use the same account, the provider can't tell the sides apart and waits for a `review` change.
+- **An action on an existing block is an in-place change** of `current_status` in the plan, for example `"Pending" -> "Approved"`. A new block shows `current_status = (known after apply)` and a warning that names the action, for example `Log Scraper (CONSUMER on logs, dev) will be approved by this apply`.
+- **A renamed application** keeps its decision: the plan warns `Application "Log Scraper" is now named "..."`; update `application`.
 
 ### Finding Open Requests
 
@@ -236,19 +238,41 @@ moved {
 }
 
 resource "axual_application_access_grant_decision" "approve_grant" {
-  application = "Log Scraper"
-  topic       = axual_topic.my_topic.id
-  environment = data.axual_environment.dev.id
-  access_type = "CONSUMER"
-  decision    = "APPROVED"
+  application       = "Log Scraper"
+  topic             = axual_topic.my_topic.id
+  environment       = data.axual_environment.dev.id
+  access_type       = "CONSUMER"
+  decision          = "APPROVED"
+  revoke_on_destroy = true # keeps today's behaviour: removing this block revokes
 }
 ```
 
-The plan shows only the move. A moved rejection gets `decision = "DENIED"` with its reason. After the move:
+The plan shows only the move. A moved approval keeps `revoke_on_destroy = true`, like the approval it replaces: without that line in the configuration, the migration plan shows `revoke_on_destroy = true -> false`, and removing the block later no longer revokes. Decide that in the migration PR. A moved rejection gets `decision = "DENIED"` with its reason.
 
-- removing the block no longer revokes, unless `revoke_on_destroy = true`;
-- a request made again after a reject or revoke waits for a `review` change.
+One thing works differently after the move: a request made again after the topic team rejected or revoked waits for a `review` change.
 
 With Terraform 1.7, use a `removed` block with `lifecycle { destroy = false }` for the old resource and an `import` block for the decision. Don't simply delete an approval: that revokes the grant.
 
 Don't manage one grant with an old resource and a decision at the same time.
+
+---
+
+## Sections that moved
+
+Earlier versions of this guide had these sections; links to them land here.
+
+### Re-approving After Revocation
+
+The same grant reopens when the application team asks again (`request_again`, or the UI). The topic team approves it with a `review` change; see [Deciding](#deciding).
+
+### Rejecting a Grant (Topic Owner Only)
+
+Use `decision = "DENIED"` with a `reason` on `axual_application_access_grant_decision`; see [Deciding](#deciding).
+
+### Revoking in Multi-Repo Setup
+
+The topic team sets `decision = "DENIED"` with a `reason`; the application team can still delete its grant. See [Multi-Repository Setup](#multi-repository-setup).
+
+### Import Order
+
+Import the grant and the decision in any order; see [Import](#import).

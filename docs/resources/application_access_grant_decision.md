@@ -10,13 +10,18 @@ Use it in the topic team's repository. The application team requests access with
 |---|---|---|
 | `Not found` (no request yet) | Warning: waiting for the request. The next request is approved (`next_request = "approve"`). | Nothing |
 | `Pending`, reviewed by this plan | **Approve** | **Reject** with `reason` |
-| `Pending`, requested again after a decision | Warning only: change `review` or `decision` in a PR to approve it | **Reject** with `reason` |
+| `Pending`, requested again after the topic side rejected or revoked | Warning only: change `review` or `decision` in a PR to approve it | **Reject** with `reason` |
+| `Pending`, requested again after the application team closed it itself | **Approve** again, with a warning | **Reject** with `reason` |
 | `Approved` | Nothing | **Revoke** with `reason` |
 | `Rejected`, `Revoked`, `Cancelled` | Warning: waiting for a new request | Nothing |
 
 A `Pending` request is *reviewed by this plan* when the block is created, when `decision` or `review` changes, or when `next_request = "approve"`. `next_request` becomes `"approve"` only when the block is created, or `decision` changes to `APPROVED`, while nothing is `Pending`; the first request that arrives uses it up.
 
-Every action shows in the plan as an in-place change of `current_status`, for example `current_status = "Pending" -> "Approved"`. Nothing about the grant's status fails a plan.
+An action on an existing block shows in the plan as an in-place change of `current_status`, for example `current_status = "Pending" -> "Approved"`. A new block shows `(known after apply)` and a warning that names the action. Nothing about the grant's status fails a plan.
+
+The application team closed the grant itself when the last cancel or revoke was done by the user who then asked again, and that user isn't the one running this plan. With one account for both repositories the provider can't tell the sides apart, and a request made again waits for a `review` change.
+
+The decision finds its grant by `grant_id` first, then by application UID, then by name, so a renamed application keeps its decision; the plan warns until `application` is updated.
 
 ## Required Roles
 - STREAM_ADMIN or be part of the Team that owns the Topic
@@ -53,7 +58,7 @@ Topic repository, one block for all decisions on a topic and environment:
 ```terraform
 locals {
   logs_dev_consumers = {
-    "Log Scraper" = { decision = "APPROVED", review = "PR-41" }
+    "Log Scraper" = { decision = "APPROVED" }
     "POC Secret"  = { decision = "DENIED", reason = "Not allowed to read logs, see INC-1234" }
   }
 }
@@ -109,7 +114,7 @@ Keep one decision block per grant. When two decisions in one run point at the sa
 
 ## Auto environments
 
-In an Auto environment the platform approves every request straight away. `decision = "DENIED"` revokes, but the next request is approved again, and every plan warns about it. The provider reads the environment to find out; when the topic team may not read the environment (a private environment of another team), there is no warning, and warnings show the environment UID instead of its name.
+In an Auto environment the platform approves every request straight away. `decision = "DENIED"` revokes, but the next request is approved again, and every plan warns about it.
 
 ## Platform Manager versions
 
@@ -169,9 +174,10 @@ resource "axual_application_access_grant_decision" "log_scraper" {
   environment = data.axual_environment.dev.id
   access_type = "CONSUMER"
   decision    = "APPROVED"
+  revoke_on_destroy = true # keeps today's behaviour: removing this block revokes
 }
 ```
 
-The plan shows only the move. A moved `_rejection` gets `decision = "DENIED"` and keeps its reason. Two things work differently after the move: removing the block no longer revokes unless `revoke_on_destroy = true`, and a request made again after a reject or revoke waits for a `review` change.
+The plan shows only the move. A moved `_approval` keeps `revoke_on_destroy = true`, so removing the block still revokes, as before. Without `revoke_on_destroy = true` in the configuration, the migration plan shows `revoke_on_destroy = true -> false`: accept it only if removing a decision should no longer revoke. A moved `_rejection` gets `decision = "DENIED"` and keeps its reason. One thing works differently after the move: a request made again after the topic team rejected or revoked waits for a `review` change.
 
 For Terraform before 1.8, use a `removed` block with `lifecycle { destroy = false }` for the old resource (Terraform 1.7) and an `import` block for the new one. Don't delete the old approval: that revokes the grant.

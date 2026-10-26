@@ -45,7 +45,7 @@ resource "axual_topic_config" "logs_in_dev" {
 # application team's request itself; the two repositories can apply in either order.
 locals {
   logs_dev_consumers = {
-    "LogScraper" = { decision = "APPROVED", review = "PR-1" }
+    "LogScraper" = { decision = "APPROVED" }
   }
 }
 

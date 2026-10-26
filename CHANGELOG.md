@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 * Leaving out `roles` on an `axual_user` now keeps the roles the user has. Only `roles = []` removes them
 * Changing `application`, `topic`, `environment` or `access_type` of an `axual_application_access_grant` fails in the plan instead of at apply (AXPD-12412)
+* Upgrading from `axual_application_access_grant_approval`: a `moved` block keeps `revoke_on_destroy = true`, so removing the moved decision still revokes. Without `revoke_on_destroy = true` in the configuration the migration plan shows the change to `false`; accept it only if removing a decision should no longer revoke (AXPD-12412)
 * The access guides describe the platform correctly: Rejected, Revoked and Cancelled grants are closed, not final; a new request reopens the same grant (AXPD-12412)
 * A plan that leaves out `configs`, `definition` or `sql_script` of an `axual_application_deployment` that has them stops with `Missing configs` (or `definition`, `sql_script`), unless the application or environment changes. `configs = {}` removes all configs (Platform Manager 16.0.0 or later). Before, the apply removed them and stopped the deployment
 
