@@ -37,6 +37,7 @@ func (r *applicationAccessGrantRejectionResource) Metadata(ctx context.Context, 
 func (r *applicationAccessGrantRejectionResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: `Application Access Grant Rejection: Reject a request to access a topic`,
+		DeprecationMessage:  "Use axual_application_access_grant_decision with decision = \"DENIED\" instead. Move existing blocks with a moved block (Terraform 1.8 or later). See the guide \"Managing application access to topics\".",
 		Attributes: map[string]schema.Attribute{
 			"application_access_grant": schema.StringAttribute{
 				MarkdownDescription: "Application Access Grant Unique Identifier.",
