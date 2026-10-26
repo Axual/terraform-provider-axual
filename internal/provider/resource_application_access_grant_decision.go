@@ -231,8 +231,10 @@ func (r *grantDecisionResource) Read(ctx context.Context, req resource.ReadReque
 			d.Id = types.StringValue(compositeDecisionID(d))
 		}
 	}
-	b, _ := json.Marshal(p)
-	resp.Diagnostics.Append(resp.Private.SetKey(ctx, grantDecisionPrivateKey, b)...)
+	if resp.Private != nil { // nil when `terraform query` reads a found resource
+		b, _ := json.Marshal(p)
+		resp.Diagnostics.Append(resp.Private.SetKey(ctx, grantDecisionPrivateKey, b)...)
+	}
 	r.provider.grants.markRead(d.Id.ValueString())
 	resp.Diagnostics.Append(resp.State.Set(ctx, &d)...)
 	r.setIdentity(ctx, d, resp.Identity, &resp.Diagnostics)

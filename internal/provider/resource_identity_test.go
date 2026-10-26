@@ -91,6 +91,13 @@ func TestIdentityWrapperHidesNothing(t *testing.T) {
 func TestListSpecsIdentityIsAStringAttribute(t *testing.T) {
 	ctx := context.Background()
 	for _, s := range listSpecs() {
+		if s.ownIdentity {
+			// A resource with its own identity schema; the list resource takes the identity from its ImportState.
+			if _, ok := s.newResource(AxualProvider{}).(resource.ResourceWithIdentity); !ok {
+				t.Errorf("%s: ownIdentity is set but the resource has no identity schema", s.typeName)
+			}
+			continue
+		}
 		var resp resource.SchemaResponse
 		s.newResource(AxualProvider{}).Schema(ctx, resource.SchemaRequest{}, &resp)
 		if _, ok := resp.Schema.Attributes[s.attr].(schema.StringAttribute); !ok {
