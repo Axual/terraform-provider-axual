@@ -179,8 +179,9 @@ resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
   ]
 }
 
-resource "axual_application_access_grant_approval" "connector_axual_application_access_grant_approval"{
-  application_access_grant = axual_application_access_grant.dash_consume_from_logs_in_dev.id
+resource "axual_application_access_grant_decision" "connector_access" {
+  grant    = axual_application_access_grant.dash_consume_from_logs_in_dev.id
+  decision = "APPROVED"
 }
 ```
 
@@ -207,7 +208,7 @@ To run the above configuration, your user must have the following roles:
 |----------------------|--------------------------------------------------------------------------------------|
 | `TENANT_ADMIN`       | `axual_user`, `axual_group`                                                          |
 | `SCHEMA_AUTHOR`      | `axual_schema_version`                                                               |
-| `STREAM_AUTHOR`      | `axual_topic`, `axual_topic_config`, `axual_application_access_grant_approval`       |
+| `STREAM_AUTHOR`      | `axual_topic`, `axual_topic_config`, `axual_application_access_grant_decision`       |
 | `APPLICATION_AUTHOR` | `axual_application`, `axual_application_principal`, `axual_application_access_grant` |
 | `ENVIRONMENT_AUTHOR` | `axual_environment`                                                                  |
 

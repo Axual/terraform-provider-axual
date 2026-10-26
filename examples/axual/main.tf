@@ -105,6 +105,7 @@ resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
   ]
 }
 
-resource "axual_application_access_grant_approval" "connector_axual_application_access_grant_approval"{
-  application_access_grant = axual_application_access_grant.dash_consume_from_logs_in_dev.id
+resource "axual_application_access_grant_decision" "connector_access" {
+  grant    = axual_application_access_grant.dash_consume_from_logs_in_dev.id
+  decision = "APPROVED"
 }

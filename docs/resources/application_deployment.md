@@ -52,7 +52,7 @@ A `FLINK_SQL` deployment needs all of the following before it can be created. Th
 - An empty string `""` **is** a valid config value and is sent as an empty string (not converted to `null`). It is the right value for configs that accept "no value".
 
 ### Design Decision: Use of `depends_on`
-- With `autostart = true` (the default), ensure the use of the `depends_on` attribute as shown in the example below. This guarantees that Terraform creates the required `axual_application_access_grant_approval` resource before creating `axual_application_deployment` resource. With `autostart = false` the deployment comes first, and the `depends_on` on the approval belongs on the `axual_application_deployment_state` instead (see the [Connector Application guide](../guides/connector-application.md)).
+- With `autostart = true` (the default), ensure the use of the `depends_on` attribute as shown in the example below. This guarantees that Terraform approves the grant (`axual_application_access_grant_decision` with `decision = "APPROVED"`) before it creates the `axual_application_deployment`. With `autostart = false` the deployment comes first, and the `depends_on` on the decision belongs on the `axual_application_deployment_state` instead (see the [Connector Application guide](../guides/connector-application.md)).
 - We use the `depends_on` attribute because each connector plugin determines the topic names it should use in its own way. By explicitly specifying `depends_on`, the connector owner can protect the deployment until the necessary approvals are in place. Due to the dynamic nature of Connect, this structure is necessary to maintain flexibility and control over the resource creation process.
 
 ## Platform Manager version
@@ -119,7 +119,7 @@ resource "axual_application_deployment" "connector_axual_application_deployment"
     "errors.tolerance" = "none"
   }
   depends_on = [
-    axual_application_access_grant_approval.connector_axual_application_access_grant_approval-logsource-1,
+    axual_application_access_grant_decision.connector_access-logsource-1,
   ]
 }
 ```

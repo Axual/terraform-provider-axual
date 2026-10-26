@@ -54,9 +54,10 @@ list "axual_application_deployment" "team" {
   }
 }
 
-# Resources of the topic team: it approves the grants on its topics.
+# Resources of the topic team: its decisions on the grants on its topics. Approved grants become
+# decision = "APPROVED", rejected and revoked ones decision = "DENIED"; pending ones are left out.
 
-list "axual_application_access_grant_approval" "topic_team" {
+list "axual_application_access_grant_decision" "topic_team" {
   provider = axual
   limit    = 1000
   config {

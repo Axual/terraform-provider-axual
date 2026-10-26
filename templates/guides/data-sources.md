@@ -240,8 +240,9 @@ data "axual_application_access_grant" "logs_producer_grant" {
 Now we can use this data source when creating a resource:
 
 ```hcl
-resource "axual_application_access_grant_approval" "logs_producer_approval" {
-  application_access_grant = data.axual_application_access_grant.logs_producer_grant.id
+resource "axual_application_access_grant_decision" "logs_producer_approval" {
+  grant    = data.axual_application_access_grant.logs_producer_grant.id
+  decision = "APPROVED"
 }
 ```
 
