@@ -55,7 +55,7 @@ func (d *applicationAccessGrantsDataSource) Schema(_ context.Context, _ datasour
 		return schema.StringAttribute{MarkdownDescription: desc, Computed: true}
 	}
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Lists application access grants, for example the open requests on a topic. Works on every Terraform version; for generating config, see `terraform query` (Terraform 1.14).",
+		MarkdownDescription: "Lists application access grants, for example the open requests on a topic. Works on every Terraform version; for generating config, see `terraform query` (Terraform 1.14). Shows the grants as they were when the plan started, before the decisions of the same run.",
 		Attributes: map[string]schema.Attribute{
 			"topic":       schema.StringAttribute{MarkdownDescription: "Topic UID.", Optional: true},
 			"environment": schema.StringAttribute{MarkdownDescription: "Environment UID.", Optional: true},

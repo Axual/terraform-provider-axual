@@ -3,12 +3,12 @@
 page_title: "axual_application_access_grants Data Source - terraform-provider-axual"
 subcategory: ""
 description: |-
-  Lists application access grants, for example the open requests on a topic. Works on every Terraform version; for generating config, see terraform query (Terraform 1.14).
+  Lists application access grants, for example the open requests on a topic. Works on every Terraform version; for generating config, see terraform query (Terraform 1.14). Shows the grants as they were when the plan started, before the decisions of the same run.
 ---
 
 # axual_application_access_grants (Data Source)
 
-Lists application access grants, for example the open requests on a topic. Works on every Terraform version; for generating config, see `terraform query` (Terraform 1.14).
+Lists application access grants, for example the open requests on a topic. Works on every Terraform version; for generating config, see `terraform query` (Terraform 1.14). Shows the grants as they were when the plan started, before the decisions of the same run.
 
 
 
