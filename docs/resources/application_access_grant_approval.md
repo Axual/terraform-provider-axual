@@ -2,6 +2,8 @@
 
 Application Access Grant Approval: Approve access to a topic
 
+~> **Deprecated:** use [`axual_application_access_grant_decision`](application_access_grant_decision) with `decision = "APPROVED"`. Existing blocks move with a `moved` block (Terraform 1.8 or later); see that page.
+
 ## Note
 - Approval cannot be edited
 - Revoke grant by destroying application_access_grant_approval

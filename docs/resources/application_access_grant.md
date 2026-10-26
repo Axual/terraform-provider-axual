@@ -11,7 +11,9 @@ Application Access Grant resource. Purpose of a grant is to request access to a 
 - To request access to a topic, create an application_access_grant
 - To cancel a grant, delete the application_access_grant
 - Application Access Grant that are auto authorized do not need any further action.
-- Application Access Grant that required further action can be handled with application_access_grant_approval and application_access_grant_rejection.
+- In a Stream owner environment, the topic team approves or rejects with `axual_application_access_grant_decision`.
+- `decision_reason`, `decided_at` and `decided_by` show the topic team's answer. A plan warns when the grant is Rejected, Revoked or Cancelled.
+- To ask again after a reject or revoke, change `request_again` (free text, for example a ticket). The same grant reopens. A change never revokes.
 
 ## Required Roles
 - APPLICATION_ADMIN or be part of the Team that owns the Application
@@ -26,8 +28,15 @@ Application Access Grant resource. Purpose of a grant is to request access to a 
 - `environment` (String) Environment Unique Identifier
 - `topic` (String) Topic Unique Identifier
 
+### Optional
+
+- `request_again` (String) Free text. Changing the value asks for access again, once, when the grant is `Rejected`, `Revoked` or `Cancelled`: the same grant reopens. On a `Pending` or `Approved` grant a change does nothing. It never revokes. A good value is the reason or ticket, for example `"INC-1300: consumer group fixed"`.
+
 ### Read-Only
 
+- `decided_at` (String) When the grant was approved, rejected or revoked. Null while the grant is `Pending` or `Cancelled`, also when it was decided before and has been requested again.
+- `decided_by` (String) Who approved, rejected or revoked the grant. Null while the grant is `Pending` or `Cancelled`.
+- `decision_reason` (String) The reason the topic team gave when it rejected or revoked the grant. Null unless the status is `Rejected` or `Revoked`.
 - `id` (String) Application Access Grant Unique Identifier
 - `status` (String) Status of Application Access Grant
 
@@ -37,13 +46,13 @@ Application Access Grant resource. Purpose of a grant is to request access to a 
 
 ### When Does This Happen?
 
-When you create an `axual_application_access_grant_approval` or `axual_application_access_grant_rejection` resource, it changes the grant's status via the API. However, the grant resource's Terraform state is **not automatically updated** - it still shows the previous status until the next refresh.
+When the topic team's `axual_application_access_grant_decision` approves, rejects or revokes the grant, it changes the grant's status via the API. However, the grant resource's Terraform state is **not automatically updated** - it still shows the previous status until the next refresh.
 
 **Example timeline:**
 
 ```
 1. terraform apply (creates grant)     → state: status = "Pending"
-2. terraform apply (creates approval)  → API changes grant to "Approved"
+2. topic team applies its decision     → API changes grant to "Approved"
                                        → grant state still shows "Pending" (STALE)
 3. terraform refresh (or next apply)   → state syncs: status = "Approved"
 ```
@@ -92,15 +101,15 @@ resource "axual_application_access_grant" "my_grant" {
 
 The `status` attribute determines what actions are available:
 
-| Status | Can Create Approval? | Can Delete Grant? |
-|--------|---------------------|-------------------|
-| `Pending` | ✅ Yes | ✅ Yes (cancels) |
-| `Approved` | ✅ Yes (adopts into state) | ✅ Yes (auto-revokes first) |
-| `Revoked` | ❌ No - must recreate grant | ✅ Yes (removes from state) |
-| `Rejected` | ❌ No - must recreate grant | ✅ Yes (removes from state) |
-| `Cancelled` | ❌ No - must recreate grant | ✅ Yes (removes from state) |
+| Status | Topic team can approve? | Delete the grant |
+|--------|-------------------------|------------------|
+| `Pending` | ✅ Yes | Cancels |
+| `Approved` | Already approved | Revokes first |
+| `Revoked` | After a new request | Removes from state |
+| `Rejected` | After a new request | Removes from state |
+| `Cancelled` | After a new request | Removes from state |
 
-~> **Important:** Revoked, Rejected, and Cancelled are terminal states. To request access again, delete the grant resource and recreate it.
+~> **Important:** Revoked, Rejected and Cancelled are closed, not final. A new request (change `request_again`, or request in the UI) reopens the same grant as `Pending`, or `Approved` in an Auto environment.
 
 ## Example Usage
 
@@ -145,7 +154,7 @@ When deleting an `axual_application_access_grant`:
 | Revoked | Grant is removed from state |
 | Cancelled | Grant is removed from state |
 
-This means you no longer need a separate `axual_application_access_grant_approval` resource just for cleanup in Auto environments - approved grants are auto-revoked on delete.
+Approved grants are revoked on delete, also in Auto environments.
 
 In Terraform 1.12 or later, an `import` block can use `identity` instead of `id`:
 

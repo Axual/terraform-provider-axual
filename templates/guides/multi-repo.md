@@ -24,7 +24,7 @@ The teams will have the following responsibilities and roles:
 - **Application Team**: Manages `axual_application`, `axual_application_principal`, and `axual_application_access_grant` resources.
   - Roles: `APPLICATION_AUTHOR`
 
-- **Topic Team**: Manages `axual_topic`, `axual_topic_config`, `axual_schema_version`, and approval/rejection of `axual_application_access_grant`.
+- **Topic Team**: Manages `axual_topic`, `axual_topic_config`, `axual_schema_version`, and `axual_application_access_grant_decision` (the decision about each access request).
   - Roles: `STREAM_AUTHOR`, `SCHEMA_AUTHOR`
 
 ## Scenario
@@ -53,12 +53,14 @@ These resources are managed in a separate Terraform state using a user account w
 created by the Topic team in the same environment.
 The Grant request will remain in a PENDING state until approved or rejected by the Topic team.
 
-- The Topic team reviews the request from the Application team. To approve the request, the Topic team creates an Application Access Grant Approval resource. To reject the request, the Topic team creates an Application Access Grant Rejection resource. 
+- The Topic team reviews the request from the Application team and records its decision in an `axual_application_access_grant_decision`: `decision = "APPROVED"` approves, `decision = "DENIED"` with a `reason` rejects. The decision finds the grant by application name or UID, topic, environment and access type, so no data source is needed. The two repositories can apply in either order.
 
-- If the Topic team later decides to revoke the Application team's access to a Topic, they simply remove the Application Access Grant Approval resource from their Terraform configuration. This action revokes the previously granted access.
+- If the Topic team later decides to revoke the Application team's access, it changes the decision to `decision = "DENIED"` with a `reason`. Removing the decision block does **not** revoke (unless `revoke_on_destroy = true`).
+
+- The Application team sees the answer in its own plan: `status`, `decision_reason`, `decided_at`, and a warning when the grant is Rejected or Revoked. To ask again, it changes `request_again` in a PR; the topic team approves that new request by changing `review` in a PR.
 
 ### Alternative flow
-- Instead of the Application Team creating the grant, it is possible for the Topic Team to create the Grant as well. In that case, the Topic Team would create both the Grant and Grant Approval resources in their repository. Please see the configuration under the comment `ALTERNATIVE FLOW SETUP` in  [Topic Team's Terraform Resources](https://github.com/Axual/terraform-provider-axual/blob/master/examples/3-team-guide/topic-team/main.tf)
+- Instead of the Application Team creating the grant, it is possible for the Topic Team to create the Grant as well. In that case, the Topic Team creates both the grant and the decision in its repository, and the decision refers to the grant with `grant = axual_application_access_grant.x.id`. If the instance disables self-approval, the plan warns that the platform doesn't offer the approval to the user who made the request. Please see the configuration under the comment `ALTERNATIVE FLOW SETUP` in  [Topic Team's Terraform Resources](https://github.com/Axual/terraform-provider-axual/blob/master/examples/3-team-guide/topic-team/main.tf)
 
 ### Revoking access
 
@@ -66,9 +68,8 @@ The Grant request will remain in a PENDING state until approved or rejected by t
 - This needs a member of the group that owns the application, or a user with the `APPLICATION_ADMIN`
   role. If the tenant lets only resource managers update and deploy, the member must also be a
   resource manager of that group.
-- If the deletion fails with `Application Access Grant cannot be deleted`, the Topic Team revokes the
-  grant instead, by deleting its `axual_application_access_grant_approval`.
-- After a revoke, the Topic Team must remove its `axual_application_access_grant_approval` for that
-  grant. Applying it again fails with `Cannot approve revoked grant`.
-- To get access again, the Application Team creates a new grant. See
-  [Re-approving After Revocation](manage-application-access-to-topics#re-approving-after-revocation).
+- The Topic Team revokes by setting `decision = "DENIED"` with a `reason`.
+- After a revoke, the Topic Team's decision stays in place; nothing fails.
+- To get access again, the Application Team changes `request_again` (or deletes and creates the grant
+  again); the same grant reopens. The Topic Team approves it by changing `review` in a PR. See
+  [Managing application access to topics](manage-application-access-to-topics).

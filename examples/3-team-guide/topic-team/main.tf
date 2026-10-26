@@ -41,34 +41,40 @@ resource "axual_topic_config" "logs_in_dev" {
 
 # MAIN FLOW SETUP
 
-data "axual_application" "log_scraper" {
-  name = "LogScraper"
+# The topic team's decisions on the logs topic in tf-development. The decision finds the
+# application team's request itself; the two repositories can apply in either order.
+locals {
+  logs_dev_consumers = {
+    "LogScraper" = { decision = "APPROVED", review = "PR-1" }
+  }
 }
 
-data "axual_application_access_grant" "logs_producer_produce_to_logs_in_dev" {
-  application = data.axual_application.log_scraper.id
-  topic = axual_topic.logs.id
+resource "axual_application_access_grant_decision" "logs_dev_consumers" {
+  for_each    = local.logs_dev_consumers
+  application = each.key
+  topic       = axual_topic.logs.id
   environment = data.axual_environment.environment-author-team.id
   access_type = "CONSUMER"
-}
-
-resource "axual_application_access_grant_approval" "connector_axual_application_access_grant_approval"{
-  application_access_grant = data.axual_application_access_grant.logs_producer_produce_to_logs_in_dev.id
+  decision    = each.value.decision
+  reason      = try(each.value.reason, null)
+  review      = try(each.value.review, null)
 }
 
 
 # ALTERNATIVE FLOW SETUP
 
+# data "axual_application" "log_scraper" {
+#   name = "LogScraper"
+# }
+#
 # resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
 #   application = data.axual_application.log_scraper.id
 #   topic = axual_topic.logs.id
 #   environment = data.axual_environment.environment-author-team.id
 #   access_type = "CONSUMER"
-#   # depends_on = [
-#   #   axual_application_principal.log_scraper_in_dev_principal,
-#   # ]
 # }
 #
-# resource "axual_application_access_grant_approval" "connector_axual_application_access_grant_approval"{
-#   application_access_grant = axual_application_access_grant.dash_consume_from_logs_in_dev.id
+# resource "axual_application_access_grant_decision" "dash_consume_from_logs_in_dev" {
+#   grant    = axual_application_access_grant.dash_consume_from_logs_in_dev.id
+#   decision = "APPROVED"
 # }

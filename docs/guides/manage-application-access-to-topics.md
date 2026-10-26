@@ -2,402 +2,240 @@
 page_title: "Managing application access to topics"
 ---
 
-This guide explains how to manage access grants through Terraform. The workflow depends on the environment's `authorization_issuer` setting.
+This guide explains how an application gets access to a topic through Terraform: the application team requests it, the topic team decides. The workflow depends on the environment's `authorization_issuer` setting.
 
 ## Environment Authorization Types
 
 | `authorization_issuer` | Grant Behavior |
 |------------------------|----------------|
-| `Auto` | Grants are approved automatically by the system |
-| `Stream owner` | Grants require explicit approval from Topic Owner |
-
-**Important**: In Environments where `Authorization Issuer=Stream owner`, the Topic Owner must create an `axual_application_access_grant_approval` resource to approve the grant. In Environments where `Authorization Issuer=Auto`, this is optional — the grant is already approved by the system. Creating the approval resource in Auto environments adopts it into Terraform state, which is useful if Topic Owner wants to revoke via Terraform. However, Application Owner can also revoke by simply deleting the grant resource (the provider auto-revokes approved grants on delete).
+| `Auto` | Requests are approved automatically by the system |
+| `Stream owner` | Requests wait for the topic team's decision |
 
 ---
 
 ## Key Resources
 
-| Resource | Purpose |
-|----------|---------|
-| `axual_application_access_grant` | Request access to a topic (created by Application Owner) |
-| `axual_application_access_grant_approval` | Approve a grant and manage it in Terraform state. **Deleting this resource revokes the grant.** Created by Topic Owner; can be deleted by either Application Owner or Topic Owner to revoke. |
-| `axual_application_access_grant_rejection` | Reject a pending grant (In Environments where `Authorization Issuer=Stream owner` only, because in Environments where `Authorization Issuer=Auto` grants are never pending) |
+| Resource | Who | Purpose |
+|----------|-----|---------|
+| `axual_application_access_grant` | Application team | Requests access. Deleting it cancels a Pending request or revokes an Approved grant. Shows the topic team's answer: `status`, `decision_reason`, `decided_at`, `decided_by`. |
+| `axual_application_access_grant_decision` | Topic team | Records the decision: `decision = "APPROVED"` or `"DENIED"`. The provider approves, rejects or revokes to match. |
+| `data.axual_application_access_grants` | Topic team | Lists grants, for example the open requests on a topic. |
+
+`axual_application_access_grant_approval` and `axual_application_access_grant_rejection` are deprecated. See [Moving from the approval and rejection resources](#moving-from-the-approval-and-rejection-resources).
 
 ---
 
 ## Grant Lifecycle
 
-### Auto Environment
+One grant exists per application, topic, environment and access type, and it keeps its UID.
 
 ```
-┌─────────┐    ┌──────────┐    ┌─────────┐
-│ Created │───►│ Approved │───►│ Revoked │
-└─────────┘    └──────────┘    └─────────┘
-                (automatic)     (delete approval OR delete grant)
-```
-
-1. Grant is created → automatically approved by the system → application can produce/consume
-2. *(Optional)* Topic Owner creates approval resource → adopts the grant into Terraform state
-3. To revoke: Delete approval resource or delete grant directly (auto-revokes)
-
-### Stream Owner Environment
-
-```
-                         ┌───────────┐
-                    ┌───►│ Approved  │───┐
-                    │    └───────────┘   │ (delete approval)
-                    │                    ▼
-┌─────────┐    ┌─────────┐          ┌─────────┐
-│ Created │───►│ Pending │          │ Revoked │
-└─────────┘    └─────────┘          └─────────┘
-                    │
-                    ├───►┌──────────┐
-                    │    │ Rejected │
-                    │    └──────────┘
-                    │
-                    └───►┌───────────┐
-                         │ Cancelled │
-                         └───────────┘
+                     ┌──────────┐  decision = "DENIED"   ┌─────────┐
+            ┌───────►│ Approved │───────────────────────►│ Revoked │
+            │        └──────────┘  (or delete the grant) └─────────┘
+┌─────────┐ │                                                 │
+│ Pending │─┤        ┌──────────┐                             │
+└─────────┘ ├───────►│ Rejected │  decision = "DENIED"        │
+     ▲      │        └──────────┘                             │
+     │      │        ┌───────────┐                            │
+     │      └───────►│ Cancelled │  delete the grant          │
+     │               └───────────┘                            │
+     └──── request again (request_again, or the UI) ──────────┘
 ```
 
 | From | To | Action |
 |------|----|--------|
-| Created | Pending | Grant created (automatic) |
-| Pending | Approved | Topic Owner creates approval |
-| Pending | Rejected | Topic Owner creates rejection |
-| Pending | Cancelled | Application Owner deletes grant |
-| Approved | Revoked | Delete approval or delete grant (auto-revokes) |
+| none | Pending (Approved in Auto) | Application team creates the grant |
+| Pending | Approved | Topic team: `decision = "APPROVED"` |
+| Pending | Rejected | Topic team: `decision = "DENIED"` with a `reason` |
+| Pending | Cancelled | Application team deletes the grant |
+| Approved | Revoked | Topic team: `decision = "DENIED"`, or the application team deletes the grant |
+| Rejected, Revoked, Cancelled | Pending | Application team requests again: the **same** grant reopens |
 
-**Terminal states (Revoked, Rejected, Cancelled):** Delete the grant and recreate to request access again.
+Rejected, Revoked and Cancelled are closed, not final.
 
 ---
 
-## Application Owner
+## Application Team
 
 ### Requesting Access
 
-Create an `axual_application_access_grant` resource:
-
 ```hcl
-resource "axual_application_access_grant" "my_app_consume_logs" {
-  application = axual_application.my_app.id
+resource "axual_application_access_grant" "log_scraper_reads_logs" {
+  application = axual_application.log_scraper.id
   topic       = data.axual_topic.logs.id
   environment = data.axual_environment.dev.id
-  access_type = "CONSUMER"  # or "PRODUCER"
-  depends_on  = [
-    axual_application_principal.my_app_principal,
-    axual_topic_config.logs_in_dev
-  ]
+  access_type = "CONSUMER"
+  depends_on  = [axual_application_principal.log_scraper_dev]
+}
+
+output "logs_access" {
+  value = {
+    status = axual_application_access_grant.log_scraper_reads_logs.status
+    reason = axual_application_access_grant.log_scraper_reads_logs.decision_reason
+  }
 }
 ```
 
-- **Environments with `Authorization Issuer=Auto`**: Grant is approved automatically by the system. Topic Owner can optionally create approval resource to manage it in Terraform. Application Owner can revoke by deleting the grant directly (auto-revokes).
-- **Environments with `Authorization Issuer=Stream owner`**: Grant starts in **Pending** status. Topic Owner must create approval resource to approve.
+Then open a PR in the topic team's repository that adds the decision (see below).
 
-### Pending Grant: Cancel vs Reject (Stream Owner Environment Only)
+### Seeing the Answer
 
-A pending grant can be resolved in two ways:
+`status`, `decision_reason`, `decided_at` and `decided_by` show the topic team's decision. They are null while the grant is Pending. When the grant is Rejected, Revoked or Cancelled, every plan warns:
 
-| Action | Who | Status Change | How |
-|--------|-----|---------------|-----|
-| **Cancel** | Application Owner | Pending → Cancelled | Delete `axual_application_access_grant` |
-| **Reject** | Topic Owner | Pending → Rejected | Create `axual_application_access_grant_rejection` |
+```
+Warning: Grant Log Scraper (CONSUMER on logs, dev) is Rejected
 
-**Cancel** - Application Owner withdraws their access request:
-
-```bash
-terraform destroy -target=axual_application_access_grant.my_app_consume_logs
+Reason from the topic team: "Not allowed to read logs, see INC-1234".
+Change request_again in a PR to ask again, or request again in the UI.
 ```
 
-**Reject** - Topic Owner denies the access request (see [Rejecting a Grant](#rejecting-a-grant-topic-owner-only)).
+### Requesting Again
 
-**Note**: Once approved, deleting the grant will automatically revoke it first (auto-revoke behavior).
+Change `request_again` (free text) in a PR. When the grant is Rejected, Revoked or Cancelled, the apply sends one request and the same grant reopens. On a Pending or Approved grant a change does nothing; it never revokes.
+
+```hcl
+resource "axual_application_access_grant" "log_scraper_reads_logs" {
+  # ...
+  request_again = "INC-1300: consumer group fixed"
+}
+```
+
+If the topic team rejects again, nothing more happens until `request_again` changes again.
+
+### Cancelling or Giving Up Access
+
+Delete the `axual_application_access_grant`: a Pending grant is cancelled, an Approved grant is revoked.
 
 ### Changing Grant Attributes
 
-Grant attributes (`access_type`, `topic`, `application`, `environment`) cannot be updated in place.
-
-**Both environment types:**
-1. Topic Owner deletes their `axual_application_access_grant_approval` (this revokes the grant)
-2. Application Owner deletes the `axual_application_access_grant` resource
-3. Application Owner recreates the `axual_application_access_grant` with the new attributes
-4. Topic Owner recreates the `axual_application_access_grant_approval`
-
-In Auto environments, step 4 adopts the auto-approved grant into Terraform state.
-
-### Re-requesting Access After Rejection or Revocation
-
-Delete the `axual_application_access_grant` resource and recreate it:
-
-```bash
-terraform destroy -target=axual_application_access_grant.my_app_consume_logs
-terraform apply
-```
+`application`, `topic`, `environment` and `access_type` can't be changed in place. To switch from CONSUMER to PRODUCER, add a new grant block for PRODUCER, and remove the CONSUMER block when it's no longer needed (that revokes it).
 
 ---
 
-## Topic Owner
+## Topic Team
 
-### Approving a Grant
+### Deciding
 
-Reference the grant using a data source:
+One block for all decisions on a topic and environment:
 
 ```hcl
-data "axual_application_access_grant" "grant" {
-  application = data.axual_application.requesting_app.id
-  topic       = axual_topic.my_topic.id
+locals {
+  logs_dev_consumers = {
+    "Log Scraper" = { decision = "APPROVED", review = "PR-41" }
+    "POC Secret"  = { decision = "DENIED", reason = "Not allowed to read logs, see INC-1234" }
+  }
+}
+
+resource "axual_application_access_grant_decision" "logs_dev_consumers" {
+  for_each    = local.logs_dev_consumers
+  application = each.key                  # name or UID
+  topic       = axual_topic.logs.id
   environment = data.axual_environment.dev.id
   access_type = "CONSUMER"
+  decision    = each.value.decision
+  reason      = try(each.value.reason, null)
+  review      = try(each.value.review, null)
 }
 ```
 
-Create an approval resource:
+- **Approve:** merge a PR with `decision = "APPROVED"`. The two repositories can apply in either order: before the request exists, the plan only warns, and the first request is approved by the next apply (`next_request = "approve"`).
+- **Reject or revoke:** `decision = "DENIED"` with a `reason`. The application team reads the reason.
+- **A request made again** after a reject or revoke is not approved automatically. The plan warns; change `review` (for example to the PR number) in a PR to approve it.
+- **Every action is an in-place change** of `current_status` in the plan, for example `"Pending" -> "Approved"`.
+
+### Finding Open Requests
 
 ```hcl
-resource "axual_application_access_grant_approval" "approve_grant" {
-  application_access_grant = data.axual_application_access_grant.grant.id
+data "axual_application_access_grants" "open" {
+  topic       = axual_topic.logs.id
+  environment = data.axual_environment.dev.id
+  statuses    = ["Pending"]
 }
 ```
 
-**Behavior by environment type:**
-- **Stream owner**: This calls the approve API and changes status from Pending to Approved
-- **Auto**: The grant is already approved; this adopts it into Terraform state for management
+### Removing a Decision
 
-### Rejecting a Grant (Topic Owner Only)
-
-```hcl
-resource "axual_application_access_grant_rejection" "reject_grant" {
-  application_access_grant = data.axual_application_access_grant.grant.id
-  reason                   = "Access not authorized for this application"  # optional
-}
-```
-
-**Why Stream owner environments only?** In Auto environments, grants are never in Pending status—they're approved immediately. You can only reject a Pending grant. To deny access in Auto environments, revoke the grant instead (delete the approval resource).
-
-**Note**: Rejection is final. The Application Owner must delete and recreate the grant to request access again.
-
-### Revoking an Approved Grant
-
-**Both Application Owner and Topic Owner can revoke** an approved grant by deleting the `axual_application_access_grant_approval` resource:
-
-```bash
-terraform destroy -target=axual_application_access_grant_approval.approve_grant
-```
-
-This changes the grant status to **Revoked** in both Auto and Stream owner environments. Access is revoked immediately.
-
-**Alternative:** Application Owners can also delete the `axual_application_access_grant` resource directly — the provider will automatically revoke the grant before deleting it. This is useful when the approval resource is managed in a different repository.
-
-After revocation (via either method), the Application Owner's `axual_application_access_grant` resource can be deleted without API calls (just cleans up Terraform state).
+Removing the block makes no API call: an Approved grant stays Approved, and the plan warns. Set `decision = "DENIED"` first to revoke, or set `revoke_on_destroy = true` so that removing the block revokes.
 
 ---
 
 ## Multi-Repository Setup
 
-In a multi-team GitOps setup:
-
 | Team | Repository | Resources |
 |------|------------|-----------|
 | Application Team | `app-team-repo` | `axual_application_access_grant` |
-| Topic Team | `topic-team-repo` | `axual_application_access_grant_approval` (or `_rejection` in Stream owner) |
+| Topic Team | `topic-team-repo` | `axual_application_access_grant_decision` |
 
-The Topic Team references the Application Team's grant using a **data source**, not a direct resource reference.
+The decision finds the grant itself, by application name or UID, topic, environment and access type. No data source is needed, and private applications work (Platform Manager 15.0.4 or later).
 
-### Revoking in Multi-Repo Setup
+| Action | Who | How |
+|--------|-----|-----|
+| Request access | Application team | Create the grant, then a PR into the topic repository |
+| Approve | Topic team | Merge the PR with `decision = "APPROVED"` |
+| Reject or revoke | Topic team | `decision = "DENIED"` with a `reason` |
+| See the answer | Application team | `status`, `decision_reason`, plan warnings |
+| Ask again | Application team | Change `request_again` in a PR |
+| Approve a request made again | Topic team | Change `review` in a PR |
+| Give up access | Application team | Delete the grant (cancels or revokes) |
 
-**Either team can revoke independently—no coordination required.**
-
-Both Application Owner and Topic Owner can revoke by deleting `axual_application_access_grant_approval`:
-
-1. Delete `axual_application_access_grant_approval` from the repo that contains it
-2. Access is revoked immediately—**done**
-
-The `axual_application_access_grant` resource in Application Owner's repo becomes orphaned but harmless. Application Owner can delete it later to clean up their Terraform state:
-
-```bash
-# In app-team-repo (no API call made, just cleans up state)
-terraform destroy -target=axual_application_access_grant.my_grant
-```
-
-See the [Multi-Repo Guide](multi-repo) for detailed setup instructions.
+See the [Multi-Repo Guide](multi-repo) for the full setup.
 
 ---
 
-## Common Scenarios
+## Auto Environments
 
-### Scenario 1: Environment with `Authorization Issuer=Auto` - Grant Flow
-
-1. **Application Owner** creates `axual_application_access_grant` → auto-approved by system
-2. Application can now produce/consume
-3. *(Optional)* **Topic Owner** creates `axual_application_access_grant_approval` → adopts grant into Terraform state
-4. To revoke: Either delete the approval resource OR delete the grant directly (auto-revokes)
-
-### Scenario 2: Environments with `Authorization Issuer=Stream owner` - Approval Flow
-
-1. **Application Owner** creates `axual_application_access_grant` → Status: **Pending**
-2. **Topic Owner** creates `axual_application_access_grant_approval` → Status: **Approved**
-3. Application can now produce/consume
-
-### Scenario 3: Environments with `Authorization Issuer=Stream owner` - Rejection
-
-1. **Application Owner** creates `axual_application_access_grant` → Status: **Pending**
-2. **Topic Owner** creates `axual_application_access_grant_rejection` → Status: **Rejected**
-3. To try again: Application Owner deletes and recreates the grant
-
-### Scenario 4: Revoking Access (Environments with any `Authorization Issuer`)
-
-**Option A: Via approval resource**
-1. Grant is **Approved**
-2. **Either Application Owner or Topic Owner** deletes `axual_application_access_grant_approval` → Status: **Revoked**
-3. *(Optional cleanup)* Application Owner deletes orphaned `axual_application_access_grant`
-
-**Option B: Via grant resource (auto-revoke)**
-1. Grant is **Approved**
-2. **Application Owner** deletes `axual_application_access_grant` → Provider auto-revokes, then removes from state
-3. Topic Owner's `axual_application_access_grant_approval` becomes orphaned (can be deleted later)
-
-Both options result in access being revoked immediately. To restore: Application Owner recreates grant, Topic Owner creates approval again.
-
-### Scenario 5: Changing CONSUMER to PRODUCER
-
-1. **Application Owner or Topic Owner** deletes `axual_application_access_grant_approval` → Status: **Revoked**
-2. **Application Owner** deletes `axual_application_access_grant`
-3. **Application Owner** creates new `axual_application_access_grant` with `access_type = "PRODUCER"`
-4. **Topic Owner** creates new `axual_application_access_grant_approval`
+Requests are approved straight away. A decision is optional. `decision = "DENIED"` revokes, but the next request is approved again by the platform, and every plan warns about it.
 
 ---
 
-## Limitations
+## Platform Manager Versions
 
-- Grant attributes cannot be updated in place. The grant must be revoked, deleted, and recreated.
-- After rejection or revocation, the Application Owner should delete their grant resource before requesting access again.
-- A revoked grant cannot be re-approved—it must be deleted and recreated first.
-
-## Notes
-
-- **Both owners can revoke**: Either Application Owner or Topic Owner can revoke by deleting the approval resource, or Application Owner can delete the grant directly (auto-revokes).
-- **Orphaned grants are harmless**: After revocation, the grant resource in Application Owner's repo can remain without affecting access.
-- **Cleanup is no-op**: Deleting a revoked grant makes no API calls—it only removes the resource from Terraform state.
-- **Auto-revoke on delete**: Deleting an approved `axual_application_access_grant` will automatically revoke it first.
+| Platform Manager | Support |
+|---|---|
+| 15.0.4 and later, 16.x | Public and private applications |
+| 15.0.1 to 15.0.3 | Public applications. Requests of private applications aren't visible to the topic owner; the decision shows `current_status = "Not found"` with a warning. |
 
 ---
 
 ## Import
 
-All three resources support import using the grant UID.
-
-### Import Order
-
-Import resources in this order:
-
 ```shell
-# 1. Import the grant first
+# The grant (application team)
 terraform import axual_application_access_grant.my_grant <GRANT_UID>
 
-# 2. Import approval OR rejection (depending on grant status)
-terraform import axual_application_access_grant_approval.my_approval <GRANT_UID>
-# OR
-terraform import axual_application_access_grant_rejection.my_rejection <GRANT_UID>
+# The decision (topic team): by grant UID, or <topic>/<environment>/<access_type>/<application>
+terraform import axual_application_access_grant_decision.my_decision <GRANT_UID>
 ```
 
-### Finding the Grant UID
-
-The grant UID can be found in:
-
-1. **Terraform state** - After importing the grant, check the `id` attribute in `terraform.tfstate`
-2. **Axual Self-Service UI** - Navigate to the grant details page
-3. **Axual API** - Query the `/application_access_grants` endpoint
-
-### Import Requirements
-
-| Resource | Required Grant Status |
-|----------|-----------------------|
-| `axual_application_access_grant` | Any status |
-| `axual_application_access_grant_approval` | Must be "Approved" |
-| `axual_application_access_grant_rejection` | Must be "Rejected" |
-
-### Rejection Import: The `reason` Attribute
-
-The `reason` attribute is stored as `comment` in the API. After import, the reason will be correctly populated from the API response.
+The grant UID is in the Axual Self-Service UI, in `grant_id` of a decision, or in `data.axual_application_access_grants`.
 
 ---
 
-## Re-approving After Revocation
+## Moving from the Approval and Rejection Resources
 
-**A revoked grant cannot be re-approved.** The grant must be deleted and recreated first.
-
-### The Problem
-
-If Topic Owner tries to re-approve a revoked grant:
-
-```
-1. Create grant + approval     → Status: Approved ✅
-2. Delete approval             → Status: Revoked
-3. Create approval again       → ERROR ❌
-```
-
-```
-│ Error: Cannot approve revoked grant
-│
-│ Grant '<GRANT UID>' was previously approved and then revoked. Revoked grants cannot be re-approved.
-```
-
-### Why This Happens
-
-The approval resource can only approve grants in **Pending** status. Once a grant is revoked, it stays in **Revoked** status—it doesn't go back to Pending.
-
-### The Issue with Multi-Repo
-
-**There's no way to tell by looking at the `.tf` file which grants can be approved.**
-
-The Topic Owner's `.tf` file might have:
+With Terraform 1.8 or later, move each block:
 
 ```hcl
-resource "axual_application_access_grant_approval" "approve_grant" {
-  application_access_grant = data.axual_application_access_grant.grant.id
+moved {
+  from = axual_application_access_grant_approval.approve_grant
+  to   = axual_application_access_grant_decision.approve_grant
+}
+
+resource "axual_application_access_grant_decision" "approve_grant" {
+  application = "Log Scraper"
+  topic       = axual_topic.my_topic.id
+  environment = data.axual_environment.dev.id
+  access_type = "CONSUMER"
+  decision    = "APPROVED"
 }
 ```
 
-But this will fail if the underlying grant is in Revoked status. The Topic Owner has no visibility into the grant's current state from their Terraform configuration.
+The plan shows only the move. A moved rejection gets `decision = "DENIED"` with its reason. After the move:
 
-### Checking Grant Status
+- removing the block no longer revokes, unless `revoke_on_destroy = true`;
+- a request made again after a reject or revoke waits for a `review` change.
 
-To determine whether a grant can be approved, check its current status:
+With Terraform 1.7, use a `removed` block with `lifecycle { destroy = false }` for the old resource and an `import` block for the decision. Don't simply delete an approval: that revokes the grant.
 
-```shell
-# Refresh state from the API
-terraform refresh
-
-# Show the grant's current status
-terraform state show axual_application_access_grant.my_grant
-```
-
-Example output:
-
-```
-# axual_application_access_grant.my_grant:
-resource "axual_application_access_grant" "my_grant" {
-    access_type = "PRODUCER"
-    application = "b67f7c3b03a646b3b86b6a3320ddf1f3"
-    environment = "b10456f91c634e2aadbc3ad64b20f10b"
-    id          = "a7b9346f4e9a49ebb6934553dbc246c3"
-    status      = "Revoked"
-    topic       = "4fa97a80527f4977befe91ce80893621"
-}
-```
-
-| Status | Can Create Approval? | Action Required |
-|--------|---------------------|-----------------|
-| `Pending` | ✅ Yes | Create approval resource |
-| `Approved` | ✅ Yes (adopts into state) | Create approval resource |
-| `Revoked` | ❌ No | Delete and recreate grant first |
-| `Rejected` | ❌ No | Delete and recreate grant first |
-| `Cancelled` | ❌ No | Delete and recreate grant first |
-
-### Correct Workflow to Restore Access After Revocation
-
-**Coordination is required:**
-
-1. **Application Owner** deletes `axual_application_access_grant` (removes from state)
-2. **Application Owner** recreates `axual_application_access_grant` (new grant in Pending/Approved status)
-3. **Topic Owner** creates `axual_application_access_grant_approval` (now succeeds)
+Don't manage one grant with an old resource and a decision at the same time.
