@@ -1,6 +1,10 @@
 package provider
 
-import "strings"
+import (
+	"strings"
+
+	webclient "axual-webclient"
+)
 
 // The rules of axual_application_access_grant_decision, without Terraform or API types, so they
 // can be tested on their own.
@@ -10,9 +14,6 @@ const (
 	decisionDenied   = "DENIED"
 
 	statusNotFound = "Not found"
-
-	nextRequestApprove = "approve"
-	nextRequestReview  = "review"
 
 	actionNone    = ""
 	actionApprove = "approve"
@@ -24,28 +25,24 @@ const (
 type decisionInput struct {
 	Status   string // the grant's status, or statusNotFound
 	Decision string // decisionApproved or decisionDenied
-	// Create is true when the block is new in this plan (the PR that adds it reviews the request).
-	Create bool
-	// DecisionChanged and ReviewChanged compare the plan with the state.
-	DecisionChanged bool
-	ReviewChanged   bool
-	// NextRequest is the stored next_request: nextRequestApprove pre-approves the next request.
-	NextRequest string
-	// Imported is true for the first plan after an import: the state has no decision yet. Like a
-	// create it reviews a Pending request, but it never pre-approves a closed grant, so a bulk import
-	// can't re-open access that was rejected or revoked.
-	Imported bool
-	// ClosedByRequester is true for a request made again after the application team closed the
-	// grant itself (it cancelled or revoked, and asked again), not the topic team. See closedByRequester.
-	ClosedByRequester bool
+	// Reopened is true for a Pending grant that was closed before (rejected, revoked or cancelled)
+	// and requested again.
+	Reopened bool
+	// OwnClose is true when the application team closed the grant itself: see ownClose.
+	OwnClose bool
+	// Accepted is true when the topic team accepted the last close: decision or approve_again
+	// changed in this plan, or changed while the grant had this close. A create or an import
+	// doesn't count.
+	Accepted bool
 }
 
 // decisionOutcome is what the provider does and plans.
 type decisionOutcome struct {
 	Action        string
 	PlannedStatus string
-	NextRequest   string // "" means null
 	Warning       string // one of the warn* kinds, or ""
+	// NextApproved tells, for a closed grant, whether a new request will be approved.
+	NextApproved bool
 }
 
 const (
@@ -53,64 +50,68 @@ const (
 	warnReopened          = "reopened"
 	warnClosed            = "closed"
 	warnApprovedAgain     = "approved again"
+	warnDeniedAgain       = "denied again"
 )
 
-// decide applies the coverage rule:
+// decide applies the standing decision:
 //
-//   - A Pending request is approved when it is covered: the block is created, decision or review
-//     changed, or next_request is "approve".
-//   - next_request becomes "approve" only through a create or a change of decision to APPROVED
-//     while nothing is Pending, and never for a closed grant right after an import. The first
-//     request that arrives uses it up.
-//   - A request made again after the application team closed the grant itself is approved again
-//     under APPROVED. After a reject or revoke by the topic side it waits for a review.
-//   - DENIED rejects a Pending request and revokes an Approved one, without any coverage.
+//   - DENIED rejects a Pending request and revokes an Approved grant.
+//   - APPROVED approves every Pending request, except one made again after someone other than the
+//     application team closed the grant: that one waits until the topic team accepts the close by
+//     changing decision or approve_again.
 func decide(in decisionInput) decisionOutcome {
 	if in.Decision == decisionDenied {
 		switch in.Status {
 		case "Pending":
-			return decisionOutcome{Action: actionReject, PlannedStatus: "Rejected"}
+			out := decisionOutcome{Action: actionReject, PlannedStatus: "Rejected"}
+			if in.Reopened {
+				out.Warning = warnDeniedAgain
+			}
+			return out
 		case "Approved":
 			return decisionOutcome{Action: actionRevoke, PlannedStatus: "Revoked"}
 		}
 		return decisionOutcome{PlannedStatus: in.Status}
 	}
 
-	preApprove := in.Create || in.DecisionChanged
 	switch in.Status {
 	case "Pending":
-		if in.Create || in.DecisionChanged || in.ReviewChanged || in.NextRequest == nextRequestApprove {
-			return decisionOutcome{Action: actionApprove, PlannedStatus: "Approved", NextRequest: nextRequestReview}
+		switch {
+		case !in.Reopened || in.Accepted:
+			return decisionOutcome{Action: actionApprove, PlannedStatus: "Approved"}
+		case in.OwnClose:
+			return decisionOutcome{Action: actionApprove, PlannedStatus: "Approved", Warning: warnApprovedAgain}
 		}
-		if in.ClosedByRequester {
-			// The application team's own cancel or revoke doesn't need the topic team again.
-			return decisionOutcome{Action: actionApprove, PlannedStatus: "Approved", NextRequest: nextRequestReview, Warning: warnApprovedAgain}
-		}
-		return decisionOutcome{PlannedStatus: "Pending", NextRequest: nextRequestReview, Warning: warnReopened}
+		return decisionOutcome{PlannedStatus: "Pending", Warning: warnReopened}
 	case "Approved":
-		return decisionOutcome{PlannedStatus: "Approved", NextRequest: nextRequestReview}
+		return decisionOutcome{PlannedStatus: "Approved"}
 	case statusNotFound:
-		return decisionOutcome{PlannedStatus: in.Status, NextRequest: keepOrApprove(in.NextRequest, preApprove), Warning: warnWaitingForRequest}
+		return decisionOutcome{PlannedStatus: in.Status, Warning: warnWaitingForRequest}
 	default: // Rejected, Revoked, Cancelled
-		if in.Imported {
-			preApprove = false
-		}
-		return decisionOutcome{PlannedStatus: in.Status, NextRequest: keepOrApprove(in.NextRequest, preApprove), Warning: warnClosed}
+		return decisionOutcome{PlannedStatus: in.Status, Warning: warnClosed, NextApproved: in.Accepted || in.OwnClose}
 	}
 }
 
-func keepOrApprove(current string, preApprove bool) string {
-	if preApprove || current == nextRequestApprove {
-		return nextRequestApprove
-	}
-	return nextRequestReview
-}
-
-// closedByRequester reports whether a Pending grant was reopened after the application team itself
-// closed it: the last cancel or revoke (processedBy) was done by the user who asked again
-// (requestedBy), and that user isn't the signed-in user (the topic side's own identity). With one
-// account for both sides, or when anything is unknown, it is false, so the request waits for a review.
-func closedByRequester(status, processedBy, requestedBy, me string) bool {
-	return status == "Pending" && processedBy != "" && me != "" &&
+// ownClose reports whether the application team closed the grant itself: the user who closed it
+// last (processedBy) is the user who requested it (requestedBy), and that user isn't the signed-in
+// user (the topic side's own account). With one account for both sides, or when anything is unknown,
+// it is false, so a request made again waits for the topic team.
+func ownClose(processedBy, requestedBy, me string) bool {
+	return processedBy != "" && me != "" &&
 		strings.EqualFold(processedBy, requestedBy) && !strings.EqualFold(processedBy, me)
+}
+
+// reopened reports whether a Pending grant was closed before: the platform keeps who closed it
+// last when the grant is requested again.
+func reopened(g webclient.GrantView) bool {
+	return g.Status == "Pending" && g.ProcessedBy != ""
+}
+
+// closeKey identifies the grant's last decision or close (who and when), so the provider can tell
+// whether the topic team accepted this close or an earlier one. "" when the grant was never decided.
+func closeKey(g webclient.GrantView) string {
+	if g.ProcessedBy == "" {
+		return ""
+	}
+	return g.ProcessedAt + "|" + strings.ToLower(g.ProcessedBy)
 }

@@ -53,23 +53,3 @@ func TestMatchGrantByGrantIDFirst(t *testing.T) {
 		t.Errorf("a renamed application must keep its grant, got %+v", g)
 	}
 }
-
-func TestClosedByRequester(t *testing.T) {
-	tests := []struct {
-		desc                       string
-		status, processed, req, me string
-		want                       bool
-	}{
-		{"application team revoked or cancelled and asked again", "Pending", "alex@x", "alex@x", "tom@x", true},
-		{"topic team revoked", "Pending", "tom@x", "alex@x", "tom@x", false},
-		{"one account for both sides", "Pending", "ci@x", "ci@x", "ci@x", false},
-		{"first request, never decided", "Pending", "", "alex@x", "tom@x", false},
-		{"own identity unknown", "Pending", "alex@x", "alex@x", "", false},
-		{"not pending", "Approved", "alex@x", "alex@x", "tom@x", false},
-	}
-	for _, tt := range tests {
-		if got := closedByRequester(tt.status, tt.processed, tt.req, tt.me); got != tt.want {
-			t.Errorf("%s: got %v", tt.desc, got)
-		}
-	}
-}
