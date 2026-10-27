@@ -57,7 +57,10 @@ resource "axual_application_access_grant" "tf-test-application-access-grant" {
 }
 
 resource "axual_application_access_grant_decision" "tf-test-application-access-grant-approval" {
-  grant             = axual_application_access_grant.tf-test-application-access-grant.id
+  application       = axual_application_access_grant.tf-test-application-access-grant.application
+  topic             = axual_application_access_grant.tf-test-application-access-grant.topic
+  environment       = axual_application_access_grant.tf-test-application-access-grant.environment
+  access_type       = axual_application_access_grant.tf-test-application-access-grant.access_type
   decision          = "APPROVED"
   revoke_on_destroy = true
 }

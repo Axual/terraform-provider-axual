@@ -4,6 +4,5 @@ resource "axual_application_access_grant_decision" "tf-test-decision" {
   environment = axual_environment.tf-test-env.id
   access_type = "CONSUMER"
   decision    = "APPROVED"
-  review      = "PR-1"
   depends_on  = [axual_topic_config.tf-test-topic-config]
 }

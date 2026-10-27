@@ -80,8 +80,11 @@ resource "axual_application_access_grant" "example" {
 }
 
 resource "axual_application_access_grant_decision" "example" {
-  grant    = axual_application_access_grant.example.id
-  decision = "APPROVED"
+  application = axual_application_access_grant.example.application
+  topic       = axual_application_access_grant.example.topic
+  environment = axual_application_access_grant.example.environment
+  access_type = axual_application_access_grant.example.access_type
+  decision    = "APPROVED"
 }
 
 # 3. The deployment: no target_id (legacy Axual Connect). Creating it starts the connector.

@@ -104,8 +104,11 @@ resource "axual_application_access_grant" "example" {
 }
 
 resource "axual_application_access_grant_decision" "example" {
-  grant    = axual_application_access_grant.example.id
-  decision = "APPROVED"
+  application = axual_application_access_grant.example.application
+  topic       = axual_application_access_grant.example.topic
+  environment = axual_application_access_grant.example.environment
+  access_type = axual_application_access_grant.example.access_type
+  decision    = "APPROVED"
 }
 
 # 4. Run it. To stop the connector, change state to "STOPPED" and apply. Removing this resource
