@@ -57,10 +57,10 @@ The Grant request will remain in a PENDING state until approved or rejected by t
 
 - If the Topic team later decides to revoke the Application team's access, it changes the decision to `decision = "DENIED"` with a `reason`. Removing the decision block does **not** revoke (unless `revoke_on_destroy = true`).
 
-- The Application team sees the answer in its own plan: `status`, `decision_reason`, `decided_at`, and a warning when the grant is Rejected or Revoked. To ask again, it changes `request_again` in a PR; the topic team approves that new request by changing `review` in a PR.
+- The Application team sees the answer in its own plan: `status`, `decision_reason`, `decided_at`, and a warning when the grant is Rejected or Revoked. To ask again after a `DENIED`, the Topic team first changes the decision to `"APPROVED"`, then the Application team changes `request_again`. The text of `request_again` isn't sent to the platform, so the reason for a request goes in the PR to the topic repository.
 
 ### Alternative flow
-- Instead of the Application Team creating the grant, it is possible for the Topic Team to create the Grant as well. In that case, the Topic Team creates both the grant and the decision in its repository, and the decision refers to the grant with `grant = axual_application_access_grant.x.id`. If the instance disables self-approval, the plan warns that the platform doesn't offer the approval to the user who made the request. Please see the configuration under the comment `ALTERNATIVE FLOW SETUP` in  [Topic Team's Terraform Resources](https://github.com/Axual/terraform-provider-axual/blob/master/examples/3-team-guide/topic-team/main.tf)
+- Instead of the Application Team creating the grant, it is possible for the Topic Team to create the Grant as well. In that case, the Topic Team creates both the grant and the decision in its repository, and the decision takes its `application`, `topic`, `environment` and `access_type` from the grant (for example `application = axual_application_access_grant.x.application`). If the instance disables self-approval, the plan warns that the platform doesn't offer the approval to the user who made the request. Please see the configuration under the comment `ALTERNATIVE FLOW SETUP` in  [Topic Team's Terraform Resources](https://github.com/Axual/terraform-provider-axual/blob/master/examples/3-team-guide/topic-team/main.tf)
 
 ### Revoking access
 
@@ -71,8 +71,9 @@ The Grant request will remain in a PENDING state until approved or rejected by t
 - The Topic Team revokes by setting `decision = "DENIED"` with a `reason`.
 - After a revoke, the Topic Team's decision stays in place; nothing fails.
 - To get access again, the Application Team adds its grant back, or changes `request_again`; the same
-  grant reopens. If the Application Team removed the grant itself, the Topic Team's next apply approves
-  it again (with `decision = "APPROVED"`). If the Topic Team revoked it, the Topic Team approves the new
-  request by changing `review` in a PR. When both teams use the same Terraform account, the provider
-  can't tell who revoked, so a `review` change is always needed. See
+  grant reopens. If the same Application Team user (or pipeline) removed the grant and asks again, the
+  Topic Team's next apply approves it again (with `decision = "APPROVED"`). If the Topic Team revoked it
+  (in Terraform or in the UI), the Topic Team approves the new request by changing `approve_again` in a
+  PR. When both teams use the same Terraform account, the provider can't tell who revoked, so an
+  `approve_again` change is always needed. See
   [Managing application access to topics](manage-application-access-to-topics).
