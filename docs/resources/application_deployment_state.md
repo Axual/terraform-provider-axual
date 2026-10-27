@@ -76,8 +76,11 @@ resource "axual_application_access_grant" "connector" {
 }
 
 resource "axual_application_access_grant_decision" "connector" {
-  grant    = axual_application_access_grant.connector.id
-  decision = "APPROVED"
+  application = axual_application_access_grant.connector.application
+  topic       = axual_application_access_grant.connector.topic
+  environment = axual_application_access_grant.connector.environment
+  access_type = axual_application_access_grant.connector.access_type
+  decision    = "APPROVED"
 }
 
 resource "axual_application_deployment_state" "connector" {

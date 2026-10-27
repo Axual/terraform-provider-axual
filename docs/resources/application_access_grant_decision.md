@@ -1,25 +1,29 @@
 # axual_application_access_grant_decision (Resource)
 
-The topic team's decision about one application's access to a topic in an environment. The provider approves, rejects or revokes the grant to match `decision`. Nothing about the grant's status fails a plan. Read more: https://registry.terraform.io/providers/Axual/axual/latest/docs/guides/manage-application-access-to-topics
+The topic team's decision about one application's access to a topic in an environment. `APPROVED` approves every request from the application, `DENIED` rejects or revokes. After someone other than the application team rejects or revokes the grant, a request made again waits for a change of `approve_again`. Nothing about the grant's status fails a plan. Read more: https://registry.terraform.io/providers/Axual/axual/latest/docs/guides/manage-application-access-to-topics
 
 Use it in the topic team's repository. The application team requests access with `axual_application_access_grant` in its own repository; the two repositories can apply in either order. It replaces `axual_application_access_grant_approval` and `axual_application_access_grant_rejection`.
 
 ## What the provider does
 
+The decision is a standing one: `APPROVED` approves every request from the application, now and later; `DENIED` rejects or revokes.
+
 | Grant status | `decision = "APPROVED"` | `decision = "DENIED"` |
 |---|---|---|
-| `Not found` (no request yet) | Warning: waiting for the request. The next request is approved (`next_request = "approve"`). | Nothing |
-| `Pending`, reviewed by this plan | **Approve** | **Reject** with `reason` |
-| `Pending`, requested again after the topic side rejected or revoked | Warning only: change `review` or `decision` in a PR to approve it | **Reject** with `reason` |
-| `Pending`, requested again after the application team closed it itself | **Approve** again, with a warning | **Reject** with `reason` |
+| `Not found` (no request yet) | Warning: waiting for the request. The topic repository's next apply after the request approves it. | Nothing |
+| `Pending`, first request | **Approve** | **Reject** with `reason` |
+| `Pending`, requested again after the application team closed it itself | **Approve** again, with a warning | **Reject** with `reason`, with a warning |
+| `Pending`, requested again after someone else rejected or revoked it | Warning only, until `approve_again` or `decision` changes; then **approve** | **Reject** with `reason`, with a warning |
 | `Approved` | Nothing | **Revoke** with `reason` |
-| `Rejected`, `Revoked`, `Cancelled` | Warning: waiting for a new request | Nothing |
+| `Rejected`, `Revoked`, `Cancelled` | Warning: says whether a new request will be approved or wait | Nothing |
 
-A `Pending` request is *reviewed by this plan* when the block is created, when `decision` or `review` changes, or when `next_request = "approve"`. `next_request` becomes `"approve"` only when the block is created, or `decision` changes to `APPROVED`, while nothing is `Pending`; the first request that arrives uses it up.
+**The application team closed the grant itself** when the user who closed it last (cancel or revoke) is the user who asked again, and that user isn't the account this plan runs as. Every other close counts as someone else's: the topic team in Terraform or in the UI, an admin, or another user of the application team. With one account for both repositories the provider can't tell the sides apart, so a request made again after any close waits for `approve_again`.
+
+**`approve_again` or `decision` changed since that close**: the provider remembers the grant's close at the moment one of them changed. Adding or importing a block doesn't count, so a bulk import can't give back access that someone took away.
 
 An action on an existing block shows in the plan as an in-place change of `current_status`, for example `current_status = "Pending" -> "Approved"`. A new block shows `(known after apply)` and a warning that names the action. Nothing about the grant's status fails a plan.
 
-The application team closed the grant itself when the last cancel or revoke was done by the user who then asked again, and that user isn't the one running this plan. With one account for both repositories the provider can't tell the sides apart, and a request made again waits for a `review` change.
+The apply checks the grant again before it acts. If it changed since the plan (for example approved in the UI after a `DENIED` plan), the apply fails with "The grant changed between plan and apply" and changes nothing; run plan again.
 
 The decision finds its grant by `grant_id` first, then by application UID, then by name, so a renamed application keeps its decision; the plan warns until `application` is updated.
 
@@ -31,25 +35,23 @@ The decision finds its grant by `grant_id` first, then by application UID, then 
 
 ### Required
 
-- `decision` (String) `APPROVED` or `DENIED`. `DENIED` rejects a `Pending` request and revokes an `Approved` grant. `APPROVED` approves a `Pending` request when this plan reviews it (see `review` and `next_request`).
+- `access_type` (String) `CONSUMER` or `PRODUCER`.
+- `application` (String) Application UID or name. The grant is found among the grants on the topic, also before the request exists. In a single repository, use `axual_application_access_grant.x.application`.
+- `decision` (String) `APPROVED` approves every `Pending` request from the application, except a request made again after someone other than the application team rejected or revoked the grant (see `approve_again`). `DENIED` rejects a `Pending` request and revokes an `Approved` grant.
+- `environment` (String) Environment UID.
+- `topic` (String) Topic UID.
 
 ### Optional
 
-- `access_type` (String) `CONSUMER` or `PRODUCER`.
-- `application` (String) Application UID or name. The grant is found among the grants on the topic, so private applications work (Platform Manager 15.0.4 or later).
-- `environment` (String) Environment UID.
-- `grant` (String) Grant UID, for a single repository: `axual_application_access_grant.x.id`. Set either `grant` or all of `application`, `topic`, `environment` and `access_type`.
+- `approve_again` (String) Free text, for example the PR number. After the topic team (or an admin) rejected or revoked the grant, a request made again is approved only when `approve_again` or `decision` changed since that close. Adding or importing the block doesn't count. Not sent to the platform.
 - `reason` (String) Required when `decision = "DENIED"`. Sent with the reject or revoke; the application team reads it as `decision_reason`.
-- `review` (String) Free text, for example the PR number. Changing it approves the current `Pending` request, such as a request made again after a reject or revoke. Not sent to the platform.
 - `revoke_on_destroy` (Boolean) When `true`, removing the block revokes an `Approved` grant. Default `false`: removing the block only stops managing the decision.
-- `topic` (String) Topic UID.
 
 ### Read-Only
 
 - `current_status` (String) The grant's status: `Pending`, `Approved`, `Rejected`, `Revoked`, `Cancelled`, or `Not found` when there is no request that this user can see.
 - `grant_id` (String) The grant UID. Null until the application team requests access; changes when the application is created again.
 - `id` (String) `<topic>/<environment>/<access_type>/<application>`, set at create and never changed. Import accepts it, or a grant UID.
-- `next_request` (String) `approve`: the next `Pending` request is approved without a new PR (set when the block is created, or `decision` changes to `APPROVED`, while nothing is `Pending`). `review`: a new request waits for a change of `review` or `decision`. Null for `DENIED`.
 
 ## Example Usage
 
@@ -64,14 +66,14 @@ locals {
 }
 
 resource "axual_application_access_grant_decision" "logs_dev_consumers" {
-  for_each    = local.logs_dev_consumers
-  application = each.key
-  topic       = axual_topic.logs.id
-  environment = data.axual_environment.dev.id
-  access_type = "CONSUMER"
-  decision    = each.value.decision
-  reason      = try(each.value.reason, null)
-  review      = try(each.value.review, null)
+  for_each      = local.logs_dev_consumers
+  application   = each.key
+  topic         = axual_topic.logs.id
+  environment   = data.axual_environment.dev.id
+  access_type   = "CONSUMER"
+  decision      = each.value.decision
+  reason        = try(each.value.reason, null)
+  approve_again = try(each.value.approve_again, null)
 }
 ```
 
@@ -79,24 +81,27 @@ Single repository, where the same team requests and decides:
 
 ```terraform
 resource "axual_application_access_grant_decision" "log_scraper" {
-  grant    = axual_application_access_grant.log_scraper_reads_logs.id
-  decision = "APPROVED"
+  application = axual_application_access_grant.log_scraper_reads_logs.application
+  topic       = axual_application_access_grant.log_scraper_reads_logs.topic
+  environment = axual_application_access_grant.log_scraper_reads_logs.environment
+  access_type = axual_application_access_grant.log_scraper_reads_logs.access_type
+  decision    = "APPROVED"
 }
 ```
 
-## Approving a request made again
+## Getting access back
 
-After a reject or revoke, the application team can request again (`request_again` on `axual_application_access_grant`, or the UI). The same grant reopens as `Pending`. The next topic plan shows a warning and does nothing:
-
-```
-Warning: Log Scraper (CONSUMER on logs, dev): new request since the last decision
-```
-
-To approve it, change `review` in a PR, for example to the PR number:
+| How the grant was closed | What to do |
+|---|---|
+| The topic team's `DENIED` | **Topic team first:** change `decision` to `"APPROVED"` in a PR. Then the application team asks again (`request_again`), and the topic repository's next apply approves it. If the application team asks first, any topic apply rejects the new request again, with a warning. |
+| A reject or revoke in the UI (or by an admin) | The application team asks again. The topic plan warns `Log Scraper (CONSUMER on logs, dev): asked again after a close by tom@example.com`. Change `approve_again` in a PR to approve it, or set `decision = "DENIED"` to keep it closed. |
+| The application team's own cancel or revoke | The same user asks again (adds the grant back, or changes `request_again`); the topic repository's next apply approves it without a PR. |
 
 ```terraform
-"Log Scraper" = { decision = "APPROVED", review = "PR-57" }
+"Log Scraper" = { decision = "APPROVED", approve_again = "PR-57" }
 ```
+
+`request_again` text isn't sent to the platform: explain why access is needed in the PR to the topic repository.
 
 ## Removing a block, or pointing it at another grant
 
@@ -120,8 +125,8 @@ In an Auto environment the platform approves every request straight away. `decis
 
 | Platform Manager | Support |
 |---|---|
-| 15.0.4 and later, 16.x | Public and private applications |
-| 15.0.1 to 15.0.3 | Public applications. Requests of private applications aren't visible to the topic owner and show as `Not found`; the provider reads the Platform Manager version and says so in the warning. |
+| 15.0.4 and later, 16.x | Public and private applications and environments |
+| 15.0.1 to 15.0.3 | Public applications in public environments. Other requests aren't visible to the topic owner and show as `Not found`; the provider reads the Platform Manager version and the warning names the private environment, or says the application may be private. Approve those in the UI. |
 
 ## Import
 
@@ -132,7 +137,7 @@ terraform import axual_application_access_grant_decision.example 4fa97a80527f497
 terraform import axual_application_access_grant_decision.example a7b9346f4e9a49ebb6934553dbc246c3
 ```
 
-The first plan after an import sets `decision` from the configuration. Like a new block, it approves a `Pending` request; unlike a new block, it never pre-approves a `Rejected`, `Revoked` or `Cancelled` grant, so importing many grants at once can't give back access that was taken away.
+The first plan after an import sets `decision` from the configuration. Like a new block, it approves a first `Pending` request. It doesn't count as `approve_again`: a request made after someone else rejected or revoked the grant still waits, so importing many grants at once can't give back access that was taken away.
 
 In Terraform 1.12 or later, an `import` block can use `identity`:
 
@@ -178,6 +183,6 @@ resource "axual_application_access_grant_decision" "log_scraper" {
 }
 ```
 
-The plan shows only the move. A moved `_approval` keeps `revoke_on_destroy = true`, so removing the block still revokes, as before. Without `revoke_on_destroy = true` in the configuration, the migration plan shows `revoke_on_destroy = true -> false`: accept it only if removing a decision should no longer revoke. A moved `_rejection` gets `decision = "DENIED"` and keeps its reason. One thing works differently after the move: a request made again after the topic team rejected or revoked waits for a `review` change.
+The plan shows the move, and no API action. When `application` is a UID (for example taken from the grant), the first plan also changes it from the name to the UID, in place. A moved `_approval` keeps `revoke_on_destroy = true`, so removing the block still revokes, as before. Without `revoke_on_destroy = true` in the configuration, the migration plan shows `revoke_on_destroy = true -> false`: accept it only if removing a decision should no longer revoke. A moved `_rejection` gets `decision = "DENIED"` and keeps its reason. One thing works differently after the move: a request made again after the topic team rejected or revoked waits for an `approve_again` change.
 
 For Terraform before 1.8, use a `removed` block with `lifecycle { destroy = false }` for the old resource (Terraform 1.7) and an `import` block for the new one. Don't delete the old approval: that revokes the grant.

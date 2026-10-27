@@ -139,21 +139,29 @@ locals {
 }
 
 resource "axual_application_access_grant_decision" "logs_dev_consumers" {
-  for_each    = local.logs_dev_consumers
-  application = each.key                  # name or UID
-  topic       = axual_topic.logs.id
-  environment = data.axual_environment.dev.id
-  access_type = "CONSUMER"
-  decision    = each.value.decision
-  reason      = try(each.value.reason, null)
-  review      = try(each.value.review, null)
+  for_each      = local.logs_dev_consumers
+  application   = each.key                  # name or UID
+  topic         = axual_topic.logs.id
+  environment   = data.axual_environment.dev.id
+  access_type   = "CONSUMER"
+  decision      = each.value.decision
+  reason        = try(each.value.reason, null)
+  approve_again = try(each.value.approve_again, null)
+}
+
+# A request waiting for the topic team doesn't change the plan; this makes it visible in CI.
+check "no_waiting_requests" {
+  assert {
+    condition     = alltrue([for d in axual_application_access_grant_decision.logs_dev_consumers : d.current_status != "Pending"])
+    error_message = "A request is waiting for the topic team."
+  }
 }
 ```
 
-- **Approve:** merge a PR with `decision = "APPROVED"`. The two repositories can apply in either order: before the request exists, the plan only warns, and the first request is approved by the next apply (`next_request = "approve"`).
-- **Reject or revoke:** `decision = "DENIED"` with a `reason`. The application team reads the reason.
-- **A request made again after the topic team rejected or revoked** is not approved automatically. The plan warns; change `review` (for example to the PR number) in a PR to approve it.
-- **A request made again after the application team closed the grant itself** (it removed its grant, or cancelled, and asked again) is approved again under `decision = "APPROVED"`, with a warning. If both repositories use the same account, the provider can't tell the sides apart and waits for a `review` change.
+- **Approve:** merge a PR with `decision = "APPROVED"`. It's a standing decision: it approves every request from that application. The two repositories can apply in either order: before the request exists, the plan only warns, and the topic repository's next apply after the request approves it.
+- **Reject or revoke:** `decision = "DENIED"` with a `reason`. The application team reads the reason. A request made again is rejected again, with a warning.
+- **A reject or revoke holds.** A request made again after someone other than the application team rejected or revoked the grant (the topic team in Terraform or in the UI, or an admin) isn't approved automatically. The plan warns; change `approve_again` (for example to the PR number) in a PR to approve it, or set `decision = "DENIED"` to keep it closed. Changing `decision` from `"DENIED"` to `"APPROVED"` also counts.
+- **The application team's own close** (the same user cancelled or revoked and asked again) is approved again under `decision = "APPROVED"`, with a warning. If both repositories use the same account, the provider can't tell the sides apart and waits for an `approve_again` change.
 - **An action on an existing block is an in-place change** of `current_status` in the plan, for example `"Pending" -> "Approved"`. A new block shows `current_status = (known after apply)` and a warning that names the action, for example `Log Scraper (CONSUMER on logs, dev) will be approved by this apply`.
 - **A renamed application** keeps its decision: the plan warns `Application "Log Scraper" is now named "..."`; update `application`.
 
@@ -182,7 +190,7 @@ Removing the block makes no API call: an Approved grant stays Approved, and the 
 | Application Team | `app-team-repo` | `axual_application_access_grant` |
 | Topic Team | `topic-team-repo` | `axual_application_access_grant_decision` |
 
-The decision finds the grant itself, by application name or UID, topic, environment and access type. No data source is needed, and private applications work (Platform Manager 15.0.4 or later).
+The decision finds the grant itself, by application name or UID, topic, environment and access type. No data source is needed, and private applications and environments work (Platform Manager 15.0.4 or later). `request_again` text isn't sent to the platform, so the reason for a request belongs in the PR to the topic repository.
 
 | Action | Who | How |
 |--------|-----|-----|
@@ -190,9 +198,9 @@ The decision finds the grant itself, by application name or UID, topic, environm
 | Approve | Topic team | Merge the PR with `decision = "APPROVED"` |
 | Reject or revoke | Topic team | `decision = "DENIED"` with a `reason` |
 | See the answer | Application team | `status`, `decision_reason`, plan warnings |
-| Ask again | Application team | Change `request_again` in a PR |
-| Approve a request made again | Topic team | Change `review` in a PR |
-| Give up access | Application team | Delete the grant (cancels or revokes) |
+| Ask again after `DENIED` | Both, topic team first | Topic PR: `decision = "APPROVED"`; then the application team changes `request_again` |
+| Ask again after a reject or revoke in the UI | Both | The application team changes `request_again` (and explains why in a PR to the topic repository); the topic team changes `approve_again` |
+| Give up access | Application team | Delete the grant (cancels or revokes). Adding it back later from the same account is approved again without a topic PR |
 
 See the [Multi-Repo Guide](multi-repo) for the full setup.
 
@@ -208,8 +216,8 @@ Requests are approved straight away. A decision is optional. `decision = "DENIED
 
 | Platform Manager | Support |
 |---|---|
-| 15.0.4 and later, 16.x | Public and private applications |
-| 15.0.1 to 15.0.3 | Public applications. Requests of private applications aren't visible to the topic owner; the decision shows `current_status = "Not found"` with a warning. |
+| 15.0.4 and later, 16.x | Public and private applications and environments |
+| 15.0.1 to 15.0.3 | Public applications in public environments. Other requests aren't visible to the topic owner; the decision shows `current_status = "Not found"`, and the warning names the private environment or says the application may be private. Approve those in the UI. |
 
 ---
 
@@ -247,9 +255,9 @@ resource "axual_application_access_grant_decision" "approve_grant" {
 }
 ```
 
-The plan shows only the move. A moved approval keeps `revoke_on_destroy = true`, like the approval it replaces: without that line in the configuration, the migration plan shows `revoke_on_destroy = true -> false`, and removing the block later no longer revokes. Decide that in the migration PR. A moved rejection gets `decision = "DENIED"` with its reason.
+The plan shows the move, and no API action. When `application` is a UID (for example taken from the grant), the first plan also changes it from the name to the UID, in place. A moved approval keeps `revoke_on_destroy = true`, like the approval it replaces: without that line in the configuration, the migration plan shows `revoke_on_destroy = true -> false`, and removing the block later no longer revokes. Decide that in the migration PR. A moved rejection gets `decision = "DENIED"` with its reason.
 
-One thing works differently after the move: a request made again after the topic team rejected or revoked waits for a `review` change.
+One thing works differently after the move: a request made again after the topic team rejected or revoked waits for an `approve_again` change.
 
 With Terraform 1.7, use a `removed` block with `lifecycle { destroy = false }` for the old resource and an `import` block for the decision. Don't simply delete an approval: that revokes the grant.
 
@@ -263,7 +271,7 @@ Earlier versions of this guide had these sections; links to them land here.
 
 ### Re-approving After Revocation
 
-The same grant reopens when the application team asks again (`request_again`, or the UI). The topic team approves it with a `review` change; see [Deciding](#deciding).
+The same grant reopens when the application team asks again (`request_again`, or the UI). After a reject or revoke by the topic team, the topic team approves it with an `approve_again` change; see [Deciding](#deciding).
 
 ### Rejecting a Grant (Topic Owner Only)
 
