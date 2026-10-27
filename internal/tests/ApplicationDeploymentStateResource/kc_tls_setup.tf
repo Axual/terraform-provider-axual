@@ -68,7 +68,10 @@ resource "axual_application_access_grant" "kc_tls" {
 }
 
 resource "axual_application_access_grant_decision" "kc_tls" {
-  grant             = axual_application_access_grant.kc_tls.id
+  application       = axual_application_access_grant.kc_tls.application
+  topic             = axual_application_access_grant.kc_tls.topic
+  environment       = axual_application_access_grant.kc_tls.environment
+  access_type       = axual_application_access_grant.kc_tls.access_type
   decision          = "APPROVED"
   revoke_on_destroy = true
 }

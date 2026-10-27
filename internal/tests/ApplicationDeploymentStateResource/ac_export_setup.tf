@@ -59,7 +59,10 @@ resource "axual_application_access_grant" "ac_exp" {
 }
 
 resource "axual_application_access_grant_decision" "ac_exp" {
-  grant             = axual_application_access_grant.ac_exp.id
+  application       = axual_application_access_grant.ac_exp.application
+  topic             = axual_application_access_grant.ac_exp.topic
+  environment       = axual_application_access_grant.ac_exp.environment
+  access_type       = axual_application_access_grant.ac_exp.access_type
   decision          = "APPROVED"
   revoke_on_destroy = true
 }

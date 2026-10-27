@@ -79,7 +79,10 @@ resource "axual_application_access_grant" "kc_sasl" {
 }
 
 resource "axual_application_access_grant_decision" "kc_sasl" {
-  grant             = axual_application_access_grant.kc_sasl.id
+  application       = axual_application_access_grant.kc_sasl.application
+  topic             = axual_application_access_grant.kc_sasl.topic
+  environment       = axual_application_access_grant.kc_sasl.environment
+  access_type       = axual_application_access_grant.kc_sasl.access_type
   decision          = "APPROVED"
   revoke_on_destroy = true
 }

@@ -50,14 +50,14 @@ locals {
 }
 
 resource "axual_application_access_grant_decision" "logs_dev_consumers" {
-  for_each    = local.logs_dev_consumers
-  application = each.key
-  topic       = axual_topic.logs.id
-  environment = data.axual_environment.environment-author-team.id
-  access_type = "CONSUMER"
-  decision    = each.value.decision
-  reason      = try(each.value.reason, null)
-  review      = try(each.value.review, null)
+  for_each      = local.logs_dev_consumers
+  application   = each.key
+  topic         = axual_topic.logs.id
+  environment   = data.axual_environment.environment-author-team.id
+  access_type   = "CONSUMER"
+  decision      = each.value.decision
+  reason        = try(each.value.reason, null)
+  approve_again = try(each.value.approve_again, null) # change to approve a request made after a reject or revoke
 }
 
 
@@ -75,6 +75,9 @@ resource "axual_application_access_grant_decision" "logs_dev_consumers" {
 # }
 #
 # resource "axual_application_access_grant_decision" "dash_consume_from_logs_in_dev" {
-#   grant    = axual_application_access_grant.dash_consume_from_logs_in_dev.id
-#   decision = "APPROVED"
+#   application = axual_application_access_grant.dash_consume_from_logs_in_dev.application
+#   topic       = axual_application_access_grant.dash_consume_from_logs_in_dev.topic
+#   environment = axual_application_access_grant.dash_consume_from_logs_in_dev.environment
+#   access_type = axual_application_access_grant.dash_consume_from_logs_in_dev.access_type
+#   decision    = "APPROVED"
 # }
