@@ -204,6 +204,14 @@ The UI revoke alone lasts only until the next request.
 
 Removing the block makes no API call: an Approved grant stays Approved, and the plan warns. Set `decision = "DENIED"` first to revoke, or set `revoke_on_destroy = true` so that removing the block revokes.
 
+### Many Decisions in One Apply
+
+Platform Manager can stop responding when it gets about 10 approvals, rejects or revokes at the same time, and Terraform runs 10 operations at a time by default. The requests then fail after 30 seconds, sometimes as `403 Forbidden`. When one apply may act on many grants, for example the first apply of a topic repository, changing many decisions at once, or many requests waiting since the last apply, limit the parallelism:
+
+```shell
+terraform apply -parallelism=4
+```
+
 ---
 
 ## Multi-Repository Setup
