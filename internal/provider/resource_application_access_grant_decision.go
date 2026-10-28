@@ -108,8 +108,11 @@ func (r *grantDecisionResource) Metadata(_ context.Context, req resource.Metadat
 }
 
 func (r *grantDecisionResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	// The lookup attributes are set in the configuration (multi-repo), or filled from the grant when
+	// the configuration sets grant_id (single repo).
 	lookup := func(desc string, v ...validator.String) schema.StringAttribute {
-		return schema.StringAttribute{MarkdownDescription: desc, Required: true, Validators: v}
+		return schema.StringAttribute{MarkdownDescription: desc, Optional: true, Computed: true, Validators: v,
+			PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}}
 	}
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "The topic team's decision about one application's access to a topic in an environment. " +
@@ -123,10 +126,10 @@ func (r *grantDecisionResource) Schema(_ context.Context, _ resource.SchemaReque
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"application": lookup("Application UID or name. The grant is found among the grants on the topic, also before the request exists. " +
-				"In a single repository, use `axual_application_access_grant.x.application`."),
-			"topic":       lookup("Topic UID."),
-			"environment": lookup("Environment UID."),
-			"access_type": lookup("`CONSUMER` or `PRODUCER`.", stringvalidator.OneOf("CONSUMER", "PRODUCER")),
+				"Set `application`, `topic`, `environment` and `access_type` (multi-repo), or `grant_id` (single repository); with `grant_id` they are filled from the grant."),
+			"topic":       lookup("Topic UID. See `application`."),
+			"environment": lookup("Environment UID. See `application`."),
+			"access_type": lookup("`CONSUMER` or `PRODUCER`. See `application`.", stringvalidator.OneOf("CONSUMER", "PRODUCER")),
 			"decision": schema.StringAttribute{
 				MarkdownDescription: "`APPROVED` approves every `Pending` request from the application, also one made again after a reject or revoke. " +
 					"`DENIED` rejects a `Pending` request and revokes an `Approved` grant. The provider never approves under `DENIED`.",
@@ -144,8 +147,10 @@ func (r *grantDecisionResource) Schema(_ context.Context, _ resource.SchemaReque
 				Default:             booldefault.StaticBool(false),
 			},
 			"grant_id": schema.StringAttribute{
-				MarkdownDescription: "The grant UID. Null until the application team requests access; changes when the application is created again.",
-				Computed:            true,
+				MarkdownDescription: "The grant UID. In a single repository, set it to `axual_application_access_grant.x.id` instead of the four lookup attributes; " +
+					"changing it replaces the block. Otherwise the provider fills it in: null until the application team requests access, and it changes when the application is created again.",
+				Optional: true,
+				Computed: true,
 			},
 			"current_status": schema.StringAttribute{
 				MarkdownDescription: "The grant's status: `Pending`, `Approved`, `Rejected`, `Revoked`, `Cancelled`, or `Not found` when there is no request that this user can see.",
@@ -170,9 +175,26 @@ func (r *grantDecisionResource) IdentitySchema(_ context.Context, _ resource.Ide
 }
 
 func (r *grantDecisionResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
-	var decision, reason types.String
+	var decision, reason, grantID types.String
 	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("decision"), &decision)...)
 	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("reason"), &reason)...)
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("grant_id"), &grantID)...)
+	lookups := 0
+	for _, p := range lookupPaths {
+		var v types.String
+		resp.Diagnostics.Append(req.Config.GetAttribute(ctx, p, &v)...)
+		if !v.IsNull() {
+			lookups++
+		}
+	}
+	switch {
+	case !grantID.IsNull() && lookups > 0:
+		resp.Diagnostics.AddAttributeError(path.Root("grant_id"), "Set grant_id or the lookup attributes, not both",
+			"Set grant_id (single repository), or application, topic, environment and access_type (multi-repo).")
+	case grantID.IsNull() && lookups < len(lookupPaths):
+		resp.Diagnostics.AddError("Missing lookup attributes",
+			"Set all four of application, topic, environment and access_type (multi-repo), or grant_id (single repository).")
+	}
 	if decision.ValueString() == decisionDenied && !reason.IsUnknown() && strings.TrimSpace(reason.ValueString()) == "" {
 		resp.Diagnostics.AddAttributeError(path.Root("reason"), "Missing reason",
 			`Set reason when decision = "DENIED". The application team reads it, and the platform refuses a reject or revoke without one.`)
@@ -276,17 +298,31 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 	create := req.State.Raw.IsNull()
 	p := readDecisionPrivate(ctx, req.Private)
 
+	// grant_id form (single repository): the configuration names the grant. Pointing at another grant
+	// replaces the block, and the lookup attributes are filled from the grant at apply.
+	var configGrantID types.String
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("grant_id"), &configGrantID)...)
+	byGrant := !configGrantID.IsNull()
+	if byGrant && !create && !configGrantID.Equal(state.GrantId) {
+		resp.RequiresReplace = append(resp.RequiresReplace, path.Root("grant_id"))
+		r.warnOldGrant(state, resp)
+		create = true
+	}
+	if byGrant && create {
+		plan.Application, plan.Topic, plan.Environment, plan.AccessType = types.StringUnknown(), types.StringUnknown(), types.StringUnknown(), types.StringUnknown()
+	}
+
 	// The grant this plan is about. On create or after a lookup change, look it up; otherwise use only
 	// what Read stored. Terraform plans again when it applies a saved plan, so an update plan must not
 	// depend on a new API call: the same state must give the same plan. The apply looks the grant up
 	// itself and fails before acting when it changed.
-	lookupChanged := !create && (!plan.Application.Equal(state.Application) || !plan.Topic.Equal(state.Topic) ||
+	lookupChanged := !create && !byGrant && (!plan.Application.Equal(state.Application) || !plan.Topic.Equal(state.Topic) ||
 		!plan.Environment.Equal(state.Environment) || !plan.AccessType.Equal(state.AccessType))
 	var g *webclient.GrantView
 	status := state.CurrentStatus.ValueString()
 	if create || lookupChanged {
-		if unknownLookup(plan) {
-			r.planUnknown(ctx, &plan, resp, create)
+		if (byGrant && configGrantID.IsUnknown()) || (!byGrant && unknownLookup(plan)) {
+			r.planUnknown(ctx, &plan, resp, create, byGrant)
 			return
 		}
 		var err error
@@ -305,11 +341,7 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 		// stays in place.
 		if g == nil || !known(state.GrantId) || g.Uid != state.GrantId.ValueString() {
 			resp.RequiresReplace = append(resp.RequiresReplace, lookupPaths...)
-			if state.CurrentStatus.ValueString() == "Approved" && !state.RevokeOnDestroy.ValueBool() {
-				resp.Diagnostics.AddWarning(fmt.Sprintf("The old grant %s stays Approved", r.label(state, nil)),
-					"This change points the decision at another grant, so the block is replaced and the old grant is no longer managed. "+
-						"To remove its access, set decision = \"DENIED\" on it in an earlier PR, or set revoke_on_destroy = true.")
-			}
+			r.warnOldGrant(state, resp)
 			create = true
 		}
 	}
@@ -331,14 +363,19 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 		Reopened: status == "Pending" && p.Reopened,
 	})
 	plan.CurrentStatus = types.StringValue(out.PlannedStatus)
-	plan.GrantId = types.StringNull()
-	if g != nil {
-		plan.GrantId = types.StringValue(g.Uid)
+	if !byGrant {
+		plan.GrantId = types.StringNull()
+		if g != nil {
+			plan.GrantId = types.StringValue(g.Uid)
+		}
 	}
 	if create {
 		// The request can arrive or change between a saved plan and its apply, and Terraform checks the
 		// apply's plan against the saved one. So a new block only warns what it will do.
-		plan.CurrentStatus, plan.GrantId = types.StringUnknown(), types.StringUnknown()
+		plan.CurrentStatus = types.StringUnknown()
+		if !byGrant {
+			plan.GrantId = types.StringUnknown()
+		}
 		if out.Action != actionNone {
 			resp.Diagnostics.AddWarning(fmt.Sprintf("%s will be %s by this apply", r.label(plan, g), map[string]string{
 				actionApprove: "approved", actionReject: "rejected", actionRevoke: "revoked"}[out.Action]),
@@ -358,12 +395,25 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 
 // planUnknown plans a decision whose grant can't be known yet, for example a single repository
 // that creates the application and the grant in the same apply.
-func (r *grantDecisionResource) planUnknown(ctx context.Context, plan *grantDecisionData, resp *resource.ModifyPlanResponse, create bool) {
+func (r *grantDecisionResource) planUnknown(ctx context.Context, plan *grantDecisionData, resp *resource.ModifyPlanResponse, create, byGrant bool) {
 	if create {
 		plan.Id = types.StringUnknown()
 	}
-	plan.CurrentStatus, plan.GrantId = types.StringUnknown(), types.StringUnknown()
+	plan.CurrentStatus = types.StringUnknown()
+	if !byGrant {
+		plan.GrantId = types.StringUnknown()
+	}
 	resp.Diagnostics.Append(resp.Plan.Set(ctx, plan)...)
+}
+
+// warnOldGrant warns, for a block that is replaced because it points at another grant, that the old
+// grant keeps its access.
+func (r *grantDecisionResource) warnOldGrant(state grantDecisionData, resp *resource.ModifyPlanResponse) {
+	if state.CurrentStatus.ValueString() == "Approved" && !state.RevokeOnDestroy.ValueBool() {
+		resp.Diagnostics.AddWarning(fmt.Sprintf("The old grant %s stays Approved", r.label(state, nil)),
+			"This change points the decision at another grant, so the block is replaced and the old grant is no longer managed. "+
+				"To remove its access, set decision = \"DENIED\" on it in an earlier PR, or set revoke_on_destroy = true.")
+	}
 }
 
 func (r *grantDecisionResource) warn(plan grantDecisionData, g *webclient.GrantView, out decisionOutcome, p grantDecisionPrivate, resp *resource.ModifyPlanResponse) {
@@ -480,6 +530,12 @@ func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDeci
 		fillUnknown(&plan.AccessType, g.AccessType)
 		fillUnknown(&plan.Application, firstNonEmptyString(g.ApplicationName, g.ApplicationUid))
 	}
+	if g == nil && unknownLookup(plan) {
+		// grant_id form: the lookup attributes and id come from the grant.
+		diags.AddError("Application access grant not found",
+			fmt.Sprintf("No application access grant %s that this user can see. Check grant_id.", plan.GrantId.ValueString()))
+		return
+	}
 	if plan.Id.IsUnknown() {
 		plan.Id = types.StringValue(compositeDecisionID(plan))
 	}
@@ -518,7 +574,10 @@ func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDeci
 		diags.AddError(fmt.Sprintf("Failed to %s %s", o.Action, grantName(*g)), err.Error())
 		return
 	}
-	plan.CurrentStatus, plan.GrantId = types.StringValue(statusNotFound), types.StringNull()
+	plan.CurrentStatus = types.StringValue(statusNotFound)
+	if plan.GrantId.IsUnknown() {
+		plan.GrantId = types.StringNull()
+	}
 	if g != nil {
 		if o.Action != actionNone {
 			if fresh, err := r.provider.client.GetGrantView(g.Uid); err == nil {
