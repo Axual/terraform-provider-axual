@@ -3,9 +3,12 @@ package provider
 import (
 	webclient "axual-webclient"
 	"fmt"
+	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"golang.org/x/sync/singleflight"
 )
@@ -23,7 +26,28 @@ type grantCache struct {
 	topics   map[string]string
 	version  *string
 	claims   map[string]string
+	apps     map[string]appLookup
+	waits    map[string]*waitGroup
 }
+
+// appLookup is an application found by UID or name: found is false when there is none that this
+// user can see, owners is its owner group's name ("" when unknown).
+type appLookup struct {
+	found  bool
+	owners string
+}
+
+// waitGroup collects the decisions of one topic, environment and access type that wait for a request.
+type waitGroup struct {
+	names []string
+	last  time.Time
+}
+
+// How long the first waiting decision of a group waits for the others to join (see waiting).
+var (
+	waitQuiet = 300 * time.Millisecond
+	waitMax   = 3 * time.Second
+)
 
 func newGrantCache(client *webclient.Client) *grantCache {
 	return &grantCache{
@@ -32,7 +56,72 @@ func newGrantCache(client *webclient.Client) *grantCache {
 		envs:     map[string]*webclient.EnvironmentResponse{},
 		topics:   map[string]string{},
 		claims:   map[string]string{},
+		apps:     map[string]appLookup{},
+		waits:    map[string]*waitGroup{},
 	}
+}
+
+// waiting collects the decisions that wait for a request, so a topic repository gets one warning per
+// topic, environment and access type instead of one per decision. Terraform plans the decisions of a
+// run in parallel: the first one of a group waits until no other joined for waitQuiet (at most
+// waitMax) and gets all names, sorted; the others get nil. A decision planned later starts a new group.
+func (c *grantCache) waiting(key, name string) []string {
+	c.mu.Lock()
+	if w, ok := c.waits[key]; ok {
+		w.names = append(w.names, name)
+		w.last = time.Now()
+		c.mu.Unlock()
+		return nil
+	}
+	start := time.Now()
+	w := &waitGroup{names: []string{name}, last: start}
+	c.waits[key] = w
+	c.mu.Unlock()
+	for {
+		time.Sleep(waitQuiet / 4)
+		c.mu.Lock()
+		if time.Since(w.last) >= waitQuiet || time.Since(start) >= waitMax {
+			delete(c.waits, key)
+			names := append([]string(nil), w.names...)
+			c.mu.Unlock()
+			sort.Strings(names)
+			return names
+		}
+		c.mu.Unlock()
+	}
+}
+
+// application looks an application up by UID or name. When the lookup fails for another reason than
+// "not found", it counts as found, so a failing lookup never claims that an application is missing.
+func (c *grantCache) application(nameOrUID string) appLookup {
+	c.mu.Lock()
+	a, ok := c.apps[nameOrUID]
+	c.mu.Unlock()
+	if ok {
+		return a
+	}
+	v, _, _ := c.group.Do("app/"+nameOrUID, func() (any, error) {
+		var app *webclient.ApplicationResponse
+		var err error
+		if uidPattern.MatchString(strings.ToLower(nameOrUID)) {
+			app, err = c.client.GetApplication(nameOrUID)
+		}
+		if app == nil {
+			app, err = c.client.GetApplicationByNameOrShortName(url.Values{"name": {nameOrUID}})
+		}
+		switch {
+		case err == nil:
+			return appLookup{found: true, owners: app.Owners.Name}, nil
+		case isGone(err):
+			return appLookup{}, nil
+		}
+		return appLookup{found: true}, nil
+	})
+	a = v.(appLookup)
+	c.mu.Lock()
+	c.apps[nameOrUID] = a
+	c.mu.Unlock()
+	return a
 }
 
 // search returns all grants of a topic in an environment for one access type. fresh skips and

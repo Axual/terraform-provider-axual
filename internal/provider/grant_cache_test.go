@@ -2,7 +2,9 @@ package provider
 
 import (
 	webclient "axual-webclient"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -51,5 +53,36 @@ func TestMatchGrantByGrantIDFirst(t *testing.T) {
 	grants := []webclient.GrantView{{Uid: "g1", ApplicationName: "Log Scraper Renamed"}, {Uid: "g2", ApplicationName: "Log Scraper"}}
 	if g := matchGrant(grants, "Log Scraper", "g1"); g == nil || g.Uid != "g1" {
 		t.Errorf("a renamed application must keep its grant, got %+v", g)
+	}
+}
+
+// TestWaiting: decisions planned together share one warning; one planned later starts a new group.
+func TestWaiting(t *testing.T) {
+	quiet, max := waitQuiet, waitMax
+	waitQuiet, waitMax = 40*time.Millisecond, time.Second
+	defer func() { waitQuiet, waitMax = quiet, max }()
+
+	c := newGrantCache(nil)
+	var mu sync.Mutex
+	var groups [][]string
+	var wg sync.WaitGroup
+	for i, name := range []string{"C", "A", "B"} {
+		wg.Add(1)
+		go func(delay time.Duration, name string) {
+			defer wg.Done()
+			time.Sleep(delay)
+			if names := c.waiting("logs/dev/CONSUMER", name); names != nil {
+				mu.Lock()
+				groups = append(groups, names)
+				mu.Unlock()
+			}
+		}(time.Duration(i)*10*time.Millisecond, name)
+	}
+	wg.Wait()
+	if len(groups) != 1 || len(groups[0]) != 3 || groups[0][0] != "A" || groups[0][2] != "C" {
+		t.Fatalf("got groups %v, want one group [A B C]", groups)
+	}
+	if names := c.waiting("logs/dev/CONSUMER", "D"); len(names) != 1 || names[0] != "D" {
+		t.Errorf("a later decision starts a new group, got %v", names)
 	}
 }

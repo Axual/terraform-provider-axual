@@ -86,11 +86,27 @@ func reopened(g webclient.GrantView) bool {
 	return g.Status == "Pending" && g.ProcessedBy != ""
 }
 
-// closeKey identifies the grant's last decision or close (who and when). A request made again keeps
-// it; a later close changes it. "" when the grant was never decided.
+// closeKey identifies the grant's last decision or close (who, when and the comment). A request made
+// again keeps it; a later close changes it. "" when the grant was never decided. processedAt has
+// one-second resolution, so the comment tells apart two closes by one user within a second.
 func closeKey(g webclient.GrantView) string {
 	if g.ProcessedBy == "" {
 		return ""
 	}
-	return g.ProcessedAt + "|" + strings.ToLower(g.ProcessedBy)
+	return g.ProcessedAt + "|" + strings.ToLower(g.ProcessedBy) + "|" + g.Comment
+}
+
+// closedByRequester reports whether the user who closed the grant last also requested it: the
+// application team gave up access itself (deleted its grant, or cancelled its request).
+func closedByRequester(g webclient.GrantView) bool {
+	return g.ProcessedBy != "" && strings.EqualFold(g.ProcessedBy, g.RequestedBy)
+}
+
+// closedOutside is closed_outside_terraform (Design v8, I7): under APPROVED the grant is Rejected or
+// Revoked, the close isn't this decision's own (closeKey differs from ownClose, the key the provider
+// stored after its own last reject or revoke) and the application team didn't give up access itself.
+// Without a stored key a close counts as outside, the safe side. It only reports: decide never reads it.
+func closedOutside(decision, status, closeKey, ownClose string, byRequester bool) bool {
+	return decision == decisionApproved && (status == "Rejected" || status == "Revoked") &&
+		closeKey != ownClose && !byRequester
 }
