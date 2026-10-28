@@ -158,8 +158,10 @@ In an Auto environment the platform approves every request straight away. `decis
 
 | Platform Manager | Support |
 |---|---|
-| 15.0.4 and later, 16.x | Public and private applications and environments |
-| 15.0.1 to 15.0.3 | Public applications in public environments. Other requests aren't visible to the topic owner and show as `Not found`; the provider reads the Platform Manager version and the warning names the private environment, or says the application may be private. Approve those in the UI. |
+| 15.0.3 and later, 16.x | Public and private applications |
+| 15.0.1 to 15.0.2 | Public applications. The requests of private applications aren't visible to the topic owner and show as `Not found`; the warning says the application may be private. Approve those in the UI, or upgrade. |
+
+A private environment always uses the Auto authorization issuer, so its requests are approved straight away and need no decision.
 
 ## Import
 

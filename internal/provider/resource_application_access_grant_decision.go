@@ -457,11 +457,11 @@ func (r *grantDecisionResource) warnWaiting(plan grantDecisionData, resp *resour
 	}
 	detail := "No request found that this user can see. The application team may not have requested access yet; the topic repository's next apply after the request approves it."
 	if r.provider.grants.hidesPrivateRequests() {
-		cause := "If an application is private, its request may exist: before Platform Manager 15.0.4 a topic owner can't see the requests of private applications."
+		cause := "If an application is private, its request may exist: before Platform Manager 15.0.3 a topic owner can't see the requests of private applications."
 		if env != nil && strings.EqualFold(env.Visibility, "Private") {
-			cause = fmt.Sprintf("Environment %s is private: before Platform Manager 15.0.4 a topic owner can't see any request in a private environment.", env.Name)
+			cause = fmt.Sprintf("Environment %s is private: before Platform Manager 15.0.3 a topic owner can't see any request in a private environment.", env.Name)
 		}
-		detail = cause + " Approve such a request in the UI, or upgrade to 15.0.4 or later. " +
+		detail = cause + " Approve such a request in the UI, or upgrade to 15.0.3 or later. " +
 			"Otherwise the application team hasn't requested access yet; the topic repository's next apply after the request approves it."
 	}
 	resp.Diagnostics.AddWarning(summary, detail)
@@ -486,8 +486,12 @@ func (r *grantDecisionResource) warn(plan grantDecisionData, g *webclient.GrantV
 	}
 	if status == statusNotFound && known(plan.Application) && !r.provider.grants.application(plan.Application.ValueString()).found {
 		app := plan.Application.ValueString()
-		resp.Diagnostics.AddWarning(fmt.Sprintf("No application named %q exists (yet)", app),
-			fmt.Sprintf("The decision %s finds no application %q that this user can see. Check the name, or wait for the application team to create it.", name, app))
+		detail := fmt.Sprintf("The decision %s finds no application %q that this user can see. Check the name, or wait for the application team to create it. "+
+			"A private application is visible only to its owners and viewers.", name, app)
+		if r.provider.grants.hidesPrivateRequests() {
+			detail += " Before Platform Manager 15.0.3 a topic owner also can't see the requests of a private application: approve such a request in the UI, or upgrade."
+		}
+		resp.Diagnostics.AddWarning(fmt.Sprintf("No application named %q found (yet)", app), detail)
 		return
 	}
 	// An approval names the application's owner group: a decision by name approves whoever owns an
