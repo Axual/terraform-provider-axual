@@ -27,7 +27,7 @@ An action on an existing block shows in the plan as an in-place change of `curre
 
 The apply checks the grant again before it acts. If it already reached the planned status (for example the application team revoked it itself before a planned revoke), the apply does nothing and succeeds with a warning. If it changed in another way since the plan, the apply fails with "The grant changed between plan and apply" and changes nothing; run plan again.
 
-The decision finds its grant by `grant_id` first, then by application UID, then by name, so a renamed application keeps its decision; the plan warns until `application` is updated. A decision for an application name that doesn't exist warns "No application named … exists (yet)".
+The decision finds its grant by `grant_id` first, then by application UID, then by name, so a renamed application keeps its decision; the plan warns until `application` is updated. A decision for an application name that doesn't exist warns "No application named … found (yet)".
 
 ## Required Roles
 - STREAM_ADMIN or be part of the Team that owns the Topic

@@ -369,6 +369,10 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 			resp.RequiresReplace = append(resp.RequiresReplace, lookupPaths...)
 			r.warnOldGrant(state, resp)
 			create = true
+		} else {
+			// The same grant: plan from the state like any update, so a saved plan applies with the
+			// same values. The lookup only decided between replace and update.
+			g, status = nil, state.CurrentStatus.ValueString()
 		}
 	}
 	if create {
@@ -625,6 +629,13 @@ func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDeci
 	}
 	if plan.Id.IsUnknown() {
 		plan.Id = types.StringValue(compositeDecisionID(plan))
+	}
+	// Another grant matches now (for example the application was deleted and a new one with the same
+	// name requested access): the plan was about the old one, so act on nothing.
+	if !create && g != nil && known(state.GrantId) && g.Uid != state.GrantId.ValueString() {
+		diags.AddError("The grant changed between plan and apply",
+			fmt.Sprintf("The plan was made for grant %s; the decision now finds grant %s. Nothing was changed. Run plan again.", state.GrantId.ValueString(), g.Uid))
+		return
 	}
 	// An existing block was planned from the state Read stored. If the grant changed since, the plan
 	// may no longer fit (for example approved in the UI after a DENIED plan), so act on nothing. When
