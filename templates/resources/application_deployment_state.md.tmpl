@@ -65,10 +65,7 @@ resource "axual_application_access_grant" "connector" {
 }
 
 resource "axual_application_access_grant_decision" "connector" {
-  application = axual_application_access_grant.connector.application
-  topic       = axual_application_access_grant.connector.topic
-  environment = axual_application_access_grant.connector.environment
-  access_type = axual_application_access_grant.connector.access_type
+  grant_id = axual_application_access_grant.connector.id
   decision    = "APPROVED"
 }
 

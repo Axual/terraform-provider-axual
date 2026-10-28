@@ -241,7 +241,7 @@ Now we can use this data source when creating a resource:
 
 ```hcl
 resource "axual_application_access_grant_decision" "logs_producer_approval" {
-  grant    = data.axual_application_access_grant.logs_producer_grant.id
+  grant_id = data.axual_application_access_grant.logs_producer_grant.id
   decision = "APPROVED"
 }
 ```
