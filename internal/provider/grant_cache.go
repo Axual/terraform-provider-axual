@@ -184,7 +184,7 @@ func (c *grantCache) topicName(uid string) string {
 	return name
 }
 
-// hidesPrivateRequests reports whether Platform Manager is older than 15.0.4, where a topic owner
+// hidesPrivateRequests reports whether Platform Manager is older than 15.0.3, where a topic owner
 // can't see the requests of private applications. False when the version is unknown.
 func (c *grantCache) hidesPrivateRequests() bool {
 	c.mu.Lock()
@@ -201,7 +201,7 @@ func (c *grantCache) hidesPrivateRequests() bool {
 		c.mu.Unlock()
 		v = &version
 	}
-	return versionBefore(*v, 15, 0, 4)
+	return versionBefore(*v, 15, 0, 3)
 }
 
 // versionBefore compares a version such as "15.0.1" or "16.1.0-SNAPSHOT" with major.minor.patch.

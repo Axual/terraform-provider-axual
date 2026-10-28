@@ -213,7 +213,7 @@ Removing the block makes no API call: an Approved grant stays Approved, and the 
 | Application Team | `app-team-repo` | `axual_application_access_grant` |
 | Topic Team | `topic-team-repo` | `axual_application_access_grant_decision` |
 
-The decision finds the grant itself, by application name or UID, topic, environment and access type. No data source is needed, and private applications and environments work (Platform Manager 15.0.4 or later). `request_again` text isn't sent to the platform, so the reason for a request belongs in the PR to the topic repository.
+The decision finds the grant itself, by application name or UID, topic, environment and access type. No data source is needed, and private applications work (Platform Manager 15.0.3 or later). `request_again` text isn't sent to the platform, so the reason for a request belongs in the PR to the topic repository.
 
 | Action | Who | How |
 |--------|-----|-----|
@@ -241,8 +241,10 @@ Requests are approved straight away. A decision is optional. `decision = "DENIED
 
 | Platform Manager | Support |
 |---|---|
-| 15.0.4 and later, 16.x | Public and private applications and environments |
-| 15.0.1 to 15.0.3 | Public applications in public environments. Other requests aren't visible to the topic owner; the decision shows `current_status = "Not found"`, and the warning names the private environment or says the application may be private. Approve those in the UI. |
+| 15.0.3 and later, 16.x | Public and private applications |
+| 15.0.1 to 15.0.2 | Public applications. The requests of private applications aren't visible to the topic owner and show as `Not found`; the warning says the application may be private. Approve those in the UI, or upgrade. |
+
+A private environment always uses the Auto authorization issuer, so its requests are approved straight away and need no decision.
 
 ---
 
