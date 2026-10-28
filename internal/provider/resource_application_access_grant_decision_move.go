@@ -54,7 +54,6 @@ func (r *grantDecisionResource) moveFrom(typeName, decision string) func(context
 			AccessType:      types.StringNull(),
 			Decision:        types.StringValue(decision),
 			Reason:          stringOrNull(reason.ValueString()),
-			ApproveAgain:    types.StringNull(),
 			RevokeOnDestroy: types.BoolValue(false),
 			GrantId:         uid,
 			CurrentStatus:   types.StringNull(),
@@ -66,8 +65,7 @@ func (r *grantDecisionResource) moveFrom(typeName, decision string) func(context
 		if decision == decisionApproved {
 			resp.Diagnostics.AddWarning(fmt.Sprintf("Moved the approval of grant %s to a decision", uid.ValueString()),
 				"revoke_on_destroy = true is kept, so removing the block still revokes the grant. If the configuration doesn't set "+
-					"revoke_on_destroy = true, this plan changes it to false: then removing the block no longer revokes. "+
-					"One thing works differently: a request made again after the topic team rejected or revoked waits for a change of approve_again or decision in a PR.")
+					"revoke_on_destroy = true, this plan changes it to false: then removing the block no longer revokes.")
 		}
 	}
 }

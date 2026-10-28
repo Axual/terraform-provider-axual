@@ -26,8 +26,8 @@ func config(files ...string) string {
 // for both sides as an acceptance test has:
 //   - the decision exists before the request, and the request is approved by the next apply;
 //   - DENIED revokes; a request made again is rejected again;
-//   - DENIED to APPROVED accepts the close, so the next request is approved;
-//   - with one account, a request made again after the grant was revoked waits for approve_again;
+//   - DENIED to APPROVED before the request: the next request is approved;
+//   - removing the grant (revoke) and adding it back is approved again under APPROVED;
 //   - the decision imports by its composite id.
 func TestApplicationAccessGrantDecision(t *testing.T) {
 	resource.Test(t, resource.TestCase{
@@ -82,7 +82,7 @@ func TestApplicationAccessGrantDecision(t *testing.T) {
 				Config: config("grant_again1.tf", "decision_denied.tf"),
 				Check:  resource.TestCheckResourceAttr(decision, "current_status", "Rejected"),
 			},
-			// 7. Topic team first: DENIED to APPROVED accepts the reject, nothing to approve yet.
+			// 7. Topic team first: DENIED to APPROVED, nothing to approve yet.
 			{
 				Config: config("grant_again1.tf", "decision_approved.tf"),
 				Check:  resource.TestCheckResourceAttr(decision, "current_status", "Rejected"),
@@ -97,34 +97,30 @@ func TestApplicationAccessGrantDecision(t *testing.T) {
 				Config: config("grant_again2.tf", "decision_approved.tf"),
 				Check:  resource.TestCheckResourceAttr(decision, "current_status", "Approved"),
 			},
-			// 9. The grant is removed (revoked) and added back. With one account for both sides the
-			//    provider can't tell who revoked, so the request waits.
+			// 9. The grant is removed (revoked) and added back. The standing APPROVED approves the new
+			//    request at the next apply.
 			{
 				Config: config("decision_approved.tf"),
 			},
 			{
-				Config: config("grant_again2.tf", "decision_approved.tf"),
-				Check:  resource.TestCheckResourceAttr(grant, "status", "Pending"),
+				Config:             config("grant_again2.tf", "decision_approved.tf"),
+				ExpectNonEmptyPlan: true,
+				Check:              resource.TestCheckResourceAttr(grant, "status", "Pending"),
 			},
 			{
 				Config: config("grant_again2.tf", "decision_approved.tf"),
-				Check:  resource.TestCheckResourceAttr(decision, "current_status", "Pending"),
-			},
-			// 10. A change of approve_again approves it.
-			{
-				Config: config("grant_again2.tf", "decision_approved_again.tf"),
 				Check:  resource.TestCheckResourceAttr(decision, "current_status", "Approved"),
 			},
-			// 11. Import by the composite id.
+			// 10. Import by the composite id.
 			{
 				ResourceName:            decision,
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"decision", "reason", "approve_again"},
+				ImportStateVerifyIgnore: []string{"decision", "reason"},
 			},
 			{
 				Destroy: true,
-				Config:  config("grant_again2.tf", "decision_approved_again.tf"),
+				Config:  config("grant_again2.tf", "decision_approved.tf"),
 			},
 		},
 	})
