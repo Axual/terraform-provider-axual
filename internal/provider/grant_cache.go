@@ -22,7 +22,6 @@ type grantCache struct {
 	envs     map[string]*webclient.EnvironmentResponse
 	topics   map[string]string
 	version  *string
-	me       *string
 	claims   map[string]string
 }
 
@@ -94,25 +93,6 @@ func (c *grantCache) topicName(uid string) string {
 	c.topics[uid] = name
 	c.mu.Unlock()
 	return name
-}
-
-// myEmail returns the signed-in user's email address, or "" when it isn't known.
-func (c *grantCache) myEmail() string {
-	c.mu.Lock()
-	v := c.me
-	c.mu.Unlock()
-	if v != nil {
-		return *v
-	}
-	got, _, _ := c.group.Do("me", func() (any, error) {
-		email, _ := c.client.GetMyEmail()
-		return email, nil
-	})
-	email := got.(string)
-	c.mu.Lock()
-	c.me = &email
-	c.mu.Unlock()
-	return email
 }
 
 // hidesPrivateRequests reports whether Platform Manager is older than 15.0.4, where a topic owner

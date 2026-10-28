@@ -132,14 +132,3 @@ func firstNonEmpty(values ...string) string {
 func (g GrantView) IsClosed() bool {
 	return g.Status == "Rejected" || g.Status == "Revoked" || g.Status == "Cancelled"
 }
-
-// GetMyEmail returns the email address of the signed-in user (GET /me), or "" when it has none.
-func (c *Client) GetMyEmail() (string, error) {
-	var me struct {
-		Email string `json:"email"`
-	}
-	if err := c.RequestAndMap("GET", fmt.Sprintf("%s/me", c.ApiURL), nil, nil, &me); err != nil {
-		return "", err
-	}
-	return me.Email, nil
-}

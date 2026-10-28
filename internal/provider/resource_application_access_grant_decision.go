@@ -47,7 +47,6 @@ type grantDecisionData struct {
 	AccessType      types.String `tfsdk:"access_type"`
 	Decision        types.String `tfsdk:"decision"`
 	Reason          types.String `tfsdk:"reason"`
-	ApproveAgain    types.String `tfsdk:"approve_again"`
 	RevokeOnDestroy types.Bool   `tfsdk:"revoke_on_destroy"`
 	GrantId         types.String `tfsdk:"grant_id"`
 	CurrentStatus   types.String `tfsdk:"current_status"`
@@ -67,15 +66,9 @@ type grantDecisionPrivate struct {
 	CanDeny    bool `json:"can_deny"`
 	CanRevoke  bool `json:"can_revoke"`
 	Known      bool `json:"known"`
-	// Reopened, OwnClose and ClosedBy describe the grant's last close (see the rules).
+	// Reopened and ClosedBy describe the grant's last close, for the warnings.
 	Reopened bool   `json:"reopened"`
-	OwnClose bool   `json:"own_close"`
 	ClosedBy string `json:"closed_by,omitempty"`
-	// LastClose is the closeKey Read saw; the apply compares it before it acts.
-	LastClose *string `json:"last_close,omitempty"`
-	// AcceptedClose is the closeKey of the grant when decision or approve_again last changed: the
-	// topic team accepted that close, so a request made again after it is approved.
-	AcceptedClose *string `json:"accepted_close,omitempty"`
 }
 
 const grantDecisionPrivateKey = "grant_decision"
@@ -97,16 +90,12 @@ func readDecisionPrivate(ctx context.Context, p privateGetter) grantDecisionPriv
 }
 
 // observed is what the provider stores about a grant (nil: none found).
-func (r *grantDecisionResource) observed(g *webclient.GrantView, accepted *string) grantDecisionPrivate {
-	empty := ""
-	p := grantDecisionPrivate{Known: true, LastClose: &empty, AcceptedClose: accepted}
-	if g != nil {
-		key := closeKey(*g)
-		p = grantDecisionPrivate{CanApprove: g.CanApprove, CanDeny: g.CanDeny, CanRevoke: g.CanRevoke, Known: true,
-			Reopened: reopened(*g), OwnClose: ownClose(g.ProcessedBy, g.RequestedBy, r.provider.grants.myEmail()),
-			ClosedBy: g.ProcessedBy, LastClose: &key, AcceptedClose: accepted}
+func observed(g *webclient.GrantView) grantDecisionPrivate {
+	if g == nil {
+		return grantDecisionPrivate{Known: true}
 	}
-	return p
+	return grantDecisionPrivate{CanApprove: g.CanApprove, CanDeny: g.CanDeny, CanRevoke: g.CanRevoke, Known: true,
+		Reopened: reopened(*g), ClosedBy: g.ProcessedBy}
 }
 
 func writeDecisionPrivate(ctx context.Context, s privateSetter, p grantDecisionPrivate, diags *diag.Diagnostics) {
@@ -124,8 +113,8 @@ func (r *grantDecisionResource) Schema(_ context.Context, _ resource.SchemaReque
 	}
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "The topic team's decision about one application's access to a topic in an environment. " +
-			"`APPROVED` approves every request from the application, `DENIED` rejects or revokes. After someone other than the application team " +
-			"rejects or revokes the grant, a request made again waits for a change of `approve_again`. Nothing about the grant's status fails a plan. " +
+			"`APPROVED` approves every request from the application, now and later. `DENIED` rejects or revokes, also every later request. " +
+			"A reject or revoke in the UI under `APPROVED` lasts only until the next request. Nothing about the grant's status fails a plan. " +
 			"Read more: https://registry.terraform.io/providers/Axual/axual/latest/docs/guides/manage-application-access-to-topics",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -139,19 +128,14 @@ func (r *grantDecisionResource) Schema(_ context.Context, _ resource.SchemaReque
 			"environment": lookup("Environment UID."),
 			"access_type": lookup("`CONSUMER` or `PRODUCER`.", stringvalidator.OneOf("CONSUMER", "PRODUCER")),
 			"decision": schema.StringAttribute{
-				MarkdownDescription: "`APPROVED` approves every `Pending` request from the application, except a request made again after someone other than " +
-					"the application team rejected or revoked the grant (see `approve_again`). `DENIED` rejects a `Pending` request and revokes an `Approved` grant.",
+				MarkdownDescription: "`APPROVED` approves every `Pending` request from the application, also one made again after a reject or revoke. " +
+					"`DENIED` rejects a `Pending` request and revokes an `Approved` grant. The provider never approves under `DENIED`.",
 				Required:   true,
 				Validators: []validator.String{stringvalidator.OneOf(decisionApproved, decisionDenied)},
 			},
 			"reason": schema.StringAttribute{
 				MarkdownDescription: "Required when `decision = \"DENIED\"`. Sent with the reject or revoke; the application team reads it as `decision_reason`.",
 				Optional:            true,
-			},
-			"approve_again": schema.StringAttribute{
-				MarkdownDescription: "Free text, for example the PR number. After the topic team (or an admin) rejected or revoked the grant, a request made again " +
-					"is approved only when `approve_again` or `decision` changed since that close. Adding or importing the block doesn't count. Not sent to the platform.",
-				Optional: true,
 			},
 			"revoke_on_destroy": schema.BoolAttribute{
 				MarkdownDescription: "When `true`, removing the block revokes an `Approved` grant. Default `false`: removing the block only stops managing the decision.",
@@ -258,20 +242,10 @@ func (r *grantDecisionResource) Read(ctx context.Context, req resource.ReadReque
 		}
 	}
 	if resp.Private != nil { // nil when `terraform query` reads a found resource
-		writeDecisionPrivate(ctx, resp.Private, r.observed(g, readDecisionPrivate(ctx, req.Private).AcceptedClose), &resp.Diagnostics)
+		writeDecisionPrivate(ctx, resp.Private, observed(g), &resp.Diagnostics)
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &d)...)
 	r.setIdentity(ctx, d, resp.Identity, &resp.Diagnostics)
-}
-
-// acceptsClose reports whether this plan or apply accepts the grant's current close: decision or
-// approve_again changed. A create or an import doesn't count, so adding blocks (for example a bulk
-// import) can't give back access that someone took away.
-func acceptsClose(plan, state grantDecisionData, create bool) bool {
-	if create || state.Decision.IsNull() {
-		return false
-	}
-	return !plan.Decision.Equal(state.Decision) || !plan.ApproveAgain.Equal(state.ApproveAgain)
 }
 
 func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
@@ -347,20 +321,14 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 	}
 
 	if g != nil { // looked up in this plan
-		accepted := p.AcceptedClose
-		p = r.observed(g, accepted)
+		p = observed(g)
 	} else if known(state.GrantId) {
 		g = &webclient.GrantView{Uid: state.GrantId.ValueString(), Status: status, ProcessedBy: p.ClosedBy}
-	}
-	if create {
-		p.AcceptedClose = nil
 	}
 	out := decide(decisionInput{
 		Status:   status,
 		Decision: plan.Decision.ValueString(),
 		Reopened: status == "Pending" && p.Reopened,
-		OwnClose: p.OwnClose,
-		Accepted: acceptsClose(plan, state, create) || (p.AcceptedClose != nil && p.LastClose != nil && *p.AcceptedClose == *p.LastClose),
 	})
 	plan.CurrentStatus = types.StringValue(out.PlannedStatus)
 	plan.GrantId = types.StringNull()
@@ -419,25 +387,15 @@ func (r *grantDecisionResource) warn(plan grantDecisionData, g *webclient.GrantV
 				"No request found that you can see. The application team may not have requested access yet; the topic repository's next apply after the request approves it.")
 		}
 	case warnApprovedAgain:
-		resp.Diagnostics.AddWarning(fmt.Sprintf("%s will be approved again", name),
-			fmt.Sprintf("The grant was closed by %s, who also asked again: the application team's own close needs no new review. "+
-				"After a reject or revoke by the topic team, a request made again waits for a change of approve_again.", closedBy))
-	case warnReopened:
-		resp.Diagnostics.AddWarning(fmt.Sprintf("%s: asked again after a close by %s", name, closedBy),
-			"The application team requested access again after the grant was rejected, revoked or cancelled by someone else. "+
-				"Change approve_again (for example to this PR's number) in a PR to approve it, or set decision = \"DENIED\" to reject it.")
+		resp.Diagnostics.AddWarning(fmt.Sprintf("%s was closed by %s and requested again; decision = APPROVED approves it", name, closedBy),
+			"decision = \"APPROVED\" approves every request from this application. To keep the grant closed, set decision = \"DENIED\" with a reason.")
 	case warnDeniedAgain:
 		resp.Diagnostics.AddWarning(fmt.Sprintf("%s asked again; DENIED rejects it again", name),
 			fmt.Sprintf("The application team requested access again. decision = \"DENIED\" rejects the new request with the reason %q. "+
 				"To give access, change decision to \"APPROVED\" in a PR; the application team then asks again.", plan.Reason.ValueString()))
 	case warnClosed:
-		if out.NextApproved {
-			resp.Diagnostics.AddWarning(fmt.Sprintf("%s is %s, the next request will be approved", name, out.PlannedStatus),
-				"When the application team requests again, the topic repository's next apply approves it without a new PR.")
-		} else {
-			resp.Diagnostics.AddWarning(fmt.Sprintf("%s is %s (by %s), a new request will wait", name, out.PlannedStatus, closedBy),
-				"When the application team requests again, change approve_again in a PR to approve it. To keep the grant closed, set decision = \"DENIED\".")
-		}
+		resp.Diagnostics.AddWarning(fmt.Sprintf("%s is %s (by %s), the next request will be approved", name, out.PlannedStatus, closedBy),
+			"decision = \"APPROVED\" approves every request from this application. To keep the grant closed, set decision = \"DENIED\" with a reason.")
 	}
 
 	if out.Action != actionNone && p.Known {
@@ -492,7 +450,7 @@ func (r *grantDecisionResource) Create(ctx context.Context, req resource.CreateR
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	r.apply(ctx, plan, grantDecisionData{}, true, grantDecisionPrivate{}, &resp.State, resp.Private, resp.Identity, &resp.Diagnostics)
+	r.apply(ctx, plan, grantDecisionData{}, true, &resp.State, resp.Private, resp.Identity, &resp.Diagnostics)
 }
 
 func (r *grantDecisionResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -502,21 +460,21 @@ func (r *grantDecisionResource) Update(ctx context.Context, req resource.UpdateR
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	r.apply(ctx, plan, state, false, readDecisionPrivate(ctx, req.Private), &resp.State, resp.Private, resp.Identity, &resp.Diagnostics)
+	r.apply(ctx, plan, state, false, &resp.State, resp.Private, resp.Identity, &resp.Diagnostics)
 }
 
 // apply looks the grant up again, checks that it is still what the plan was made from, runs the
 // action the rules ask for, and stores the result.
-func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDecisionData, create bool, p grantDecisionPrivate,
+func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDecisionData, create bool,
 	out *tfsdk.State, private privateSetter, identity *tfsdk.ResourceIdentity, diags *diag.Diagnostics) {
 	g, err := r.find(plan, true)
 	if err != nil {
 		diags.AddError("Failed to find the application access grant", err.Error())
 		return
 	}
-	status, key := statusNotFound, ""
+	status := statusNotFound
 	if g != nil {
-		status, key = g.Status, closeKey(*g)
+		status = g.Status
 		fillUnknown(&plan.Topic, g.TopicUid)
 		fillUnknown(&plan.Environment, g.EnvironmentUid)
 		fillUnknown(&plan.AccessType, g.AccessType)
@@ -526,26 +484,26 @@ func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDeci
 		plan.Id = types.StringValue(compositeDecisionID(plan))
 	}
 	// An existing block was planned from the state Read stored. If the grant changed since, the plan
-	// may no longer fit (for example approved in the UI after a DENIED plan), so act on nothing.
-	if !create && (status != state.CurrentStatus.ValueString() || (p.LastClose != nil && *p.LastClose != key)) {
+	// may no longer fit (for example approved in the UI after a DENIED plan), so act on nothing. When
+	// it already reached the planned status (for example the application team revoked it itself
+	// before a planned revoke), there is nothing left to do.
+	if !create && status != state.CurrentStatus.ValueString() {
+		if known(plan.CurrentStatus) && status == plan.CurrentStatus.ValueString() {
+			diags.AddWarning(fmt.Sprintf("%s was already %s", r.label(plan, g), status),
+				"The grant changed after the plan, to the planned status. Nothing was changed.")
+			plan.GrantId = types.StringValue(g.Uid)
+			r.store(ctx, plan, g, out, private, identity, diags)
+			return
+		}
 		diags.AddError("The grant changed between plan and apply",
-			fmt.Sprintf("The plan was made when the grant was %q; it is now %q, or it was closed again. Nothing was changed. Run plan again.",
+			fmt.Sprintf("The plan was made when the grant was %q; it is now %q. Nothing was changed. Run plan again.",
 				state.CurrentStatus.ValueString(), status))
 		return
-	}
-	accepted := p.AcceptedClose
-	if create {
-		accepted = nil
-	}
-	if acceptsClose(plan, state, create) {
-		accepted = &key
 	}
 	o := decide(decisionInput{
 		Status:   status,
 		Decision: plan.Decision.ValueString(),
 		Reopened: g != nil && reopened(*g),
-		OwnClose: g != nil && ownClose(g.ProcessedBy, g.RequestedBy, r.provider.grants.myEmail()),
-		Accepted: accepted != nil && *accepted == key,
 	})
 	planned := plan.CurrentStatus
 	switch o.Action {
@@ -574,9 +532,15 @@ func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDeci
 			fmt.Sprintf("The plan expected status %q, but the grant is now %q. Run plan again.", planned.ValueString(), plan.CurrentStatus.ValueString()))
 		return
 	}
+	r.store(ctx, plan, g, out, private, identity, diags)
+}
+
+// store saves the result of an apply.
+func (r *grantDecisionResource) store(ctx context.Context, plan grantDecisionData, g *webclient.GrantView,
+	out *tfsdk.State, private privateSetter, identity *tfsdk.ResourceIdentity, diags *diag.Diagnostics) {
 	diags.Append(out.Set(ctx, &plan)...)
 	if private != nil {
-		writeDecisionPrivate(ctx, private, r.observed(g, accepted), diags)
+		writeDecisionPrivate(ctx, private, observed(g), diags)
 	}
 	r.setIdentity(ctx, plan, identity, diags)
 }
@@ -628,7 +592,7 @@ func (r *grantDecisionResource) ImportState(ctx context.Context, req resource.Im
 	}
 	d.Id = types.StringValue(compositeDecisionID(d))
 	d.RevokeOnDestroy = types.BoolValue(false)
-	d.Decision, d.Reason, d.ApproveAgain = types.StringNull(), types.StringNull(), types.StringNull()
+	d.Decision, d.Reason = types.StringNull(), types.StringNull()
 	d.GrantId, d.CurrentStatus = types.StringNull(), types.StringNull()
 	resp.Diagnostics.Append(resp.State.Set(ctx, &d)...)
 	r.setIdentity(ctx, d, resp.Identity, &resp.Diagnostics)
