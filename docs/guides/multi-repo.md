@@ -71,9 +71,8 @@ The Grant request will remain in a PENDING state until approved or rejected by t
 - The Topic Team revokes by setting `decision = "DENIED"` with a `reason`.
 - After a revoke, the Topic Team's decision stays in place; nothing fails.
 - To get access again, the Application Team adds its grant back, or changes `request_again`; the same
-  grant reopens. If the same Application Team user (or pipeline) removed the grant and asks again, the
-  Topic Team's next apply approves it again (with `decision = "APPROVED"`). If the Topic Team revoked it
-  (in Terraform or in the UI), the Topic Team approves the new request by changing `approve_again` in a
-  PR. When both teams use the same Terraform account, the provider can't tell who revoked, so an
-  `approve_again` change is always needed. See
+  grant reopens. Under `decision = "APPROVED"` the Topic Team's next apply approves it. After
+  `decision = "DENIED"`, the Topic Team changes the decision to `"APPROVED"` first.
+- A revoke in the UI lasts only until the next request while the decision is `APPROVED`; the Topic
+  Team's plans warn until then. To revoke so that it lasts, set `decision = "DENIED"`. See
   [Managing application access to topics](manage-application-access-to-topics).

@@ -180,11 +180,8 @@ resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
 }
 
 resource "axual_application_access_grant_decision" "connector_access" {
-  application = axual_application_access_grant.dash_consume_from_logs_in_dev.application
-  topic       = axual_application_access_grant.dash_consume_from_logs_in_dev.topic
-  environment = axual_application_access_grant.dash_consume_from_logs_in_dev.environment
-  access_type = axual_application_access_grant.dash_consume_from_logs_in_dev.access_type
-  decision    = "APPROVED"
+  grant_id = axual_application_access_grant.dash_consume_from_logs_in_dev.id
+  decision = "APPROVED"
 }
 ```
 
