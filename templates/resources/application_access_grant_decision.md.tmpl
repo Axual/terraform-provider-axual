@@ -153,6 +153,8 @@ terraform import axual_application_access_grant_decision.example a7b9346f4e9a49e
 
 The first plan after an import sets `decision` from the configuration and acts on it like any plan: under `APPROVED` it approves a `Pending` request. A grant that is `Rejected` or `Revoked` shows `closed_outside_terraform = true` after an import under `APPROVED`: check whether it should stay closed, and set `DENIED` if so.
 
+`terraform plan -generate-config-out` writes `decision = null`: set `decision` (and `reason` for `DENIED`) before you plan. The provider doesn't guess it from the grant's status, because a grant the application team revoked itself would become `DENIED`. The generated block has both `grant_id` and the four lookup attributes; that works, as they point at the same grant. Keep one of the two forms if you like.
+
 In Terraform 1.12 or later, an `import` block can use `identity`:
 
 ```terraform
