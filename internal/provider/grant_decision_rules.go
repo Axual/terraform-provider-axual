@@ -42,6 +42,7 @@ const (
 	warnClosed            = "closed"
 	warnApprovedAgain     = "approved again"
 	warnDeniedAgain       = "denied again"
+	warnApproveNotOffered = "approve not offered"
 )
 
 // decide applies the standing decision. It looks only at the grant's current status, never at who
@@ -94,6 +95,17 @@ func closeKey(g webclient.GrantView) string {
 		return ""
 	}
 	return g.ProcessedAt + "|" + strings.ToLower(g.ProcessedBy) + "|" + g.Comment
+}
+
+// withOffer applies the strict default for approve (Design v8, decision 2): the provider approves only
+// when the platform offers approve to the signed-in user (the grant's "approve" link). Without it, for
+// example with self-approval disabled for the user who requested, nothing is planned and a warning
+// says so. The platform's PUT would approve anyway; the provider doesn't go around the platform.
+func withOffer(out decisionOutcome, status string, canApprove bool) decisionOutcome {
+	if out.Action == actionApprove && !canApprove {
+		return decisionOutcome{PlannedStatus: status, Warning: warnApproveNotOffered}
+	}
+	return out
 }
 
 // closedByRequester reports whether the user who closed the grant last also requested it: the

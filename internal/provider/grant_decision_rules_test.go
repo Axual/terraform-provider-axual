@@ -121,3 +121,17 @@ func TestClosedOutside(t *testing.T) {
 		t.Error("closedByRequester")
 	}
 }
+
+func TestWithOffer(t *testing.T) {
+	approve := decisionOutcome{Action: actionApprove, PlannedStatus: "Approved", Warning: warnApprovedAgain}
+	if got := withOffer(approve, "Pending", true); got != approve {
+		t.Errorf("offered: got %+v", got)
+	}
+	if got, want := withOffer(approve, "Pending", false), (decisionOutcome{PlannedStatus: "Pending", Warning: warnApproveNotOffered}); got != want {
+		t.Errorf("not offered: got %+v, want %+v", got, want)
+	}
+	reject := decisionOutcome{Action: actionReject, PlannedStatus: "Rejected"}
+	if got := withOffer(reject, "Pending", false); got != reject {
+		t.Errorf("only approve is strict: got %+v", got)
+	}
+}

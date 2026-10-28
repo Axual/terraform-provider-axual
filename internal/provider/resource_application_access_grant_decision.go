@@ -391,6 +391,9 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 		Decision: plan.Decision.ValueString(),
 		Reopened: status == "Pending" && p.Reopened,
 	})
+	if p.Known {
+		out = withOffer(out, status, p.CanApprove)
+	}
 	plan.CurrentStatus = types.StringValue(out.PlannedStatus)
 	// Planned from the state and private state only, like current_status: a flip from DENIED to
 	// APPROVED can change it, and a saved plan must apply with the same value.
@@ -490,7 +493,7 @@ func (r *grantDecisionResource) warn(plan grantDecisionData, g *webclient.GrantV
 	// An approval names the application's owner group: a decision by name approves whoever owns an
 	// application with that name.
 	owners := ""
-	if out.Action == actionApprove {
+	if out.Action == actionApprove || out.Warning == warnApproveNotOffered {
 		app := plan.Application.ValueString()
 		if g != nil && g.ApplicationUid != "" {
 			app = g.ApplicationUid
@@ -505,6 +508,11 @@ func (r *grantDecisionResource) warn(plan grantDecisionData, g *webclient.GrantV
 	case warnApprovedAgain:
 		resp.Diagnostics.AddWarning(fmt.Sprintf("%s was closed by %s and requested again; decision = APPROVED approves it", name, closedBy),
 			"decision = \"APPROVED\" approves every request from this application. To keep the grant closed, set decision = \"DENIED\" with a reason."+owners)
+	case warnApproveNotOffered:
+		resp.Diagnostics.AddWarning(fmt.Sprintf("%s: the platform doesn't offer approve to this user now", name),
+			"The grant has no \"approve\" link for the signed-in user, so this apply doesn't approve it. Possible reasons: the user doesn't own the topic, "+
+				"or self-approval is disabled on the instance and this user made the request. Approve it in the UI as another topic owner, "+
+				"or apply the topic repository with a user that may approve."+owners)
 	case warnDeniedAgain:
 		resp.Diagnostics.AddWarning(fmt.Sprintf("%s asked again; DENIED rejects it again", name),
 			fmt.Sprintf("The application team requested access again. decision = \"DENIED\" rejects the new request with the reason %q. "+
@@ -522,8 +530,9 @@ func (r *grantDecisionResource) warn(plan grantDecisionData, g *webclient.GrantV
 			fmt.Sprintf("The grant is %s now.%s", status, owners))
 	}
 
-	if out.Action != actionNone && p.Known {
-		offered := map[string]bool{actionApprove: p.CanApprove, actionReject: p.CanDeny, actionRevoke: p.CanRevoke}[out.Action]
+	// Approve is strict (withOffer); reject and revoke are tried anyway.
+	if (out.Action == actionReject || out.Action == actionRevoke) && p.Known {
+		offered := map[string]bool{actionReject: p.CanDeny, actionRevoke: p.CanRevoke}[out.Action]
 		if !offered {
 			resp.Diagnostics.AddWarning(fmt.Sprintf("%s: the platform doesn't offer %s to this user now", name, out.Action),
 				"The grant has no \""+out.Action+"\" link for the signed-in user. Possible reasons: the user doesn't own the topic, or self-approval is disabled on the instance and this user made the request. The apply still tries.")
@@ -647,7 +656,15 @@ func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDeci
 		Decision: plan.Decision.ValueString(),
 		Reopened: g != nil && reopened(*g),
 	})
+	if g != nil {
+		o = withOffer(o, status, g.CanApprove)
+	}
 	planned := plan.CurrentStatus
+	if !create && known(planned) && planned.ValueString() == status {
+		// The plan has no status change (for example approve wasn't offered then): act on nothing
+		// the plan didn't show.
+		o.Action = actionNone
+	}
 	switch o.Action {
 	case actionApprove:
 		tflog.Info(ctx, fmt.Sprintf("Approving grant %s", g.Uid))
