@@ -161,7 +161,8 @@ func (r *grantDecisionResource) Schema(_ context.Context, _ resource.SchemaReque
 			},
 			"grant_id": schema.StringAttribute{
 				MarkdownDescription: "The grant UID. In a single repository, set it to `axual_application_access_grant.x.id` instead of the four lookup attributes; " +
-					"changing it replaces the block. Otherwise the provider fills it in: null until the application team requests access, and it changes when the application is created again.",
+					"changing it replaces the block. Both together, as `terraform plan -generate-config-out` writes them, must point at the same grant. " +
+					"Otherwise the provider fills it in: null until the application team requests access, and it changes when the application is created again.",
 				Optional: true,
 				Computed: true,
 			},
@@ -208,10 +209,12 @@ func (r *grantDecisionResource) ValidateConfig(ctx context.Context, req resource
 			lookups++
 		}
 	}
+	// Both forms together (as `terraform plan -generate-config-out` writes them) are fine when they point
+	// at the same grant; the plan checks that.
 	switch {
-	case !grantID.IsNull() && lookups > 0:
-		resp.Diagnostics.AddAttributeError(path.Root("grant_id"), "Set grant_id or the lookup attributes, not both",
-			"Set grant_id (single repository), or application, topic, environment and access_type (multi-repo).")
+	case !grantID.IsNull() && lookups > 0 && lookups < len(lookupPaths):
+		resp.Diagnostics.AddAttributeError(path.Root("grant_id"), "Incomplete lookup attributes",
+			"Set grant_id (single repository), or application, topic, environment and access_type (multi-repo). With both, set all four lookup attributes.")
 	case grantID.IsNull() && lookups < len(lookupPaths):
 		resp.Diagnostics.AddError("Missing lookup attributes",
 			"Set all four of application, topic, environment and access_type (multi-repo), or grant_id (single repository).")
@@ -248,6 +251,51 @@ func (r *grantDecisionResource) find(d grantDecisionData, fresh bool) (*webclien
 		return g, nil
 	}
 	return nil, nil
+}
+
+// configHasLookups: the configuration sets the lookup attributes (all four, see ValidateConfig).
+func (r *grantDecisionResource) configHasLookups(ctx context.Context, config tfsdk.Config, diags *diag.Diagnostics) bool {
+	var v types.String
+	diags.Append(config.GetAttribute(ctx, path.Root("application"), &v)...)
+	return !v.IsNull()
+}
+
+// lookupsMatchGrant checks a configuration with both grant_id and the lookup attributes: they must point
+// at the same grant. It calls the API only on create or when the lookup attributes changed, so a saved
+// plan applies with the same result; the apply checks again.
+func (r *grantDecisionResource) lookupsMatchGrant(plan, state grantDecisionData, create bool, diags *diag.Diagnostics) bool {
+	if !known(plan.GrantId) || unknownLookup(plan) {
+		return true
+	}
+	if !create && plan.Application.Equal(state.Application) && plan.Topic.Equal(state.Topic) &&
+		plan.Environment.Equal(state.Environment) && plan.AccessType.Equal(state.AccessType) {
+		return true
+	}
+	g, err := r.provider.client.GetGrantView(plan.GrantId.ValueString())
+	if err != nil {
+		if isGone(err) || isForbidden(err) {
+			return true // the plan reports the grant as not found
+		}
+		diags.AddError("Failed to read the application access grant", err.Error())
+		return false
+	}
+	if !grantMatchesLookups(*g, plan) {
+		diags.AddAttributeError(path.Root("grant_id"), "grant_id and the lookup attributes point at different grants",
+			fmt.Sprintf("grant_id %s is %s, but application, topic, environment and access_type are %s. Remove grant_id or the lookup attributes, or make them agree.",
+				g.Uid, compositeDecisionID(grantDecisionData{Topic: types.StringValue(g.TopicUid), Environment: types.StringValue(g.EnvironmentUid),
+					AccessType: types.StringValue(g.AccessType), Application: types.StringValue(firstNonEmptyString(g.ApplicationName, g.ApplicationUid))}),
+				compositeDecisionID(plan)))
+		return false
+	}
+	return true
+}
+
+// grantMatchesLookups: the grant is the one the lookup attributes describe. The application is a name or a UID.
+func grantMatchesLookups(g webclient.GrantView, d grantDecisionData) bool {
+	app := d.Application.ValueString()
+	return g.TopicUid == d.Topic.ValueString() && g.EnvironmentUid == d.Environment.ValueString() &&
+		strings.EqualFold(g.AccessType, d.AccessType.ValueString()) &&
+		(app == g.ApplicationName || strings.EqualFold(app, g.ApplicationUid))
 }
 
 func known(v types.String) bool { return !v.IsNull() && !v.IsUnknown() && v.ValueString() != "" }
@@ -329,13 +377,17 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 	var configGrantID types.String
 	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("grant_id"), &configGrantID)...)
 	byGrant := !configGrantID.IsNull()
+	bothForms := byGrant && r.configHasLookups(ctx, req.Config, &resp.Diagnostics)
 	if byGrant && !create && !configGrantID.Equal(state.GrantId) {
 		resp.RequiresReplace = append(resp.RequiresReplace, path.Root("grant_id"))
 		r.warnOldGrant(state, resp)
 		create = true
 	}
-	if byGrant && create {
+	if byGrant && create && !bothForms {
 		plan.Application, plan.Topic, plan.Environment, plan.AccessType = types.StringUnknown(), types.StringUnknown(), types.StringUnknown(), types.StringUnknown()
+	}
+	if bothForms && !r.lookupsMatchGrant(plan, state, create, &resp.Diagnostics) {
+		return
 	}
 
 	// The grant this plan is about. On create or after a lookup change, look it up; otherwise use only
@@ -629,6 +681,12 @@ func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDeci
 	}
 	if plan.Id.IsUnknown() {
 		plan.Id = types.StringValue(compositeDecisionID(plan))
+	}
+	// grant_id and the lookup attributes together: the lookup found another grant than grant_id.
+	if create && g != nil && known(plan.GrantId) && g.Uid != plan.GrantId.ValueString() {
+		diags.AddError("grant_id and the lookup attributes point at different grants",
+			fmt.Sprintf("grant_id is %s, but the lookup attributes find grant %s. Nothing was changed.", plan.GrantId.ValueString(), g.Uid))
+		return
 	}
 	// Another grant matches now (for example the application was deleted and a new one with the same
 	// name requested access): the plan was about the old one, so act on nothing.

@@ -44,7 +44,7 @@ The decision finds its grant by `grant_id` first, then by application UID, then 
 - `access_type` (String) `CONSUMER` or `PRODUCER`. See `application`.
 - `application` (String) Application UID or name. The grant is found among the grants on the topic, also before the request exists. Set `application`, `topic`, `environment` and `access_type` (multi-repo), or `grant_id` (single repository); with `grant_id` they are filled from the grant.
 - `environment` (String) Environment UID. See `application`.
-- `grant_id` (String) The grant UID. In a single repository, set it to `axual_application_access_grant.x.id` instead of the four lookup attributes; changing it replaces the block. Otherwise the provider fills it in: null until the application team requests access, and it changes when the application is created again.
+- `grant_id` (String) The grant UID. In a single repository, set it to `axual_application_access_grant.x.id` instead of the four lookup attributes; changing it replaces the block. Both together, as `terraform plan -generate-config-out` writes them, must point at the same grant. Otherwise the provider fills it in: null until the application team requests access, and it changes when the application is created again.
 - `reason` (String) Required when `decision = "DENIED"`. Sent with the reject or revoke; the application team reads it as `decision_reason`.
 - `revoke_on_destroy` (Boolean) When `true`, removing the block revokes an `Approved` grant. Default `false`: removing the block only stops managing the decision.
 - `topic` (String) Topic UID. See `application`.
@@ -173,6 +173,8 @@ terraform import axual_application_access_grant_decision.example a7b9346f4e9a49e
 ```
 
 The first plan after an import sets `decision` from the configuration and acts on it like any plan: under `APPROVED` it approves a `Pending` request. A grant that is `Rejected` or `Revoked` shows `closed_outside_terraform = true` after an import under `APPROVED`: check whether it should stay closed, and set `DENIED` if so.
+
+`terraform plan -generate-config-out` writes `decision = null`: set `decision` (and `reason` for `DENIED`) before you plan. The provider doesn't guess it from the grant's status, because a grant the application team revoked itself would become `DENIED`. The generated block has both `grant_id` and the four lookup attributes; that works, as they point at the same grant. Keep one of the two forms if you like.
 
 In Terraform 1.12 or later, an `import` block can use `identity`:
 
