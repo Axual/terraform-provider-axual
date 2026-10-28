@@ -252,7 +252,8 @@ func (r *applicationAccessGrantResource) ModifyPlan(ctx context.Context, req res
 	}
 	name := grantName(webclient.GrantView{ApplicationUid: state.ApplicationId.ValueString(), AccessType: state.AccessType.ValueString(),
 		TopicUid: state.TopicId.ValueString(), EnvironmentUid: state.EnvironmentId.ValueString()})
-	if g, err := r.provider.client.GetGrantView(state.Id.ValueString()); err == nil {
+	g, err := r.provider.client.GetGrantView(state.Id.ValueString())
+	if err == nil {
 		name = grantName(*g)
 	}
 
@@ -270,10 +271,15 @@ func (r *applicationAccessGrantResource) ModifyPlan(ctx context.Context, req res
 			"request_again changed, but only a Rejected, Revoked or Cancelled grant can be requested again. The new value is stored.")
 	case closed:
 		detail := "Change request_again in a PR to ask again, or request again in the UI."
-		if reason := state.DecisionReason.ValueString(); reason != "" {
-			detail = fmt.Sprintf("Reason from the topic team: %q.\n%s", reason, detail)
+		summary := fmt.Sprintf("Grant %s is %s", name, status)
+		switch {
+		case err == nil && g.ProcessedBy != "" && (closedByRequester(*g) || status == "Cancelled"):
+			// The application team's own close, or a cancel: there is no reason from the topic team.
+			summary = fmt.Sprintf("Grant %s is %s by %s", name, status, g.ProcessedBy)
+		case state.DecisionReason.ValueString() != "":
+			detail = fmt.Sprintf("Reason from the topic team: %q.\n%s", state.DecisionReason.ValueString(), detail)
 		}
-		resp.Diagnostics.AddWarning(fmt.Sprintf("Grant %s is %s", name, status), detail)
+		resp.Diagnostics.AddWarning(summary, detail)
 		return
 	default:
 		return

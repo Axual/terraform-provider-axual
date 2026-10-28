@@ -81,7 +81,43 @@ func TestCloseKey(t *testing.T) {
 	if closeKey(first) == closeKey(later) {
 		t.Error("a later close must differ from an earlier one")
 	}
+	sameSecond := first
+	sameSecond.Comment = "rejected in the UI"
+	if closeKey(first) == closeKey(sameSecond) {
+		t.Error("two closes by one user within a second must differ")
+	}
 	if !reopened(reopenedGrant) || reopened(webclient.GrantView{Status: "Pending"}) || reopened(first) {
 		t.Error("reopened: only a Pending grant that was closed before")
+	}
+}
+
+func TestClosedOutside(t *testing.T) {
+	tests := []struct {
+		desc                 string
+		decision, status     string
+		closeKey, ownClose   string
+		byRequester, outside bool
+	}{
+		{"UI revoke under APPROVED", decisionApproved, "Revoked", "t2|tom", "", false, true},
+		{"UI reject after an own reject", decisionApproved, "Rejected", "t3|tom", "t1|tom", false, true},
+		{"own reject, then the flip to APPROVED", decisionApproved, "Rejected", "t1|tom", "t1|tom", false, false},
+		{"the application team gave up access", decisionApproved, "Revoked", "t2|alex", "", true, false},
+		{"no stored key (import, moved block)", decisionApproved, "Rejected", "t1|tom", "", false, true},
+		{"Cancelled", decisionApproved, "Cancelled", "t2|admin", "", false, false},
+		{"Approved", decisionApproved, "Approved", "t2|tom", "", false, false},
+		{"Pending", decisionApproved, "Pending", "t2|tom", "", false, false},
+		{"under DENIED", decisionDenied, "Revoked", "t2|tom", "", false, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			if got := closedOutside(tt.decision, tt.status, tt.closeKey, tt.ownClose, tt.byRequester); got != tt.outside {
+				t.Errorf("got %v, want %v", got, tt.outside)
+			}
+		})
+	}
+	if !closedByRequester(webclient.GrantView{ProcessedBy: "Alex@axual.com", RequestedBy: "alex@axual.com"}) ||
+		closedByRequester(webclient.GrantView{ProcessedBy: "tom@axual.com", RequestedBy: "alex@axual.com"}) ||
+		closedByRequester(webclient.GrantView{}) {
+		t.Error("closedByRequester")
 	}
 }

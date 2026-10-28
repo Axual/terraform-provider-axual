@@ -50,6 +50,7 @@ type grantDecisionData struct {
 	RevokeOnDestroy types.Bool   `tfsdk:"revoke_on_destroy"`
 	GrantId         types.String `tfsdk:"grant_id"`
 	CurrentStatus   types.String `tfsdk:"current_status"`
+	ClosedOutside   types.Bool   `tfsdk:"closed_outside_terraform"`
 }
 
 type grantDecisionIdentity struct {
@@ -69,6 +70,12 @@ type grantDecisionPrivate struct {
 	// Reopened and ClosedBy describe the grant's last close, for the warnings.
 	Reopened bool   `json:"reopened"`
 	ClosedBy string `json:"closed_by,omitempty"`
+	// CloseKey and ByRequester describe the grant's last close (closeKey, closedByRequester), so a plan
+	// can compute closed_outside_terraform from the state; the apply checks CloseKey before it acts.
+	CloseKey    string `json:"close_key,omitempty"`
+	ByRequester bool   `json:"by_requester,omitempty"`
+	// OwnClose is the closeKey right after this decision's own last reject or revoke.
+	OwnClose string `json:"own_close,omitempty"`
 }
 
 const grantDecisionPrivateKey = "grant_decision"
@@ -89,13 +96,19 @@ func readDecisionPrivate(ctx context.Context, p privateGetter) grantDecisionPriv
 	return out
 }
 
-// observed is what the provider stores about a grant (nil: none found).
-func observed(g *webclient.GrantView) grantDecisionPrivate {
+// observed is what the provider stores about a grant (nil: none found), with the key of its own last
+// close.
+func observed(g *webclient.GrantView, ownClose string) grantDecisionPrivate {
 	if g == nil {
-		return grantDecisionPrivate{Known: true}
+		return grantDecisionPrivate{Known: true, OwnClose: ownClose}
 	}
 	return grantDecisionPrivate{CanApprove: g.CanApprove, CanDeny: g.CanDeny, CanRevoke: g.CanRevoke, Known: true,
-		Reopened: reopened(*g), ClosedBy: g.ProcessedBy}
+		Reopened: reopened(*g), ClosedBy: g.ProcessedBy, CloseKey: closeKey(*g), ByRequester: closedByRequester(*g), OwnClose: ownClose}
+}
+
+// closedOutsideOf is closed_outside_terraform for a grant (nil: none found).
+func closedOutsideOf(decision types.String, g *webclient.GrantView, ownClose string) types.Bool {
+	return types.BoolValue(g != nil && closedOutside(decision.ValueString(), g.Status, closeKey(*g), ownClose, closedByRequester(*g)))
 }
 
 func writeDecisionPrivate(ctx context.Context, s privateSetter, p grantDecisionPrivate, diags *diag.Diagnostics) {
@@ -150,6 +163,14 @@ func (r *grantDecisionResource) Schema(_ context.Context, _ resource.SchemaReque
 				MarkdownDescription: "The grant UID. In a single repository, set it to `axual_application_access_grant.x.id` instead of the four lookup attributes; " +
 					"changing it replaces the block. Otherwise the provider fills it in: null until the application team requests access, and it changes when the application is created again.",
 				Optional: true,
+				Computed: true,
+			},
+			"closed_outside_terraform": schema.BoolAttribute{
+				MarkdownDescription: "`true` when `decision = \"APPROVED\"` and the grant was rejected or revoked outside Terraform, for example in the UI: " +
+					"the next request will be approved. Not set by this decision's own reject or revoke, nor when the application team gave up access itself " +
+					"(the user who requested it closed it); with one account for both teams a revoke in the UI looks like that and isn't reported. " +
+					"Without the record of its own last close (after an import or a `moved` block) a closed grant counts as closed outside Terraform. " +
+					"Use it in a `check` block. It only reports; it never changes what the provider does.",
 				Computed: true,
 			},
 			"current_status": schema.StringAttribute{
@@ -263,8 +284,13 @@ func (r *grantDecisionResource) Read(ctx context.Context, req resource.ReadReque
 			d.Id = types.StringValue(compositeDecisionID(d))
 		}
 	}
+	var own string
+	if req.Private != nil {
+		own = readDecisionPrivate(ctx, req.Private).OwnClose
+	}
+	d.ClosedOutside = closedOutsideOf(d.Decision, g, own)
 	if resp.Private != nil { // nil when `terraform query` reads a found resource
-		writeDecisionPrivate(ctx, resp.Private, observed(g), &resp.Diagnostics)
+		writeDecisionPrivate(ctx, resp.Private, observed(g, own), &resp.Diagnostics)
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &d)...)
 	r.setIdentity(ctx, d, resp.Identity, &resp.Diagnostics)
@@ -352,8 +378,11 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 		}
 	}
 
+	if create {
+		p.OwnClose = ""
+	}
 	if g != nil { // looked up in this plan
-		p = observed(g)
+		p = observed(g, p.OwnClose)
 	} else if known(state.GrantId) {
 		g = &webclient.GrantView{Uid: state.GrantId.ValueString(), Status: status, ProcessedBy: p.ClosedBy}
 	}
@@ -363,6 +392,10 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 		Reopened: status == "Pending" && p.Reopened,
 	})
 	plan.CurrentStatus = types.StringValue(out.PlannedStatus)
+	// Planned from the state and private state only, like current_status: a flip from DENIED to
+	// APPROVED can change it, and a saved plan must apply with the same value.
+	closed := closedOutside(plan.Decision.ValueString(), out.PlannedStatus, p.CloseKey, p.OwnClose, p.ByRequester)
+	plan.ClosedOutside = types.BoolValue(closed)
 	if !byGrant {
 		plan.GrantId = types.StringNull()
 		if g != nil {
@@ -372,14 +405,9 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 	if create {
 		// The request can arrive or change between a saved plan and its apply, and Terraform checks the
 		// apply's plan against the saved one. So a new block only warns what it will do.
-		plan.CurrentStatus = types.StringUnknown()
+		plan.CurrentStatus, plan.ClosedOutside = types.StringUnknown(), types.BoolUnknown()
 		if !byGrant {
 			plan.GrantId = types.StringUnknown()
-		}
-		if out.Action != actionNone {
-			resp.Diagnostics.AddWarning(fmt.Sprintf("%s will be %s by this apply", r.label(plan, g), map[string]string{
-				actionApprove: "approved", actionReject: "rejected", actionRevoke: "revoked"}[out.Action]),
-				fmt.Sprintf("The grant is %s now.", status))
 		}
 	}
 	resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
@@ -390,7 +418,7 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 				fmt.Sprintf("The decisions with id %q and %q point at the same grant. Keep one of them: with two, the result depends on the order of the apply.", other, plan.Id.ValueString()))
 		}
 	}
-	r.warn(plan, g, out, p, resp)
+	r.warn(plan, g, status, out, p, closed, create, resp)
 }
 
 // planUnknown plans a decision whose grant can't be known yet, for example a single repository
@@ -399,11 +427,41 @@ func (r *grantDecisionResource) planUnknown(ctx context.Context, plan *grantDeci
 	if create {
 		plan.Id = types.StringUnknown()
 	}
-	plan.CurrentStatus = types.StringUnknown()
+	plan.CurrentStatus, plan.ClosedOutside = types.StringUnknown(), types.BoolUnknown()
 	if !byGrant {
 		plan.GrantId = types.StringUnknown()
 	}
 	resp.Diagnostics.Append(resp.Plan.Set(ctx, plan)...)
+}
+
+// warnWaiting gives one warning for the decisions of a topic, environment and access type that wait
+// for a request.
+func (r *grantDecisionResource) warnWaiting(plan grantDecisionData, resp *resource.ModifyPlanResponse) {
+	topic, environment, accessType := plan.Topic.ValueString(), plan.Environment.ValueString(), plan.AccessType.ValueString()
+	names := r.provider.grants.waiting(topic+"/"+environment+"/"+accessType, plan.Application.ValueString())
+	if names == nil {
+		return // another decision of this group warns
+	}
+	env := r.provider.grants.environment(environment)
+	envName := environment
+	if env != nil {
+		envName = env.Name
+	}
+	where := fmt.Sprintf("%s (%s, %s)", firstNonEmptyString(r.provider.grants.topicName(topic), topic), envName, accessType)
+	summary := fmt.Sprintf("%d decisions on %s wait for a request: %s", len(names), where, strings.Join(names, ", "))
+	if len(names) == 1 {
+		summary = fmt.Sprintf("%s on %s waits for a request", names[0], where)
+	}
+	detail := "No request found that this user can see. The application team may not have requested access yet; the topic repository's next apply after the request approves it."
+	if r.provider.grants.hidesPrivateRequests() {
+		cause := "If an application is private, its request may exist: before Platform Manager 15.0.4 a topic owner can't see the requests of private applications."
+		if env != nil && strings.EqualFold(env.Visibility, "Private") {
+			cause = fmt.Sprintf("Environment %s is private: before Platform Manager 15.0.4 a topic owner can't see any request in a private environment.", env.Name)
+		}
+		detail = cause + " Approve such a request in the UI, or upgrade to 15.0.4 or later. " +
+			"Otherwise the application team hasn't requested access yet; the topic repository's next apply after the request approves it."
+	}
+	resp.Diagnostics.AddWarning(summary, detail)
 }
 
 // warnOldGrant warns, for a block that is replaced because it points at another grant, that the old
@@ -416,36 +474,52 @@ func (r *grantDecisionResource) warnOldGrant(state grantDecisionData, resp *reso
 	}
 }
 
-func (r *grantDecisionResource) warn(plan grantDecisionData, g *webclient.GrantView, out decisionOutcome, p grantDecisionPrivate, resp *resource.ModifyPlanResponse) {
+func (r *grantDecisionResource) warn(plan grantDecisionData, g *webclient.GrantView, status string, out decisionOutcome, p grantDecisionPrivate,
+	closed, create bool, resp *resource.ModifyPlanResponse) {
 	name := r.label(plan, g)
 	closedBy := "someone other than the application team"
 	if p.ClosedBy != "" {
 		closedBy = p.ClosedBy
 	}
+	if status == statusNotFound && known(plan.Application) && !r.provider.grants.application(plan.Application.ValueString()).found {
+		app := plan.Application.ValueString()
+		resp.Diagnostics.AddWarning(fmt.Sprintf("No application named %q exists (yet)", app),
+			fmt.Sprintf("The decision %s finds no application %q that this user can see. Check the name, or wait for the application team to create it.", name, app))
+		return
+	}
+	// An approval names the application's owner group: a decision by name approves whoever owns an
+	// application with that name.
+	owners := ""
+	if out.Action == actionApprove {
+		app := plan.Application.ValueString()
+		if g != nil && g.ApplicationUid != "" {
+			app = g.ApplicationUid
+		}
+		if a := r.provider.grants.application(app); a.owners != "" {
+			owners = fmt.Sprintf(" The application is owned by group %q.", a.owners)
+		}
+	}
 	switch out.Warning {
 	case warnWaitingForRequest:
-		if plan.Decision.ValueString() == decisionApproved && r.provider.grants.hidesPrivateRequests() {
-			cause := "If the application is private, its request may exist: before Platform Manager 15.0.4 a topic owner can't see the requests of private applications."
-			if env := r.provider.grants.environment(plan.Environment.ValueString()); env != nil && strings.EqualFold(env.Visibility, "Private") {
-				cause = fmt.Sprintf("Environment %s is private: before Platform Manager 15.0.4 a topic owner can't see any request in a private environment.", env.Name)
-			}
-			resp.Diagnostics.AddWarning(fmt.Sprintf("%s: no request found that this user can see", name),
-				cause+" Approve such a request in the UI, or upgrade to 15.0.4 or later. "+
-					"Otherwise the application team hasn't requested access yet; the topic repository's next apply after the request approves it.")
-		} else if plan.Decision.ValueString() == decisionApproved {
-			resp.Diagnostics.AddWarning(fmt.Sprintf("%s is waiting for a request", name),
-				"No request found that you can see. The application team may not have requested access yet; the topic repository's next apply after the request approves it.")
-		}
+		r.warnWaiting(plan, resp)
 	case warnApprovedAgain:
 		resp.Diagnostics.AddWarning(fmt.Sprintf("%s was closed by %s and requested again; decision = APPROVED approves it", name, closedBy),
-			"decision = \"APPROVED\" approves every request from this application. To keep the grant closed, set decision = \"DENIED\" with a reason.")
+			"decision = \"APPROVED\" approves every request from this application. To keep the grant closed, set decision = \"DENIED\" with a reason."+owners)
 	case warnDeniedAgain:
 		resp.Diagnostics.AddWarning(fmt.Sprintf("%s asked again; DENIED rejects it again", name),
 			fmt.Sprintf("The application team requested access again. decision = \"DENIED\" rejects the new request with the reason %q. "+
 				"To give access, change decision to \"APPROVED\" in a PR; the application team then asks again.", plan.Reason.ValueString()))
 	case warnClosed:
-		resp.Diagnostics.AddWarning(fmt.Sprintf("%s is %s (by %s), the next request will be approved", name, out.PlannedStatus, closedBy),
-			"decision = \"APPROVED\" approves every request from this application. To keep the grant closed, set decision = \"DENIED\" with a reason.")
+		if closed {
+			resp.Diagnostics.AddWarning(fmt.Sprintf("%s is %s (by %s), the next request will be approved", name, out.PlannedStatus, closedBy),
+				"The grant was closed outside Terraform (closed_outside_terraform = true), but decision = \"APPROVED\" approves every request from this application. "+
+					"To keep it closed, set decision = \"DENIED\" with a reason.")
+		}
+	}
+	if (out.Action == actionApprove && out.Warning != warnApprovedAgain) || (create && out.Action != actionNone) {
+		resp.Diagnostics.AddWarning(fmt.Sprintf("%s will be %s by this apply", name, map[string]string{
+			actionApprove: "approved", actionReject: "rejected", actionRevoke: "revoked"}[out.Action]),
+			fmt.Sprintf("The grant is %s now.%s", status, owners))
 	}
 
 	if out.Action != actionNone && p.Known {
@@ -500,7 +574,7 @@ func (r *grantDecisionResource) Create(ctx context.Context, req resource.CreateR
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	r.apply(ctx, plan, grantDecisionData{}, true, &resp.State, resp.Private, resp.Identity, &resp.Diagnostics)
+	r.apply(ctx, plan, grantDecisionData{}, true, grantDecisionPrivate{}, &resp.State, resp.Private, resp.Identity, &resp.Diagnostics)
 }
 
 func (r *grantDecisionResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -510,12 +584,12 @@ func (r *grantDecisionResource) Update(ctx context.Context, req resource.UpdateR
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	r.apply(ctx, plan, state, false, &resp.State, resp.Private, resp.Identity, &resp.Diagnostics)
+	r.apply(ctx, plan, state, false, readDecisionPrivate(ctx, req.Private), &resp.State, resp.Private, resp.Identity, &resp.Diagnostics)
 }
 
 // apply looks the grant up again, checks that it is still what the plan was made from, runs the
 // action the rules ask for, and stores the result.
-func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDecisionData, create bool,
+func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDecisionData, create bool, p grantDecisionPrivate,
 	out *tfsdk.State, private privateSetter, identity *tfsdk.ResourceIdentity, diags *diag.Diagnostics) {
 	g, err := r.find(plan, true)
 	if err != nil {
@@ -548,13 +622,25 @@ func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDeci
 			diags.AddWarning(fmt.Sprintf("%s was already %s", r.label(plan, g), status),
 				"The grant changed after the plan, to the planned status. Nothing was changed.")
 			plan.GrantId = types.StringValue(g.Uid)
-			r.store(ctx, plan, g, out, private, identity, diags)
+			plan.ClosedOutside = closedOutsideOf(plan.Decision, g, p.OwnClose)
+			r.store(ctx, plan, g, p.OwnClose, out, private, identity, diags)
 			return
 		}
 		diags.AddError("The grant changed between plan and apply",
 			fmt.Sprintf("The plan was made when the grant was %q; it is now %q. Nothing was changed. Run plan again.",
 				state.CurrentStatus.ValueString(), status))
 		return
+	}
+	// The same status, but closed again since the plan (for example rejected in the UI and requested
+	// again): the plan's closed_outside_terraform may no longer fit.
+	if !create && g != nil && p.Known && p.CloseKey != closeKey(*g) {
+		diags.AddError("The grant changed between plan and apply",
+			fmt.Sprintf("The grant is still %q, but it was closed and requested again since the plan. Nothing was changed. Run plan again.", status))
+		return
+	}
+	own := p.OwnClose
+	if create {
+		own = ""
 	}
 	o := decide(decisionInput{
 		Status:   status,
@@ -585,21 +671,25 @@ func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDeci
 			}
 		}
 		plan.CurrentStatus, plan.GrantId = types.StringValue(g.Status), types.StringValue(g.Uid)
+		if o.Action == actionReject || o.Action == actionRevoke {
+			own = closeKey(*g)
+		}
 	}
 	if known(planned) && planned.ValueString() != plan.CurrentStatus.ValueString() {
 		diags.AddError("The grant changed during the apply",
 			fmt.Sprintf("The plan expected status %q, but the grant is now %q. Run plan again.", planned.ValueString(), plan.CurrentStatus.ValueString()))
 		return
 	}
-	r.store(ctx, plan, g, out, private, identity, diags)
+	plan.ClosedOutside = closedOutsideOf(plan.Decision, g, own)
+	r.store(ctx, plan, g, own, out, private, identity, diags)
 }
 
-// store saves the result of an apply.
-func (r *grantDecisionResource) store(ctx context.Context, plan grantDecisionData, g *webclient.GrantView,
+// store saves the result of an apply, with the key of the decision's own last close.
+func (r *grantDecisionResource) store(ctx context.Context, plan grantDecisionData, g *webclient.GrantView, ownClose string,
 	out *tfsdk.State, private privateSetter, identity *tfsdk.ResourceIdentity, diags *diag.Diagnostics) {
 	diags.Append(out.Set(ctx, &plan)...)
 	if private != nil {
-		writeDecisionPrivate(ctx, private, observed(g), diags)
+		writeDecisionPrivate(ctx, private, observed(g, ownClose), diags)
 	}
 	r.setIdentity(ctx, plan, identity, diags)
 }
