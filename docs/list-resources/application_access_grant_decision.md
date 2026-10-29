@@ -3,12 +3,12 @@
 page_title: "axual_application_access_grant_decision List Resource - terraform-provider-axual"
 subcategory: ""
 description: |-
-  Lists the decisions on application access grants, for the topic team: decision = "APPROVED" for an Approved grant, decision = "DENIED" with the platform's comment as reason for a Rejected or Revoked one. Pending and Cancelled grants are left out: a pending request is for the topic team to decide, and generated config must not approve it.
+  Lists the decisions on application access grants, for the topic team: decision = "APPROVED" for an Approved grant, decision = "DENIED" with the platform's comment as reason for a Rejected or Revoked one. Pending and Cancelled grants are left out: a pending request is for the topic team to decide, and generated config must not approve it. A grant the application team revoked itself is left out too: that isn't a decision of the topic team.
 ---
 
 # axual_application_access_grant_decision (List Resource)
 
-Lists the decisions on application access grants, for the topic team: `decision = "APPROVED"` for an `Approved` grant, `decision = "DENIED"` with the platform's comment as `reason` for a `Rejected` or `Revoked` one. `Pending` and `Cancelled` grants are left out: a pending request is for the topic team to decide, and generated config must not approve it.
+Lists the decisions on application access grants, for the topic team: `decision = "APPROVED"` for an `Approved` grant, `decision = "DENIED"` with the platform's comment as `reason` for a `Rejected` or `Revoked` one. `Pending` and `Cancelled` grants are left out: a pending request is for the topic team to decide, and generated config must not approve it. A grant the application team revoked itself is left out too: that isn't a decision of the topic team.
 
 
 

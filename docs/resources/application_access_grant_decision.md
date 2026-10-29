@@ -8,7 +8,7 @@ Use it in the topic team's repository. The application team requests access with
 
 1. **The topic team writes `decision`.** `APPROVED` approves every request from that application, now and later. `DENIED` (with a `reason`) rejects or revokes, also every later request.
 2. **The application team changes `request_again` to ask again.** The text isn't sent to the platform, so explain the reason in the PR to the topic repository. After `DENIED`, the topic team changes the decision first.
-3. **Removing a decision revokes** an `Approved` grant (`revoke_on_destroy` defaults to `true`). To stop managing a decision without revoking, use a `removed` block with `lifecycle { destroy = false }`, or set `revoke_on_destroy = false` first. When you rename a `for_each` key, add a `moved` block: without it the old block is removed, the grant is revoked, and the application team has to ask again.
+3. **Removing a decision revokes** an `Approved` grant (`revoke_on_destroy` defaults to `true`). To stop managing a decision without revoking, set `revoke_on_destroy = false` and apply before you remove it (for a whole resource block, a `removed` block with `lifecycle { destroy = false }` works too; it can't name one `for_each` key). When you rename a `for_each` key, add a `moved` block: without it the old block is removed, the grant is revoked, and the application team has to ask again.
 
 ## What the provider does
 
@@ -46,7 +46,7 @@ The decision finds its grant by `grant_id` first, then by application UID, then 
 - `environment` (String) Environment UID. See `application`.
 - `grant_id` (String) The grant UID. In a single repository, set it to `axual_application_access_grant.x.id` instead of the four lookup attributes; changing it replaces the block. Both together, as `terraform plan -generate-config-out` writes them, must point at the same grant. Otherwise the provider fills it in: null until the application team requests access, and it changes when the application is created again.
 - `reason` (String) Required when `decision = "DENIED"`. Sent with the reject or revoke; the application team reads it as `decision_reason`.
-- `revoke_on_destroy` (Boolean) Default `true`: removing the block revokes an `Approved` grant, like removing an approval did. `false`: removing the block only stops managing the decision, and the grant stays as it is. To stop managing one decision without revoking, a `removed` block with `lifecycle { destroy = false }` (Terraform 1.7 or later) also works.
+- `revoke_on_destroy` (Boolean) Default `true`: removing the block revokes an `Approved` grant, like removing an approval did. `false`: removing the block only stops managing the decision, and the grant stays as it is. To stop managing a decision without revoking, set `false` and apply before removing it; for a whole resource block, a `removed` block with `lifecycle { destroy = false }` (Terraform 1.7 or later) works too.
 - `topic` (String) Topic UID. See `application`.
 
 ### Read-Only
@@ -140,7 +140,7 @@ To cut access now:
 
 ## Removing a block, or pointing it at another grant
 
-- Removing the block revokes an `Approved` grant, with the reason "Decision removed from Terraform" (plus `reason` when set); the plan warns. With `revoke_on_destroy = false` it makes no API call: the grant stays as it is, and the plan warns that it stays `Approved`. A `removed` block with `lifecycle { destroy = false }` also leaves it as it is.
+- Removing the block revokes an `Approved` grant, with the reason "Decision removed from Terraform" (plus `reason` when set); the plan warns. With `revoke_on_destroy = false` it makes no API call: the grant stays as it is, and the plan warns that it stays `Approved`. A `removed` block with `lifecycle { destroy = false }` also leaves it as it is, for a whole resource block (it can't name one `for_each` key).
 - Changing `application` from a name to a UID (or the reverse) is an in-place update without an action.
 - Changing `application`, `topic`, `environment`, `access_type` or `grant_id` to another grant replaces the block, which revokes the old grant (with `revoke_on_destroy = false` it stays `Approved`, and the plan warns).
 
