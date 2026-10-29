@@ -154,7 +154,8 @@ func listSpecs() []listSpec {
 			ownIdentity: true,
 			description: "Lists the decisions on application access grants, for the topic team: `decision = \"APPROVED\"` for an `Approved` grant, " +
 				"`decision = \"DENIED\"` with the platform's comment as `reason` for a `Rejected` or `Revoked` one. `Pending` and `Cancelled` grants " +
-				"are left out: a pending request is for the topic team to decide, and generated config must not approve it.",
+				"are left out: a pending request is for the topic team to decide, and generated config must not approve it. " +
+				"A grant the application team revoked itself is left out too: that isn't a decision of the topic team.",
 			newResource: NewApplicationAccessGrantDecisionResource,
 			filters:     grantFilters(true),
 			find: func(ctx context.Context, c *webclient.Client, f map[string]string) ([]listFound, error) {

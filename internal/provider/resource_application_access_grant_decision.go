@@ -160,7 +160,8 @@ func (r *grantDecisionResource) Schema(_ context.Context, _ resource.SchemaReque
 			"revoke_on_destroy": schema.BoolAttribute{
 				MarkdownDescription: "Default `true`: removing the block revokes an `Approved` grant, like removing an approval did. " +
 					"`false`: removing the block only stops managing the decision, and the grant stays as it is. " +
-					"To stop managing one decision without revoking, a `removed` block with `lifecycle { destroy = false }` (Terraform 1.7 or later) also works.",
+					"To stop managing a decision without revoking, set `false` and apply before removing it; for a whole resource block, a `removed` block " +
+					"with `lifecycle { destroy = false }` (Terraform 1.7 or later) works too.",
 				Optional: true,
 				Computed: true,
 				Default:  booldefault.StaticBool(true),
