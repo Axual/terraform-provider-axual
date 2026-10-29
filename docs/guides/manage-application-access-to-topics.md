@@ -135,12 +135,14 @@ locals {
   logs_dev_consumers = {
     "Log Scraper" = { decision = "APPROVED" }
     "POC Secret"  = { decision = "DENIED", reason = "Not allowed to read logs, see INC-1234" }
+    # Once an application exists, its UID can go in the value; the key stays, so the block is updated in place.
+    # "Billing"   = { decision = "APPROVED", application = "0123456789abcdef0123456789abcdef" }
   }
 }
 
 resource "axual_application_access_grant_decision" "logs_dev_consumers" {
   for_each    = local.logs_dev_consumers
-  application = each.key                  # name or UID
+  application = try(each.value.application, each.key) # name, or UID
   topic       = axual_topic.logs.id
   environment = data.axual_environment.dev.id
   access_type = "CONSUMER"

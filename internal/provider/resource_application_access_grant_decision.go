@@ -185,8 +185,8 @@ func (r *grantDecisionResource) Schema(_ context.Context, _ resource.SchemaReque
 			"application_uid": schema.StringAttribute{
 				MarkdownDescription: "The UID of the application this decision matched first: set at create, or by the first refresh that finds a request. " +
 					"When `application` is a name and the name now belongs to another application (deleted and created again, maybe by another team), " +
-					"the plan doesn't approve its request and warns. To accept the new application, set `application` to its UID, " +
-					"or run `terraform apply -replace=<address>`. A decision written before the application exists trusts the first application with that name.",
+					"the plan doesn't approve its request and warns. To accept the new application, set `application` to its UID. " +
+					"A decision written before the application exists trusts the first application with that name.",
 				Computed: true,
 			},
 			"current_status": schema.StringAttribute{
@@ -480,7 +480,7 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 	case p.SeenApp != "" && strings.EqualFold(plan.Application.ValueString(), p.SeenApp):
 		plan.ApplicationUid = types.StringValue(p.SeenApp)
 	}
-	if other && out.Action == actionApprove {
+	if other && (out.Action == actionApprove || out.Warning == warnApproveNotOffered) {
 		out = decisionOutcome{PlannedStatus: status} // reject and revoke still run: the safe side
 	}
 	plan.CurrentStatus = types.StringValue(out.PlannedStatus)
@@ -504,35 +504,44 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 	}
 	resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
 
-	if g != nil && known(plan.Id) {
-		other := r.provider.grants.claim(g.Uid, plan.Id.ValueString(), plan.Decision.ValueString())
+	if g != nil {
+		// A new block that sets only grant_id has no id until the apply; it claims under its grant_id.
+		claimID := "grant_id " + g.Uid
+		if known(plan.Id) {
+			claimID = plan.Id.ValueString()
+		}
+		other := r.provider.grants.claim(g.Uid, claimID, plan.Decision.ValueString())
 		switch {
 		case other.decision != "" && other.decision != plan.Decision.ValueString():
 			resp.Diagnostics.AddError(fmt.Sprintf("Two decisions on %s disagree", r.label(plan, g)),
 				fmt.Sprintf("The decision with id %q says %s and the one with id %q says %s, for the same grant. The result would depend on the order of the apply. "+
-					"Keep one of them.", other.id, other.decision, plan.Id.ValueString(), plan.Decision.ValueString()))
+					"Keep one of them.", other.id, other.decision, claimID, plan.Decision.ValueString()))
 			return
 		case other.id != "":
 			resp.Diagnostics.AddWarning(fmt.Sprintf("Two decisions manage %s", r.label(plan, g)),
-				fmt.Sprintf("The decisions with id %q and %q point at the same grant, with the same decision. Keep one of them.", other.id, plan.Id.ValueString()))
+				fmt.Sprintf("The decisions with id %q and %q point at the same grant, with the same decision. Keep one of them.", other.id, claimID))
 		}
 	}
 	r.warn(plan, g, status, out, p, closed, create, create || !plan.Decision.Equal(state.Decision), resp)
 	if other {
-		r.warnOtherApplication(plan, state, g, p.SeenApp, resp)
+		r.warnOtherApplication(plan, state, g, status, p.SeenApp, resp)
 	}
 }
 
 // warnOtherApplication warns that the decision's name now belongs to another application than the one
 // it matched first, and how to accept or refuse it.
-func (r *grantDecisionResource) warnOtherApplication(plan, state grantDecisionData, g *webclient.GrantView, seen string, resp *resource.ModifyPlanResponse) {
+func (r *grantDecisionResource) warnOtherApplication(plan, state grantDecisionData, g *webclient.GrantView, status, seen string, resp *resource.ModifyPlanResponse) {
 	owners := ""
 	if a := r.provider.grants.application(seen); a.owners != "" {
 		owners = fmt.Sprintf(", owned by group %q", a.owners)
 	}
-	resp.Diagnostics.AddWarning(fmt.Sprintf("%s is another application now; this apply doesn't approve it", r.label(plan, g)),
+	summary := fmt.Sprintf("%s is another application now; this apply doesn't approve it", r.label(plan, g))
+	if status == "Approved" {
+		summary = fmt.Sprintf("%s is another application now, approved outside this decision", r.label(plan, g))
+	}
+	resp.Diagnostics.AddWarning(summary,
 		fmt.Sprintf("The decision matched application %s first. The name %q now belongs to application %s%s: it was deleted and created again, maybe by another team. "+
-			"To accept it, set application to %q (or run terraform apply -replace on this block). To refuse it, set decision = \"DENIED\" with a reason.",
+			"To accept it, set application to %q (an in-place change). To refuse it, set decision = \"DENIED\" with a reason.",
 			state.ApplicationUid.ValueString(), plan.Application.ValueString(), seen, owners, seen))
 }
 
@@ -843,8 +852,16 @@ func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDeci
 	}
 	if plan.ApplicationUid.IsUnknown() {
 		plan.ApplicationUid = types.StringNull()
-		if g != nil && g.ApplicationUid != "" {
+		switch {
+		case g != nil && g.ApplicationUid != "":
 			plan.ApplicationUid = types.StringValue(g.ApplicationUid)
+		case g == nil && known(plan.Application):
+			// No request yet: pin the application that has the name now, so a later one with the same
+			// name isn't approved. Nothing when it doesn't exist yet (or isn't visible): the first
+			// refresh that finds a request pins it.
+			if a := r.provider.grants.application(plan.Application.ValueString()); a.uid != "" {
+				plan.ApplicationUid = types.StringValue(a.uid)
+			}
 		}
 	}
 	if known(planned) && planned.ValueString() != plan.CurrentStatus.ValueString() {
