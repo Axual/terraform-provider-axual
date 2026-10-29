@@ -25,7 +25,7 @@ type grantCache struct {
 	envs     map[string]*webclient.EnvironmentResponse
 	topics   map[string]string
 	version  *string
-	claims   map[string]string
+	claims   map[string]decisionClaim
 	apps     map[string]appLookup
 	waits    map[string]*waitGroup
 }
@@ -55,7 +55,7 @@ func newGrantCache(client *webclient.Client) *grantCache {
 		searches: map[string][]webclient.GrantView{},
 		envs:     map[string]*webclient.EnvironmentResponse{},
 		topics:   map[string]string{},
-		claims:   map[string]string{},
+		claims:   map[string]decisionClaim{},
 		apps:     map[string]appLookup{},
 		waits:    map[string]*waitGroup{},
 	}
@@ -218,16 +218,26 @@ func versionBefore(version string, major, minor, patch int) bool {
 	return false
 }
 
-// claim records that the decision with this id manages the grant, and returns the id of another
-// decision that claimed the same grant in this run, or "".
-func (c *grantCache) claim(grantUid, id string) string {
+// decisionClaim is the first decision planned for a grant in this run.
+type decisionClaim struct {
+	id, decision string
+}
+
+// claim records that the decision with this id and value manages the grant, and returns the first
+// decision that claimed the same grant in this run when it differs (zero when it doesn't). The
+// provider never sees a block's address, so two blocks with the same id and value can't be told apart
+// from one block planned twice; they also do the same, so that isn't reported.
+func (c *grantCache) claim(grantUid, id, decision string) decisionClaim {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if other, ok := c.claims[grantUid]; ok && other != id {
-		return other
+	if other, ok := c.claims[grantUid]; ok {
+		if other.id != id || other.decision != decision {
+			return other
+		}
+		return decisionClaim{}
 	}
-	c.claims[grantUid] = id
-	return ""
+	c.claims[grantUid] = decisionClaim{id: id, decision: decision}
+	return decisionClaim{}
 }
 
 var uidPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)

@@ -86,3 +86,22 @@ func TestWaiting(t *testing.T) {
 		t.Errorf("a later decision starts a new group, got %v", names)
 	}
 }
+
+func TestClaim(t *testing.T) {
+	c := newGrantCache(nil)
+	if got := c.claim("g1", "t/e/CONSUMER/A", decisionApproved); got.id != "" {
+		t.Fatalf("first claim: got %+v", got)
+	}
+	if got := c.claim("g1", "t/e/CONSUMER/A", decisionApproved); got.id != "" {
+		t.Errorf("the same block again (or a copy with the same id and value) must not be reported, got %+v", got)
+	}
+	if got := c.claim("g1", "t/e/CONSUMER/0123456789abcdef0123456789abcdef", decisionApproved); got.id != "t/e/CONSUMER/A" || got.decision != decisionApproved {
+		t.Errorf("another id with the same value: got %+v", got)
+	}
+	if got := c.claim("g1", "t/e/CONSUMER/A", decisionDenied); got.decision != decisionApproved {
+		t.Errorf("the same id with another value (two blocks with one id) must be reported, got %+v", got)
+	}
+	if got := c.claim("g2", "t/e/CONSUMER/B", decisionDenied); got.id != "" {
+		t.Errorf("another grant: got %+v", got)
+	}
+}
