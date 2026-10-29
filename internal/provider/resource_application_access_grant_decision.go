@@ -170,7 +170,8 @@ func (r *grantDecisionResource) Schema(_ context.Context, _ resource.SchemaReque
 				MarkdownDescription: "`true` when `decision = \"APPROVED\"` and the grant was rejected or revoked outside Terraform, for example in the UI: " +
 					"the next request will be approved. Not set by this decision's own reject or revoke, nor when the application team gave up access itself " +
 					"(the user who requested it closed it); with one account for both teams a revoke in the UI looks like that and isn't reported. " +
-					"Without the record of its own last close (after an import or a `moved` block) a closed grant counts as closed outside Terraform. " +
+					"Under `DENIED` a rejected or revoked grant counts as this decision's own close, so the flip to `APPROVED` isn't reported; " +
+					"a decision imported or moved as `APPROVED` onto a closed grant reports it. " +
 					"Use it in a `check` block. It only reports; it never changes what the provider does.",
 				Computed: true,
 			},
@@ -336,6 +337,7 @@ func (r *grantDecisionResource) Read(ctx context.Context, req resource.ReadReque
 	if req.Private != nil {
 		own = readDecisionPrivate(ctx, req.Private).OwnClose
 	}
+	own = adoptClose(d.Decision.ValueString(), g, own)
 	d.ClosedOutside = closedOutsideOf(d.Decision, g, own)
 	if resp.Private != nil { // nil when `terraform query` reads a found resource
 		writeDecisionPrivate(ctx, resp.Private, observed(g, own), &resp.Diagnostics)
@@ -704,8 +706,9 @@ func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDeci
 			diags.AddWarning(fmt.Sprintf("%s was already %s", r.label(plan, g), status),
 				"The grant changed after the plan, to the planned status. Nothing was changed.")
 			plan.GrantId = types.StringValue(g.Uid)
-			plan.ClosedOutside = closedOutsideOf(plan.Decision, g, p.OwnClose)
-			r.store(ctx, plan, g, p.OwnClose, out, private, identity, diags)
+			own := adoptClose(plan.Decision.ValueString(), g, p.OwnClose)
+			plan.ClosedOutside = closedOutsideOf(plan.Decision, g, own)
+			r.store(ctx, plan, g, own, out, private, identity, diags)
 			return
 		}
 		diags.AddError("The grant changed between plan and apply",
@@ -770,6 +773,7 @@ func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDeci
 			fmt.Sprintf("The plan expected status %q, but the grant is now %q. Run plan again.", planned.ValueString(), plan.CurrentStatus.ValueString()))
 		return
 	}
+	own = adoptClose(plan.Decision.ValueString(), g, own)
 	plan.ClosedOutside = closedOutsideOf(plan.Decision, g, own)
 	r.store(ctx, plan, g, own, out, private, identity, diags)
 }
