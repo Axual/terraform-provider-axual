@@ -4,15 +4,15 @@
 
 # Option 1: Use data sources to reference existing users (recommended)
 data "axual_user" "admin" {
-  email_address = "admin_team@axual.com"
+  email = "admin_team@axual.com"
 }
 
 data "axual_user" "application_author" {
-  email_address = "application_team@axual.com"
+  email = "application_team@axual.com"
 }
 
 data "axual_user" "topic_author" {
-  email_address = "topic_team@axual.com"
+  email = "topic_team@axual.com"
 }
 
 resource "axual_group" "admin-team" {

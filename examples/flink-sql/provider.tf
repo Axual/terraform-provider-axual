@@ -2,7 +2,7 @@ terraform {
   required_providers {
     axual = {
       source  = "Axual/axual"
-      version = "3.2.0"
+      version = ">= 3.3.0" # the first release with axual_application_access_grant_decision
     }
   }
 }
@@ -18,7 +18,7 @@ provider "axual" {
   # (String, Sensitive) Password belonging to the user. It can be omitted if the environment variable AXUAL_AUTH_PASSWORD is used.
   password = "YOUR_PASSWORD"
   # (String) Client ID to be used for OAUTH
-  clientid = "YOUR_CLIENT_ID"
+  client_id = "YOUR_CLIENT_ID"
   # (String) Token url
   authurl = "YOUR_AUTH_URL"
   # (List of String) OAuth authorization server scopes
