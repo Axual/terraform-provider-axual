@@ -474,9 +474,16 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 	resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
 
 	if g != nil && known(plan.Id) {
-		if other := r.provider.grants.claim(g.Uid, plan.Id.ValueString()); other != "" {
+		other := r.provider.grants.claim(g.Uid, plan.Id.ValueString(), plan.Decision.ValueString())
+		switch {
+		case other.decision != "" && other.decision != plan.Decision.ValueString():
+			resp.Diagnostics.AddError(fmt.Sprintf("Two decisions on %s disagree", r.label(plan, g)),
+				fmt.Sprintf("The decision with id %q says %s and the one with id %q says %s, for the same grant. The result would depend on the order of the apply. "+
+					"Keep one of them.", other.id, other.decision, plan.Id.ValueString(), plan.Decision.ValueString()))
+			return
+		case other.id != "":
 			resp.Diagnostics.AddWarning(fmt.Sprintf("Two decisions manage %s", r.label(plan, g)),
-				fmt.Sprintf("The decisions with id %q and %q point at the same grant. Keep one of them: with two, the result depends on the order of the apply.", other, plan.Id.ValueString()))
+				fmt.Sprintf("The decisions with id %q and %q point at the same grant, with the same decision. Keep one of them.", other.id, plan.Id.ValueString()))
 		}
 	}
 	r.warn(plan, g, status, out, p, closed, create, create || !plan.Decision.Equal(state.Decision), resp)
