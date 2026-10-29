@@ -613,7 +613,10 @@ func (r *grantDecisionResource) warn(plan grantDecisionData, g *webclient.GrantV
 		}
 	}
 
-	if plan.Decision.ValueString() == decisionDenied && known(plan.Environment) {
+	// Not on every plan: on create (also a changed environment, which replaces the block), when decision
+	// changes, and when the apply acts, which in an Auto environment means the platform approved a new
+	// request and this apply revokes it again.
+	if plan.Decision.ValueString() == decisionDenied && known(plan.Environment) && (decisionChanged || out.Action != actionNone) {
 		if env := r.provider.grants.environment(plan.Environment.ValueString()); env != nil && strings.EqualFold(env.AuthorizationIssuer, "Auto") {
 			resp.Diagnostics.AddWarning(fmt.Sprintf("%s: DENIED doesn't last in an Auto environment", name),
 				"In an Auto environment the platform approves every new request straight away. Use a Stream owner environment for the topic team to decide.")
