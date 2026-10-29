@@ -51,6 +51,7 @@ type grantDecisionData struct {
 	GrantId         types.String `tfsdk:"grant_id"`
 	CurrentStatus   types.String `tfsdk:"current_status"`
 	ClosedOutside   types.Bool   `tfsdk:"closed_outside_terraform"`
+	ApplicationUid  types.String `tfsdk:"application_uid"`
 }
 
 type grantDecisionIdentity struct {
@@ -76,6 +77,8 @@ type grantDecisionPrivate struct {
 	ByRequester bool   `json:"by_requester,omitempty"`
 	// OwnClose is the closeKey right after this decision's own last reject or revoke.
 	OwnClose string `json:"own_close,omitempty"`
+	// SeenApp is the application UID of the grant Read found, compared with application_uid.
+	SeenApp string `json:"seen_app,omitempty"`
 }
 
 const grantDecisionPrivateKey = "grant_decision"
@@ -103,7 +106,8 @@ func observed(g *webclient.GrantView, ownClose string) grantDecisionPrivate {
 		return grantDecisionPrivate{Known: true, OwnClose: ownClose}
 	}
 	return grantDecisionPrivate{CanApprove: g.CanApprove, CanDeny: g.CanDeny, CanRevoke: g.CanRevoke, Known: true,
-		Reopened: reopened(*g), ClosedBy: g.ProcessedBy, CloseKey: closeKey(*g), ByRequester: closedByRequester(*g), OwnClose: ownClose}
+		Reopened: reopened(*g), ClosedBy: g.ProcessedBy, CloseKey: closeKey(*g), ByRequester: closedByRequester(*g), OwnClose: ownClose,
+		SeenApp: g.ApplicationUid}
 }
 
 // closedOutsideOf is closed_outside_terraform for a grant (nil: none found).
@@ -175,6 +179,13 @@ func (r *grantDecisionResource) Schema(_ context.Context, _ resource.SchemaReque
 					"Under `DENIED` a rejected or revoked grant counts as this decision's own close, so the flip to `APPROVED` isn't reported; " +
 					"a decision imported or moved as `APPROVED` onto a closed grant reports it. " +
 					"Use it in a `check` block. It only reports; it never changes what the provider does.",
+				Computed: true,
+			},
+			"application_uid": schema.StringAttribute{
+				MarkdownDescription: "The UID of the application this decision matched first: set at create, or by the first refresh that finds a request. " +
+					"When `application` is a name and the name now belongs to another application (deleted and created again, maybe by another team), " +
+					"the plan doesn't approve its request and warns. To accept the new application, set `application` to its UID, " +
+					"or run `terraform apply -replace=<address>`. A decision written before the application exists trusts the first application with that name.",
 				Computed: true,
 			},
 			"current_status": schema.StringAttribute{
@@ -321,6 +332,9 @@ func (r *grantDecisionResource) Read(ctx context.Context, req resource.ReadReque
 	d.CurrentStatus, d.GrantId = types.StringValue(statusNotFound), types.StringNull()
 	if g != nil {
 		d.CurrentStatus, d.GrantId = types.StringValue(g.Status), types.StringValue(g.Uid)
+		if !known(d.ApplicationUid) && g.ApplicationUid != "" {
+			d.ApplicationUid = types.StringValue(g.ApplicationUid) // the first application found; never changed by Read
+		}
 		if app := d.Application.ValueString(); app != "" && !strings.EqualFold(app, g.ApplicationUid) && g.ApplicationName != "" && app != g.ApplicationName {
 			resp.Diagnostics.AddWarning(fmt.Sprintf("Application %q is now named %q", app, g.ApplicationName),
 				fmt.Sprintf("The decision still finds its grant (%s). Update application to %q, or to the application UID %s.", g.Uid, g.ApplicationName, g.ApplicationUid))
@@ -455,6 +469,19 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 	if p.Known {
 		out = withOffer(out, status, p.CanApprove)
 	}
+	// application_uid: unknown on create (the apply sets it), otherwise from the state, or the new UID
+	// when application is set to it (that confirms another application).
+	other := !create && otherApplication(state.ApplicationUid.ValueString(), p.SeenApp, plan.Application.ValueString())
+	plan.ApplicationUid = state.ApplicationUid
+	switch {
+	case create:
+		plan.ApplicationUid = types.StringUnknown()
+	case p.SeenApp != "" && strings.EqualFold(plan.Application.ValueString(), p.SeenApp):
+		plan.ApplicationUid = types.StringValue(p.SeenApp)
+	}
+	if other && out.Action == actionApprove {
+		out = decisionOutcome{PlannedStatus: status} // reject and revoke still run: the safe side
+	}
 	plan.CurrentStatus = types.StringValue(out.PlannedStatus)
 	// Planned from the state and private state only, like current_status: a flip from DENIED to
 	// APPROVED can change it, and a saved plan must apply with the same value.
@@ -490,6 +517,22 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 		}
 	}
 	r.warn(plan, g, status, out, p, closed, create, create || !plan.Decision.Equal(state.Decision), resp)
+	if other {
+		r.warnOtherApplication(plan, state, g, p.SeenApp, resp)
+	}
+}
+
+// warnOtherApplication warns that the decision's name now belongs to another application than the one
+// it matched first, and how to accept or refuse it.
+func (r *grantDecisionResource) warnOtherApplication(plan, state grantDecisionData, g *webclient.GrantView, seen string, resp *resource.ModifyPlanResponse) {
+	owners := ""
+	if a := r.provider.grants.application(seen); a.owners != "" {
+		owners = fmt.Sprintf(", owned by group %q", a.owners)
+	}
+	resp.Diagnostics.AddWarning(fmt.Sprintf("%s is another application now; this apply doesn't approve it", r.label(plan, g)),
+		fmt.Sprintf("The decision matched application %s first. The name %q now belongs to application %s%s: it was deleted and created again, maybe by another team. "+
+			"To accept it, set application to %q (or run terraform apply -replace on this block). To refuse it, set decision = \"DENIED\" with a reason.",
+			state.ApplicationUid.ValueString(), plan.Application.ValueString(), seen, owners, seen))
 }
 
 // planUnknown plans a decision whose grant can't be known yet, for example a single repository
@@ -498,6 +541,7 @@ func (r *grantDecisionResource) planUnknown(ctx context.Context, plan *grantDeci
 	if create {
 		plan.Id = types.StringUnknown()
 	}
+	plan.ApplicationUid = types.StringUnknown()
 	plan.CurrentStatus, plan.ClosedOutside = types.StringUnknown(), types.BoolUnknown()
 	if !byGrant {
 		plan.GrantId = types.StringUnknown()
@@ -731,6 +775,9 @@ func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDeci
 			diags.AddWarning(fmt.Sprintf("%s was already %s", r.label(plan, g), status),
 				"The grant changed after the plan, to the planned status. Nothing was changed.")
 			plan.GrantId = types.StringValue(g.Uid)
+			if plan.ApplicationUid.IsUnknown() {
+				plan.ApplicationUid = types.StringValue(g.ApplicationUid)
+			}
 			own := adoptClose(plan.Decision.ValueString(), g, p.OwnClose)
 			plan.ClosedOutside = closedOutsideOf(plan.Decision, g, own)
 			r.store(ctx, plan, g, own, out, private, identity, diags)
@@ -791,6 +838,12 @@ func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDeci
 		plan.CurrentStatus, plan.GrantId = types.StringValue(g.Status), types.StringValue(g.Uid)
 		if o.Action == actionReject || o.Action == actionRevoke {
 			own = closeKey(*g)
+		}
+	}
+	if plan.ApplicationUid.IsUnknown() {
+		plan.ApplicationUid = types.StringNull()
+		if g != nil && g.ApplicationUid != "" {
+			plan.ApplicationUid = types.StringValue(g.ApplicationUid)
 		}
 	}
 	if known(planned) && planned.ValueString() != plan.CurrentStatus.ValueString() {
@@ -871,6 +924,7 @@ func (r *grantDecisionResource) ImportState(ctx context.Context, req resource.Im
 	d.RevokeOnDestroy = types.BoolValue(true)
 	d.Decision, d.Reason = types.StringNull(), types.StringNull()
 	d.GrantId, d.CurrentStatus = types.StringNull(), types.StringNull()
+	d.ApplicationUid = types.StringNull()
 	resp.Diagnostics.Append(resp.State.Set(ctx, &d)...)
 	r.setIdentity(ctx, d, resp.Identity, &resp.Diagnostics)
 }
