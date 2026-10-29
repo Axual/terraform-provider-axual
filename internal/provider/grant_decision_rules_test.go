@@ -122,6 +122,33 @@ func TestClosedOutside(t *testing.T) {
 	}
 }
 
+func TestAdoptClose(t *testing.T) {
+	rejected := &webclient.GrantView{Status: "Rejected", ProcessedAt: "t1", ProcessedBy: "tom", Comment: "no"}
+	tests := []struct {
+		desc, decision string
+		g              *webclient.GrantView
+		own, want      string
+	}{
+		{"DENIED, moved or imported: the close becomes our own", decisionDenied, rejected, "", "t1|tom|no"},
+		{"DENIED, a stale key is replaced", decisionDenied, rejected, "t0|tom|old", "t1|tom|no"},
+		{"APPROVED keeps the stored key: a UI revoke stays outside", decisionApproved, rejected, "t0|tom|old", "t0|tom|old"},
+		{"DENIED on a Pending grant keeps the key", decisionDenied, &webclient.GrantView{Status: "Pending", ProcessedBy: "tom"}, "k", "k"},
+		{"no grant", decisionDenied, nil, "k", "k"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			if got := adoptClose(tt.decision, tt.g, tt.own); got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+	// The reviewer's case: a moved rejection, then the flip to APPROVED, isn't reported.
+	own := adoptClose(decisionDenied, rejected, "")
+	if closedOutside(decisionApproved, "Rejected", closeKey(*rejected), own, false) {
+		t.Error("the flip after a moved rejection is reported as closed outside Terraform")
+	}
+}
+
 func TestWithOffer(t *testing.T) {
 	approve := decisionOutcome{Action: actionApprove, PlannedStatus: "Approved", Warning: warnApprovedAgain}
 	if got := withOffer(approve, "Pending", true); got != approve {

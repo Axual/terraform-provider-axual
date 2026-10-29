@@ -114,6 +114,18 @@ func closedByRequester(g webclient.GrantView) bool {
 	return g.ProcessedBy != "" && strings.EqualFold(g.ProcessedBy, g.RequestedBy)
 }
 
+// adoptClose returns the key of the decision's own last close. Under DENIED a Rejected or Revoked grant
+// is what the decision asks for, whoever closed it, so its close counts as the decision's own. A
+// decision moved from a rejection or imported has no key of its own; without this, the flip to
+// APPROVED would report the old reject as closed outside Terraform. It also repairs a key that wasn't
+// recorded because the re-read after the provider's own reject failed.
+func adoptClose(decision string, g *webclient.GrantView, ownClose string) string {
+	if g != nil && decision == decisionDenied && (g.Status == "Rejected" || g.Status == "Revoked") {
+		return closeKey(*g)
+	}
+	return ownClose
+}
+
 // closedOutside is closed_outside_terraform (Design v8, I7): under APPROVED the grant is Rejected or
 // Revoked, the close isn't this decision's own (closeKey differs from ownClose, the key the provider
 // stored after its own last reject or revoke) and the application team didn't give up access itself.

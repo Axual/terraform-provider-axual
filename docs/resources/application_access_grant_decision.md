@@ -51,7 +51,7 @@ The decision finds its grant by `grant_id` first, then by application UID, then 
 
 ### Read-Only
 
-- `closed_outside_terraform` (Boolean) `true` when `decision = "APPROVED"` and the grant was rejected or revoked outside Terraform, for example in the UI: the next request will be approved. Not set by this decision's own reject or revoke, nor when the application team gave up access itself (the user who requested it closed it); with one account for both teams a revoke in the UI looks like that and isn't reported. Without the record of its own last close (after an import or a `moved` block) a closed grant counts as closed outside Terraform. Use it in a `check` block. It only reports; it never changes what the provider does.
+- `closed_outside_terraform` (Boolean) `true` when `decision = "APPROVED"` and the grant was rejected or revoked outside Terraform, for example in the UI: the next request will be approved. Not set by this decision's own reject or revoke, nor when the application team gave up access itself (the user who requested it closed it); with one account for both teams a revoke in the UI looks like that and isn't reported. Under `DENIED` a rejected or revoked grant counts as this decision's own close, so the flip to `APPROVED` isn't reported; a decision imported or moved as `APPROVED` onto a closed grant reports it. Use it in a `check` block. It only reports; it never changes what the provider does.
 - `current_status` (String) The grant's status: `Pending`, `Approved`, `Rejected`, `Revoked`, `Cancelled`, or `Not found` when there is no request that this user can see.
 - `id` (String) `<topic>/<environment>/<access_type>/<application>`, set at create and never changed. Import accepts it, or a grant UID.
 
