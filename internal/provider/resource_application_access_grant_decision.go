@@ -479,7 +479,7 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 				fmt.Sprintf("The decisions with id %q and %q point at the same grant. Keep one of them: with two, the result depends on the order of the apply.", other, plan.Id.ValueString()))
 		}
 	}
-	r.warn(plan, g, status, out, p, closed, create, resp)
+	r.warn(plan, g, status, out, p, closed, create, create || !plan.Decision.Equal(state.Decision), resp)
 }
 
 // planUnknown plans a decision whose grant can't be known yet, for example a single repository
@@ -536,7 +536,7 @@ func (r *grantDecisionResource) warnOldGrant(state grantDecisionData, resp *reso
 }
 
 func (r *grantDecisionResource) warn(plan grantDecisionData, g *webclient.GrantView, status string, out decisionOutcome, p grantDecisionPrivate,
-	closed, create bool, resp *resource.ModifyPlanResponse) {
+	closed, create, decisionChanged bool, resp *resource.ModifyPlanResponse) {
 	name := r.label(plan, g)
 	closedBy := "someone other than the application team"
 	if p.ClosedBy != "" {
@@ -577,13 +577,18 @@ func (r *grantDecisionResource) warn(plan grantDecisionData, g *webclient.GrantV
 				"or apply the topic repository with a user that may approve."+owners)
 	case warnDeniedAgain:
 		resp.Diagnostics.AddWarning(fmt.Sprintf("%s asked again; DENIED rejects it again", name),
-			fmt.Sprintf("The application team requested access again. decision = \"DENIED\" rejects the new request with the reason %q. "+
-				"To give access, change decision to \"APPROVED\" in a PR; the application team then asks again.", plan.Reason.ValueString()))
+			fmt.Sprintf("The application team requested access again. decision = \"DENIED\" rejects this request with the reason %q. "+
+				"To give access instead, change decision to \"APPROVED\" before this apply: the request is then approved. "+
+				"Once it is rejected, the application team has to ask again.", plan.Reason.ValueString()))
 	case warnClosed:
 		if closed {
 			resp.Diagnostics.AddWarning(fmt.Sprintf("%s is %s (by %s), the next request will be approved", name, out.PlannedStatus, closedBy),
 				"The grant was closed outside Terraform (closed_outside_terraform = true), but decision = \"APPROVED\" approves every request from this application. "+
 					"To keep it closed, set decision = \"DENIED\" with a reason.")
+		} else if decisionChanged {
+			// Without this, a flip to APPROVED on a closed grant shows only the attribute change.
+			resp.Diagnostics.AddWarning(fmt.Sprintf("%s is %s; this apply doesn't change it", name, out.PlannedStatus),
+				"It is approved when the application team requests access again (request_again, or adding its grant back).")
 		}
 	}
 	if (out.Action == actionApprove && out.Warning != warnApprovedAgain) || (create && out.Action != actionNone) {
