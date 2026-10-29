@@ -252,7 +252,7 @@ See the [Multi-Repo Guide](multi-repo) for the full setup.
 
 ## Auto Environments
 
-Requests are approved straight away. A decision is optional. `decision = "DENIED"` revokes, but the next request is approved again by the platform, and every plan warns about it.
+Requests are approved straight away. A decision is optional. `decision = "DENIED"` revokes, but the next request is approved again by the platform. The plan warns about it when the decision is created or changes, and when the apply revokes such a request.
 
 ---
 
