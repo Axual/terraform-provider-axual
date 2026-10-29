@@ -173,7 +173,7 @@ Three rules:
 
 1. **The topic team writes `decision`.** `APPROVED` approves every request from that application, now and later. `DENIED` (with a `reason`) rejects or revokes, also every later request.
 2. **The application team changes `request_again` to ask again.** The text isn't sent to the platform, so explain the reason in the PR to the topic repository. After `DENIED`, the topic team changes the decision first.
-3. **Removing a decision doesn't revoke**, unless `revoke_on_destroy = true`.
+3. **Removing a decision revokes** an `Approved` grant (`revoke_on_destroy` defaults to `true`). To stop managing a decision without revoking, use a `removed` block with `lifecycle { destroy = false }`, or set `revoke_on_destroy = false` first. When you rename a `for_each` key, add a `moved` block: without it the old block is removed, the grant is revoked, and the application team has to ask again.
 
 - **Approve:** merge a PR with `decision = "APPROVED"`. It's a standing decision: it approves every request from that application, also a request made again. The two repositories can apply in either order: before the request exists, the plan only warns, and the topic repository's next apply after the request approves it. Every approval names the application's owner group.
 - **Reject or revoke:** `decision = "DENIED"` with a `reason`. The application team reads the reason. A request made again is rejected again, with a warning. This is the only close that lasts.
@@ -202,7 +202,18 @@ The UI revoke alone lasts only until the next request.
 
 ### Removing a Decision
 
-Removing the block makes no API call: an Approved grant stays Approved, and the plan warns. Set `decision = "DENIED"` first to revoke, or set `revoke_on_destroy = true` so that removing the block revokes.
+Removing the block revokes an Approved grant, as removing an approval did, and the plan warns. To stop managing a decision and leave the grant as it is, use a `removed` block:
+
+```hcl
+removed {
+  from = axual_application_access_grant_decision.approve_grant
+  lifecycle {
+    destroy = false
+  }
+}
+```
+
+or set `revoke_on_destroy = false` and apply before removing the block. When you rename a `for_each` key, add a `moved` block, or the grant is revoked and the application team has to ask again.
 
 ### Many Decisions in One Apply
 
@@ -287,13 +298,12 @@ resource "axual_application_access_grant_decision" "approve_grant" {
   environment       = data.axual_environment.dev.id
   access_type       = "CONSUMER"
   decision          = "APPROVED"
-  revoke_on_destroy = true # keeps today's behaviour: removing this block revokes
 }
 ```
 
 In a single repository, the decision can use `grant_id = axual_application_access_grant.my_grant.id` instead of the four lookup attributes.
 
-The plan shows the move, and no API action. When `application` is a UID (for example taken from the grant), the first plan also changes it from the name to the UID, in place. A moved approval keeps `revoke_on_destroy = true`, like the approval it replaces: without that line in the configuration, the migration plan shows `revoke_on_destroy = true -> false`, and removing the block later no longer revokes. Decide that in the migration PR. A moved rejection gets `decision = "DENIED"` with its reason.
+The plan shows the move, and no API action. When `application` is a UID (for example taken from the grant), the first plan also changes it from the name to the UID, in place. Removing the moved block later revokes the grant, like removing the approval did (`revoke_on_destroy` defaults to `true`). A moved rejection gets `decision = "DENIED"` with its reason.
 
 With Terraform 1.7, use a `removed` block with `lifecycle { destroy = false }` for the old resource and an `import` block for the decision. Don't simply delete an approval: that revokes the grant.
 

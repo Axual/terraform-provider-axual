@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -13,9 +12,9 @@ import (
 
 // MoveState moves axual_application_access_grant_approval and _rejection to the decision, with a
 // moved block (Terraform 1.8 or later). It runs before the provider is configured, so it only copies
-// the old state into grant_id; the next Read finds the grant by it and fills the lookup attributes and id. A moved approval
-// keeps today's behaviour, revoke_on_destroy = true: a config without it shows the change to false
-// as a diff in the migration PR, instead of hiding it in a warning.
+// the old state into grant_id; the next Read finds the grant by it and fills the lookup attributes and id. A moved block
+// gets the default revoke_on_destroy = true, so removing it revokes, as removing an approval did, and the
+// migration plan shows no diff.
 func (r *grantDecisionResource) MoveState(_ context.Context) []resource.StateMover {
 	source := &schema.Schema{Attributes: map[string]schema.Attribute{
 		"application_access_grant": schema.StringAttribute{Required: true},
@@ -54,18 +53,10 @@ func (r *grantDecisionResource) moveFrom(typeName, decision string) func(context
 			AccessType:      types.StringNull(),
 			Decision:        types.StringValue(decision),
 			Reason:          stringOrNull(reason.ValueString()),
-			RevokeOnDestroy: types.BoolValue(false),
+			RevokeOnDestroy: types.BoolValue(true),
 			GrantId:         uid,
 			CurrentStatus:   types.StringNull(),
 		}
-		if decision == decisionApproved {
-			d.RevokeOnDestroy = types.BoolValue(true) // removing an approval revoked the grant
-		}
 		resp.Diagnostics.Append(resp.TargetState.Set(ctx, &d)...)
-		if decision == decisionApproved {
-			resp.Diagnostics.AddWarning(fmt.Sprintf("Moved the approval of grant %s to a decision", uid.ValueString()),
-				"revoke_on_destroy = true is kept, so removing the block still revokes the grant. If the configuration doesn't set "+
-					"revoke_on_destroy = true, this plan changes it to false: then removing the block no longer revokes.")
-		}
 	}
 }

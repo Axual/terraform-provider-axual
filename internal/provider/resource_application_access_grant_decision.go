@@ -154,10 +154,12 @@ func (r *grantDecisionResource) Schema(_ context.Context, _ resource.SchemaReque
 				Optional:            true,
 			},
 			"revoke_on_destroy": schema.BoolAttribute{
-				MarkdownDescription: "When `true`, removing the block revokes an `Approved` grant. Default `false`: removing the block only stops managing the decision.",
-				Optional:            true,
-				Computed:            true,
-				Default:             booldefault.StaticBool(false),
+				MarkdownDescription: "Default `true`: removing the block revokes an `Approved` grant, like removing an approval did. " +
+					"`false`: removing the block only stops managing the decision, and the grant stays as it is. " +
+					"To stop managing one decision without revoking, a `removed` block with `lifecycle { destroy = false }` (Terraform 1.7 or later) also works.",
+				Optional: true,
+				Computed: true,
+				Default:  booldefault.StaticBool(true),
 			},
 			"grant_id": schema.StringAttribute{
 				MarkdownDescription: "The grant UID. In a single repository, set it to `axual_application_access_grant.x.id` instead of the four lookup attributes; " +
@@ -361,7 +363,8 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 					fmt.Sprintf("revoke_on_destroy = true: the apply revokes the grant with the reason %q.", destroyReason(state)))
 			} else {
 				resp.Diagnostics.AddWarning(fmt.Sprintf("Removing the decision leaves %s Approved", r.label(state, nil)),
-					"Set decision = \"DENIED\" (with a reason) to revoke, or set revoke_on_destroy = true before removing the block.")
+					"revoke_on_destroy = false: the grant stays Approved, and nobody manages it. To revoke, set decision = \"DENIED\" (with a reason), "+
+						"or remove revoke_on_destroy = false, and apply before removing the block.")
 			}
 		}
 		return
@@ -545,7 +548,7 @@ func (r *grantDecisionResource) warnOldGrant(state grantDecisionData, resp *reso
 	if state.CurrentStatus.ValueString() == "Approved" && !state.RevokeOnDestroy.ValueBool() {
 		resp.Diagnostics.AddWarning(fmt.Sprintf("The old grant %s stays Approved", r.label(state, nil)),
 			"This change points the decision at another grant, so the block is replaced and the old grant is no longer managed. "+
-				"To remove its access, set decision = \"DENIED\" on it in an earlier PR, or set revoke_on_destroy = true.")
+				"revoke_on_destroy = false. To remove its access, set decision = \"DENIED\" on it in an earlier PR, or remove revoke_on_destroy = false.")
 	}
 }
 
@@ -865,7 +868,7 @@ func (r *grantDecisionResource) ImportState(ctx context.Context, req resource.Im
 		return
 	}
 	d.Id = types.StringValue(compositeDecisionID(d))
-	d.RevokeOnDestroy = types.BoolValue(false)
+	d.RevokeOnDestroy = types.BoolValue(true)
 	d.Decision, d.Reason = types.StringNull(), types.StringNull()
 	d.GrantId, d.CurrentStatus = types.StringNull(), types.StringNull()
 	resp.Diagnostics.Append(resp.State.Set(ctx, &d)...)
