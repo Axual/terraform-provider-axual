@@ -251,6 +251,7 @@ Requests are approved straight away. A decision is optional. `decision = "DENIED
 |---|---|
 | 15.0.3 and later, 16.x | Public and private applications |
 | 15.0.1 to 15.0.2 | Public applications. The requests of private applications aren't visible to the topic owner and show as `Not found`; the warning says the application may be private. Approve those in the UI, or upgrade. |
+| Any version with IAM-managed groups | A topic owner who is a member of the owner group only through the IAM doesn't see its requests (a known Platform Manager issue): they show as `Not found`, and the warning names this cause. Run the topic repository as a service account (service accounts keep their membership), set `grant_id`, or approve in the UI. |
 
 A private environment always uses the Auto authorization issuer, so its requests are approved straight away and need no decision.
 

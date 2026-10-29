@@ -529,8 +529,15 @@ func (r *grantDecisionResource) warnWaiting(plan grantDecisionData, resp *resour
 		detail = cause + " Approve such a request in the UI, or upgrade to 15.0.3 or later. " +
 			"Otherwise the application team hasn't requested access yet; the topic repository's next apply after the request approves it."
 	}
-	resp.Diagnostics.AddWarning(summary, detail)
+	resp.Diagnostics.AddWarning(summary, detail+" "+iamHiddenRequests)
 }
+
+// iamHiddenRequests names the other cause of a request the topic owner can't see: Platform Manager's
+// grant search reads the stored member list of the owner group, so a member who is in an IAM-managed
+// group only through the IAM gets no grants (the single GET and the actions use the token and work).
+const iamHiddenRequests = "If the topic's owner group is managed in an IAM and this user is a member only through the IAM, " +
+	"Platform Manager's grant search doesn't return the group's requests (a known Platform Manager issue). " +
+	"Run the topic repository as a service account, set grant_id, or approve in the UI."
 
 // warnOldGrant warns, for a block that is replaced because it points at another grant, that the old
 // grant keeps its access.
