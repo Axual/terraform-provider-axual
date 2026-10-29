@@ -358,7 +358,7 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 		if state.CurrentStatus.ValueString() == "Approved" {
 			if state.RevokeOnDestroy.ValueBool() {
 				resp.Diagnostics.AddWarning(fmt.Sprintf("Removing the decision revokes %s", r.label(state, nil)),
-					"revoke_on_destroy = true: the apply revokes the grant with the reason \"Decision removed from Terraform\".")
+					fmt.Sprintf("revoke_on_destroy = true: the apply revokes the grant with the reason %q.", destroyReason(state)))
 			} else {
 				resp.Diagnostics.AddWarning(fmt.Sprintf("Removing the decision leaves %s Approved", r.label(state, nil)),
 					"Set decision = \"DENIED\" (with a reason) to revoke, or set revoke_on_destroy = true before removing the block.")
@@ -815,10 +815,19 @@ func (r *grantDecisionResource) Delete(ctx context.Context, req resource.DeleteR
 		return
 	}
 	if g != nil && g.Status == "Approved" {
-		if err := r.provider.client.RevokeOrDenyGrant(g.Uid, "Decision removed from Terraform"); err != nil {
+		if err := r.provider.client.RevokeOrDenyGrant(g.Uid, destroyReason(state)); err != nil {
 			resp.Diagnostics.AddError(fmt.Sprintf("Failed to revoke %s", grantName(*g)), err.Error())
 		}
 	}
+}
+
+// destroyReason is the reason sent when removing the block revokes the grant. The decision's own reason
+// is added, not sent alone: it is allowed under APPROVED and may be left over from an earlier DENIED.
+func destroyReason(d grantDecisionData) string {
+	if reason := strings.TrimSpace(d.Reason.ValueString()); reason != "" {
+		return "Decision removed from Terraform: " + reason
+	}
+	return "Decision removed from Terraform"
 }
 
 func (r *grantDecisionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
