@@ -48,6 +48,7 @@ func (r *grantDecisionResource) moveFrom(typeName, decision string) func(context
 		d := grantDecisionData{
 			Id:              types.StringNull(),
 			Application:     types.StringNull(),
+			ApplicationUid:  types.StringNull(),
 			Topic:           types.StringNull(),
 			Environment:     types.StringNull(),
 			AccessType:      types.StringNull(),

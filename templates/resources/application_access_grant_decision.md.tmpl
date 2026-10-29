@@ -121,6 +121,18 @@ To cut access now:
 - Changing `application` from a name to a UID (or the reverse) is an in-place update without an action.
 - Changing `application`, `topic`, `environment`, `access_type` or `grant_id` to another grant replaces the block, which revokes the old grant (with `revoke_on_destroy = false` it stays `Approved`, and the plan warns).
 
+## A decision by name and an application created again
+
+A standing `APPROVED` belongs to an application, not to a name. `application_uid` keeps the UID of the application the decision matched first. When the application is deleted and another one is created with the same name, maybe by another team, the plan doesn't approve its request and warns:
+
+```
+Warning: Log Scraper (CONSUMER on logs, dev) is another application now; this apply doesn't approve it
+```
+
+To accept the new application, set `application` to its UID (the warning shows it), or run `terraform apply -replace=<address>`. To refuse it, set `decision = "DENIED"`. This also applies when the application team deletes and creates its own application again: it is a new application, so the topic team confirms it.
+
+A decision written before the application exists trusts the first application created with that name. Once the application exists, prefer its UID in `application`.
+
 ## The id
 
 `id` is `<topic>/<environment>/<access_type>/<application>` with the values the block was created (or imported) with, and it never changes. After you change `application` from a name to a UID, `id` still contains the name. That is expected: `grant_id` holds the grant UID.

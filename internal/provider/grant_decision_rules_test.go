@@ -149,6 +149,28 @@ func TestAdoptClose(t *testing.T) {
 	}
 }
 
+func TestOtherApplication(t *testing.T) {
+	tests := []struct {
+		desc                     string
+		pinned, seen, configured string
+		other                    bool
+	}{
+		{"the same application", "a1", "a1", "Log Scraper", false},
+		{"re-created with the same name", "a1", "b2", "Log Scraper", true},
+		{"confirmed by setting the new UID", "a1", "b2", "b2", false},
+		{"confirmed, other case", "a1", "B2", "b2", false},
+		{"nothing pinned yet (topic first)", "", "b2", "Log Scraper", false},
+		{"no grant found", "a1", "", "Log Scraper", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			if got := otherApplication(tt.pinned, tt.seen, tt.configured); got != tt.other {
+				t.Errorf("got %v, want %v", got, tt.other)
+			}
+		})
+	}
+}
+
 func TestWithOffer(t *testing.T) {
 	approve := decisionOutcome{Action: actionApprove, PlannedStatus: "Approved", Warning: warnApprovedAgain}
 	if got := withOffer(approve, "Pending", true); got != approve {

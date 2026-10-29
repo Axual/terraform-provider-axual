@@ -126,6 +126,14 @@ func adoptClose(decision string, g *webclient.GrantView, ownClose string) string
 	return ownClose
 }
 
+// otherApplication reports whether the decision now finds the grant of another application than the
+// one it matched first (pinned): the application was deleted and one with the same name was created,
+// maybe by another team. Setting application to the new UID (configured) accepts it. A UID can't be
+// faked by the other team, unlike who closed a grant.
+func otherApplication(pinned, seen, configured string) bool {
+	return pinned != "" && seen != "" && !strings.EqualFold(pinned, seen) && !strings.EqualFold(configured, seen)
+}
+
 // closedOutside is closed_outside_terraform (Design v8, I7): under APPROVED the grant is Rejected or
 // Revoked, the close isn't this decision's own (closeKey differs from ownClose, the key the provider
 // stored after its own last reject or revoke) and the application team didn't give up access itself.
