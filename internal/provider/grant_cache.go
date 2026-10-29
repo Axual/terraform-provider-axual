@@ -31,9 +31,10 @@ type grantCache struct {
 }
 
 // appLookup is an application found by UID or name: found is false when there is none that this
-// user can see, owners is its owner group's name ("" when unknown).
+// user can see, uid and owners (its owner group's name) are "" when unknown.
 type appLookup struct {
 	found  bool
+	uid    string
 	owners string
 }
 
@@ -111,7 +112,7 @@ func (c *grantCache) application(nameOrUID string) appLookup {
 		}
 		switch {
 		case err == nil:
-			return appLookup{found: true, owners: app.Owners.Name}, nil
+			return appLookup{found: true, uid: app.Uid, owners: app.Owners.Name}, nil
 		case isGone(err):
 			return appLookup{}, nil
 		}
