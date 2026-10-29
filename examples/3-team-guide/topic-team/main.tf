@@ -57,10 +57,16 @@ resource "axual_application_access_grant_decision" "logs_dev_consumers" {
   access_type = "CONSUMER"
   decision    = each.value.decision
   reason      = try(each.value.reason, null)
+  # The topic config goes after the decisions on destroy: a removed decision revokes its grant first,
+  # and Platform Manager doesn't delete a topic config while grants are active.
+  depends_on = [axual_topic_config.logs_in_dev]
 }
 
 
 # ALTERNATIVE FLOW SETUP
+# Instead of the main flow for the same grant: the topic team creates the grant and the decision.
+# Remove "LogScraper" from local.logs_dev_consumers above, and the application team doesn't create
+# the grant. Otherwise two decisions and two grant resources manage the same platform grant.
 
 # data "axual_application" "log_scraper" {
 #   name = "LogScraper"

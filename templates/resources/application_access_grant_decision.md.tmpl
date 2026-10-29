@@ -112,7 +112,8 @@ To cut access now:
 `true` when `decision = "APPROVED"` and the grant is `Rejected` or `Revoked`, but not by this decision's own apply and not by the application team giving up access (the user who requested the grant closed it). Then the next request will be approved, which may not be what whoever closed it wanted. It only reports; it never changes what the provider does.
 
 - After a flip from `DENIED` to `APPROVED` the grant is still closed by the decision's own reject or revoke: not reported.
-- The provider records its own last close in private state. After an import or a `moved` block there is no record yet, so a closed grant is reported until it's requested again.
+- Under `DENIED` a rejected or revoked grant counts as the decision's own close, whoever closed it, also after an import or a `moved` block. So the flip to `APPROVED` isn't reported.
+- A decision imported or moved as `APPROVED` onto a closed grant is reported until the grant is requested again: check whether it should stay closed, and set `DENIED` if so.
 - With one account for both teams, a revoke in the UI by that account looks like the application team giving up access and isn't reported. Use separate accounts, and revoke as described above.
 
 ## Removing a block, or pointing it at another grant
@@ -135,15 +136,15 @@ A decision written before the application exists trusts the first application cr
 
 ## The id
 
-`id` is `<topic>/<environment>/<access_type>/<application>` with the values the block was created (or imported) with, and it never changes. After you change `application` from a name to a UID, `id` still contains the name. That is expected: `grant_id` holds the grant UID.
+`id` is `<topic>/<environment>/<access_type>/<application>` with the values the block was created (or imported) with, and it never changes: Terraform doesn't allow a resource's identity to change. After you change `application` from a name to a UID, or after the application is renamed, `id` still contains the old value. That is expected: `grant_id` holds the grant UID and `application_uid` the application UID. Import by the current name or by grant UID still works.
 
 ## One decision per grant
 
-Keep one decision block per grant. When two decisions in one run point at the same grant (for example one by name and one by UID), the plan warns.
+Keep one decision block per grant. When two decisions in one run point at the same grant (for example one by name and one by UID), the plan fails if one says `APPROVED` and the other `DENIED`, and warns if they agree.
 
 ## Auto environments
 
-In an Auto environment the platform approves every request straight away. `decision = "DENIED"` revokes, but the next request is approved again, and every plan warns about it.
+In an Auto environment the platform approves every request straight away. `decision = "DENIED"` revokes, but the next request is approved again. The plan warns about it when the decision is created or changes, and when the apply revokes such a request.
 
 ## Platform Manager versions
 

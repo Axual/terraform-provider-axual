@@ -36,3 +36,20 @@ resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
     axual_application_principal.log_scraper_in_dev_principal,
   ]
 }
+
+# The topic team's answer. A plan doesn't show an approval as a change: the new status shows after
+# the next apply, or with terraform apply -refresh-only.
+output "logs_access" {
+  value = {
+    status = axual_application_access_grant.dash_consume_from_logs_in_dev.status
+    reason = axual_application_access_grant.dash_consume_from_logs_in_dev.decision_reason
+  }
+}
+
+# Warns (it doesn't fail) until the topic team has approved the request (Terraform 1.5 or later).
+check "logs_access_approved" {
+  assert {
+    condition     = axual_application_access_grant.dash_consume_from_logs_in_dev.status == "Approved"
+    error_message = "Access to logs is ${axual_application_access_grant.dash_consume_from_logs_in_dev.status}."
+  }
+}
