@@ -55,7 +55,7 @@ The Grant request will remain in a PENDING state until approved or rejected by t
 
 - The Topic team reviews the request from the Application team and records its decision in an `axual_application_access_grant_decision`: `decision = "APPROVED"` approves, `decision = "DENIED"` with a `reason` rejects. The decision finds the grant by application name or UID, topic, environment and access type, so no data source is needed. The two repositories can apply in either order.
 
-- If the Topic team later decides to revoke the Application team's access, it changes the decision to `decision = "DENIED"` with a `reason`. Removing the decision block does **not** revoke (unless `revoke_on_destroy = true`).
+- If the Topic team later decides to revoke the Application team's access, it changes the decision to `decision = "DENIED"` with a `reason`. Removing the decision block revokes as well (set `revoke_on_destroy = false` to only stop managing it).
 
 - The Application team sees the answer in its own plan: `status`, `decision_reason`, `decided_at`, and a warning when the grant is Rejected or Revoked. To ask again after a `DENIED`, the Topic team first changes the decision to `"APPROVED"`, then the Application team changes `request_again`. The text of `request_again` isn't sent to the platform, so the reason for a request goes in the PR to the topic repository.
 
