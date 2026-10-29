@@ -109,6 +109,11 @@ func (d *applicationAccessGrantsDataSource) Read(ctx context.Context, req dataso
 	applicationFilter := ""
 	if uidPattern.MatchString(strings.ToLower(application)) {
 		applicationFilter = application
+	} else if application != "" {
+		// Filter on the server: without topic or environment the search would page through every grant
+		// the user can see. When the lookup is refused or finds nothing (a private application of another
+		// team), the search runs without it and the name is filtered below.
+		applicationFilter = d.provider.grants.application(application).uid
 	}
 	var statuses []string
 	for _, s := range data.Statuses {
