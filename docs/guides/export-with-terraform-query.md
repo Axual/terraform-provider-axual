@@ -208,7 +208,8 @@ in the Terraform state only.
 - `axual_application_access_grant_decision` lists decided grants only: `decision = "APPROVED"` for an
   Approved grant, `decision = "DENIED"` with the platform's comment as `reason` for a Rejected or
   Revoked one. Pending and Cancelled grants are left out, so generated configuration never approves a
-  request nobody reviewed.
+  request nobody reviewed. A grant the application team revoked itself is left out too: that isn't a
+  decision of the topic team, and `DENIED` would reject the team's next request.
 - When you set more than one filter, a resource must match all of them.
 
 `axual_flink_cluster` has no list resource: it needs an instance and cluster ID.

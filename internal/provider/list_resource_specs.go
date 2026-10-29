@@ -713,7 +713,9 @@ func deploymentStateSkipReason(ctx context.Context, state tfsdk.State) string {
 }
 
 // decisionFromStatus writes the grant's current status as the decision: APPROVED for an Approved
-// grant, DENIED with the platform's comment as reason for a Rejected or Revoked one.
+// grant, DENIED with the platform's comment as reason for a Rejected or Revoked one. A grant the
+// application team revoked itself is left out: that isn't a decision of the topic team, and DENIED
+// would reject the team's next request.
 func decisionFromStatus(ctx context.Context, c *webclient.Client, state *tfsdk.State) diag.Diagnostics {
 	var diags diag.Diagnostics
 	var status, grantID types.String
@@ -726,8 +728,18 @@ func decisionFromStatus(ctx context.Context, c *webclient.Client, state *tfsdk.S
 	case "Approved":
 		diags.Append(state.SetAttribute(ctx, path.Root("decision"), types.StringValue(decisionApproved))...)
 	case "Rejected", "Revoked":
+		g, err := c.GetGrantView(grantID.ValueString())
+		if err != nil {
+			diags.AddError("Cannot be configured", fmt.Sprintf("couldn't read who closed the grant: %s", err))
+			return diags
+		}
+		if status.ValueString() == "Revoked" && closedByRequester(*g) {
+			diags.AddError("Cannot be configured", "the application team revoked this grant itself; that isn't a decision of the topic team. "+
+				"Add a decision by hand if you need one.")
+			return diags
+		}
 		reason := "Decided in Axual Self-Service before the export"
-		if g, err := c.GetGrantView(grantID.ValueString()); err == nil && strings.TrimSpace(g.Comment) != "" {
+		if strings.TrimSpace(g.Comment) != "" {
 			reason = g.Comment
 		}
 		diags.Append(state.SetAttribute(ctx, path.Root("decision"), types.StringValue(decisionDenied))...)
