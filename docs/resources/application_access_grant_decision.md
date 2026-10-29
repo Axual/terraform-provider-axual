@@ -51,7 +51,7 @@ The decision finds its grant by `grant_id` first, then by application UID, then 
 
 ### Read-Only
 
-- `application_uid` (String) The UID of the application this decision matched first: set at create, or by the first refresh that finds a request. When `application` is a name and the name now belongs to another application (deleted and created again, maybe by another team), the plan doesn't approve its request and warns. To accept the new application, set `application` to its UID, or run `terraform apply -replace=<address>`. A decision written before the application exists trusts the first application with that name.
+- `application_uid` (String) The UID of the application this decision matched first: set at create, or by the first refresh that finds a request. When `application` is a name and the name now belongs to another application (deleted and created again, maybe by another team), the plan doesn't approve its request and warns. To accept the new application, set `application` to its UID. A decision written before the application exists trusts the first application with that name.
 - `closed_outside_terraform` (Boolean) `true` when `decision = "APPROVED"` and the grant was rejected or revoked outside Terraform, for example in the UI: the next request will be approved. Not set by this decision's own reject or revoke, nor when the application team gave up access itself (the user who requested it closed it); with one account for both teams a revoke in the UI looks like that and isn't reported. Under `DENIED` a rejected or revoked grant counts as this decision's own close, so the flip to `APPROVED` isn't reported; a decision imported or moved as `APPROVED` onto a closed grant reports it. Use it in a `check` block. It only reports; it never changes what the provider does.
 - `current_status` (String) The grant's status: `Pending`, `Approved`, `Rejected`, `Revoked`, `Cancelled`, or `Not found` when there is no request that this user can see.
 - `id` (String) `<topic>/<environment>/<access_type>/<application>`, set at create and never changed. Import accepts it, or a grant UID.
@@ -65,12 +65,14 @@ locals {
   logs_dev_consumers = {
     "Log Scraper" = { decision = "APPROVED" }
     "POC Secret"  = { decision = "DENIED", reason = "Not allowed to read logs, see INC-1234" }
+    # Once an application exists, its UID can go in the value; the key stays, so the block is updated in place.
+    # "Billing"   = { decision = "APPROVED", application = "0123456789abcdef0123456789abcdef" }
   }
 }
 
 resource "axual_application_access_grant_decision" "logs_dev_consumers" {
   for_each    = local.logs_dev_consumers
-  application = each.key
+  application = try(each.value.application, each.key)
   topic       = axual_topic.logs.id
   environment = data.axual_environment.dev.id
   access_type = "CONSUMER"
@@ -152,9 +154,9 @@ A standing `APPROVED` belongs to an application, not to a name. `application_uid
 Warning: Log Scraper (CONSUMER on logs, dev) is another application now; this apply doesn't approve it
 ```
 
-To accept the new application, set `application` to its UID (the warning shows it), or run `terraform apply -replace=<address>`. To refuse it, set `decision = "DENIED"`. This also applies when the application team deletes and creates its own application again: it is a new application, so the topic team confirms it.
+To accept the new application, set `application` to its UID (the warning shows it): an in-place change, which approves its request. Don't use `terraform apply -replace` for this: removing the block revokes (`revoke_on_destroy`), also when the new application's grant was already approved. To refuse it, set `decision = "DENIED"`. This also applies when the application team deletes and creates its own application again: it is a new application, so the topic team confirms it.
 
-A decision written before the application exists trusts the first application created with that name. Once the application exists, prefer its UID in `application`.
+A decision written before the application exists trusts the first application created with that name. Once the application exists, prefer its UID in `application`. Keep the block's key when you change it (in the example above, put the UID in the value): changing a `for_each` key removes the block and revokes, unless you add a `moved` block.
 
 ## The id
 

@@ -51,7 +51,7 @@ locals {
 
 resource "axual_application_access_grant_decision" "logs_dev_consumers" {
   for_each    = local.logs_dev_consumers
-  application = each.key
+  application = try(each.value.application, each.key) # a UID in the value keeps the key
   topic       = axual_topic.logs.id
   environment = data.axual_environment.environment-author-team.id
   access_type = "CONSUMER"
@@ -80,6 +80,7 @@ resource "axual_application_access_grant_decision" "logs_dev_consumers" {
 # }
 #
 # resource "axual_application_access_grant_decision" "dash_consume_from_logs_in_dev" {
-#   grant_id = axual_application_access_grant.dash_consume_from_logs_in_dev.id
-#   decision = "APPROVED"
+#   grant_id   = axual_application_access_grant.dash_consume_from_logs_in_dev.id
+#   decision   = "APPROVED"
+#   depends_on = [axual_topic_config.logs_in_dev]
 # }
