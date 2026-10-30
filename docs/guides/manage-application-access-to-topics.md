@@ -177,7 +177,7 @@ Three rules:
 
 1. **The topic team writes `decision`.** `APPROVED` approves every request from that application, now and later. `DENIED` (with a `reason`) rejects or revokes, also every later request.
 2. **The application team changes `request_again` to ask again.** The text isn't sent to the platform, so explain the reason in the PR to the topic repository. After `DENIED`, the topic team changes the decision first.
-3. **Removing a decision revokes** an `Approved` grant (`revoke_on_destroy` defaults to `true`). To stop managing a decision without revoking, set `revoke_on_destroy = false` and apply before you remove it (for a whole resource block, a `removed` block with `lifecycle { destroy = false }` works too; it can't name one `for_each` key). When you rename a `for_each` key, add a `moved` block: without it the old block is removed, the grant is revoked, and the application team has to ask again.
+3. **Removing a decision revokes** an `Approved` grant (`revoke_on_destroy` defaults to `true`). To stop managing a decision without revoking, set `revoke_on_destroy = false` and apply before you remove it (for a whole resource block, a `removed` block with `lifecycle { destroy = false }` works too; it can't name one `for_each` key). When you rename a `for_each` key, add a `moved` block. Without it the plan fails: the old block would revoke the grant that the new one approves.
 
 - **Approve:** merge a PR with `decision = "APPROVED"`. It's a standing decision: it approves every request from that application, also a request made again. The two repositories can apply in either order: before the request exists, the plan only warns, and the topic repository's next apply after the request approves it. Every approval names the application's owner group. A decision by name stays with the application it matched first (`application_uid`): when the application is deleted and another one is created with the same name, the plan doesn't approve it and warns, until the topic team sets `application` to the new UID.
 - **Reject or revoke:** `decision = "DENIED"` with a `reason`. The application team reads the reason. A request made again is rejected again, with a warning. This is the only close that lasts.
@@ -217,7 +217,7 @@ removed {
 }
 ```
 
-When you rename a `for_each` key, add a `moved` block, or the grant is revoked and the application team has to ask again.
+When you rename a `for_each` key, add a `moved` block. Without it the plan fails: the old block would revoke the grant that the new one approves.
 
 ### Many Decisions in One Apply
 

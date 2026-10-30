@@ -184,3 +184,20 @@ func TestWithOffer(t *testing.T) {
 		t.Errorf("only approve is strict: got %+v", got)
 	}
 }
+
+func TestRemovedByTerraform(t *testing.T) {
+	for _, tc := range []struct {
+		status, comment string
+		want            bool
+	}{
+		{"Revoked", "Decision removed from Terraform", true},
+		{"Revoked", "Decision removed from Terraform: INC-1", true},
+		{"Revoked", "Revoked in terraform", false},
+		{"Rejected", "Decision removed from Terraform", false},
+		{"Revoked", "", false},
+	} {
+		if got := removedByTerraform(webclient.GrantView{Status: tc.status, Comment: tc.comment}); got != tc.want {
+			t.Errorf("%s %q: got %v, want %v", tc.status, tc.comment, got, tc.want)
+		}
+	}
+}
