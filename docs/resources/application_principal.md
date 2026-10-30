@@ -30,7 +30,7 @@ An Application Principal is a security principal (certificate or comparable) tha
 
 - `application` (String) A valid UID of an existing application
 - `environment` (String) A valid Uid of an existing environment
-- `principal` (String, Sensitive) The principal of an Application for an Environment. Must be PEM-format.
+- `principal` (String) The principal of an Application for an Environment. Must be PEM-format.
 
 ### Optional
 

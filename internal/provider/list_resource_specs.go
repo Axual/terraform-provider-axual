@@ -106,7 +106,7 @@ func listSpecs() []listSpec {
 		{
 			typeName:    "axual_application_principal",
 			attr:        "id",
-			description: "Lists application principals (certificates and custom principals). `principal` and `private_key` are sensitive, so Terraform leaves them out of generated configuration: set them before you apply.",
+			description: "Lists application principals (certificates and custom principals). `private_key` is sensitive, so Terraform leaves it out of generated configuration: set it before you apply.",
 			newResource: NewApplicationPrincipalResource,
 			filters:     []listFilter{filterApp, filterEnv, {"owners", "Only principals of applications owned by this group. Takes the group's ID or its exact name."}},
 			find:        findApplicationPrincipals,
