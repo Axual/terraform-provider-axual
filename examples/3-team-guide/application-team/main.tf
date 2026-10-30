@@ -37,8 +37,7 @@ resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
   ]
 }
 
-# The topic team's answer. A plan doesn't show an approval as a change: the new status shows after
-# the next apply, or with terraform apply -refresh-only.
+# The topic team's answer. The plan shows a new status under "Changes to Outputs".
 output "logs_access" {
   value = {
     status = axual_application_access_grant.dash_consume_from_logs_in_dev.status

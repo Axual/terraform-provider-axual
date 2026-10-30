@@ -157,7 +157,7 @@ func (r *grantDecisionResource) Schema(_ context.Context, _ resource.SchemaReque
 				Validators: []validator.String{stringvalidator.OneOf(decisionApproved, decisionDenied)},
 			},
 			"reason": schema.StringAttribute{
-				MarkdownDescription: "Required when `decision = \"DENIED\"`. Sent with the reject or revoke; the application team reads it as `decision_reason`.",
+				MarkdownDescription: "Required when `decision = \"DENIED\"`. Sent only with a reject or revoke, including the revoke when the block is removed; the application team reads it as `decision_reason`. Under `APPROVED` it isn't sent (an approval has no comment).",
 				Optional:            true,
 			},
 			"revoke_on_destroy": schema.BoolAttribute{
