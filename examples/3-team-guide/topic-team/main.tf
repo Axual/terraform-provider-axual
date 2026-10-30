@@ -67,6 +67,8 @@ resource "axual_application_access_grant_decision" "logs_dev_consumers" {
 # Instead of the main flow for the same grant: the topic team creates the grant and the decision.
 # Remove "LogScraper" from local.logs_dev_consumers above, and the application team doesn't create
 # the grant. Otherwise two decisions and two grant resources manage the same platform grant.
+# If the instance disables self-approval, creating the decision fails (the topic team made the request
+# itself) until another topic owner approves the request in the UI; then apply again.
 
 # data "axual_application" "log_scraper" {
 #   name = "LogScraper"

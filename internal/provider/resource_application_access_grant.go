@@ -268,8 +268,8 @@ func (r *applicationAccessGrantResource) ModifyPlan(ctx context.Context, req res
 		plan.Status = state.Status
 		plan.decisionFields = state.decisionFields
 		resp.Diagnostics.AddWarning(fmt.Sprintf("Grant %s is %s, nothing to request", name, status),
-			"request_again changed, but only a Rejected, Revoked or Cancelled grant can be requested again. The new value is stored. "+
-				"To ask again after a reject or revoke, change request_again again then.")
+			"request_again changed, but only a Rejected, Revoked or Cancelled grant can be requested again. Nothing is sent; the new value is stored. "+
+				"After a reject or revoke, change request_again once more to ask again.")
 	case closed:
 		detail := "Change request_again in a PR to ask again, or request again in the UI."
 		summary := fmt.Sprintf("Grant %s is %s", name, status)
@@ -282,10 +282,12 @@ func (r *applicationAccessGrantResource) ModifyPlan(ctx context.Context, req res
 			}
 			reason = ""
 		case err == nil && g.ProcessedBy != "":
-			// The topic team closed it. With decision = "DENIED" in the topic repository, a new request
-			// is rejected again by its next apply, so asking again only helps after they agree.
-			detail = "The topic team closed the grant. Ask the topic team first: while their decision is DENIED, a new request is rejected again. " +
-				"Then change request_again in a PR, or request again in the UI."
+			// Closed by someone else than the requester: usually the topic team, but it can also be another
+			// member of the application team or an admin. Under decision = "DENIED" in the topic repository a
+			// new request is rejected again by its next apply, so asking again only helps after they agree.
+			summary = fmt.Sprintf("Grant %s is %s by %s", name, status, g.ProcessedBy)
+			detail = "Closed by another user than the one who requested it. If the topic team set decision = \"DENIED\", ask them first: " +
+				"a new request is rejected again. Otherwise change request_again in a PR, or request again in the UI."
 		}
 		if reason != "" {
 			detail = fmt.Sprintf("Reason from the topic team: %q.\n%s", reason, detail)

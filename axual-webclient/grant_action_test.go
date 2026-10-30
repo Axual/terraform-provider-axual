@@ -41,3 +41,40 @@ func TestGrantActionsSendAtMostFourRequestsAtATime(t *testing.T) {
 		t.Errorf("at most %d requests ran at the same time, expected %d", got, maxGrantActions)
 	}
 }
+
+// Every grant action waits for a free slot: with all slots taken, none reaches the server.
+func TestApproveCancelAndDenyWaitForAFreeSlot(t *testing.T) {
+	actions := map[string]func(c *Client) error{
+		"approve": func(c *Client) error { return c.ApproveGrant("g") },
+		"cancel":  func(c *Client) error { return c.CancelGrant("g") },
+		"deny":    func(c *Client) error { return c.RevokeOrDenyGrant("g", "reason") },
+	}
+	for name, action := range actions {
+		t.Run(name, func(t *testing.T) {
+			hit := make(chan struct{}, 1)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				hit <- struct{}{}
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			t.Cleanup(server.Close)
+			client := &Client{HTTPClient: server.Client(), ApiURL: server.URL}
+			_ = client.grantAction(func() error { return nil }) // creates the slots
+			for i := 0; i < maxGrantActions; i++ {              // take every slot
+				client.grantActions <- struct{}{}
+			}
+			go func() { _ = action(client) }() // approve and cancel then sleep 10 s; the test doesn't wait for it
+
+			select {
+			case <-hit:
+				t.Fatal("the request was sent while every slot was taken")
+			case <-time.After(100 * time.Millisecond):
+			}
+			<-client.grantActions // free one slot
+			select {
+			case <-hit:
+			case <-time.After(2 * time.Second):
+				t.Fatal("the request wasn't sent after a slot was freed")
+			}
+		})
+	}
+}

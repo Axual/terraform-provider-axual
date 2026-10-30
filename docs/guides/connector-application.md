@@ -85,8 +85,9 @@ This is the original flow, and existing configurations keep working without a ch
    `axual_application_access_grant_decision` with `decision = "APPROVED"`.
 3. `axual_application_deployment`, with `depends_on` on the decision. Creating it starts the
    connector. The provider checks first that an active principal and an approved grant exist.
-   When the decision can't approve the grant (the platform doesn't offer approve to the signed-in
-   user, for example with self-approval disabled), the apply fails before the deployment is created.
+   When the new decision can't approve the grant (the platform doesn't offer approve to the signed-in
+   user, for example with self-approval disabled, or the grant is Rejected), the apply fails before
+   the deployment is created.
 
 ```hcl
 resource "axual_application_principal" "example" {
@@ -208,7 +209,7 @@ The steps are the same for both:
 ```hcl
 data "axual_connect_cluster" "example" {
   instance_id = data.axual_instance.example.id
-  cluster_id  = "YOUR_KAFKA_CLUSTER_ID" # the Kafka cluster the Kafka Connect cluster is registered on
+  cluster_id  = "YOUR_KAFKA_CLUSTER_ID"     # the Kafka cluster the Kafka Connect cluster is registered on
   name        = "YOUR_CONNECT_CLUSTER_NAME" # a Kafka Connect cluster with auth_method MTLS
 }
 
@@ -261,7 +262,7 @@ resource "axual_application_deployment_state" "example" {
 ```hcl
 data "axual_connect_cluster" "example" {
   instance_id = data.axual_instance.example.id
-  cluster_id  = "YOUR_KAFKA_CLUSTER_ID" # the Kafka cluster the Kafka Connect cluster is registered on
+  cluster_id  = "YOUR_KAFKA_CLUSTER_ID"     # the Kafka cluster the Kafka Connect cluster is registered on
   name        = "YOUR_CONNECT_CLUSTER_NAME" # a Kafka Connect cluster with auth_method SASL_SCRAM
 }
 
