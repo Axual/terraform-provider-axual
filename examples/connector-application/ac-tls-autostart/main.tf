@@ -2,7 +2,9 @@
 # axual_application_deployment.autostart = true (the default).
 #
 # Order: principal -> grant + approval -> deployment. Creating the deployment starts the connector,
-# so the principal and the approved grant must exist first.
+# so the principal and the approved grant must exist first. When the platform doesn't offer approve
+# to this user (for example self-approval is disabled), the decision fails the apply and the
+# deployment isn't created: approve the grant in the UI as another topic owner, then apply again.
 #
 # Replace every YOUR_* value below. This example uses its own directory, and therefore its own
 # terraform.tfstate.

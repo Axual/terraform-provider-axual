@@ -17,6 +17,8 @@ All notable changes to this project will be documented in this file.
 * Leaving out `roles` on an `axual_user` now keeps the roles the user has. Only `roles = []` removes them
 * Changing `application`, `topic`, `environment` or `access_type` of an `axual_application_access_grant` fails in the plan instead of at apply (AXPD-12412)
 * Upgrading from `axual_application_access_grant_approval`: a `moved` block keeps today's behaviour (removing the moved decision revokes), with no diff (AXPD-12412)
+* Upgrading from `axual_application_access_grant_approval` on an instance with self-approval disabled: the decision approves only when the platform offers approve to the signed-in user, so it doesn't approve a request this user made itself, while the approval resource did. With `grant_id` the apply then fails, so a deployment with `depends_on` on the decision isn't created; with the lookup attributes (multi-repo) the plan warns (AXPD-12412)
+* Approvals, rejects, revokes and cancels of access grants run at most 4 at a time, because Platform Manager can stop responding with about 10 at once. An apply that acts on many grants takes longer, without `-parallelism` (AXPD-12412)
 * The access guides describe the platform correctly: Rejected, Revoked and Cancelled grants are closed, not final; a new request reopens the same grant (AXPD-12412)
 * A plan that leaves out `configs`, `definition` or `sql_script` of an `axual_application_deployment` that has them stops with `Missing configs` (or `definition`, `sql_script`), unless the application or environment changes. `configs = {}` removes all configs (Platform Manager 16.0.0 or later). Before, the apply removed them and stopped the deployment
 

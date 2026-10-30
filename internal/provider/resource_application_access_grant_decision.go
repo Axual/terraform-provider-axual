@@ -168,7 +168,7 @@ func (r *grantDecisionResource) Schema(_ context.Context, _ resource.SchemaReque
 			},
 			"grant_id": schema.StringAttribute{
 				MarkdownDescription: "The grant UID. In a single repository, set it to `axual_application_access_grant.x.id` instead of the four lookup attributes; " +
-					"changing it replaces the block. Both together, as `terraform plan -generate-config-out` writes them, must point at the same grant. " +
+					"changing it replaces the block. With grant_id, an APPROVED decision fails the apply when the platform doesn't offer approve to this user. Both together, as `terraform plan -generate-config-out` writes them, must point at the same grant. " +
 					"Otherwise the provider fills it in: null until the application team requests access, and it changes when the application is created again.",
 				Optional: true,
 				Computed: true,
@@ -522,7 +522,7 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 				fmt.Sprintf("The decisions with id %q and %q point at the same grant, with the same decision. Keep one of them.", other.id, claimID))
 		}
 	}
-	r.warn(plan, g, status, out, p, closed, create, create || !plan.Decision.Equal(state.Decision), resp)
+	r.warn(plan, g, status, out, p, closed, create, create || !plan.Decision.Equal(state.Decision), byGrant, resp)
 	if other {
 		r.warnOtherApplication(plan, state, g, status, p.SeenApp, resp)
 	}
@@ -607,7 +607,7 @@ func (r *grantDecisionResource) warnOldGrant(state grantDecisionData, resp *reso
 }
 
 func (r *grantDecisionResource) warn(plan grantDecisionData, g *webclient.GrantView, status string, out decisionOutcome, p grantDecisionPrivate,
-	closed, create, decisionChanged bool, resp *resource.ModifyPlanResponse) {
+	closed, create, decisionChanged, byGrant bool, resp *resource.ModifyPlanResponse) {
 	name := r.label(plan, g)
 	closedBy := "someone other than the application team"
 	if p.ClosedBy != "" {
@@ -642,8 +642,12 @@ func (r *grantDecisionResource) warn(plan grantDecisionData, g *webclient.GrantV
 		resp.Diagnostics.AddWarning(fmt.Sprintf("%s was closed by %s and requested again; decision = APPROVED approves it", name, closedBy),
 			"decision = \"APPROVED\" approves every request from this application. To keep the grant closed, set decision = \"DENIED\" with a reason."+owners)
 	case warnApproveNotOffered:
+		result := "this apply doesn't approve it"
+		if byGrant {
+			result = "the apply fails (grant_id), so what depends on the decision isn't created"
+		}
 		resp.Diagnostics.AddWarning(fmt.Sprintf("%s: the platform doesn't offer approve to this user now", name),
-			"The grant has no \"approve\" link for the signed-in user, so this apply doesn't approve it. Possible reasons: the user doesn't own the topic, "+
+			"The grant has no \"approve\" link for the signed-in user, so "+result+". Possible reasons: the user doesn't own the topic, "+
 				"or self-approval is disabled on the instance and this user made the request. Approve it in the UI as another topic owner, "+
 				"or apply the topic repository with a user that may approve."+owners)
 	case warnDeniedAgain:
@@ -724,22 +728,35 @@ func (r *grantDecisionResource) Create(ctx context.Context, req resource.CreateR
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	r.apply(ctx, plan, grantDecisionData{}, true, grantDecisionPrivate{}, &resp.State, resp.Private, resp.Identity, &resp.Diagnostics)
+	byGrant := configSetsGrantID(ctx, req.Config, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	r.apply(ctx, plan, grantDecisionData{}, true, byGrant, grantDecisionPrivate{}, &resp.State, resp.Private, resp.Identity, &resp.Diagnostics)
 }
 
 func (r *grantDecisionResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var plan, state grantDecisionData
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	byGrant := configSetsGrantID(ctx, req.Config, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	r.apply(ctx, plan, state, false, readDecisionPrivate(ctx, req.Private), &resp.State, resp.Private, resp.Identity, &resp.Diagnostics)
+	r.apply(ctx, plan, state, false, byGrant, readDecisionPrivate(ctx, req.Private), &resp.State, resp.Private, resp.Identity, &resp.Diagnostics)
+}
+
+// configSetsGrantID: the configuration sets grant_id (single repository).
+func configSetsGrantID(ctx context.Context, config tfsdk.Config, diags *diag.Diagnostics) bool {
+	var grantID types.String
+	diags.Append(config.GetAttribute(ctx, path.Root("grant_id"), &grantID)...)
+	return !grantID.IsNull()
 }
 
 // apply looks the grant up again, checks that it is still what the plan was made from, runs the
-// action the rules ask for, and stores the result.
-func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDecisionData, create bool, p grantDecisionPrivate,
+// action the rules ask for, and stores the result. byGrant is the grant_id form: there the decision
+// gates what depends on it (depends_on), so an APPROVED decision that leaves the grant Pending fails.
+func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDecisionData, create, byGrant bool, p grantDecisionPrivate,
 	out *tfsdk.State, private privateSetter, identity *tfsdk.ResourceIdentity, diags *diag.Diagnostics) {
 	g, err := r.find(plan, true)
 	if err != nil {
@@ -817,10 +834,24 @@ func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDeci
 	if g != nil {
 		o = withOffer(o, status, g.CanApprove)
 	}
+	if byGrant && o.Warning == warnApproveNotOffered {
+		diags.AddError(fmt.Sprintf("%s: the platform doesn't offer approve to this user", r.label(plan, g)),
+			"The grant is Pending and has no \"approve\" link for the signed-in user, so it isn't approved. With grant_id the decision fails, "+
+				"so resources that depend on it (depends_on) aren't created or changed. Possible reasons: the user doesn't own the topic, "+
+				"or self-approval is disabled on the instance and this user made the request. Approve it in the UI as another topic owner, "+
+				"or apply with a user that may approve, then apply again.")
+		return
+	}
 	planned := plan.CurrentStatus
 	if !create && known(planned) && planned.ValueString() == status {
 		// The plan has no status change (for example approve wasn't offered then): act on nothing
 		// the plan didn't show.
+		if byGrant && o.Action == actionApprove {
+			diags.AddError(fmt.Sprintf("%s wasn't approved by the plan", r.label(plan, g)),
+				"The plan didn't approve the Pending grant, for example because approve wasn't offered then. Nothing was changed. "+
+					"With grant_id the decision fails until the grant is Approved, so resources that depend on it wait. Run plan again.")
+			return
+		}
 		o.Action = actionNone
 	}
 	switch o.Action {

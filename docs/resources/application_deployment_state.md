@@ -77,7 +77,7 @@ resource "axual_application_access_grant" "connector" {
 
 resource "axual_application_access_grant_decision" "connector" {
   grant_id = axual_application_access_grant.connector.id
-  decision    = "APPROVED"
+  decision = "APPROVED"
 }
 
 resource "axual_application_deployment_state" "connector" {
