@@ -84,10 +84,10 @@ Then open a PR in the topic team's repository that adds the decision (see below)
 `status`, `decision_reason`, `decided_at` and `decided_by` show the topic team's decision. They are null while the grant is Pending. When the grant is Rejected, Revoked or Cancelled, every plan warns:
 
 ```
-Warning: Grant Log Scraper (CONSUMER on logs, dev) is Rejected
+Warning: Grant Log Scraper (CONSUMER on logs, dev) is Rejected by tom@example.com
 
 Reason from the topic team: "Not allowed to read logs, see INC-1234".
-The topic team closed the grant. Ask the topic team first: while their decision is DENIED, a new request is rejected again. Then change request_again in a PR, or request again in the UI.
+Closed by another user than the one who requested it. If the topic team set decision = "DENIED", ask them first: a new request is rejected again. Otherwise change request_again in a PR, or request again in the UI.
 ```
 
 A plan doesn't show an approval as a change: the new `status` appears after the next apply, or with `terraform apply -refresh-only`. To see it in CI, add a `check` block:
@@ -148,6 +148,8 @@ resource "axual_application_access_grant_decision" "logs_dev_consumers" {
   access_type = "CONSUMER"
   decision    = each.value.decision
   reason      = try(each.value.reason, null)
+  # On destroy, the decisions revoke their grants before the topic config is deleted.
+  depends_on = [axual_topic_config.logs_dev]
 }
 
 # Every waiting request, also from applications that have no decision yet,

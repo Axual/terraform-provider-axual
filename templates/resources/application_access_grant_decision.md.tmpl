@@ -21,7 +21,7 @@ Use it in the topic team's repository. The application team requests access with
 
 That's the whole rule. It looks only at the grant's status, never at who closed it, so nothing the application team does can get around a `DENIED`. A request made again is handled like a first request.
 
-The provider approves only when the platform offers approve to the signed-in user. Without it (for example when self-approval is disabled and this user made the request), the plan warns and plans no change; approve in the UI as another topic owner. With `grant_id` the apply then fails, so resources that depend on the decision (`depends_on`) wait until the grant is approved. Reject and revoke are always tried.
+The provider approves only when the platform offers approve to the signed-in user. Without it (for example when self-approval is disabled and this user made the request), the plan warns and plans no change; approve in the UI as another topic owner. With `grant_id`, creating the decision then fails, as it does on a Rejected or Revoked grant, so resources that depend on it (`depends_on`) aren't created before the grant is approved. Later, when the decision exists, it only warns. Reject and revoke are always tried.
 
 An action on an existing block shows in the plan as an in-place change of `current_status`, for example `current_status = "Pending" -> "Approved"`. A new block shows `(known after apply)` and a warning that names the action. Every approval names the application's owner group, so you can check that a decision by name approves the team you mean. Nothing about the grant's status fails a plan.
 
