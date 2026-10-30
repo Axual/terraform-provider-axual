@@ -26,6 +26,7 @@ type grantCache struct {
 	topics   map[string]string
 	version  *string
 	claims   map[string]decisionClaim
+	removals map[string]string
 	apps     map[string]appLookup
 	waits    map[string]*waitGroup
 }
@@ -57,6 +58,7 @@ func newGrantCache(client *webclient.Client) *grantCache {
 		envs:     map[string]*webclient.EnvironmentResponse{},
 		topics:   map[string]string{},
 		claims:   map[string]decisionClaim{},
+		removals: map[string]string{},
 		apps:     map[string]appLookup{},
 		waits:    map[string]*waitGroup{},
 	}
@@ -239,6 +241,25 @@ func (c *grantCache) claim(grantUid, id, decision string) decisionClaim {
 	}
 	c.claims[grantUid] = decisionClaim{id: id, decision: decision}
 	return decisionClaim{}
+}
+
+// remove records that the decision with this id is removed in this run and revokes the grant at apply
+// (revoke_on_destroy), and returns the decision that approves the same grant in this run, if any.
+func (c *grantCache) remove(grantUid, id string) decisionClaim {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.removals[grantUid] = id
+	if other := c.claims[grantUid]; other.decision == decisionApproved {
+		return other
+	}
+	return decisionClaim{}
+}
+
+// removed returns the id of a decision that is removed in this run and revokes the grant, or "".
+func (c *grantCache) removed(grantUid string) string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.removals[grantUid]
 }
 
 var uidPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)

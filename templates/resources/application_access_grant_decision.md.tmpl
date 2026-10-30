@@ -8,7 +8,7 @@ Use it in the topic team's repository. The application team requests access with
 
 1. **The topic team writes `decision`.** `APPROVED` approves every request from that application, now and later. `DENIED` (with a `reason`) rejects or revokes, also every later request.
 2. **The application team changes `request_again` to ask again.** The text isn't sent to the platform, so explain the reason in the PR to the topic repository. After `DENIED`, the topic team changes the decision first.
-3. **Removing a decision revokes** an `Approved` grant (`revoke_on_destroy` defaults to `true`). To stop managing a decision without revoking, set `revoke_on_destroy = false` and apply before you remove it (for a whole resource block, a `removed` block with `lifecycle { destroy = false }` works too; it can't name one `for_each` key). When you rename a `for_each` key, add a `moved` block: without it the old block is removed, the grant is revoked, and the application team has to ask again.
+3. **Removing a decision revokes** an `Approved` grant (`revoke_on_destroy` defaults to `true`). To stop managing a decision without revoking, set `revoke_on_destroy = false` and apply before you remove it (for a whole resource block, a `removed` block with `lifecycle { destroy = false }` works too; it can't name one `for_each` key). When you rename a `for_each` key, add a `moved` block. Without it the plan fails: the old block would revoke the grant that the new one approves.
 
 ## What the provider does
 

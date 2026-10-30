@@ -105,3 +105,28 @@ func TestClaim(t *testing.T) {
 		t.Errorf("another grant: got %+v", got)
 	}
 }
+
+func TestRemovedAndApprovedInOnePlan(t *testing.T) {
+	// Either order: the removal first, or the APPROVED decision first.
+	c := newGrantCache(nil)
+	if got := c.remove("g1", "old"); got.id != "" {
+		t.Fatalf("removal before any claim: got %+v", got)
+	}
+	c.claim("g1", "new", decisionApproved)
+	if got := c.removed("g1"); got != "old" {
+		t.Errorf("removed(g1) = %q, expected old", got)
+	}
+
+	c = newGrantCache(nil)
+	c.claim("g1", "new", decisionApproved)
+	if got := c.remove("g1", "old"); got.id != "new" {
+		t.Errorf("removal after an APPROVED claim: got %+v, expected new", got)
+	}
+	c.claim("g2", "denied", decisionDenied)
+	if got := c.remove("g2", "old"); got.id != "" {
+		t.Errorf("removal next to a DENIED decision is what it asks for: got %+v", got)
+	}
+	if got := c.removed("g3"); got != "" {
+		t.Errorf("removed(g3) = %q, expected nothing", got)
+	}
+}
