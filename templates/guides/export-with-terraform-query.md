@@ -141,11 +141,12 @@ in the Terraform state only.
 
 - **Secrets are not exported.** Terraform leaves sensitive values out of generated configuration and
   writes `null # sensitive` instead. Fill them in before you apply:
-  - `axual_application_principal`: `principal` (the certificate) and `private_key`. The API never
-    returns the private key, so the first apply stores it again; no new principal is created.
-  - `axual_application_deployment`: `configs`, `definition` (KSML) and `sql_script` (Flink). Until
-    you fill them in, the plan stops with `Missing configs` (or `definition`, `sql_script`), because
-    applying `null` would remove them on the platform and stop the deployment.
+  - `axual_application_principal`: `private_key`. The API never returns the private key, so the
+    first apply stores it again; no new principal is created. The certificate (`principal`) is
+    exported.
+  - `axual_application_deployment`: `configs` (a connector's config). Until you fill it in, the plan
+    stops with `Missing configs`, because applying `null` would remove it on the platform and stop
+    the deployment. `definition` (KSML) and `sql_script` (Flink) are exported.
   - `axual_application_credential`: the password is never returned. A credential applied to another
     environment or installation is a new credential with a new password.
 - **Schema versions**: Terraform writes a JSON body with `jsonencode(...)`, which changes only

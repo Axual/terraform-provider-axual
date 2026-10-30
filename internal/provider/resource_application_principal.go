@@ -127,7 +127,6 @@ func (r *applicationPrincipalResource) Schema(ctx context.Context, req resource.
 			"principal": schema.StringAttribute{
 				MarkdownDescription: "The principal of an Application for an Environment. Must be PEM-format.",
 				Required:            true,
-				Sensitive:           true,
 				PlanModifiers: []planmodifier.String{
 					trimSpaceSemanticallyEqual{},
 				},
