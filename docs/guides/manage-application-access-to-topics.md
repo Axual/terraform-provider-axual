@@ -90,7 +90,7 @@ Reason from the topic team: "Not allowed to read logs, see INC-1234".
 Closed by another user than the one who requested it. If the topic team set decision = "DENIED", ask them first: a new request is rejected again. Otherwise change request_again in a PR, or request again in the UI.
 ```
 
-A plan doesn't show an approval as a change: the new `status` appears after the next apply, or with `terraform apply -refresh-only`. To see it in CI, add a `check` block:
+The plan shows the new `status` under "Changes to Outputs" of `logs_access`. Optionally, a `check` warns until the grant is approved:
 
 ```hcl
 check "logs_access_approved" {
@@ -116,7 +116,7 @@ If the topic team rejects again, nothing more happens until `request_again` chan
 
 ### Cancelling or Giving Up Access
 
-Delete the `axual_application_access_grant`: a Pending grant is cancelled, an Approved grant is revoked.
+Delete the `axual_application_access_grant`: a Pending grant is cancelled, an Approved grant is revoked. To accept a rejection, remove the grant block too: there is no API call, the warnings stop, and the grant stays `Rejected` on the platform.
 
 ### Changing Grant Attributes
 
@@ -128,62 +128,26 @@ Delete the `axual_application_access_grant`: a Pending grant is cancelled, an Ap
 
 ### Deciding
 
-One block for all decisions on a topic and environment:
+One block per application, topic, environment and access type:
 
 ```hcl
-locals {
-  logs_dev_consumers = {
-    "Log Scraper" = { decision = "APPROVED" }
-    "POC Secret"  = { decision = "DENIED", reason = "Not allowed to read logs, see INC-1234" }
-    # Once an application exists, its UID can go in the value; the key stays, so the block is updated in place.
-    # "Billing"   = { decision = "APPROVED", application = "0123456789abcdef0123456789abcdef" }
-  }
-}
-
-resource "axual_application_access_grant_decision" "logs_dev_consumers" {
-  for_each    = local.logs_dev_consumers
-  application = try(each.value.application, each.key) # name, or UID
+resource "axual_application_access_grant_decision" "log_scraper_reads_logs" {
+  application = "Log Scraper" # name, or UID
   topic       = axual_topic.logs.id
   environment = data.axual_environment.dev.id
   access_type = "CONSUMER"
-  decision    = each.value.decision
-  reason      = try(each.value.reason, null)
-  # On destroy, the decisions revoke their grants before the topic config is deleted.
+  decision    = "APPROVED" # or "DENIED" with a reason
+  # On destroy, the decision revokes its grant before the topic config is deleted.
   depends_on = [axual_topic_config.logs_dev]
-}
-
-# Every waiting request, also from applications that have no decision yet,
-# and every grant closed outside Terraform while the decision is still APPROVED.
-check "logs_dev_grants" {
-  data "axual_application_access_grants" "pending" {
-    topic       = axual_topic.logs.id
-    environment = data.axual_environment.dev.id
-    statuses    = ["Pending"]
-  }
-  assert {
-    condition     = length(data.axual_application_access_grants.pending.grants) == 0
-    error_message = "Waiting for the topic team: ${join(", ", [for g in data.axual_application_access_grants.pending.grants : g.application_name])}"
-  }
-  assert {
-    condition     = alltrue([for d in axual_application_access_grant_decision.logs_dev_consumers : !d.closed_outside_terraform])
-    error_message = "Closed outside Terraform, the next request will be approved: ${join(", ", [for k, d in axual_application_access_grant_decision.logs_dev_consumers : k if d.closed_outside_terraform])}. To keep it closed, set decision = \"DENIED\" with a reason."
-  }
 }
 ```
 
-**A failing `check` is only a warning:** plan and apply still succeed, and the exit code stays 0, so one grant doesn't block unrelated PRs. For a hard signal, run a scheduled drift job, for example an hourly `terraform plan` that alerts when a check fails (like the drift detection in Terraform Cloud or Spacelift).
+- `APPROVED` is a standing decision: it approves every request from that application, also a request made again. `DENIED` with a `reason` rejects or revokes, also every later request; the application team reads the reason.
+- The two repositories can apply in either order: before the request exists the plan only warns, and the topic repository's next apply after the request approves it.
+- A reject or revoke in the UI lasts only until the next request while the decision is `APPROVED`. To keep it closed, set `DENIED`.
+- Removing a decision revokes an `Approved` grant.
 
-Three rules:
-
-1. **The topic team writes `decision`.** `APPROVED` approves every request from that application, now and later. `DENIED` (with a `reason`) rejects or revokes, also every later request.
-2. **The application team changes `request_again` to ask again.** The text isn't sent to the platform, so explain the reason in the PR to the topic repository. After `DENIED`, the topic team changes the decision first.
-3. **Removing a decision revokes** an `Approved` grant (`revoke_on_destroy` defaults to `true`). To stop managing a decision without revoking, set `revoke_on_destroy = false` and apply before you remove it (for a whole resource block, a `removed` block with `lifecycle { destroy = false }` works too; it can't name one `for_each` key). When you rename a `for_each` key, add a `moved` block. Without it the plan fails: the old block would revoke the grant that the new one approves.
-
-- **Approve:** merge a PR with `decision = "APPROVED"`. It's a standing decision: it approves every request from that application, also a request made again. The two repositories can apply in either order: before the request exists, the plan only warns, and the topic repository's next apply after the request approves it. Every approval names the application's owner group. A decision by name stays with the application it matched first (`application_uid`): when the application is deleted and another one is created with the same name, the plan doesn't approve it and warns, until the topic team sets `application` to the new UID.
-- **Reject or revoke:** `decision = "DENIED"` with a `reason`. The application team reads the reason. A request made again is rejected again, with a warning. This is the only close that lasts.
-- **A reject or revoke in the UI lasts only until the next request** while the decision is `APPROVED`. Until then every topic plan warns, `closed_outside_terraform` is `true` and the `check` above fails. To keep it closed, set `decision = "DENIED"`.
-- **An action on an existing block is an in-place change** of `current_status` in the plan, for example `"Pending" -> "Approved"`. A new block shows `current_status = (known after apply)` and a warning that names the action, for example `Log Scraper (CONSUMER on logs, dev) will be approved by this apply`.
-- **A renamed application** keeps its decision: the plan warns `Application "Log Scraper" is now named "..."`; update `application`.
+The rules, the table of what the provider does, many applications on one topic (`for_each`), and an optional `check` for waiting requests are in the [decision resource](../resources/application_access_grant_decision.md).
 
 ### Finding Open Requests
 
@@ -242,7 +206,7 @@ The decision finds the grant itself, by application name or UID, topic, environm
 | See the answer | Application team | `status`, `decision_reason`, plan warnings |
 | Ask again after `DENIED` | Both, topic team first | Topic PR: `decision = "APPROVED"`; then the application team changes `request_again` |
 | Ask again after a reject or revoke in the UI | Application team | Change `request_again`; under `APPROVED` the topic repository's next apply approves it |
-| Revoke in the UI | Topic team | Works, but under `APPROVED` the next request is approved again (warning and failing `check` on every plan). To keep it closed, set `DENIED` in a PR as well |
+| Revoke in the UI | Topic team | Works, but under `APPROVED` the next request is approved again (a warning on every plan). To keep it closed, set `DENIED` in a PR as well |
 | Give up access | Application team | Delete the grant (cancels or revokes). Adding it back later is approved again under `APPROVED` |
 | CONSUMER to PRODUCER | Both | A new grant block and a new decision. Removing the old decision revokes the old grant |
 
@@ -316,6 +280,18 @@ Don't manage one grant with an old resource and a decision at the same time.
 ## Sections that moved
 
 Earlier versions of this guide had these sections; links to them land here.
+
+### Approving a Grant
+
+Use `decision = "APPROVED"` on `axual_application_access_grant_decision`; see [Deciding](#deciding).
+
+### Revoking an Approved Grant
+
+Set `decision = "DENIED"` with a `reason`, or remove the decision; see [Cutting Access Now](#cutting-access-now) and [Removing a Decision](#removing-a-decision).
+
+### Re-requesting Access After Rejection or Revocation
+
+Change `request_again`; see [Requesting Again](#requesting-again).
 
 ### Re-approving After Revocation
 
