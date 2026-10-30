@@ -15,7 +15,7 @@ All notable changes to this project will be documented in this file.
 * A plan that leaves out `configs`, `definition` or `sql_script` of an `axual_application_deployment` that has them stops with `Missing configs` (or `definition`, `sql_script`), unless the application or environment changes. `configs = {}` removes all configs (Platform Manager 16.0.0 or later). Before, the apply removed them and stopped the deployment
 
 ### Fixed
-* `principal` of `axual_application_principal`, and `definition` and `sql_script` of `axual_application_deployment`, are no longer sensitive. `terraform query -generate-config-out` now writes them. `private_key` and `configs` stay sensitive. Existing plans do not change (AXPD-12611)
+* `principal` of `axual_application_principal`, and `definition` and `sql_script` of `axual_application_deployment`, are no longer sensitive. `terraform query -generate-config-out` now writes them. `private_key` and `configs` stay sensitive. After the upgrade, the first plan shows an in-place update for each `axual_application_principal` and `axual_application_deployment`, with the note that the value is no longer marked as sensitive. Applying it makes no API call and does not restart a deployment. `terraform plan -detailed-exitcode` returns `2` once (AXPD-12611)
 * A STOP that fails with a `5xx` (for example while the Connect worker rebalances) is retried, like START. It is not sent again once the deployment has stopped
 * An `axual_application_deployment` deleted outside Terraform no longer breaks `plan` and `destroy` with `no application deployment found`; it is removed from the state and planned again
 * `roles = []` on an `axual_user` removes all roles instead of failing with `Required request body is missing` (AXPD-9562)
