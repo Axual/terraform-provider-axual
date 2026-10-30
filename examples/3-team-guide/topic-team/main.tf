@@ -41,34 +41,48 @@ resource "axual_topic_config" "logs_in_dev" {
 
 # MAIN FLOW SETUP
 
-data "axual_application" "log_scraper" {
-  name = "LogScraper"
+# The topic team's decisions on the logs topic in tf-development. The decision finds the
+# application team's request itself; the two repositories can apply in either order.
+locals {
+  logs_dev_consumers = {
+    "LogScraper" = { decision = "APPROVED" }
+  }
 }
 
-data "axual_application_access_grant" "logs_producer_produce_to_logs_in_dev" {
-  application = data.axual_application.log_scraper.id
-  topic = axual_topic.logs.id
+resource "axual_application_access_grant_decision" "logs_dev_consumers" {
+  for_each    = local.logs_dev_consumers
+  application = try(each.value.application, each.key) # a UID in the value keeps the key
+  topic       = axual_topic.logs.id
   environment = data.axual_environment.environment-author-team.id
   access_type = "CONSUMER"
-}
-
-resource "axual_application_access_grant_approval" "connector_axual_application_access_grant_approval"{
-  application_access_grant = data.axual_application_access_grant.logs_producer_produce_to_logs_in_dev.id
+  decision    = each.value.decision
+  reason      = try(each.value.reason, null)
+  # The topic config goes after the decisions on destroy: a removed decision revokes its grant first,
+  # and Platform Manager doesn't delete a topic config while grants are active.
+  depends_on = [axual_topic_config.logs_in_dev]
 }
 
 
 # ALTERNATIVE FLOW SETUP
+# Instead of the main flow for the same grant: the topic team creates the grant and the decision.
+# Remove "LogScraper" from local.logs_dev_consumers above, and the application team doesn't create
+# the grant. Otherwise two decisions and two grant resources manage the same platform grant.
+# If the instance disables self-approval, creating the decision fails (the topic team made the request
+# itself) until another topic owner approves the request in the UI; then apply again.
 
+# data "axual_application" "log_scraper" {
+#   name = "LogScraper"
+# }
+#
 # resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
 #   application = data.axual_application.log_scraper.id
 #   topic = axual_topic.logs.id
 #   environment = data.axual_environment.environment-author-team.id
 #   access_type = "CONSUMER"
-#   # depends_on = [
-#   #   axual_application_principal.log_scraper_in_dev_principal,
-#   # ]
 # }
 #
-# resource "axual_application_access_grant_approval" "connector_axual_application_access_grant_approval"{
-#   application_access_grant = axual_application_access_grant.dash_consume_from_logs_in_dev.id
+# resource "axual_application_access_grant_decision" "dash_consume_from_logs_in_dev" {
+#   grant_id   = axual_application_access_grant.dash_consume_from_logs_in_dev.id
+#   decision   = "APPROVED"
+#   depends_on = [axual_topic_config.logs_in_dev]
 # }

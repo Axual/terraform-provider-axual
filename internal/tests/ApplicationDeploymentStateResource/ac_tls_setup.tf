@@ -72,6 +72,11 @@ resource "axual_application_access_grant" "ac_tls" {
   depends_on  = [axual_topic_config.ac_tls, axual_application_principal.ac_tls]
 }
 
-resource "axual_application_access_grant_approval" "ac_tls" {
-  application_access_grant = axual_application_access_grant.ac_tls.id
+resource "axual_application_access_grant_decision" "ac_tls" {
+  application       = axual_application_access_grant.ac_tls.application
+  topic             = axual_application_access_grant.ac_tls.topic
+  environment       = axual_application_access_grant.ac_tls.environment
+  access_type       = axual_application_access_grant.ac_tls.access_type
+  decision          = "APPROVED"
+  revoke_on_destroy = true
 }

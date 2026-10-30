@@ -150,6 +150,28 @@ func listSpecs() []listSpec {
 			},
 		},
 		{
+			typeName:    "axual_application_access_grant_decision",
+			ownIdentity: true,
+			description: "Lists the decisions on application access grants, for the topic team: `decision = \"APPROVED\"` for an `Approved` grant, " +
+				"`decision = \"DENIED\"` with the platform's comment as `reason` for a `Rejected` or `Revoked` one. `Pending` and `Cancelled` grants " +
+				"are left out: a pending request is for the topic team to decide, and generated config must not approve it. " +
+				"A grant the application team revoked itself is left out too: that isn't a decision of the topic team.",
+			newResource: NewApplicationAccessGrantDecisionResource,
+			filters:     grantFilters(true),
+			find: func(ctx context.Context, c *webclient.Client, f map[string]string) ([]listFound, error) {
+				var out []listFound
+				for _, status := range []string{"APPROVED", "REJECTED", "REVOKED"} {
+					found, err := findGrants(ctx, c, f, status, true)
+					if err != nil {
+						return nil, err
+					}
+					out = append(out, found...)
+				}
+				return out, nil
+			},
+			adjustWithClient: decisionFromStatus,
+		},
+		{
 			typeName:    "axual_application_deployment",
 			attr:        "id",
 			description: "Lists application deployments.",
@@ -689,4 +711,42 @@ func deploymentStateSkipReason(ctx context.Context, state tfsdk.State) string {
 			st, deploymentStateRunning, deploymentStateStopped)
 	}
 	return ""
+}
+
+// decisionFromStatus writes the grant's current status as the decision: APPROVED for an Approved
+// grant, DENIED with the platform's comment as reason for a Rejected or Revoked one. A grant the
+// application team revoked itself is left out: that isn't a decision of the topic team, and DENIED
+// would reject the team's next request.
+func decisionFromStatus(ctx context.Context, c *webclient.Client, state *tfsdk.State) diag.Diagnostics {
+	var diags diag.Diagnostics
+	var status, grantID types.String
+	diags.Append(state.GetAttribute(ctx, path.Root("current_status"), &status)...)
+	diags.Append(state.GetAttribute(ctx, path.Root("grant_id"), &grantID)...)
+	if diags.HasError() {
+		return diags
+	}
+	switch status.ValueString() {
+	case "Approved":
+		diags.Append(state.SetAttribute(ctx, path.Root("decision"), types.StringValue(decisionApproved))...)
+	case "Rejected", "Revoked":
+		g, err := c.GetGrantView(grantID.ValueString())
+		if err != nil {
+			diags.AddError("Cannot be configured", fmt.Sprintf("couldn't read who closed the grant: %s", err))
+			return diags
+		}
+		if status.ValueString() == "Revoked" && closedByRequester(*g) {
+			diags.AddError("Cannot be configured", "the application team revoked this grant itself; that isn't a decision of the topic team. "+
+				"Add a decision by hand if you need one.")
+			return diags
+		}
+		reason := "Decided in Axual Self-Service before the export"
+		if strings.TrimSpace(g.Comment) != "" {
+			reason = g.Comment
+		}
+		diags.Append(state.SetAttribute(ctx, path.Root("decision"), types.StringValue(decisionDenied))...)
+		diags.Append(state.SetAttribute(ctx, path.Root("reason"), types.StringValue(reason))...)
+	default:
+		diags.AddError("Cannot be configured", fmt.Sprintf("the grant is %s; only Approved, Rejected and Revoked grants are exported", status.ValueString()))
+	}
+	return diags
 }

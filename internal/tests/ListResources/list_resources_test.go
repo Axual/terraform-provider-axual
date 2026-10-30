@@ -65,6 +65,11 @@ list "axual_application_access_grant_rejection" "rejection" {
   include_resource = true
   config { environment = "tfqueryenv" }
 }
+list "axual_application_access_grant_decision" "decision" {
+  provider         = axual
+  include_resource = true
+  config { environment = "tfqueryenv" }
+}
 list "axual_application_deployment" "deployment" {
   provider         = axual
   include_resource = true
@@ -159,6 +164,14 @@ func TestListResources(t *testing.T) {
 					querycheck.ExpectLength("axual_application_access_grant.producer_grants", 1),
 					querycheck.ExpectLength("axual_application_access_grant_approval.approval", 1),
 					querycheck.ExpectLength("axual_application_access_grant_rejection.rejection", 1),
+					// One APPROVED (the producer grant) and one DENIED with the platform's comment (the consumer grant).
+					querycheck.ExpectLength("axual_application_access_grant_decision.decision", 2),
+					querycheck.ExpectResourceKnownValues("axual_application_access_grant_decision.decision",
+						queryfilter.ByDisplayName(knownvalue.StringRegexp(regexp.MustCompile("^tfquerycustom consumer"))),
+						[]querycheck.KnownValueCheck{
+							{Path: tfjsonpath.New("decision"), KnownValue: knownvalue.StringExact("DENIED")},
+							{Path: tfjsonpath.New("reason"), KnownValue: knownvalue.StringExact("Rejected by the terraform query tests")},
+						}),
 					querycheck.ExpectLength("axual_application_deployment.deployment", 1),
 					querycheck.ExpectLength("axual_application_deployment_state.deployment_state", 1),
 					querycheck.ExpectLength("axual_schema_version.schema", 1),

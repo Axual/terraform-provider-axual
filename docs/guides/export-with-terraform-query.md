@@ -192,8 +192,9 @@ in the Terraform state only.
 | `axual_application_principal` | `application`, `environment`, `owners` |
 | `axual_application_credential` | `application`, `environment`, `owners` |
 | `axual_application_access_grant` | `application`, `topic`, `environment`, `owners`, `access_type`, `status` |
-| `axual_application_access_grant_approval` | `application`, `topic`, `environment`, `owners`, `access_type` |
-| `axual_application_access_grant_rejection` | `application`, `topic`, `environment`, `owners`, `access_type` |
+| `axual_application_access_grant_decision` | `application`, `topic`, `environment`, `owners`, `access_type` |
+| `axual_application_access_grant_approval` (deprecated) | `application`, `topic`, `environment`, `owners`, `access_type` |
+| `axual_application_access_grant_rejection` (deprecated) | `application`, `topic`, `environment`, `owners`, `access_type` |
 | `axual_application_deployment` | `application`, `environment`, `owners` |
 | `axual_application_deployment_state` | `application`, `environment`, `owners` |
 
@@ -201,8 +202,14 @@ in the Terraform state only.
 - `owners`, `environment`, `application` and `topic` take an ID or an exact name, with the same
   upper and lower case (an environment or application also by its short name).
 - `owners` means the owner of the topic or application a resource belongs to. For
-  `axual_application_access_grant_approval` and `_rejection` it is the owner of the topic, the team
-  that approves; for `axual_application_access_grant` it is the owner of the application.
+  `axual_application_access_grant_decision` (and the deprecated `_approval` and `_rejection`) it is
+  the owner of the topic, the team that decides; for `axual_application_access_grant` it is the
+  owner of the application.
+- `axual_application_access_grant_decision` lists decided grants only: `decision = "APPROVED"` for an
+  Approved grant, `decision = "DENIED"` with the platform's comment as `reason` for a Rejected or
+  Revoked one. Pending and Cancelled grants are left out, so generated configuration never approves a
+  request nobody reviewed. A grant the application team revoked itself is left out too: that isn't a
+  decision of the topic team, and `DENIED` would reject the team's next request.
 - When you set more than one filter, a resource must match all of them.
 
 `axual_flink_cluster` has no list resource: it needs an instance and cluster ID.
@@ -221,6 +228,7 @@ import {
 }
 ```
 
-`axual_application_access_grant_approval` and `axual_application_access_grant_rejection` use
-`application_access_grant` as the identity attribute, and `axual_topic_browse_permissions` uses
+`axual_application_access_grant_decision` uses four identity attributes: `topic`, `environment`,
+`access_type` and `application`. The deprecated `axual_application_access_grant_approval` and
+`axual_application_access_grant_rejection` use `application_access_grant` as the identity attribute, and `axual_topic_browse_permissions` uses
 `topic_config`, the same values they take as an import ID.

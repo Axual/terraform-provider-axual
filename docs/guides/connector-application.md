@@ -82,9 +82,12 @@ This is the original flow, and existing configurations keep working without a ch
 
 1. `axual_application_principal`, with `active = true`.
 2. `axual_application_access_grant`, with `depends_on` on the topic config and the principal, and
-   `axual_application_access_grant_approval`.
-3. `axual_application_deployment`, with `depends_on` on the approval. Creating it starts the
+   `axual_application_access_grant_decision` with `decision = "APPROVED"`.
+3. `axual_application_deployment`, with `depends_on` on the decision. Creating it starts the
    connector. The provider checks first that an active principal and an approved grant exist.
+   When the new decision can't approve the grant (the platform doesn't offer approve to the signed-in
+   user, for example with self-approval disabled, or the grant is Rejected), the apply fails before
+   the deployment is created.
 
 ```hcl
 resource "axual_application_principal" "example" {
@@ -103,8 +106,9 @@ resource "axual_application_access_grant" "example" {
   depends_on  = [axual_topic_config.example, axual_application_principal.example]
 }
 
-resource "axual_application_access_grant_approval" "example" {
-  application_access_grant = axual_application_access_grant.example.id
+resource "axual_application_access_grant_decision" "example" {
+  grant_id = axual_application_access_grant.example.id
+  decision = "APPROVED"
 }
 
 # No target_id: legacy Axual Connect. Creating it starts the connector.
@@ -118,7 +122,7 @@ resource "axual_application_deployment" "example" {
     "value.converter" = "org.apache.kafka.connect.storage.StringConverter",
     "tasks.max"       = "1",
   }
-  depends_on = [axual_application_access_grant_approval.example]
+  depends_on = [axual_application_access_grant_decision.example]
 }
 ```
 
@@ -130,8 +134,8 @@ resource "axual_application_deployment" "example" {
 1. `axual_application_deployment` with `autostart = false`. It needs no principal or grant yet.
 2. `axual_application_principal`, with `depends_on` on the deployment.
 3. `axual_application_access_grant`, with `depends_on` on the topic config and the principal, and
-   `axual_application_access_grant_approval`.
-4. `axual_application_deployment_state`, with `depends_on` on the approval and the principal.
+   `axual_application_access_grant_decision` with `decision = "APPROVED"`.
+4. `axual_application_deployment_state`, with `depends_on` on the decision and the principal.
 
 ```hcl
 resource "axual_application_deployment" "example" {
@@ -164,14 +168,15 @@ resource "axual_application_access_grant" "example" {
   depends_on  = [axual_topic_config.example, axual_application_principal.example]
 }
 
-resource "axual_application_access_grant_approval" "example" {
-  application_access_grant = axual_application_access_grant.example.id
+resource "axual_application_access_grant_decision" "example" {
+  grant_id = axual_application_access_grant.example.id
+  decision = "APPROVED"
 }
 
 resource "axual_application_deployment_state" "example" {
   application_deployment = axual_application_deployment.example.id
   state                  = "RUNNING"
-  depends_on             = [axual_application_access_grant_approval.example, axual_application_principal.example]
+  depends_on             = [axual_application_access_grant_decision.example, axual_application_principal.example]
 }
 ```
 
@@ -195,8 +200,8 @@ The steps are the same for both:
 1. `axual_application_deployment` with `target_id`, `target_version` and `autostart = false`.
 2. The principal (MTLS) or the credential (SASL_SCRAM), with `depends_on` on the deployment.
 3. `axual_application_access_grant`, with `depends_on` on the topic config and the principal or
-   credential, and `axual_application_access_grant_approval`.
-4. `axual_application_deployment_state`, with `depends_on` on the approval and the principal or
+   credential, and `axual_application_access_grant_decision` with `decision = "APPROVED"`.
+4. `axual_application_deployment_state`, with `depends_on` on the decision and the principal or
    credential.
 
 ### KC+TLS
@@ -204,7 +209,7 @@ The steps are the same for both:
 ```hcl
 data "axual_connect_cluster" "example" {
   instance_id = data.axual_instance.example.id
-  cluster_id  = "YOUR_KAFKA_CLUSTER_ID" # the Kafka cluster the Kafka Connect cluster is registered on
+  cluster_id  = "YOUR_KAFKA_CLUSTER_ID"     # the Kafka cluster the Kafka Connect cluster is registered on
   name        = "YOUR_CONNECT_CLUSTER_NAME" # a Kafka Connect cluster with auth_method MTLS
 }
 
@@ -240,14 +245,15 @@ resource "axual_application_access_grant" "example" {
   depends_on  = [axual_topic_config.example, axual_application_principal.example]
 }
 
-resource "axual_application_access_grant_approval" "example" {
-  application_access_grant = axual_application_access_grant.example.id
+resource "axual_application_access_grant_decision" "example" {
+  grant_id = axual_application_access_grant.example.id
+  decision = "APPROVED"
 }
 
 resource "axual_application_deployment_state" "example" {
   application_deployment = axual_application_deployment.example.id
   state                  = "RUNNING"
-  depends_on             = [axual_application_access_grant_approval.example, axual_application_principal.example]
+  depends_on             = [axual_application_access_grant_decision.example, axual_application_principal.example]
 }
 ```
 
@@ -256,7 +262,7 @@ resource "axual_application_deployment_state" "example" {
 ```hcl
 data "axual_connect_cluster" "example" {
   instance_id = data.axual_instance.example.id
-  cluster_id  = "YOUR_KAFKA_CLUSTER_ID" # the Kafka cluster the Kafka Connect cluster is registered on
+  cluster_id  = "YOUR_KAFKA_CLUSTER_ID"     # the Kafka cluster the Kafka Connect cluster is registered on
   name        = "YOUR_CONNECT_CLUSTER_NAME" # a Kafka Connect cluster with auth_method SASL_SCRAM
 }
 
@@ -290,14 +296,15 @@ resource "axual_application_access_grant" "example" {
   depends_on  = [axual_topic_config.example, axual_application_credential.example]
 }
 
-resource "axual_application_access_grant_approval" "example" {
-  application_access_grant = axual_application_access_grant.example.id
+resource "axual_application_access_grant_decision" "example" {
+  grant_id = axual_application_access_grant.example.id
+  decision = "APPROVED"
 }
 
 resource "axual_application_deployment_state" "example" {
   application_deployment = axual_application_deployment.example.id
   state                  = "RUNNING"
-  depends_on             = [axual_application_access_grant_approval.example, axual_application_credential.example]
+  depends_on             = [axual_application_access_grant_decision.example, axual_application_credential.example]
 }
 ```
 

@@ -41,7 +41,9 @@ func (c *Client) ApproveGrant(applicationAccessGrantId string) error {
 	h := make(map[string]string)
 	h["accept"] = "application/json, text/plain, */*"
 	h["content-type"] = "application/json"
-	err := c.RequestAndMap("PUT", fmt.Sprintf("%s/application_access_grants/%v", c.ApiURL, applicationAccessGrantId), nil, h, nil)
+	err := c.grantAction(func() error {
+		return c.RequestAndMap("PUT", fmt.Sprintf("%s/application_access_grants/%v", c.ApiURL, applicationAccessGrantId), nil, h, nil)
+	})
 	if err != nil {
 
 		return err
@@ -54,7 +56,9 @@ func (c *Client) CancelGrant(applicationAccessGrantId string) error {
 	h := make(map[string]string)
 	h["accept"] = "application/json, text/plain, */*"
 	h["content-type"] = "application/json"
-	err := c.RequestAndMap("DELETE", fmt.Sprintf("%s/application_access_grants/%v", c.ApiURL, applicationAccessGrantId), nil, h, nil)
+	err := c.grantAction(func() error {
+		return c.RequestAndMap("DELETE", fmt.Sprintf("%s/application_access_grants/%v", c.ApiURL, applicationAccessGrantId), nil, h, nil)
+	})
 	if err != nil {
 		return err
 	}
@@ -74,7 +78,9 @@ func (c *Client) RevokeOrDenyGrant(applicationAccessGrantId string, reason strin
 		return err1
 	}
 
-	err := c.RequestAndMap("POST", fmt.Sprintf("%s/application_access_grants/%v/deny", c.ApiURL, applicationAccessGrantId), strings.NewReader(string(marshal)), h, nil)
+	err := c.grantAction(func() error {
+		return c.RequestAndMap("POST", fmt.Sprintf("%s/application_access_grants/%v/deny", c.ApiURL, applicationAccessGrantId), strings.NewReader(string(marshal)), h, nil)
+	})
 	if err != nil {
 		return err
 	}

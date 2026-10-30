@@ -28,3 +28,8 @@ This data source exports the following attributes in addition to the one listed 
 
 - id Application Access Grant unique identifier.
 - status Status of Application Access Grant.
+- decision_reason The reason the topic team gave when it rejected or revoked the grant. Null unless the status is Rejected or Revoked.
+- decided_at When the grant was approved, rejected or revoked. Null while the grant is Pending or Cancelled.
+- decided_by Who approved, rejected or revoked the grant. Null while the grant is Pending or Cancelled.
+
+To list several grants, for example the open requests on a topic, use `axual_application_access_grants`.

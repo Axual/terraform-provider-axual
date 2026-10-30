@@ -35,6 +35,10 @@ type AxualProvider struct {
 	// provider is built and ran locally, and "test" when running acceptance
 	// testing.
 	version string
+
+	// grants caches grant searches and environments for one Terraform run. It is a pointer, because
+	// every resource gets a copy of AxualProvider.
+	grants *grantCache
 }
 
 // providerData can be used to store data from the Terraform configuration.
@@ -138,6 +142,7 @@ func (p *AxualProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	}
 
 	p.client = client
+	p.grants = newGrantCache(client)
 }
 
 // Resources wraps every resource that has a list resource with the same identity attribute, so
@@ -147,6 +152,10 @@ func (p *AxualProvider) Resources(_ context.Context) []func() resource.Resource 
 		func() resource.Resource { return NewFlinkClusterResource(*p) },
 	}
 	for _, spec := range listSpecs() {
+		if spec.ownIdentity {
+			out = append(out, func() resource.Resource { return spec.newResource(*p) })
+			continue
+		}
 		out = append(out, func() resource.Resource { return withIdentity(spec.newResource(*p), spec.attr) })
 	}
 	return out
@@ -178,6 +187,7 @@ func (p *AxualProvider) DataSources(ctx context.Context) []func() datasource.Dat
 		func() datasource.DataSource { return NewEnvironmentDataSource(*p) },
 		func() datasource.DataSource { return NewSchemaVersionDataSource(*p) },
 		func() datasource.DataSource { return NewApplicationAccessGrantDataSource(*p) },
+		func() datasource.DataSource { return NewApplicationAccessGrantsDataSource(*p) },
 		func() datasource.DataSource { return NewInstanceDataSource(*p) },
 		func() datasource.DataSource { return NewUserDataSource(*p) },
 		func() datasource.DataSource { return NewConnectClusterDataSource(*p) },

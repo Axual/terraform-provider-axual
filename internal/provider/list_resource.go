@@ -61,6 +61,11 @@ type listSpec struct {
 	skipReason func(ctx context.Context, state tfsdk.State) string
 	// adjust, when set, changes the state of each found resource before it is written as configuration.
 	adjust func(ctx context.Context, state *tfsdk.State) diag.Diagnostics
+	// adjustWithClient is adjust for changes that need the API.
+	adjustWithClient func(ctx context.Context, c *webclient.Client, state *tfsdk.State) diag.Diagnostics
+	// ownIdentity is set for a resource with its own identity schema: it isn't wrapped with
+	// withIdentity, attr is unused, and the identity of each result comes from its ImportState.
+	ownIdentity bool
 }
 
 // axualListResource lets `terraform query` find existing resources of one type. It fills each result
@@ -168,7 +173,11 @@ func (l *axualListResource) List(ctx context.Context, req list.ListRequest, stre
 			}
 			result := req.NewListResult(ctx)
 			result.DisplayName = f.displayName
-			result.Diagnostics.Append(result.Identity.SetAttribute(ctx, path.Root(l.spec.attr), f.id)...)
+			if l.spec.ownIdentity {
+				l.importIdentity(ctx, req, f.id, &result)
+			} else {
+				result.Diagnostics.Append(result.Identity.SetAttribute(ctx, path.Root(l.spec.attr), f.id)...)
+			}
 			if req.IncludeResource && !result.Diagnostics.HasError() {
 				var fillDiags diag.Diagnostics
 				l.fillResource(ctx, req, f.id, &result, &fillDiags)
@@ -196,7 +205,7 @@ func (l *axualListResource) List(ctx context.Context, req list.ListRequest, stre
 
 // fillResource sets result.Resource to the state Terraform would have after importing id.
 func (l *axualListResource) fillResource(ctx context.Context, req list.ListRequest, id string, result *list.ListResult, diags *diag.Diagnostics) {
-	r := withIdentity(l.spec.newResource(l.provider), l.spec.attr).(resource.ResourceWithImportState)
+	r := l.resource()
 
 	emptyState := tfsdk.State{
 		Schema: req.ResourceSchema,
@@ -235,6 +244,11 @@ func (l *axualListResource) fillResource(ctx context.Context, req list.ListReque
 			return
 		}
 	}
+	if l.spec.adjustWithClient != nil {
+		if diags.Append(l.spec.adjustWithClient(ctx, l.provider.client, &readResp.State)...); diags.HasError() {
+			return
+		}
+	}
 	result.Resource.Raw = readResp.State.Raw
 }
 
@@ -253,4 +267,26 @@ func shortList(names []string, n int) string {
 		return strings.Join(names, ", ")
 	}
 	return fmt.Sprintf("%s, and %d more", strings.Join(names[:n], ", "), len(names)-n)
+}
+
+// resource returns the managed resource of the spec, with the identity Terraform uses for it.
+func (l *axualListResource) resource() resource.ResourceWithImportState {
+	if l.spec.ownIdentity {
+		return l.spec.newResource(l.provider).(resource.ResourceWithImportState)
+	}
+	return withIdentity(l.spec.newResource(l.provider), l.spec.attr).(resource.ResourceWithImportState)
+}
+
+// importIdentity sets the identity of a result from the resource's own ImportState.
+func (l *axualListResource) importIdentity(ctx context.Context, req list.ListRequest, id string, result *list.ListResult) {
+	importResp := resource.ImportStateResponse{
+		State: tfsdk.State{Schema: req.ResourceSchema, Raw: tftypes.NewValue(req.ResourceSchema.Type().TerraformType(ctx), nil)},
+		Identity: &tfsdk.ResourceIdentity{Schema: req.ResourceIdentitySchema,
+			Raw: tftypes.NewValue(req.ResourceIdentitySchema.Type().TerraformType(ctx), nil)},
+	}
+	l.resource().ImportState(ctx, resource.ImportStateRequest{ID: id}, &importResp)
+	result.Diagnostics.Append(importResp.Diagnostics...)
+	if !result.Diagnostics.HasError() {
+		result.Identity.Raw = importResp.Identity.Raw
+	}
 }

@@ -18,7 +18,7 @@ terraform {
   required_providers {
     axual = {
       source  = "axual/axual"
-      version = "~> 2.6"
+      version = ">= 3.3.0" # the first release with axual_application_access_grant_decision
     }
   }
 }
@@ -32,13 +32,13 @@ Configure the provider to connect to a locally deployed Axual Platform instance:
 
 ```terraform
 provider "axual" {
-  apiurl   = "https://platform.local/api"
-  realm    = "axual"
-  username = "kubernetes@axual.com"   # or set using env: AXUAL_AUTH_USERNAME
-  password = "PLEASE_CHANGE_PASSWORD" # or set using env: AXUAL_AUTH_PASSWORD
-  clientid = "self-service"
-  authurl  = "https://platform.local/auth/realms/axual/protocol/openid-connect/token"
-  scopes   = ["openid", "profile", "email"]
+  apiurl    = "https://platform.local/api"
+  realm     = "axual"
+  username  = "kubernetes@axual.com"   # or set using env: AXUAL_AUTH_USERNAME
+  password  = "PLEASE_CHANGE_PASSWORD" # or set using env: AXUAL_AUTH_PASSWORD
+  client_id = "self-service"
+  authurl   = "https://platform.local/auth/realms/axual/protocol/openid-connect/token"
+  scopes    = ["openid", "profile", "email"]
 }
 ```
 
@@ -48,13 +48,13 @@ Configure the provider to connect to Axual Cloud:
 
 ```terraform
 provider "axual" {
-  apiurl   = "https://axual.cloud/api"
-  realm    = "YOUR_REALM_NAME"
-  username = "YOUR_USERNAME"
-  password = "YOUR_PASSWORD"
-  clientid = "self-service"
-  authurl  = "https://axual.cloud/auth/realms/YOUR_REALM_NAME/protocol/openid-connect/token"
-  scopes   = ["openid", "profile", "email"]
+  apiurl    = "https://axual.cloud/api"
+  realm     = "YOUR_REALM_NAME"
+  username  = "YOUR_USERNAME"
+  password  = "YOUR_PASSWORD"
+  client_id = "self-service"
+  authurl   = "https://axual.cloud/auth/realms/YOUR_REALM_NAME/protocol/openid-connect/token"
+  scopes    = ["openid", "profile", "email"]
 }
 ```
 
@@ -103,13 +103,13 @@ terraform {
 }
 
 provider "axual" {
-  apiurl   = "https://platform.local/api"
-  realm    = "axual"
-  username = "kubernetes@axual.com"
-  password = "PLEASE_CHANGE_PASSWORD"
-  clientid = "self-service"
-  authurl  = "https://platform.local/auth/realms/axual/protocol/openid-connect/token"
-  scopes   = ["openid", "profile", "email"]
+  apiurl    = "https://platform.local/api"
+  realm     = "axual"
+  username  = "kubernetes@axual.com"
+  password  = "PLEASE_CHANGE_PASSWORD"
+  client_id = "self-service"
+  authurl   = "https://platform.local/auth/realms/axual/protocol/openid-connect/token"
+  scopes    = ["openid", "profile", "email"]
 }
 
 # Look up existing user
@@ -195,8 +195,12 @@ resource "axual_application_access_grant" "my-app-consume-events" {
 }
 
 # Approve the access grant
-resource "axual_application_access_grant_approval" "approve-access" {
-  application_access_grant = axual_application_access_grant.my-app-consume-events.id
+resource "axual_application_access_grant_decision" "approve-access" {
+  application = axual_application_access_grant.my-app-consume-events.application
+  topic       = axual_application_access_grant.my-app-consume-events.topic
+  environment = axual_application_access_grant.my-app-consume-events.environment
+  access_type = axual_application_access_grant.my-app-consume-events.access_type
+  decision    = "APPROVED"
 }
 ```
 

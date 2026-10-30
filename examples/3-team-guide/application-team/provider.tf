@@ -2,7 +2,7 @@ terraform {
   required_providers {
     axual = {
       source  = "Axual/axual"
-      version = "3.1.0"
+      version = ">= 3.3.0" # the first release with axual_application_access_grant_decision
     }
   }
 }
@@ -14,17 +14,17 @@ terraform {
 # service account instead - see the "Service account authentication" guide.
 provider "axual" {
   # (String) URL that will be used by the client for all resource requests
-  apiurl   = "https://platform.local/api"
+  apiurl = "https://platform.local/api"
   # (String) Axual realm used for the requests
-  realm    = "local"
+  realm = "local"
   # (String) Username for all requests. Will be used to acquire a token. It can be omitted if the environment variable AXUAL_AUTH_USERNAME is used.
   username = "application_team"
   # (String, Sensitive) Password belonging to the user. It can be omitted if the environment variable AXUAL_AUTH_PASSWORD is used.
   password = "<Change to application team password>"
   # (String) Client ID to be used for OAUTH
-  clientid = "self-service"
+  client_id = "self-service"
   # (String) Token url
-  authurl  = "https://platform.local/auth/realms/local/protocol/openid-connect/token"
+  authurl = "https://platform.local/auth/realms/local/protocol/openid-connect/token"
   # (List of String) OAuth authorization server scopes
-  scopes   = ["openid", "profile", "email"]
+  scopes = ["openid", "profile", "email"]
 }

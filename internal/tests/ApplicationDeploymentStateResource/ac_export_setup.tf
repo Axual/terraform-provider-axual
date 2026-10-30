@@ -58,6 +58,11 @@ resource "axual_application_access_grant" "ac_exp" {
   depends_on  = [axual_topic_config.ac_exp, axual_application_principal.ac_exp]
 }
 
-resource "axual_application_access_grant_approval" "ac_exp" {
-  application_access_grant = axual_application_access_grant.ac_exp.id
+resource "axual_application_access_grant_decision" "ac_exp" {
+  application       = axual_application_access_grant.ac_exp.application
+  topic             = axual_application_access_grant.ac_exp.topic
+  environment       = axual_application_access_grant.ac_exp.environment
+  access_type       = axual_application_access_grant.ac_exp.access_type
+  decision          = "APPROVED"
+  revoke_on_destroy = true
 }
