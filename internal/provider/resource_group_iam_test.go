@@ -67,13 +67,15 @@ func (p *groupPM) handler(t *testing.T) http.HandlerFunc {
 
 func groupData(iamReference string, members ...string) groupResourceData {
 	data := groupResourceData{
-		Id:           types.StringValue("g1"),
-		Name:         types.StringValue("team"),
-		EmailAddress: types.StringNull(),
-		PhoneNumber:  types.StringNull(),
-		Members:      types.SetNull(types.StringType),
-		Managers:     types.SetNull(types.StringType),
-		IamReference: types.StringNull(),
+		Id:             types.StringValue("g1"),
+		Name:           types.StringValue("team"),
+		EmailAddress:   types.StringNull(),
+		PhoneNumber:    types.StringNull(),
+		Members:        types.SetNull(types.StringType),
+		Managers:       types.SetNull(types.StringType),
+		IamReference:   types.StringNull(),
+		StoredMembers:  types.SetNull(types.StringType),
+		StoredManagers: types.SetNull(types.StringType),
 	}
 	if iamReference != "" {
 		data.IamReference = types.StringValue(iamReference)
@@ -284,6 +286,36 @@ func TestGroupRead_iamManagedGroupKeepsItsMembersOutOfState(t *testing.T) {
 		t.Errorf("saved reference %q, members %s, managers %s; expected the reference, and no members or managers",
 			saved.IamReference.ValueString(), saved.Members, saved.Managers)
 	}
+	if !saved.StoredMembers.Equal(uidSet("m1")) || !saved.StoredManagers.Equal(uidSet("m1")) {
+		t.Errorf("stored members %s, stored managers %s; expected the stored lists of the group", saved.StoredMembers, saved.StoredManagers)
+	}
+}
+
+func TestGroupResponseMapping_anAxualManagedGroupHasNoStoredLists(t *testing.T) {
+	group := groupDataFromResponse(`{"uid":"g1","name":"team","_embedded":{"members":[{"uid":"m1"}]}}`)
+
+	if !group.StoredMembers.IsNull() || !group.StoredManagers.IsNull() {
+		t.Errorf("stored members %s, stored managers %s; expected none for an Axual-managed group", group.StoredMembers, group.StoredManagers)
+	}
+}
+
+func TestGroupModifyPlan_keepsTheStoredListsWhileTheLinkStays(t *testing.T) {
+	r := &groupResource{}
+	stateData := groupData("engineering")
+	stateData.StoredMembers = uidSet("m1")
+	state := stateFor(t, r, stateData)
+	planData := groupData("engineering")
+	planData.StoredMembers = types.SetUnknown(types.StringType)
+	plan := stateFor(t, r, planData)
+	resp := resource.ModifyPlanResponse{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}}
+
+	r.ModifyPlan(context.Background(), resource.ModifyPlanRequest{Plan: resp.Plan, State: state}, &resp)
+
+	var planned groupResourceData
+	resp.Plan.Get(context.Background(), &planned)
+	if !planned.StoredMembers.Equal(uidSet("m1")) {
+		t.Errorf("planned stored members %s, expected the ones in the state", planned.StoredMembers)
+	}
 }
 
 func TestGroupResponseMapping_aBlankReferenceMeansAxualManaged(t *testing.T) {
@@ -305,7 +337,7 @@ func groupDataFromResponse(body string) groupResourceData {
 func TestGroupModifyPlan_refusesMembersOfAnIamManagedGroup(t *testing.T) {
 	r := &groupResource{}
 	plan := stateFor(t, r, groupData("engineering", "m1"))
-	resp := resource.ModifyPlanResponse{}
+	resp := resource.ModifyPlanResponse{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}}
 
 	r.ModifyPlan(context.Background(), resource.ModifyPlanRequest{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}, State: emptyState(t, r)}, &resp)
 
@@ -318,7 +350,7 @@ func TestGroupModifyPlan_warnsWhenRemovingTheReferenceInternalizes(t *testing.T)
 	r := &groupResource{}
 	state := stateFor(t, r, groupData("engineering"))
 	plan := stateFor(t, r, groupData(""))
-	resp := resource.ModifyPlanResponse{}
+	resp := resource.ModifyPlanResponse{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}}
 
 	r.ModifyPlan(context.Background(), resource.ModifyPlanRequest{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}, State: state}, &resp)
 
@@ -331,7 +363,7 @@ func TestGroupModifyPlan_warnsWhenLinkingAGroupThatHasStoredMembers(t *testing.T
 	r := &groupResource{}
 	state := stateFor(t, r, groupData("", "m1"))
 	plan := stateFor(t, r, groupData("engineering"))
-	resp := resource.ModifyPlanResponse{}
+	resp := resource.ModifyPlanResponse{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}}
 
 	r.ModifyPlan(context.Background(), resource.ModifyPlanRequest{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}, State: state}, &resp)
 
@@ -344,7 +376,7 @@ func TestGroupModifyPlan_isQuietWhenLinkingAGroupWithoutMembers(t *testing.T) {
 	r := &groupResource{}
 	state := stateFor(t, r, groupData(""))
 	plan := stateFor(t, r, groupData("engineering"))
-	resp := resource.ModifyPlanResponse{}
+	resp := resource.ModifyPlanResponse{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}}
 
 	r.ModifyPlan(context.Background(), resource.ModifyPlanRequest{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}, State: state}, &resp)
 
@@ -357,7 +389,7 @@ func TestGroupModifyPlan_isQuietForAnOrdinaryGroup(t *testing.T) {
 	r := &groupResource{}
 	state := stateFor(t, r, groupData("", "m1"))
 	plan := stateFor(t, r, groupData("", "m1", "m2"))
-	resp := resource.ModifyPlanResponse{}
+	resp := resource.ModifyPlanResponse{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}}
 
 	r.ModifyPlan(context.Background(), resource.ModifyPlanRequest{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}, State: state}, &resp)
 

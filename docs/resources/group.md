@@ -28,6 +28,8 @@ Group resource. Read more: https://docs.axual.io/axual/2026.1/self-service/user-
 ### Read-Only
 
 - `id` (String) Group's unique identifier
+- `stored_managers` (Set of String) Read-only. For an IAM-managed group (see `iam_reference`), the group managers Platform Manager has stored for the group. Empty for an Axual-managed group, where `managers` shows them.
+- `stored_members` (Set of String) Read-only. For an IAM-managed group (see `iam_reference`), the members Platform Manager has stored for the group. These are not the people in the IAM group. They are the service accounts and the people who were added before the group was linked, and they still count for some checks. Empty for an Axual-managed group, where `members` shows them.
 
 ## Example Usage
 

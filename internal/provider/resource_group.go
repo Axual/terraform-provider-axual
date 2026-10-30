@@ -43,13 +43,15 @@ type groupResource struct {
 var iamReferenceFormat = regexp.MustCompile(`^[^\s\p{Z}\p{Cc},](?:[^,\p{Cc}]*[^\s\p{Z}\p{Cc},])?$`)
 
 type groupResourceData struct {
-	Name         types.String `tfsdk:"name"`
-	EmailAddress types.String `tfsdk:"email_address"`
-	PhoneNumber  types.String `tfsdk:"phone_number"`
-	Members      types.Set    `tfsdk:"members"`
-	Managers     types.Set    `tfsdk:"managers"`
-	IamReference types.String `tfsdk:"iam_reference"`
-	Id           types.String `tfsdk:"id"`
+	Name           types.String `tfsdk:"name"`
+	EmailAddress   types.String `tfsdk:"email_address"`
+	PhoneNumber    types.String `tfsdk:"phone_number"`
+	Members        types.Set    `tfsdk:"members"`
+	Managers       types.Set    `tfsdk:"managers"`
+	IamReference   types.String `tfsdk:"iam_reference"`
+	StoredMembers  types.Set    `tfsdk:"stored_members"`
+	StoredManagers types.Set    `tfsdk:"stored_managers"`
+	Id             types.String `tfsdk:"id"`
 }
 
 func (r *groupResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -102,6 +104,16 @@ func (r *groupResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 					stringvalidator.RegexMatches(iamReferenceFormat,
 						"must not start or end with a space, and must not contain a comma or a control character"),
 				},
+			},
+			"stored_members": schema.SetAttribute{
+				MarkdownDescription: "Read-only. For an IAM-managed group (see `iam_reference`), the members Platform Manager has stored for the group. These are not the people in the IAM group. They are the service accounts and the people who were added before the group was linked, and they still count for some checks. Empty for an Axual-managed group, where `members` shows them.",
+				Computed:            true,
+				ElementType:         types.StringType,
+			},
+			"stored_managers": schema.SetAttribute{
+				MarkdownDescription: "Read-only. For an IAM-managed group (see `iam_reference`), the group managers Platform Manager has stored for the group. Empty for an Axual-managed group, where `managers` shows them.",
+				Computed:            true,
+				ElementType:         types.StringType,
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -187,16 +199,29 @@ func (r *groupResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanR
 			"This group has an iam_reference, so the IAM system decides who is a member. Remove members and managers from the configuration.")
 	}
 
+	var state groupResourceData
+	hasState := !req.State.Raw.IsNull() && !req.State.Get(ctx, &state).HasError()
+
+	// The stored lists only change when the link changes, so keep them out of the plan otherwise.
+	switch {
+	case !isIamManaged(data):
+		data.StoredMembers = types.SetNull(types.StringType)
+		data.StoredManagers = types.SetNull(types.StringType)
+	case hasState && state.IamReference.Equal(data.IamReference):
+		data.StoredMembers = state.StoredMembers
+		data.StoredManagers = state.StoredManagers
+	}
+	resp.Diagnostics.Append(resp.Plan.Set(ctx, &data)...)
+
 	// Leaving out iam_reference on a group that has one makes it Axual-managed again, and the members
 	// Platform Manager has stored for the group count again. Say so in the plan.
-	var state groupResourceData
-	if req.State.Raw.IsNull() || req.State.Get(ctx, &state).HasError() {
+	if !hasState {
 		return
 	}
 	if state.IamReference.IsNull() && !data.IamReference.IsNull() && (!state.Members.IsNull() || !state.Managers.IsNull()) {
 		resp.Diagnostics.AddAttributeWarning(path.Root("iam_reference"),
 			"Stored members and managers stay in Platform Manager",
-			"Linking does not remove the members and managers stored for this group. They still count for service accounts and for creating applications, topics and environments for the group. This plan shows them as removed from the Terraform state only. Do not empty them just to be clean: today Platform Manager lets only a stored member (or a Tenant Admin or Application Admin) create resources for the group.")
+			"Linking does not remove the members and managers stored for this group in Platform Manager. They still count for service accounts, for group managers and for some lists in Self-Service (for example \"My Applications\"). On older Platform Manager versions they also decide who may create or save applications, topics and environments for the group. This plan shows them as removed from the Terraform state only. After the apply, stored_members and stored_managers show them. Do not empty them just to be clean.")
 	}
 	if !state.IamReference.IsNull() && data.IamReference.IsNull() {
 		resp.Diagnostics.AddAttributeWarning(path.Root("iam_reference"),
@@ -310,9 +335,20 @@ func mapGroupResponseToData(ctx context.Context, data *groupResourceData, group 
 	// The provider does not manage the lists Platform Manager stores for an IAM-managed group, so
 	// they stay null (the configuration cannot have them).
 	if iamReference != "" {
+		var storedMembers, storedManagers []string
+		for _, m := range group.Embedded.Members {
+			storedMembers = append(storedMembers, m.Uid)
+		}
+		for _, m := range group.Embedded.Managers {
+			storedManagers = append(storedManagers, m.Uid)
+		}
+		data.StoredMembers = storedUidSet(ctx, storedMembers)
+		data.StoredManagers = storedUidSet(ctx, storedManagers)
 		mapGroupContactToData(ctx, data, group)
 		return
 	}
+	data.StoredMembers = types.SetNull(types.StringType)
+	data.StoredManagers = types.SetNull(types.StringType)
 
 	// Handle members
 	if group.Embedded.Members == nil || len(group.Embedded.Members) == 0 {
@@ -343,6 +379,22 @@ func mapGroupResponseToData(ctx context.Context, data *groupResourceData, group 
 	}
 
 	mapGroupContactToData(ctx, data, group)
+}
+
+// storedUidSet returns the uids as a set, or a null set when there are none.
+func storedUidSet(ctx context.Context, uids []string) types.Set {
+	if len(uids) == 0 {
+		return types.SetNull(types.StringType)
+	}
+	values := make([]attr.Value, len(uids))
+	for i, uid := range uids {
+		values[i] = types.StringValue(uid)
+	}
+	set, diags := types.SetValue(types.StringType, values)
+	if diags.HasError() {
+		tflog.Error(ctx, "Error creating stored uid set")
+	}
+	return set
 }
 
 func mapGroupContactToData(ctx context.Context, data *groupResourceData, group *webclient.GroupResponse) {

@@ -275,6 +275,7 @@ func TestDeleteAcceptsAGoneResource(t *testing.T) {
 		"user": {&userResource{provider: provider}, &userResourceData{Id: types.StringValue("u1"), Roles: types.SetNull(roleObjectType)}},
 		"group": {&groupResource{provider: provider}, &groupResourceData{
 			Id: types.StringValue("g1"), Members: types.SetNull(types.StringType), Managers: types.SetNull(types.StringType),
+			StoredMembers: types.SetNull(types.StringType), StoredManagers: types.SetNull(types.StringType),
 		}},
 		"flink cluster": {flinkCluster, &FlinkClusterResourceData{
 			Id: types.StringValue("f1"), InstanceId: types.StringValue("i1"), ClusterId: types.StringValue("c1"),
