@@ -87,7 +87,7 @@ Then open a PR in the topic team's repository that adds the decision (see below)
 Warning: Grant Log Scraper (CONSUMER on logs, dev) is Rejected
 
 Reason from the topic team: "Not allowed to read logs, see INC-1234".
-Change request_again in a PR to ask again, or request again in the UI.
+The topic team closed the grant. Ask the topic team first: while their decision is DENIED, a new request is rejected again. Then change request_again in a PR, or request again in the UI.
 ```
 
 A plan doesn't show an approval as a change: the new `status` appears after the next apply, or with `terraform apply -refresh-only`. To see it in CI, add a `check` block:
@@ -214,15 +214,12 @@ removed {
   }
 }
 ```
- When you rename a `for_each` key, add a `moved` block, or the grant is revoked and the application team has to ask again.
+
+When you rename a `for_each` key, add a `moved` block, or the grant is revoked and the application team has to ask again.
 
 ### Many Decisions in One Apply
 
-Platform Manager can stop responding when it gets about 10 approvals, rejects or revokes at the same time, and Terraform runs 10 operations at a time by default. The requests then fail after 30 seconds, sometimes as `403 Forbidden`. When one apply may act on many grants, for example the first apply of a topic repository, changing many decisions at once, or many requests waiting since the last apply, limit the parallelism:
-
-```shell
-terraform apply -parallelism=4
-```
+Platform Manager can stop responding when it gets about 10 approvals, rejects or revokes at the same time. The provider sends at most 4 of them at a time, so an apply that acts on many grants, for example the first apply of a topic repository, takes longer but doesn't need `-parallelism`.
 
 ---
 
@@ -245,7 +242,7 @@ The decision finds the grant itself, by application name or UID, topic, environm
 | Ask again after a reject or revoke in the UI | Application team | Change `request_again`; under `APPROVED` the topic repository's next apply approves it |
 | Revoke in the UI | Topic team | Works, but under `APPROVED` the next request is approved again (warning and failing `check` on every plan). To keep it closed, set `DENIED` in a PR as well |
 | Give up access | Application team | Delete the grant (cancels or revokes). Adding it back later is approved again under `APPROVED` |
-| CONSUMER to PRODUCER | Both | A new grant block and a new decision. Set `DENIED` on the old decision before removing it |
+| CONSUMER to PRODUCER | Both | A new grant block and a new decision. Removing the old decision revokes the old grant |
 
 See the [Multi-Repo Guide](multi-repo) for the full setup.
 
@@ -262,7 +259,7 @@ Requests are approved straight away. A decision is optional. `decision = "DENIED
 | Platform Manager | Support |
 |---|---|
 | 15.0.3 and later, 16.x | Public and private applications |
-| 15.0.1 to 15.0.2 | Public applications. The requests of private applications aren't visible to the topic owner and show as `Not found`; the warning says the application may be private. Approve those in the UI, or upgrade. |
+| 15.0.1 and 15.0.2 (before 15.0.3) | Public applications. The requests of private applications aren't visible to the topic owner and show as `Not found`; the warning says the application may be private. Approve those in the UI, or upgrade. |
 | Any version with IAM-managed groups | A topic owner who is a member of the owner group only through the IAM doesn't see its requests (a known Platform Manager issue): they show as `Not found`, and the warning names this cause. Run the topic repository as a service account (service accounts keep their membership), set `grant_id`, or approve in the UI. |
 
 A private environment always uses the Auto authorization issuer, so its requests are approved straight away and need no decision.
@@ -294,17 +291,19 @@ moved {
 }
 
 resource "axual_application_access_grant_decision" "approve_grant" {
-  application       = "Log Scraper"
-  topic             = axual_topic.my_topic.id
-  environment       = data.axual_environment.dev.id
-  access_type       = "CONSUMER"
-  decision          = "APPROVED"
+  application = "Log Scraper"
+  topic       = axual_topic.my_topic.id
+  environment = data.axual_environment.dev.id
+  access_type = "CONSUMER"
+  decision    = "APPROVED"
 }
 ```
 
 In a single repository, the decision can use `grant_id = axual_application_access_grant.my_grant.id` instead of the four lookup attributes.
 
-The plan shows the move, and no API action. When `application` is a UID (for example taken from the grant), the first plan also changes it from the name to the UID, in place. Removing the moved block later revokes the grant, like removing the approval did (`revoke_on_destroy` defaults to `true`). A moved rejection gets `decision = "DENIED"` with its reason.
+Remove the `data "axual_application_access_grant"` and `data "axual_application"` blocks that only fed the approval: the decision finds the grant itself. Kept, they still fail the whole plan when the application team hasn't created its grant yet, or deleted it.
+
+The plan shows the move, and no API action. When `application` is a UID (for example taken from the grant), the first plan also changes it from the name to the UID, in place. Removing the decision later revokes the grant, like removing the approval did (`revoke_on_destroy` defaults to `true`). A moved rejection gets `decision = "DENIED"` with its reason. Since the decision approves only when the platform offers approve to the signed-in user, it doesn't approve a request this user made itself when self-approval is disabled on the instance, while the approval resource did. In the `grant_id` form the apply then fails.
 
 With Terraform 1.7, use a `removed` block with `lifecycle { destroy = false }` for the old resource and an `import` block for the decision. Don't simply delete an approval: that revokes the grant.
 

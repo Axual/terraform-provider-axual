@@ -85,6 +85,8 @@ This is the original flow, and existing configurations keep working without a ch
    `axual_application_access_grant_decision` with `decision = "APPROVED"`.
 3. `axual_application_deployment`, with `depends_on` on the decision. Creating it starts the
    connector. The provider checks first that an active principal and an approved grant exist.
+   When the decision can't approve the grant (the platform doesn't offer approve to the signed-in
+   user, for example with self-approval disabled), the apply fails before the deployment is created.
 
 ```hcl
 resource "axual_application_principal" "example" {
@@ -105,7 +107,7 @@ resource "axual_application_access_grant" "example" {
 
 resource "axual_application_access_grant_decision" "example" {
   grant_id = axual_application_access_grant.example.id
-  decision    = "APPROVED"
+  decision = "APPROVED"
 }
 
 # No target_id: legacy Axual Connect. Creating it starts the connector.
@@ -167,7 +169,7 @@ resource "axual_application_access_grant" "example" {
 
 resource "axual_application_access_grant_decision" "example" {
   grant_id = axual_application_access_grant.example.id
-  decision    = "APPROVED"
+  decision = "APPROVED"
 }
 
 resource "axual_application_deployment_state" "example" {
@@ -244,7 +246,7 @@ resource "axual_application_access_grant" "example" {
 
 resource "axual_application_access_grant_decision" "example" {
   grant_id = axual_application_access_grant.example.id
-  decision    = "APPROVED"
+  decision = "APPROVED"
 }
 
 resource "axual_application_deployment_state" "example" {
@@ -295,7 +297,7 @@ resource "axual_application_access_grant" "example" {
 
 resource "axual_application_access_grant_decision" "example" {
   grant_id = axual_application_access_grant.example.id
-  decision    = "APPROVED"
+  decision = "APPROVED"
 }
 
 resource "axual_application_deployment_state" "example" {

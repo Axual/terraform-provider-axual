@@ -21,7 +21,7 @@ Use it in the topic team's repository. The application team requests access with
 
 That's the whole rule. It looks only at the grant's status, never at who closed it, so nothing the application team does can get around a `DENIED`. A request made again is handled like a first request.
 
-The provider approves only when the platform offers approve to the signed-in user. Without it (for example when self-approval is disabled and this user made the request), the plan warns and plans no change; approve in the UI as another topic owner. Reject and revoke are always tried.
+The provider approves only when the platform offers approve to the signed-in user. Without it (for example when self-approval is disabled and this user made the request), the plan warns and plans no change; approve in the UI as another topic owner. With `grant_id` the apply then fails, so resources that depend on the decision (`depends_on`) wait until the grant is approved. Reject and revoke are always tried.
 
 An action on an existing block shows in the plan as an in-place change of `current_status`, for example `current_status = "Pending" -> "Approved"`. A new block shows `(known after apply)` and a warning that names the action. Every approval names the application's owner group, so you can check that a decision by name approves the team you mean. Nothing about the grant's status fails a plan.
 
@@ -44,7 +44,7 @@ The decision finds its grant by `grant_id` first, then by application UID, then 
 - `access_type` (String) `CONSUMER` or `PRODUCER`. See `application`.
 - `application` (String) Application UID or name. The grant is found among the grants on the topic, also before the request exists. Set `application`, `topic`, `environment` and `access_type` (multi-repo), or `grant_id` (single repository); with `grant_id` they are filled from the grant.
 - `environment` (String) Environment UID. See `application`.
-- `grant_id` (String) The grant UID. In a single repository, set it to `axual_application_access_grant.x.id` instead of the four lookup attributes; changing it replaces the block. Both together, as `terraform plan -generate-config-out` writes them, must point at the same grant. Otherwise the provider fills it in: null until the application team requests access, and it changes when the application is created again.
+- `grant_id` (String) The grant UID. In a single repository, set it to `axual_application_access_grant.x.id` instead of the four lookup attributes; changing it replaces the block. With grant_id, an APPROVED decision fails the apply when the platform doesn't offer approve to this user. Both together, as `terraform plan -generate-config-out` writes them, must point at the same grant. Otherwise the provider fills it in: null until the application team requests access, and it changes when the application is created again.
 - `reason` (String) Required when `decision = "DENIED"`. Sent with the reject or revoke; the application team reads it as `decision_reason`.
 - `revoke_on_destroy` (Boolean) Default `true`: removing the block revokes an `Approved` grant, like removing an approval did. `false`: removing the block only stops managing the decision, and the grant stays as it is. To stop managing a decision without revoking, set `false` and apply before removing it; for a whole resource block, a `removed` block with `lifecycle { destroy = false }` (Terraform 1.7 or later) works too.
 - `topic` (String) Topic UID. See `application`.
@@ -175,7 +175,7 @@ In an Auto environment the platform approves every request straight away. `decis
 | Platform Manager | Support |
 |---|---|
 | 15.0.3 and later, 16.x | Public and private applications |
-| 15.0.1 to 15.0.2 | Public applications. The requests of private applications aren't visible to the topic owner and show as `Not found`; the warning says the application may be private. Approve those in the UI, or upgrade. |
+| 15.0.1 and 15.0.2 (before 15.0.3) | Public applications. The requests of private applications aren't visible to the topic owner and show as `Not found`; the warning says the application may be private. Approve those in the UI, or upgrade. |
 | Any version with IAM-managed groups | A topic owner who is a member of the owner group only through the IAM doesn't see its requests (a known Platform Manager issue): they show as `Not found`, and the warning names this cause. Run the topic repository as a service account (service accounts keep their membership), set `grant_id`, or approve in the UI. |
 
 A private environment always uses the Auto authorization issuer, so its requests are approved straight away and need no decision.
@@ -236,8 +236,10 @@ resource "axual_application_access_grant_decision" "log_scraper" {
 }
 ```
 
-In a single repository, the moved block can use `grant_id = axual_application_access_grant.log_scraper_reads_logs.id` instead of the four lookup attributes.
+In a single repository, the decision can use `grant_id = axual_application_access_grant.log_scraper_reads_logs.id` instead of the four lookup attributes.
 
-The plan shows the move, and no API action. When `application` is a UID (for example taken from the grant), the first plan also changes it from the name to the UID, in place. Removing the moved block later revokes the grant, as removing the approval did (`revoke_on_destroy` defaults to `true`). A moved `_rejection` gets `decision = "DENIED"` and keeps its reason.
+Remove the `data "axual_application_access_grant"` and `data "axual_application"` blocks that only fed the approval: the decision finds the grant itself. Kept, they still fail the whole plan when the application team hasn't created its grant yet, or deleted it.
+
+The plan shows the move, and no API action. When `application` is a UID (for example taken from the grant), the first plan also changes it from the name to the UID, in place. Removing the decision later revokes the grant, as removing the approval did (`revoke_on_destroy` defaults to `true`). A moved `_rejection` gets `decision = "DENIED"` and keeps its reason. Since the decision approves only when the platform offers approve to the signed-in user, it doesn't approve a request this user made itself when self-approval is disabled on the instance, while the approval resource did. In the `grant_id` form the apply then fails.
 
 For Terraform before 1.8, use a `removed` block with `lifecycle { destroy = false }` for the old resource (Terraform 1.7) and an `import` block for the new one. Don't delete the old approval: that revokes the grant.
