@@ -170,7 +170,7 @@ The UI revoke alone lasts only until the next request.
 
 ### Removing a Decision
 
-Removing the block revokes an Approved grant, as removing an approval did, and the plan warns. To stop managing a decision and leave the grant as it is, set `revoke_on_destroy = false` and apply before you remove it. For a whole resource block (not one `for_each` key: Terraform doesn't allow instance keys there), a `removed` block works too:
+Removing the block revokes an Approved grant, as removing an approval does, and the plan warns. To rename or move a block, add a `moved` block. To stop managing a decision and leave the grant as it is, set `revoke_on_destroy = false` and apply before you remove it, or use `terraform state rm`. For a whole resource block (not one `for_each` key: Terraform doesn't allow instance keys there), a `removed` block does the same in a PR:
 
 ```hcl
 removed {
@@ -181,7 +181,7 @@ removed {
 }
 ```
 
-When you rename a `for_each` key, add a `moved` block. Without it the plan fails: the old block would revoke the grant that the new one approves.
+Without the `moved` block a rename fails the plan: the old block would revoke the grant that the new one approves. The [decision resource](../resources/application_access_grant_decision.md#removing-a-block-or-pointing-it-at-another-grant) has the details, also for two blocks that are both in the state.
 
 ### Many Decisions in One Apply
 
@@ -271,7 +271,7 @@ Remove the `data "axual_application_access_grant"` and `data "axual_application"
 
 The plan shows the move, and no API action. When `application` is a UID (for example taken from the grant), the first plan also changes it from the name to the UID, in place. Removing the decision later revokes the grant, like removing the approval did (`revoke_on_destroy` defaults to `true`). A moved rejection gets `decision = "DENIED"` with its reason. Since the decision approves only when the platform offers approve to the signed-in user, it doesn't approve a request this user made itself when self-approval is disabled on the instance, while the approval resource did. In the `grant_id` form the apply then fails.
 
-With Terraform 1.7, use a `removed` block with `lifecycle { destroy = false }` for the old resource and an `import` block for the decision. Don't simply delete an approval: that revokes the grant.
+With Terraform 1.7, use a `removed` block with `lifecycle { destroy = false }` for the old resource and an `import` block for the decision. Don't simply delete the approval and add the decision: removing the approval revokes the grant, so that plan fails.
 
 Don't manage one grant with an old resource and a decision at the same time.
 

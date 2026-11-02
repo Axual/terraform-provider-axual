@@ -126,6 +126,10 @@ func TestRemovedAndApprovedInOnePlan(t *testing.T) {
 	if got := c.remove("g2", "old"); got.id != "" {
 		t.Errorf("removal next to a DENIED decision is what it asks for: got %+v", got)
 	}
+	c.claim("g4", "new", decisionApproved)
+	if got := c.remove("g4", approvalRemoval); got.id != "new" {
+		t.Errorf("a removed approval next to an APPROVED decision: got %+v, expected new", got)
+	}
 	if got := c.removed("g3"); got != "" {
 		t.Errorf("removed(g3) = %q, expected nothing", got)
 	}

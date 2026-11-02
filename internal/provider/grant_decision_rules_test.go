@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"strings"
 	"testing"
 
 	webclient "axual-webclient"
@@ -185,6 +186,17 @@ func TestWithOffer(t *testing.T) {
 	}
 }
 
+func TestRemovedAndApprovedText(t *testing.T) {
+	_, decision := removedAndApproved("grant g1", "old")
+	if !strings.Contains(decision, "terraform state rm") || !strings.Contains(decision, "new in this plan") {
+		t.Errorf("a removed decision: the text names moved and state rm: %s", decision)
+	}
+	_, approval := removedAndApproved("grant g1", approvalRemoval)
+	if !strings.Contains(approval, "from the approval to the decision") || !strings.Contains(approval, "import block") {
+		t.Errorf("a removed approval: the text names moved and import: %s", approval)
+	}
+}
+
 func TestRemovedByTerraform(t *testing.T) {
 	for _, tc := range []struct {
 		status, comment string
@@ -192,7 +204,8 @@ func TestRemovedByTerraform(t *testing.T) {
 	}{
 		{"Revoked", "Decision removed from Terraform", true},
 		{"Revoked", "Decision removed from Terraform: INC-1", true},
-		{"Revoked", "Revoked in terraform", false},
+		{"Revoked", "Revoked in terraform", true}, // a removed axual_application_access_grant_approval
+		{"Revoked", "Revoked in terraform by hand", false},
 		{"Rejected", "Decision removed from Terraform", false},
 		{"Revoked", "", false},
 	} {

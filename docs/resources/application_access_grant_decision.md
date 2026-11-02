@@ -8,7 +8,7 @@ Use it in the topic team's repository. The application team requests access with
 
 1. **The topic team writes `decision`.** `APPROVED` approves every request from that application, now and later. `DENIED` (with a `reason`) rejects or revokes, also every later request.
 2. **The application team changes `request_again` to ask again.** The text isn't sent to the platform, so explain the reason in the PR to the topic repository. After `DENIED`, the topic team changes the decision first.
-3. **Removing a decision revokes** an `Approved` grant (`revoke_on_destroy` defaults to `true`). To stop managing a decision without revoking, set `revoke_on_destroy = false` and apply before you remove it (for a whole resource block, a `removed` block with `lifecycle { destroy = false }` works too; it can't name one `for_each` key). When you rename a `for_each` key, add a `moved` block. Without it the plan fails: the old block would revoke the grant that the new one approves.
+3. **Removing a block revokes** an `Approved` grant (`revoke_on_destroy` defaults to `true`). To rename or move a block, add a `moved` block. To drop a block without revoking, set `revoke_on_destroy = false` and apply before you remove it, or use `terraform state rm`. See [Removing a block](#removing-a-block-or-pointing-it-at-another-grant).
 
 ## What the provider does
 
@@ -98,7 +98,7 @@ resource "axual_application_access_grant_decision" "logs_dev_consumers" {
 }
 ```
 
-Keep a key once it is used. To rename one, add a `moved` block: without it the plan fails, because the old key would revoke the grant that the new key approves.
+Keep a key once it is used. To rename one, add a `moved` block (see [Removing a block](#removing-a-block-or-pointing-it-at-another-grant)).
 
 ### Waiting requests (optional)
 
@@ -163,7 +163,9 @@ To cut access now:
 
 ## Removing a block, or pointing it at another grant
 
-- Removing the block revokes an `Approved` grant, with the reason "Decision removed from Terraform" (plus `reason` when set); the plan warns. With `revoke_on_destroy = false` it makes no API call: the grant stays as it is, and the plan warns that it stays `Approved`. A `removed` block with `lifecycle { destroy = false }` also leaves it as it is, for a whole resource block (it can't name one `for_each` key).
+- Removing the block revokes an `Approved` grant, with the reason "Decision removed from Terraform" (plus `reason` when set); the plan warns. With `revoke_on_destroy = false` it makes no API call: the grant stays as it is, and the plan warns that it stays `Approved`. `terraform state rm '<address>'` also leaves the grant as it is; in a PR, a `removed` block with `lifecycle { destroy = false }` does the same for a whole resource block (it can't name one `for_each` key).
+- To rename a `for_each` key or move the block (for example into a module), add a `moved` block. Without it the plan fails: the old block would revoke the grant that the new one approves. When both blocks are already in the state (the new one was added in an earlier apply), `moved` can't help: drop the old one with `terraform state rm`.
+- `terraform destroy -target` on one of two blocks for the same grant revokes it: Terraform plans only that block, so the provider doesn't see the other one. Use `terraform state rm` to drop a duplicate.
 - Changing `application` from a name to a UID (or the reverse) is an in-place update without an action.
 - Changing `application`, `topic`, `environment`, `access_type` or `grant_id` to another grant replaces the block, which revokes the old grant (with `revoke_on_destroy = false` it stays `Approved`, and the plan warns).
 
@@ -185,7 +187,7 @@ A decision written before the application exists trusts the first application cr
 
 ## One decision per grant
 
-Keep one decision block per grant. When two decisions in one run point at the same grant (for example one by name and one by UID), the plan fails if one says `APPROVED` and the other `DENIED`, and warns if they agree.
+Keep one decision block per grant. Two blocks for the same grant that disagree (`APPROVED` and `DENIED`) fail the plan. Two that agree warn only when their ids differ (for example one by name and one by UID); with the same id nothing is reported, until one of them is removed (see [Removing a block](#removing-a-block-or-pointing-it-at-another-grant)).
 
 ## Auto environments
 
@@ -263,4 +265,4 @@ Remove the `data "axual_application_access_grant"` and `data "axual_application"
 
 The plan shows the move, and no API action. When `application` is a UID (for example taken from the grant), the first plan also changes it from the name to the UID, in place. Removing the decision later revokes the grant, as removing the approval did (`revoke_on_destroy` defaults to `true`). A moved `_rejection` gets `decision = "DENIED"` and keeps its reason. Since the decision approves only when the platform offers approve to the signed-in user, it doesn't approve a request this user made itself when self-approval is disabled on the instance, while the approval resource did. In the `grant_id` form the apply then fails.
 
-For Terraform before 1.8, use a `removed` block with `lifecycle { destroy = false }` for the old resource (Terraform 1.7) and an `import` block for the new one. Don't delete the old approval: that revokes the grant.
+For Terraform before 1.8, use a `removed` block with `lifecycle { destroy = false }` for the old resource (Terraform 1.7) and an `import` block for the new one. Don't simply delete the approval and add the decision: removing the approval revokes the grant, so that plan fails, and the plan warns when an approval is removed on its own.
