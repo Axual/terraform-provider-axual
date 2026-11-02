@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	webclient "axual-webclient"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 func TestDecide(t *testing.T) {
@@ -197,6 +198,28 @@ func TestRemovedAndApprovedText(t *testing.T) {
 	}
 }
 
+func TestRevokesOnDestroy(t *testing.T) {
+	for _, tc := range []struct {
+		status  string
+		revoke  bool
+		grantID types.String
+		want    bool
+	}{
+		{"Approved", true, types.StringValue("g1"), true},
+		{"Pending", true, types.StringValue("g1"), true}, // another block can approve it first
+		{"Rejected", true, types.StringValue("g1"), false},
+		{"Revoked", true, types.StringValue("g1"), false},
+		{"Cancelled", true, types.StringValue("g1"), false},
+		{"Approved", false, types.StringValue("g1"), false},
+		{"Approved", true, types.StringNull(), false},
+	} {
+		d := grantDecisionData{CurrentStatus: types.StringValue(tc.status), RevokeOnDestroy: types.BoolValue(tc.revoke), GrantId: tc.grantID}
+		if got := revokesOnDestroy(d); got != tc.want {
+			t.Errorf("%s revoke_on_destroy=%v grant_id=%s: got %v, want %v", tc.status, tc.revoke, tc.grantID, got, tc.want)
+		}
+	}
+}
+
 func TestRemovedByTerraform(t *testing.T) {
 	for _, tc := range []struct {
 		status, comment string
@@ -204,8 +227,7 @@ func TestRemovedByTerraform(t *testing.T) {
 	}{
 		{"Revoked", "Decision removed from Terraform", true},
 		{"Revoked", "Decision removed from Terraform: INC-1", true},
-		{"Revoked", "Revoked in terraform", true}, // a removed axual_application_access_grant_approval
-		{"Revoked", "Revoked in terraform by hand", false},
+		{"Revoked", "Revoked in terraform", false}, // the approval resource: mostly a revoke on purpose
 		{"Rejected", "Decision removed from Terraform", false},
 		{"Revoked", "", false},
 	} {
