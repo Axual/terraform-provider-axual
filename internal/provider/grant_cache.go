@@ -243,8 +243,9 @@ func (c *grantCache) claim(grantUid, id, decision string) decisionClaim {
 	return decisionClaim{}
 }
 
-// remove records that the decision with this id is removed in this run and revokes the grant at apply
-// (revoke_on_destroy), and returns the decision that approves the same grant in this run, if any.
+// remove records that the decision with this id (or an approval, approvalRemoval) is removed in this
+// run and revokes the grant at apply, and returns the decision that approves the same grant in this
+// run, if any.
 func (c *grantCache) remove(grantUid, id string) decisionClaim {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -255,7 +256,11 @@ func (c *grantCache) remove(grantUid, id string) decisionClaim {
 	return decisionClaim{}
 }
 
-// removed returns the id of a decision that is removed in this run and revokes the grant, or "".
+// approvalRemoval is the id remove records for a removed axual_application_access_grant_approval.
+const approvalRemoval = "axual_application_access_grant_approval"
+
+// removed returns the id of a decision (or approvalRemoval) that is removed in this run and revokes
+// the grant, or "".
 func (c *grantCache) removed(grantUid string) string {
 	c.mu.Lock()
 	defer c.mu.Unlock()

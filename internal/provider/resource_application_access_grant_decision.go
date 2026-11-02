@@ -75,7 +75,7 @@ type grantDecisionPrivate struct {
 	// can compute closed_outside_terraform from the state; the apply checks CloseKey before it acts.
 	CloseKey    string `json:"close_key,omitempty"`
 	ByRequester bool   `json:"by_requester,omitempty"`
-	// Removed: the last close is the revoke of a removed decision block (removedByTerraform).
+	// Removed: the last close is the revoke of a removed decision or approval (removedByTerraform).
 	Removed bool `json:"removed,omitempty"`
 	// OwnClose is the closeKey right after this decision's own last reject or revoke.
 	OwnClose string `json:"own_close,omitempty"`
@@ -378,9 +378,11 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 		// A removed block revokes at apply, also when another block for the same grant is added in this
 		// plan (a renamed for_each key without moved): the new block finds the grant Approved and keeps
 		// it, then the removal revokes it. The decision planned later of the two fails the plan.
-		if state.RevokeOnDestroy.ValueBool() && known(state.GrantId) {
+		// Delete revokes only an Approved grant; a Pending one can be approved by the other block first.
+		status := state.CurrentStatus.ValueString()
+		if state.RevokeOnDestroy.ValueBool() && known(state.GrantId) && (status == "Approved" || status == "Pending") {
 			if other := r.provider.grants.remove(state.GrantId.ValueString(), state.Id.ValueString()); other.id != "" {
-				r.removedAndApproved(state, resp)
+				resp.Diagnostics.AddError(removedAndApproved(r.label(state, nil), state.Id.ValueString()))
 				return
 			}
 		}
@@ -533,8 +535,8 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 			resp.Diagnostics.AddWarning(fmt.Sprintf("Two decisions manage %s", r.label(plan, g)),
 				fmt.Sprintf("The decisions with id %q and %q point at the same grant, with the same decision. Keep one of them.", other.id, claimID))
 		}
-		if r.provider.grants.removed(g.Uid) != "" && plan.Decision.ValueString() == decisionApproved {
-			r.removedAndApproved(plan, resp)
+		if removedID := r.provider.grants.removed(g.Uid); removedID != "" && plan.Decision.ValueString() == decisionApproved {
+			resp.Diagnostics.AddError(removedAndApproved(r.label(plan, g), removedID))
 			return
 		}
 	}
@@ -544,14 +546,21 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 	}
 }
 
-// removedAndApproved fails a plan that removes a decision (which revokes the grant) and has another
-// APPROVED decision for the same grant. Terraform shows the addresses next to the error.
-func (r *grantDecisionResource) removedAndApproved(d grantDecisionData, resp *resource.ModifyPlanResponse) {
-	resp.Diagnostics.AddError(fmt.Sprintf("A decision for %s is removed and another one approves it", r.label(d, nil)),
-		"This plan removes a decision for the grant, which revokes it at apply, and another block with decision = \"APPROVED\" "+
-			"is for the same grant. The grant would end Revoked: the other block finds it Approved and keeps it, then the removal revokes it. "+
-			"When you renamed a for_each key or moved the block, add a moved block from the old address to the new one. "+
-			"Otherwise set revoke_on_destroy = false on the old block and apply before you remove it.")
+// removedAndApproved is the error for a plan that removes a decision or an approval (which revokes the
+// grant) and has another APPROVED decision for the same grant. removedID is the removed block's id, or
+// approvalRemoval. Terraform shows the addresses next to the error.
+func removedAndApproved(label, removedID string) (string, string) {
+	fix := "If the block that approves is new in this plan (a renamed for_each key, or a block moved into a module), add a moved block from the old address to the new one. " +
+		"If both blocks are already in the state, remove the old one from the state only (terraform state rm '<old address>'), " +
+		"or set revoke_on_destroy = false on it and apply before you remove it."
+	if removedID == approvalRemoval {
+		fix = "To replace the approval with the decision, add a moved block from the approval to the decision (Terraform 1.8 or later); " +
+			"on Terraform 1.7, a removed block for the approval and an import block for the decision. " +
+			"If both blocks are already in the state, remove the approval from the state only: terraform state rm '<approval address>'."
+	}
+	return fmt.Sprintf("A block for %s is removed and another one approves it", label),
+		"This plan removes a block for the grant, which revokes it at apply, and another block with decision = \"APPROVED\" is for the same grant. " +
+			"The grant would end Revoked: the other block keeps or approves it, then the removal revokes it. " + fix
 }
 
 // warnOtherApplication warns that the decision's name now belongs to another application than the one
@@ -692,9 +701,10 @@ func (r *grantDecisionResource) warn(plan grantDecisionData, g *webclient.GrantV
 				"The grant was closed outside Terraform (closed_outside_terraform = true), but decision = \"APPROVED\" approves every request from this application. "+
 					"To keep it closed, set decision = \"DENIED\" with a reason.")
 		} else if p.Removed && out.PlannedStatus == "Revoked" {
-			resp.Diagnostics.AddWarning(fmt.Sprintf("%s was revoked by a removed decision block", name),
-				"A decision for this grant was removed from Terraform (for example a renamed for_each key without a moved block), and that revoked it. "+
-					"decision = \"APPROVED\" approves the next request: the application team asks again with request_again.")
+			resp.Diagnostics.AddWarning(fmt.Sprintf("%s was revoked by a removed block", name),
+				"A decision or approval for this grant was removed from Terraform (for example a renamed for_each key without a moved block), and that revoked it. "+
+					"decision = \"APPROVED\" approves the next request: the application team asks again with request_again. "+
+					"Tell the application team: nothing in their repository says the revoke was a mistake.")
 		} else if decisionChanged {
 			// Without this, a flip to APPROVED on a closed grant shows only the attribute change.
 			resp.Diagnostics.AddWarning(fmt.Sprintf("%s is %s; this apply doesn't change it", name, out.PlannedStatus),
@@ -981,11 +991,15 @@ func destroyReason(d grantDecisionData) string {
 
 const destroyReasonPrefix = "Decision removed from Terraform"
 
+// approvalRevokeReason is the reason sent when removing an axual_application_access_grant_approval
+// revokes the grant.
+const approvalRevokeReason = "Revoked in terraform"
+
 // removedByTerraform reports whether the grant's last close is the revoke of a removed decision block
-// (destroyReason), so closed_outside_terraform doesn't report it. A user could type the same comment
-// in the UI; the attribute only reports, so that is accepted.
+// (destroyReason) or approval (approvalRevokeReason), so closed_outside_terraform doesn't report it. A
+// user could type the same comment in the UI; the attribute only reports, so that is accepted.
 func removedByTerraform(g webclient.GrantView) bool {
-	return g.Status == "Revoked" && strings.HasPrefix(g.Comment, destroyReasonPrefix)
+	return g.Status == "Revoked" && (strings.HasPrefix(g.Comment, destroyReasonPrefix) || g.Comment == approvalRevokeReason)
 }
 
 func (r *grantDecisionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
