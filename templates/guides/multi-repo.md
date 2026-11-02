@@ -12,7 +12,7 @@ This guide demonstrates how to use Axual Self Service with the Axual Terraform p
 **Key Practices**:
 - Each team manages its own Terraform state independently.
 - Teams utilize dedicated Terraform users configured with the minimum required privileges.
-- Teams reference resources from other teams by utilizing Terraform data sources.
+- Teams reference resources from other teams by utilizing Terraform data sources (the topic team's decision finds the application team's request without one).
 
 ### Outcomes
 
@@ -53,7 +53,7 @@ These resources are managed in a separate Terraform state using a user account w
 created by the Topic team in the same environment.
 The Grant request will remain in the Pending state until approved or rejected by the Topic team.
 
-- The Topic team reviews the request from the Application team and records its decision in an `axual_application_access_grant_decision`: `decision = "APPROVED"` approves, `decision = "DENIED"` with a `reason` rejects. The decision finds the grant by application name or UID, topic, environment and access type, so no data source is needed. The two repositories can apply in either order.
+- The Topic team reviews the request from the Application team and records its decision in an `axual_application_access_grant_decision`: `decision = "APPROVED"` approves, `decision = "DENIED"` with a `reason` rejects. The decision finds the grant by application name or UID, topic, environment and access type, so no data source is needed. Once the topic exists, the request and the decision can be created in either order.
 
 - If the Topic team later decides to revoke the Application team's access, it changes the decision to `decision = "DENIED"` with a `reason`. Removing the decision block revokes as well (set `revoke_on_destroy = false` to only stop managing it).
 
