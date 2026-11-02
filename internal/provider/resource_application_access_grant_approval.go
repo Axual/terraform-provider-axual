@@ -242,8 +242,7 @@ func (r *applicationAccessGrantApprovalResource) ModifyPlan(ctx context.Context,
 		return
 	}
 	resp.Diagnostics.AddWarning(fmt.Sprintf("Removing the approval revokes %s", label),
-		fmt.Sprintf("The apply revokes the grant with the reason %q. To replace the approval with an axual_application_access_grant_decision "+
-			"without revoking, add a moved block from the approval to the decision.", approvalRevokeReason))
+		fmt.Sprintf("The apply revokes the grant with the reason %q.", approvalRevokeReason))
 }
 
 func (r *applicationAccessGrantApprovalResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

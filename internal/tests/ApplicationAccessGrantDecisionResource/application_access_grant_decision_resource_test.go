@@ -125,3 +125,39 @@ func TestApplicationAccessGrantDecision(t *testing.T) {
 		},
 	})
 }
+
+// TestApplicationAccessGrantDecisionFromApproval moves an approval to a decision. Deleting the approval
+// and adding the decision without moved fails the plan: the removal would revoke the grant that the
+// decision approves. With moved the grant stays Approved.
+func TestApplicationAccessGrantDecisionFromApproval(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: config("grant.tf", "approval.tf"),
+				Check:  resource.TestCheckResourceAttrPair("axual_application_access_grant_approval.tf-test-decision", "application_access_grant", grant, "id"),
+			},
+			// The grant sees the approval on the next refresh.
+			{
+				Config: config("grant.tf", "approval.tf"),
+				Check:  resource.TestCheckResourceAttr(grant, "status", "Approved"),
+			},
+			{
+				Config:      config("grant.tf", "decision_approved.tf"),
+				ExpectError: regexp.MustCompile(`is removed and another one approves it`),
+			},
+			{
+				Config: config("grant.tf", "decision_approved.tf", "moved_from_approval.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(decision, "current_status", "Approved"),
+					resource.TestCheckResourceAttr(grant, "status", "Approved"),
+				),
+			},
+			{
+				Destroy: true,
+				Config:  config("grant.tf", "decision_approved.tf", "moved_from_approval.tf"),
+			},
+		},
+	})
+}
