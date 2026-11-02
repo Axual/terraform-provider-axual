@@ -143,7 +143,7 @@ resource "axual_application_access_grant_decision" "log_scraper_reads_logs" {
 ```
 
 - `APPROVED` is a standing decision: it approves every request from that application, also a request made again. `DENIED` with a `reason` rejects or revokes, also every later request; the application team reads the reason.
-- The two repositories can apply in either order: before the request exists the plan only warns, and the topic repository's next apply after the request approves it.
+- Once the topic exists, the request and the decision can be created in either order: before the request exists the plan only warns, and the topic repository's next apply after the request approves it.
 - A reject or revoke in the UI lasts only until the next request while the decision is `APPROVED`. To keep it closed, set `DENIED`.
 - Removing a decision revokes an `Approved` grant.
 
@@ -163,25 +163,11 @@ data "axual_application_access_grants" "open" {
 
 ### Cutting Access Now
 
-1. Revoke the grant in the UI.
-2. Open a PR in the topic repository with `decision = "DENIED"` and the reason.
-
-The UI revoke alone lasts only until the next request.
+Revoke the grant in the UI, then set `decision = "DENIED"` with the reason in a PR to the topic repository. The UI revoke alone lasts only until the next request. See [Revoking](../resources/application_access_grant_decision.md#revoking).
 
 ### Removing a Decision
 
-Removing the block revokes an Approved grant, as removing an approval does, and the plan warns. To rename or move a block, add a `moved` block. To stop managing a decision and leave the grant as it is, set `revoke_on_destroy = false` and apply before you remove it, or use `terraform state rm`. For a whole resource block (not one `for_each` key: Terraform doesn't allow instance keys there), a `removed` block does the same in a PR:
-
-```hcl
-removed {
-  from = axual_application_access_grant_decision.approve_grant
-  lifecycle {
-    destroy = false
-  }
-}
-```
-
-Without the `moved` block a rename fails the plan: the old block would revoke the grant that the new one approves. The [decision resource](../resources/application_access_grant_decision.md#removing-a-block-or-pointing-it-at-another-grant) has the details, also for two blocks that are both in the state.
+Removing the block revokes an Approved grant, as removing an approval does. To rename or move a block, add a `moved` block; to stop managing a decision without revoking, set `revoke_on_destroy = false` and apply first, or use `terraform state rm`. Details: [Removing a block](../resources/application_access_grant_decision.md#removing-a-block-or-pointing-it-at-another-grant).
 
 ### Many Decisions in One Apply
 
@@ -222,13 +208,7 @@ Requests are approved straight away. A decision is optional. `decision = "DENIED
 
 ## Platform Manager Versions
 
-| Platform Manager | Support |
-|---|---|
-| 15.0.3 and later, 16.x | Public and private applications |
-| 15.0.1 and 15.0.2 (before 15.0.3) | Public applications. The requests of private applications aren't visible to the topic owner and show as `Not found`; the warning says the application may be private. Approve those in the UI, or upgrade. |
-| Any version with IAM-managed groups | A topic owner who is a member of the owner group only through the IAM doesn't see its requests (a known Platform Manager issue): they show as `Not found`, and the warning names this cause. Run the topic repository as a service account (service accounts keep their membership), set `grant_id`, or approve in the UI. |
-
-A private environment always uses the Auto authorization issuer, so its requests are approved straight away and need no decision.
+Public and private applications from Platform Manager 15.0.3. On 15.0.1 and 15.0.2 the topic owner can't see the requests of private applications. IAM-managed groups have a known limit. See [Platform Manager versions](../resources/application_access_grant_decision.md#platform-manager-versions).
 
 ---
 
@@ -248,32 +228,7 @@ The grant UID is in the Axual Self-Service UI, in `grant_id` of a decision, or i
 
 ## Moving from the Approval and Rejection Resources
 
-With Terraform 1.8 or later, move each block:
-
-```hcl
-moved {
-  from = axual_application_access_grant_approval.approve_grant
-  to   = axual_application_access_grant_decision.approve_grant
-}
-
-resource "axual_application_access_grant_decision" "approve_grant" {
-  application = "Log Scraper"
-  topic       = axual_topic.my_topic.id
-  environment = data.axual_environment.dev.id
-  access_type = "CONSUMER"
-  decision    = "APPROVED"
-}
-```
-
-In a single repository, the decision can use `grant_id = axual_application_access_grant.my_grant.id` instead of the four lookup attributes.
-
-Remove the `data "axual_application_access_grant"` and `data "axual_application"` blocks that only fed the approval: the decision finds the grant itself. Kept, they still fail the whole plan when the application team hasn't created its grant yet, or deleted it.
-
-The plan shows the move, and no API action. When `application` is a UID (for example taken from the grant), the first plan also changes it from the name to the UID, in place. Removing the decision later revokes the grant, like removing the approval did (`revoke_on_destroy` defaults to `true`). A moved rejection gets `decision = "DENIED"` with its reason. Since the decision approves only when the platform offers approve to the signed-in user, it doesn't approve a request this user made itself when self-approval is disabled on the instance, while the approval resource did. In the `grant_id` form the apply then fails.
-
-With Terraform 1.7, use a `removed` block with `lifecycle { destroy = false }` for the old resource and an `import` block for the decision. Don't simply delete the approval and add the decision: removing the approval revokes the grant, so that plan fails.
-
-Don't manage one grant with an old resource and a decision at the same time.
+With Terraform 1.8 or later, move each `axual_application_access_grant_approval` or `_rejection` block to an `axual_application_access_grant_decision` with a `moved` block: the plan shows no API action, and removing the decision later revokes, as removing the approval did. Don't simply delete the approval and add the decision: that plan fails, because removing the approval revokes the grant. Don't manage one grant with an old resource and a decision at the same time. The example, Terraform 1.7, the old data sources and self-approval: see [Moving from the approval and rejection resources](../resources/application_access_grant_decision.md#moving-from-the-approval-and-rejection-resources).
 
 ---
 

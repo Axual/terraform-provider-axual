@@ -2,7 +2,7 @@
 
 The topic team's decision about one application's access to a topic in an environment. `APPROVED` approves every request from the application, now and later. `DENIED` rejects or revokes, also every later request. A reject or revoke in the UI under `APPROVED` lasts only until the next request. Nothing about the grant's status fails a plan. Read more: https://registry.terraform.io/providers/Axual/axual/latest/docs/guides/manage-application-access-to-topics
 
-Use it in the topic team's repository. The application team requests access with `axual_application_access_grant` in its own repository; the two repositories can apply in either order. It replaces `axual_application_access_grant_approval` and `axual_application_access_grant_rejection`.
+Use it in the topic team's repository. The application team requests access with `axual_application_access_grant` in its own repository. Once the topic exists, the request and the decision can be created in either order. It replaces `axual_application_access_grant_approval` and `axual_application_access_grant_rejection`.
 
 ## Three rules
 
@@ -14,7 +14,7 @@ Use it in the topic team's repository. The application team requests access with
 
 | Grant status | `decision = "APPROVED"` | `decision = "DENIED"` |
 |---|---|---|
-| `Not found` (no request yet) | Nothing; one warning per topic and environment names the decisions that wait | Nothing |
+| `Not found` (no request yet) | Nothing; one warning per topic, environment and access type names the decisions that wait | Nothing |
 | `Pending` | **Approve** | **Reject** with `reason` |
 | `Approved` | Nothing | **Revoke** with `reason` |
 | `Rejected`, `Revoked`, `Cancelled` | Nothing; a warning when the grant was closed outside Terraform | Nothing |
@@ -52,7 +52,7 @@ The decision finds its grant by `grant_id` first, then by application UID, then 
 ### Read-Only
 
 - `application_uid` (String) The UID of the application this decision matched first: set at create, or by the first refresh that finds a request. When `application` is a name and the name now belongs to another application (deleted and created again, maybe by another team), the plan doesn't approve its request and warns. To accept the new application, set `application` to its UID. A decision written before the application exists trusts the first application with that name.
-- `closed_outside_terraform` (Boolean) `true` when `decision = "APPROVED"` and the grant was rejected or revoked outside Terraform, for example in the UI: the next request will be approved. Not set by this decision's own reject or revoke, nor when the application team gave up access itself (the user who requested it closed it); with one account for both teams a revoke in the UI looks like that and isn't reported. Under `DENIED` a rejected or revoked grant counts as this decision's own close, so the flip to `APPROVED` isn't reported; a decision imported or moved as `APPROVED` onto a closed grant reports it. Use it in a `check` block. It only reports; it never changes what the provider does.
+- `closed_outside_terraform` (Boolean) `true` when `decision = "APPROVED"` and someone other than this decision rejected or revoked the grant, for example in the UI: the next request will be approved. Not set when the application team gave up its own access, for a close made while the decision was `DENIED`, or for a revoke by a removed decision block. It only reports.
 - `current_status` (String) The grant's status: `Pending`, `Approved`, `Rejected`, `Revoked`, `Cancelled`, or `Not found` when there is no request that this user can see.
 - `id` (String) `<topic>/<environment>/<access_type>/<application>`, set at create and never changed. Import accepts it, or a grant UID.
 
@@ -152,15 +152,6 @@ To cut access now:
 
 `request_again` text isn't sent to the platform: explain why access is needed in the PR to the topic repository.
 
-## closed_outside_terraform
-
-`true` when `decision = "APPROVED"` and the grant is `Rejected` or `Revoked`, but not by this decision's own apply and not by the application team giving up access (the user who requested the grant closed it). Then the next request will be approved, which may not be what whoever closed it wanted. It only reports; it never changes what the provider does.
-
-- After a flip from `DENIED` to `APPROVED` the grant is still closed by the decision's own reject or revoke: not reported.
-- Under `DENIED` a rejected or revoked grant counts as the decision's own close, whoever closed it, also after an import or a `moved` block. So the flip to `APPROVED` isn't reported.
-- A decision imported or moved as `APPROVED` onto a closed grant is reported until the grant is requested again: check whether it should stay closed, and set `DENIED` if so.
-- With one account for both teams, a revoke in the UI by that account looks like the application team giving up access and isn't reported. Use separate accounts, and revoke as described above.
-
 ## Removing a block, or pointing it at another grant
 
 - Removing the block revokes an `Approved` grant, with the reason "Decision removed from Terraform" (plus `reason` when set); the plan warns. With `revoke_on_destroy = false` it makes no API call: the grant stays as it is, and the plan warns that it stays `Approved`. `terraform state rm '<address>'` also leaves the grant as it is; in a PR, a `removed` block with `lifecycle { destroy = false }` does the same for a whole resource block (it can't name one `for_each` key).
@@ -181,17 +172,12 @@ To accept the new application, set `application` to its UID (the warning shows i
 
 A decision written before the application exists trusts the first application created with that name. Once the application exists, prefer its UID in `application`. Keep the block's key when you change it (in the `for_each` example above, put the UID in the value); renaming a key needs a `moved` block.
 
-## The id
+## Good to know
 
-`id` is `<topic>/<environment>/<access_type>/<application>` with the values the block was created (or imported) with, and it never changes: Terraform doesn't allow a resource's identity to change. After you change `application` from a name to a UID, or after the application is renamed, `id` still contains the old value. That is expected: `grant_id` holds the grant UID and `application_uid` the application UID. Import by the current name or by grant UID still works.
-
-## One decision per grant
-
-Keep one decision block per grant. Two blocks for the same grant that disagree (`APPROVED` and `DENIED`) fail the plan. Two that agree warn only when their ids differ (for example one by name and one by UID); with the same id nothing is reported, until one of them is removed (see [Removing a block](#removing-a-block-or-pointing-it-at-another-grant)).
-
-## Auto environments
-
-In an Auto environment the platform approves every request straight away. `decision = "DENIED"` revokes, but the next request is approved again. The plan warns about it when the decision is created or changes, and when the apply revokes such a request.
+- **`closed_outside_terraform`** is `true` when `decision = "APPROVED"` and someone other than this decision rejected or revoked the grant, for example in the UI: the next request will be approved. It isn't set when the application team gave up its own access, for a close made while the decision was `DENIED`, or for a revoke by a removed decision block. With one account for both teams, a revoke in the UI looks like the application team's own. It only reports; use it in your own `check` if you like.
+- **One decision per grant.** Two blocks for the same grant that disagree (`APPROVED` and `DENIED`) fail the plan.
+- **The id** keeps the values the block was created or imported with, also after `application` changes from a name to a UID or the application is renamed. `grant_id` and `application_uid` hold the current UIDs.
+- **Auto environments** approve every request straight away, so `DENIED` revokes, but the next request is approved again. The plan warns about it.
 
 ## Platform Manager versions
 
