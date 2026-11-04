@@ -1,7 +1,6 @@
 # `description`, `schema_registries` and `authorized_groups` are left out: the PATCH has to carry an explicit
 # "description": null to clear the stored text, or the API keeps it and the apply fails with
-# "Provider produced inconsistent result after apply". Removing `authorized_groups` is sent as an empty array,
-# because the API keeps the stored groups for an omitted key and rejects an explicit null.
+# "Provider produced inconsistent result after apply".
 resource "axual_flink_cluster" "tf_test_flink_cluster" {
   instance_id       = data.axual_instance.test_instance.id
   cluster_id        = local.cluster_id

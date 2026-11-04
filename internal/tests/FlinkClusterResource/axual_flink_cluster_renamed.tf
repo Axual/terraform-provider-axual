@@ -1,5 +1,3 @@
-# Platform Manager does not allow renaming a Flink Cluster, so a changed `name` replaces the resource:
-# the old Flink Cluster is deleted and a new one is registered under the new name.
 resource "axual_flink_cluster" "tf_test_flink_cluster" {
   instance_id       = data.axual_instance.test_instance.id
   cluster_id        = local.cluster_id

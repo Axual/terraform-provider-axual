@@ -33,7 +33,6 @@ func flinkClusterData(owner string, groups types.Set) *FlinkClusterResourceData 
 	}
 }
 
-// requestBody is the JSON the client sends, so a test sees what Platform Manager receives.
 func requestBody(t *testing.T, request webclient.FlinkClusterRequest) map[string]any {
 	t.Helper()
 	body, err := json.Marshal(request)
@@ -144,8 +143,6 @@ func TestMapFlinkClusterResponseMapsNoAuthorizedGroupsToNullWhenTheAttributeIsNo
 	}
 }
 
-// The framework fails the apply with "Provider produced inconsistent result" when `authorized_groups = []`
-// comes back as null, so an empty set has to stay an empty set.
 func TestMapFlinkClusterResponseKeepsAnEmptySetForEmptyAuthorizedGroups(t *testing.T) {
 	data := &FlinkClusterResourceData{AuthorizedGroups: groupSet()}
 

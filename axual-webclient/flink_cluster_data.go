@@ -7,22 +7,20 @@ type SchemaRegistryConfig struct {
 	Url  string `json:"url"`
 }
 
-// FlinkClusterAuthorizedGroup is a Group that may deploy Flink SQL to a Flink Cluster.
 type FlinkClusterAuthorizedGroup struct {
 	Id   string `json:"id"`
 	Name string `json:"name"`
 }
 
 type FlinkClusterResponse struct {
-	SchemaRegistries []SchemaRegistryConfig `json:"schemaRegistries"`
-	Name             string                 `json:"name"`
-	Description      string                 `json:"description"`
-	Url              string                 `json:"url"`
-	Workspace        string                 `json:"workspace"`
-	Namespace        string                 `json:"namespace"`
-	DeploymentTarget string                 `json:"deploymentTarget"`
-	Uid              string                 `json:"id"`
-	// OwnerGroupId is empty for a Flink Cluster registered before owners existed.
+	SchemaRegistries []SchemaRegistryConfig        `json:"schemaRegistries"`
+	Name             string                        `json:"name"`
+	Description      string                        `json:"description"`
+	Url              string                        `json:"url"`
+	Workspace        string                        `json:"workspace"`
+	Namespace        string                        `json:"namespace"`
+	DeploymentTarget string                        `json:"deploymentTarget"`
+	Uid              string                        `json:"id"`
 	OwnerGroupId     string                        `json:"ownerGroupId"`
 	OwnerGroupName   string                        `json:"ownerGroupName"`
 	AuthorizedGroups []FlinkClusterAuthorizedGroup `json:"authorizedGroups"`
@@ -43,7 +41,6 @@ type FlinkClusterRequest struct {
 	SchemaRegistries *[]SchemaRegistryConfig `json:"schemaRegistries"`
 
 	OwnerGroupId string `json:"ownerGroupId,omitempty"`
-	// AuthorizedGroupIds is left out to keep the stored groups, and sent as an empty array to clear
-	// them. The API rejects an explicit null, so it must never be serialised as one.
+	// Omitted keeps the stored groups, an empty array clears them. The API rejects an explicit null.
 	AuthorizedGroupIds *[]string `json:"authorizedGroupIds,omitempty"`
 }

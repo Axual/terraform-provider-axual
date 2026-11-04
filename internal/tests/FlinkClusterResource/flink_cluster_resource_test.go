@@ -67,13 +67,11 @@ func TestFlinkClusterResource(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "name", "tf-test-flink-cluster"),
 					resource.TestCheckNoResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "schema_registries.#"),
 					resource.TestCheckNoResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "description"),
-					// Leaving authorized_groups out after `[]` keeps the state null, with no diff left over.
 					resource.TestCheckNoResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "authorized_groups.#"),
 					resource.TestCheckResourceAttrPair("axual_flink_cluster.tf_test_flink_cluster", "owner", "data.axual_group.test_group", "id"),
 				),
 			},
 			{
-				// A new name replaces the Flink Cluster, because Platform Manager does not allow renaming.
 				Config: GetFlinkProvider() + GetFile("axual_flink_cluster_renamed.tf"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "name", "tf-test-flink-cluster-renamed"),

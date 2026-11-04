@@ -288,9 +288,6 @@ func (r *flinkClusterResource) ImportState(ctx context.Context, req resource.Imp
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[2])...)
 }
 
-// createFlinkClusterRequestFromData builds the create POST or update PATCH body.
-// hadAuthorizedGroups is whether the state before an update had authorized groups, and false on create:
-// it tells a removed `authorized_groups` from one that was never set.
 func createFlinkClusterRequestFromData(data *FlinkClusterResourceData, hadAuthorizedGroups bool) webclient.FlinkClusterRequest {
 	// A removed description is sent as an explicit null, which is what the PATCH needs to clear it.
 	var description *string
@@ -336,9 +333,9 @@ func createFlinkClusterRequestFromData(data *FlinkClusterResourceData, hadAuthor
 	}
 }
 
-// authorizedGroupIdsForRequest leaves the key out when there is nothing to change. Platform Manager keeps
-// the stored groups for an omitted key and rejects an explicit null, so removing the attribute from the
-// configuration has to be sent as an empty array.
+// authorizedGroupIdsForRequest leaves the key out when nothing changes. Platform Manager keeps the stored groups
+// for an omitted key and rejects a null, so an attribute removed from the configuration (hadAuthorizedGroups)
+// is sent as an empty array.
 func authorizedGroupIdsForRequest(data *FlinkClusterResourceData, hadAuthorizedGroups bool) *[]string {
 	if data.AuthorizedGroups.IsNull() || data.AuthorizedGroups.IsUnknown() {
 		if hadAuthorizedGroups {
@@ -393,8 +390,6 @@ func mapSchemaRegistriesToData(data *FlinkClusterResourceData, registries []webc
 	data.SchemaRegistries = list
 }
 
-// mapOwnerToData keeps an unset attribute null: Platform Manager answers with no owner for a Flink Cluster
-// registered before owners existed.
 func mapOwnerToData(data *FlinkClusterResourceData, flinkCluster *webclient.FlinkClusterResponse) {
 	if flinkCluster.OwnerGroupId == "" {
 		data.Owner = types.StringNull()
@@ -403,10 +398,8 @@ func mapOwnerToData(data *FlinkClusterResourceData, flinkCluster *webclient.Flin
 	data.Owner = types.StringValue(flinkCluster.OwnerGroupId)
 }
 
-// mapAuthorizedGroupsToData writes the API's groups into state. The API answers with an empty list when no
-// Group is authorized, which is `authorized_groups = []` as well as a left out attribute. The value already in
-// data tells them apart, because the framework rejects a result that differs from the plan: an empty set
-// stays an empty set, and anything else becomes null.
+// mapAuthorizedGroupsToData keeps `authorized_groups = []` an empty set and a left out attribute null: the API
+// answers with an empty list for both, and the framework rejects a result that differs from the plan.
 func mapAuthorizedGroupsToData(data *FlinkClusterResourceData, flinkCluster *webclient.FlinkClusterResponse) {
 	if len(flinkCluster.AuthorizedGroups) == 0 {
 		if !data.AuthorizedGroups.IsNull() && !data.AuthorizedGroups.IsUnknown() && len(data.AuthorizedGroups.Elements()) == 0 {

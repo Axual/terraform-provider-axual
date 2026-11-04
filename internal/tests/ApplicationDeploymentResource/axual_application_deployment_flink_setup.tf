@@ -24,8 +24,7 @@ resource "axual_flink_cluster" "tf-test-flink-cluster" {
   cluster_id  = local.cluster_id
   name        = "tf-test-flink-deployment-cluster"
   owner       = data.axual_group.test_group.id
-  # The deploying Group is the owner of the application below. Without it in authorized_groups,
-  # Platform Manager refuses the deployment with 403.
+  # The owner Group of the application below must be authorized, or the deployment is refused with 403.
   authorized_groups = [data.axual_group.test_group.id]
   description       = "Axual's TF Test Flink Cluster for deployments"
   url               = local.ververica_url
