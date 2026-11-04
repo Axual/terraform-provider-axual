@@ -40,7 +40,7 @@ A **Connector** deployment whose `target_id` names a registered Kafka Connect cl
 A `FLINK_SQL` deployment needs all of the following before it can be created. The provider checks the first two during `terraform apply` and reports which one is missing.
 
 - An `axual_application_credential` with `target = "KAFKA"` for the same application and environment. A Flink SQL job authenticates with SASL/SCRAM; an `axual_application_principal` cannot be used, and the platform refuses the deployment with "a Flink SQL application requires SASL/SCRAM Kafka credentials".
-- A `target_id` naming an [`axual_flink_cluster`](flink_cluster.md) registered for the environment.
+- A `target_id` naming an [`axual_flink_cluster`](flink_cluster.md) registered for the environment. The owner Group of the application must be in the `authorized_groups` of that Flink Cluster, or the platform refuses the deployment with `403 Forbidden`.
 - An approved `axual_application_access_grant` for every topic the script reads or writes. With `generate_tables_sql = true` the table DDL is generated from those grants, so a topic without a grant has no table to select from or insert into — a job that writes needs a `PRODUCER` grant, not only a `CONSUMER` one.
 - The instance must have Flink enabled, and the Flink Cluster's schema registries must be configured for a job over AVRO topics.
 

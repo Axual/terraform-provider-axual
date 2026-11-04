@@ -30,6 +30,10 @@ func TestFlinkClusterResource(t *testing.T) {
 				ExpectError: regexp.MustCompile(`is required`),
 			},
 			{
+				Config:      GetFlinkProvider() + GetFile("axual_flink_cluster_missing_owner.tf"),
+				ExpectError: regexp.MustCompile(`"owner" is required`),
+			},
+			{
 				Config: GetFlinkProvider() + GetFile("axual_flink_cluster_initial.tf"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttrPair("axual_flink_cluster.tf_test_flink_cluster", "instance_id", "data.axual_instance.test_instance", "id"),
@@ -42,12 +46,16 @@ func TestFlinkClusterResource(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "deployment_target", config.VervericaDeploymentTarget),
 					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "api_token", config.VervericaApiToken),
 					resource.TestCheckResourceAttrSet("axual_flink_cluster.tf_test_flink_cluster", "id"),
+					resource.TestCheckResourceAttrPair("axual_flink_cluster.tf_test_flink_cluster", "owner", "data.axual_group.test_group", "id"),
+					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "authorized_groups.#", "1"),
+					resource.TestCheckTypeSetElemAttrPair("axual_flink_cluster.tf_test_flink_cluster", "authorized_groups.*", "data.axual_group.test_group", "id"),
 				),
 			},
 			{
 				Config: GetFlinkProvider() + GetFile("axual_flink_cluster_updated.tf"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "description", "Axual's TF Test Flink Cluster, updated"),
+					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "authorized_groups.#", "0"),
 					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "schema_registries.#", "1"),
 					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "schema_registries.0.type", "CONFLUENT"),
 					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "schema_registries.0.url", "https://schema-registry.example.com/apis/ccompat/v7"),
@@ -56,9 +64,20 @@ func TestFlinkClusterResource(t *testing.T) {
 			{
 				Config: GetFlinkProvider() + GetFile("axual_flink_cluster_no_description.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "name", "tf-test-flink-cluster-renamed"),
+					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "name", "tf-test-flink-cluster"),
 					resource.TestCheckNoResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "schema_registries.#"),
 					resource.TestCheckNoResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "description"),
+					// Leaving authorized_groups out after `[]` keeps the state null, with no diff left over.
+					resource.TestCheckNoResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "authorized_groups.#"),
+					resource.TestCheckResourceAttrPair("axual_flink_cluster.tf_test_flink_cluster", "owner", "data.axual_group.test_group", "id"),
+				),
+			},
+			{
+				// A new name replaces the Flink Cluster, because Platform Manager does not allow renaming.
+				Config: GetFlinkProvider() + GetFile("axual_flink_cluster_renamed.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "name", "tf-test-flink-cluster-renamed"),
+					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "authorized_groups.#", "1"),
 				),
 			},
 			{
@@ -81,12 +100,12 @@ func TestFlinkClusterResource(t *testing.T) {
 				// the API does not return api_token on GET, so import cannot restore it.
 				ImportStateVerifyIgnore: []string{"api_token"},
 				ImportStateVerify:       true,
-				Config:                  GetFlinkProvider() + GetFile("axual_flink_cluster_no_description.tf"),
+				Config:                  GetFlinkProvider() + GetFile("axual_flink_cluster_renamed.tf"),
 			},
 			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
-				Config:  GetFlinkProvider() + GetFile("axual_flink_cluster_no_description.tf"),
+				Config:  GetFlinkProvider() + GetFile("axual_flink_cluster_renamed.tf"),
 			},
 		},
 	})

@@ -7,6 +7,12 @@ type SchemaRegistryConfig struct {
 	Url  string `json:"url"`
 }
 
+// FlinkClusterAuthorizedGroup is a Group that may deploy Flink SQL to a Flink Cluster.
+type FlinkClusterAuthorizedGroup struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
 type FlinkClusterResponse struct {
 	SchemaRegistries []SchemaRegistryConfig `json:"schemaRegistries"`
 	Name             string                 `json:"name"`
@@ -16,6 +22,10 @@ type FlinkClusterResponse struct {
 	Namespace        string                 `json:"namespace"`
 	DeploymentTarget string                 `json:"deploymentTarget"`
 	Uid              string                 `json:"id"`
+	// OwnerGroupId is empty for a Flink Cluster registered before owners existed.
+	OwnerGroupId     string                        `json:"ownerGroupId"`
+	OwnerGroupName   string                        `json:"ownerGroupName"`
+	AuthorizedGroups []FlinkClusterAuthorizedGroup `json:"authorizedGroups"`
 }
 
 // FlinkClusterRequest is the body of both the create POST and the update PATCH. Description and
@@ -31,4 +41,9 @@ type FlinkClusterRequest struct {
 	ApiToken         string  `json:"apiToken,omitempty"`
 
 	SchemaRegistries *[]SchemaRegistryConfig `json:"schemaRegistries"`
+
+	OwnerGroupId string `json:"ownerGroupId,omitempty"`
+	// AuthorizedGroupIds is left out to keep the stored groups, and sent as an empty array to clear
+	// them. The API rejects an explicit null, so it must never be serialised as one.
+	AuthorizedGroupIds *[]string `json:"authorizedGroupIds,omitempty"`
 }

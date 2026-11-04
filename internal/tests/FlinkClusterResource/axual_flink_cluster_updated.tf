@@ -1,9 +1,13 @@
 resource "axual_flink_cluster" "tf_test_flink_cluster" {
-  instance_id       = data.axual_instance.test_instance.id
-  cluster_id        = local.cluster_id
-  url               = local.ververica_url
-  api_token         = local.ververica_api_token
-  name              = "tf-test-flink-cluster"
+  instance_id = data.axual_instance.test_instance.id
+  cluster_id  = local.cluster_id
+  url         = local.ververica_url
+  api_token   = local.ververica_api_token
+  name        = "tf-test-flink-cluster"
+  owner       = data.axual_group.test_group.id
+  # Emptied on update: an empty list is sent as is and stays an empty set in the state, and nobody can deploy
+  # to the Flink Cluster. The next step leaves the attribute out, which has to produce no diff.
+  authorized_groups = []
   description       = "Axual's TF Test Flink Cluster, updated"
   workspace         = local.ververica_workspace
   namespace         = local.ververica_namespace
