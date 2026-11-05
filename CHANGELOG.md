@@ -9,10 +9,23 @@ All notable changes to this project will be documented in this file.
 * `terraform query` support (Terraform 1.14 or newer): list resources with filters, so `terraform query -generate-config-out` writes `resource` and `import` blocks for resources that already exist. Not for `axual_flink_cluster`. The access grant list leaves out revoked and cancelled grants unless its `status` filter asks for them
 * Resource identity for every resource except `axual_flink_cluster`, so an `import` block can use `identity` instead of `id`
 * Guides: `Quick start: export your resources with terraform query` and `Exporting existing resources with terraform query`, and an example in `examples/terraform-query`
+* `axual_application_access_grant_decision`: the topic team's standing decision about one application's access to a topic. `APPROVED` approves every request from the application, now and later; `DENIED` (with a `reason`) rejects or revokes. It finds the grant itself by application name or UID, topic, environment and access type, also before the request exists; in a single repository, set `grant_id` instead. A decision by name stays with the application it first matched: a deleted and re-created application is approved only after `application` is set to its new UID. Removing the block revokes an Approved grant, like removing an approval did; `revoke_on_destroy = false` only stops managing it. See the guide "Managing application access to topics" (AXPD-12412)
+* Existing `_approval` and `_rejection` blocks move to the decision with a `moved` block (Terraform 1.8 or later), with no diff. A plan that deletes an approval and adds a decision for the same grant without `moved` fails instead of revoking the grant; so does a renamed `for_each` key without `moved` (AXPD-12412)
+* A list resource for the decision, so `terraform query` can export existing decisions (AXPD-12412)
+* `request_again`, `decision_reason`, `decided_at` and `decided_by` on `axual_application_access_grant`, and the decision fields on its data source: the application team sees the answer and asks again by changing `request_again` (AXPD-12412)
+* `axual_application_access_grants` data source: lists grants, for example the open requests on a topic (AXPD-12412)
 
 ### Changed
 * Leaving out `roles` on an `axual_user` now keeps the roles the user has. Only `roles = []` removes them
+* Changing `application`, `topic`, `environment` or `access_type` of an `axual_application_access_grant` fails in the plan instead of at apply (AXPD-12412)
+* Upgrading from `axual_application_access_grant_approval`: a `moved` block keeps today's behaviour (removing the moved decision revokes), with no diff. Removing an approval now warns that it revokes the grant (AXPD-12412)
+* Upgrading from `axual_application_access_grant_approval` on an instance with self-approval disabled: the decision approves only when the platform offers approve to the signed-in user, so it doesn't approve a request this user made itself, while the approval resource did. With `grant_id`, creating the decision then fails, as it does on a Rejected or Revoked grant, so a deployment with `depends_on` on the decision isn't created; an existing decision and the lookup attributes (multi-repo) only warn (AXPD-12412)
+* Approvals, rejects, revokes and cancels of access grants run at most 4 at a time, because Platform Manager can stop responding with about 10 at once. No `-parallelism` is needed for an apply that acts on many grants (AXPD-12412)
+* The access guides describe the platform correctly: Rejected, Revoked and Cancelled grants are closed, not final; a new request reopens the same grant (AXPD-12412)
 * A plan that leaves out `configs`, `definition` or `sql_script` of an `axual_application_deployment` that has them stops with `Missing configs` (or `definition`, `sql_script`), unless the application or environment changes. `configs = {}` removes all configs (Platform Manager 16.0.0 or later). Before, the apply removed them and stopped the deployment
+
+### Deprecated
+* `axual_application_access_grant_approval` and `axual_application_access_grant_rejection`: use `axual_application_access_grant_decision` (AXPD-12412)
 
 ### Fixed
 * `principal` of `axual_application_principal`, and `definition` and `sql_script` of `axual_application_deployment`, are no longer sensitive. `terraform query -generate-config-out` now writes them. `private_key` and `configs` stay sensitive. After the upgrade, the first plan shows an in-place update for each `axual_application_principal` and `axual_application_deployment`, with the note that the value is no longer marked as sensitive. Applying it makes no API call and does not restart a deployment. `terraform plan -detailed-exitcode` returns `2` once (AXPD-12611)

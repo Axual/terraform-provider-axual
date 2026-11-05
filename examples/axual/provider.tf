@@ -2,7 +2,7 @@ terraform {
   required_providers {
     axual = {
       source  = "Axual/axual"
-      version = "3.1.0"
+      version = ">= 3.3.0" # the first release with axual_application_access_grant_decision
     }
   }
 }
@@ -16,14 +16,14 @@ variable "axual_client_secret" {
 provider "axual" {
   # Configuration options
   # (String) URL that will be used by the client for all resource requests
-  apiurl        = "https://platform.local/api"
+  apiurl = "https://platform.local/api"
   # (String) Axual realm used for the requests. This is your tenant's short name.
-  realm         = "axual"
+  realm = "axual"
   # (String) Token url
-  authurl       = "https://platform.local/auth/realms/axual/protocol/openid-connect/token"
+  authurl = "https://platform.local/auth/realms/axual/protocol/openid-connect/token"
 
   # (String) Client ID of the service account. It can be omitted if the environment variable AXUAL_CLIENT_ID is set.
-  client_id     = "PLEASE_CHANGE_SERVICE_ACCOUNT_CLIENT_ID"
+  client_id = "PLEASE_CHANGE_SERVICE_ACCOUNT_CLIENT_ID"
   # (String, Sensitive) Client secret of the service account. It can be omitted if the environment variable AXUAL_CLIENT_SECRET is set.
   client_secret = var.axual_client_secret
 }

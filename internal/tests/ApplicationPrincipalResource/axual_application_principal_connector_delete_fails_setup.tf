@@ -24,14 +24,19 @@ resource "axual_application_access_grant" "tf-test-application-access-grant" {
   depends_on  = [axual_topic_config.tf-topic-config]
 }
 
-resource "axual_application_access_grant_approval" "tf-test-application-access-grant-approval" {
-  application_access_grant = axual_application_access_grant.tf-test-application-access-grant.id
+resource "axual_application_access_grant_decision" "tf-test-application-access-grant-approval" {
+  application       = axual_application_access_grant.tf-test-application-access-grant.application
+  topic             = axual_application_access_grant.tf-test-application-access-grant.topic
+  environment       = axual_application_access_grant.tf-test-application-access-grant.environment
+  access_type       = axual_application_access_grant.tf-test-application-access-grant.access_type
+  decision          = "APPROVED"
+  revoke_on_destroy = true
 }
 
 # Wait for principal activation to propagate through the platform's search index before the deployment
 # pre-flight check. Anchored to the approval so it runs alongside (and just after) principal Create.
 resource "time_sleep" "wait_for_principal_activation" {
-  depends_on      = [axual_application_access_grant_approval.tf-test-application-access-grant-approval]
+  depends_on      = [axual_application_access_grant_decision.tf-test-application-access-grant-approval]
   create_duration = "5s"
 }
 
@@ -53,7 +58,7 @@ resource "axual_application_deployment" "connector_axual_application_deployment"
     "errors.tolerance"            = "none",
   }
   depends_on = [
-    axual_application_access_grant_approval.tf-test-application-access-grant-approval,
+    axual_application_access_grant_decision.tf-test-application-access-grant-approval,
     time_sleep.wait_for_principal_activation,
   ]
 }

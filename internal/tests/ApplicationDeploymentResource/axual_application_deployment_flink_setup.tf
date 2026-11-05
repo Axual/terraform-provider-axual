@@ -75,8 +75,13 @@ resource "axual_application_access_grant" "tf-test-flink-application-access-gran
   ]
 }
 
-resource "axual_application_access_grant_approval" "tf-test-flink-application-access-grant-approval" {
-  application_access_grant = axual_application_access_grant.tf-test-flink-application-access-grant.id
+resource "axual_application_access_grant_decision" "tf-test-flink-application-access-grant-approval" {
+  application       = axual_application_access_grant.tf-test-flink-application-access-grant.application
+  topic             = axual_application_access_grant.tf-test-flink-application-access-grant.topic
+  environment       = axual_application_access_grant.tf-test-flink-application-access-grant.environment
+  access_type       = axual_application_access_grant.tf-test-flink-application-access-grant.access_type
+  decision          = "APPROVED"
+  revoke_on_destroy = true
 }
 
 resource "axual_topic" "tf-test-flink-topic-out" {
@@ -114,6 +119,11 @@ resource "axual_application_access_grant" "tf-test-flink-application-access-gran
   ]
 }
 
-resource "axual_application_access_grant_approval" "tf-test-flink-application-access-grant-approval-out" {
-  application_access_grant = axual_application_access_grant.tf-test-flink-application-access-grant-out.id
+resource "axual_application_access_grant_decision" "tf-test-flink-application-access-grant-approval-out" {
+  application       = axual_application_access_grant.tf-test-flink-application-access-grant-out.application
+  topic             = axual_application_access_grant.tf-test-flink-application-access-grant-out.topic
+  environment       = axual_application_access_grant.tf-test-flink-application-access-grant-out.environment
+  access_type       = axual_application_access_grant.tf-test-flink-application-access-grant-out.access_type
+  decision          = "APPROVED"
+  revoke_on_destroy = true
 }

@@ -68,15 +68,16 @@ resource "axual_application_access_grant" "connector" {
   depends_on  = [axual_topic_config.example, axual_application_credential.connector]
 }
 
-resource "axual_application_access_grant_approval" "connector" {
-  application_access_grant = axual_application_access_grant.connector.id
+resource "axual_application_access_grant_decision" "connector" {
+  grant_id = axual_application_access_grant.connector.id
+  decision = "APPROVED"
 }
 
 resource "axual_application_deployment_state" "connector" {
   application_deployment = axual_application_deployment.connector.id
   state                  = "RUNNING"
   depends_on = [
-    axual_application_access_grant_approval.connector,
+    axual_application_access_grant_decision.connector,
     axual_application_credential.connector,
   ]
 }
