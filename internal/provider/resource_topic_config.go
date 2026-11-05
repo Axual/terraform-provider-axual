@@ -63,10 +63,10 @@ func (r *topicConfigResource) Schema(ctx context.Context, req resource.SchemaReq
 				Required:            true,
 			},
 			"retention_time": schema.Int64Attribute{
-				MarkdownDescription: "Determine how long the messages should be available on a topic. There should be an agreed value most likely discussed in Intake session with the team supporting Axual Platform. In most cases, it is 7 days. Minimum value is 1000 (ms). Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#retention-time",
+				MarkdownDescription: "Determine how long the messages should be available on a topic. There should be an agreed value most likely discussed in Intake session with the team supporting Axual Platform. In most cases, it is 7 days. The value is in milliseconds, at least 1000. `-1` means infinite retention: messages are never deleted, so disk usage grows without limit. `-1` needs Axual Platform 2026.4 or later. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#retention-time",
 				Required:            true,
 				Validators: []validator.Int64{
-					int64validator.AtLeast(1000),
+					int64validator.Any(int64validator.OneOf(-1), int64validator.AtLeast(1000)),
 				},
 			},
 			"topic": schema.StringAttribute{

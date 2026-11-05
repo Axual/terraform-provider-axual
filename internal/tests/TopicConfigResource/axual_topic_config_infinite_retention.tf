@@ -1,0 +1,7 @@
+resource "axual_topic_config" "tf-topic-config" {
+  partitions = 1
+  retention_time = -1
+  topic = axual_topic.tf-test-topic.id
+  environment = axual_environment.tf-test-env.id
+  properties = {"segment.ms"="600012", "retention.bytes"="-1"}
+}
