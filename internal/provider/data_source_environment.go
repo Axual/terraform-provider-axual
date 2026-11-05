@@ -190,7 +190,7 @@ func mapEnvironmentDataSourceResponseToData(ctx context.Context, data *environme
 	data.Color = types.StringValue(environment.Color)
 	data.Visibility = types.StringValue(environment.Visibility)
 	data.AuthorizationIssuer = types.StringValue(environment.AuthorizationIssuer)
-	data.RetentionTime = types.Int64Value(int64(environment.RetentionTime))
+	data.RetentionTime = types.Int64Value(environment.RetentionTime)
 	data.Partitions = types.Int64Value(int64(environment.Partitions))
 	// embedded fields
 	data.Owners = types.StringValue(environment.Embedded.Owners.Uid)
