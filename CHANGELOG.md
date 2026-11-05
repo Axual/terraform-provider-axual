@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 * A plan that leaves out `configs`, `definition` or `sql_script` of an `axual_application_deployment` that has them stops with `Missing configs` (or `definition`, `sql_script`), unless the application or environment changes. `configs = {}` removes all configs (Platform Manager 16.0.0 or later). Before, the apply removed them and stopped the deployment
 
 ### Fixed
+* 32-bit builds (386 and arm) handle a `retention_time` above 2147483647 (about 25 days) on `axual_topic_config` and `axual_environment`. Before, the apply could set a shorter retention and then fail, and reading such a value failed
 * A STOP that fails with a `5xx` (for example while the Connect worker rebalances) is retried, like START. It is not sent again once the deployment has stopped
 * An `axual_application_deployment` deleted outside Terraform no longer breaks `plan` and `destroy` with `no application deployment found`; it is removed from the state and planned again
 * `roles = []` on an `axual_user` removes all roles instead of failing with `Required request body is missing` (AXPD-9562)
