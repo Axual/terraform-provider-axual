@@ -3,12 +3,12 @@
 page_title: "axual_application_principal List Resource - terraform-provider-axual"
 subcategory: ""
 description: |-
-  Lists application principals (certificates and custom principals). principal and private_key are sensitive, so Terraform leaves them out of generated configuration: set them before you apply.
+  Lists application principals (certificates and custom principals). private_key is sensitive, so Terraform leaves it out of generated configuration: set it before you apply.
 ---
 
 # axual_application_principal (List Resource)
 
-Lists application principals (certificates and custom principals). `principal` and `private_key` are sensitive, so Terraform leaves them out of generated configuration: set them before you apply.
+Lists application principals (certificates and custom principals). `private_key` is sensitive, so Terraform leaves it out of generated configuration: set it before you apply.
 
 
 
