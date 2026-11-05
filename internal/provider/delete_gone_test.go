@@ -279,6 +279,7 @@ func TestDeleteAcceptsAGoneResource(t *testing.T) {
 		"flink cluster": {flinkCluster, &FlinkClusterResourceData{
 			Id: types.StringValue("f1"), InstanceId: types.StringValue("i1"), ClusterId: types.StringValue("c1"),
 			SchemaRegistries: types.ListNull(registries.ElemType),
+			AuthorizedGroups: types.SetNull(types.StringType),
 		}},
 		"topic browse permissions": {&topicBrowsePermissionsResource{provider: provider}, &topicBrowsePermissionsResourceData{
 			TopicConfig: types.StringValue("tc1"),
@@ -316,6 +317,7 @@ func TestFlinkClusterReadDropsAGoneCluster(t *testing.T) {
 	state := stateFor(t, r, &FlinkClusterResourceData{
 		Id: types.StringValue("f1"), InstanceId: types.StringValue("i1"), ClusterId: types.StringValue("c1"),
 		SchemaRegistries: types.ListNull(registries.ElemType),
+		AuthorizedGroups: types.SetNull(types.StringType),
 	})
 	resp := resource.ReadResponse{State: state}
 

@@ -20,9 +20,12 @@ resource "axual_environment" "tf-test-flink-env" {
 }
 
 resource "axual_flink_cluster" "tf-test-flink-cluster" {
-  instance_id       = data.axual_instance.test_instance.id
-  cluster_id        = local.cluster_id
-  name              = "tf-test-flink-deployment-cluster"
+  instance_id = data.axual_instance.test_instance.id
+  cluster_id  = local.cluster_id
+  name        = "tf-test-flink-deployment-cluster"
+  owners      = data.axual_group.test_group.id
+  # The owner Group of the application below must be authorized, or the deployment is refused with 403.
+  authorized_groups = [data.axual_group.test_group.id]
   description       = "Axual's TF Test Flink Cluster for deployments"
   url               = local.ververica_url
   workspace         = local.ververica_workspace
