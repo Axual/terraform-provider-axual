@@ -69,6 +69,52 @@ func TestTopicConfigResource(t *testing.T) {
 	})
 }
 
+func TestTopicConfigInfiniteRetention(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+
+		Steps: []resource.TestStep{
+			{
+				Config: GetProvider() + GetFile(
+					"axual_topic_config_setup.tf", "axual_topic_config_infinite_retention.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_topic_config.tf-topic-config", "retention_time", "-1"),
+				),
+			},
+			{
+				Config: GetProvider() + GetFile(
+					"axual_topic_config_setup.tf", "axual_topic_config_initial.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_topic_config.tf-topic-config", "retention_time", "864000"),
+				),
+			},
+			{
+				Config: GetProvider() + GetFile(
+					"axual_topic_config_setup.tf", "axual_topic_config_infinite_retention.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("axual_topic_config.tf-topic-config", "retention_time", "-1"),
+				),
+			},
+			{
+				ResourceName:      "axual_topic_config.tf-topic-config",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			{
+				// To ensure cleanup if one of the test cases had an error
+				Destroy: true,
+				Config: GetProvider() + GetFile(
+					"axual_topic_config_setup.tf", "axual_topic_config_infinite_retention.tf",
+				),
+			},
+		},
+	})
+}
+
 func TestTopicConfigAvroResource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
