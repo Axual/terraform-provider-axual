@@ -59,7 +59,7 @@ resource "axual_flink_cluster" "example" {
   instance_id = data.axual_instance.example.id
   cluster_id  = var.instance_cluster_id
   name        = "tf-flink-sql-example-cluster"
-  owner       = data.axual_group.example.id
+  owners      = data.axual_group.example.id
   # Without authorized_groups nobody can deploy here, the owner included.
   authorized_groups = [data.axual_group.example.id]
   description       = "Flink Cluster for the minimal Flink SQL example"

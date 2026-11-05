@@ -31,7 +31,7 @@ func TestFlinkClusterResource(t *testing.T) {
 			},
 			{
 				Config:      GetFlinkProvider() + GetFile("axual_flink_cluster_missing_owner.tf"),
-				ExpectError: regexp.MustCompile(`"owner" is required`),
+				ExpectError: regexp.MustCompile(`"owners" is required`),
 			},
 			{
 				Config: GetFlinkProvider() + GetFile("axual_flink_cluster_initial.tf"),
@@ -46,7 +46,15 @@ func TestFlinkClusterResource(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "deployment_target", config.VervericaDeploymentTarget),
 					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "api_token", config.VervericaApiToken),
 					resource.TestCheckResourceAttrSet("axual_flink_cluster.tf_test_flink_cluster", "id"),
-					resource.TestCheckResourceAttrPair("axual_flink_cluster.tf_test_flink_cluster", "owner", "data.axual_group.test_group", "id"),
+					resource.TestCheckResourceAttrPair("axual_flink_cluster.tf_test_flink_cluster", "owners", "data.axual_group.test_group", "id"),
+					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "authorized_groups.#", "1"),
+					resource.TestCheckTypeSetElemAttrPair("axual_flink_cluster.tf_test_flink_cluster", "authorized_groups.*", "data.axual_group.test_group", "id"),
+				),
+			},
+			{
+				// Leaving authorized_groups out keeps the Groups the Flink Cluster has.
+				Config: GetFlinkProvider() + GetFile("axual_flink_cluster_authorized_groups_omitted.tf"),
+				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "authorized_groups.#", "1"),
 					resource.TestCheckTypeSetElemAttrPair("axual_flink_cluster.tf_test_flink_cluster", "authorized_groups.*", "data.axual_group.test_group", "id"),
 				),
@@ -67,8 +75,9 @@ func TestFlinkClusterResource(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "name", "tf-test-flink-cluster"),
 					resource.TestCheckNoResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "schema_registries.#"),
 					resource.TestCheckNoResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "description"),
-					resource.TestCheckNoResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "authorized_groups.#"),
-					resource.TestCheckResourceAttrPair("axual_flink_cluster.tf_test_flink_cluster", "owner", "data.axual_group.test_group", "id"),
+					// authorized_groups was [] and is left out, so it stays empty.
+					resource.TestCheckResourceAttr("axual_flink_cluster.tf_test_flink_cluster", "authorized_groups.#", "0"),
+					resource.TestCheckResourceAttrPair("axual_flink_cluster.tf_test_flink_cluster", "owners", "data.axual_group.test_group", "id"),
 				),
 			},
 			{

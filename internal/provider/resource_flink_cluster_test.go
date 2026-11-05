@@ -28,7 +28,7 @@ func flinkClusterData(owner string, groups types.Set) *FlinkClusterResourceData 
 		DeploymentTarget: types.StringValue("target"),
 		ApiToken:         types.StringValue("token"),
 		SchemaRegistries: types.ListNull(schemaRegistryObjectType()),
-		Owner:            types.StringValue(owner),
+		Owners:           types.StringValue(owner),
 		AuthorizedGroups: groups,
 	}
 }
@@ -47,23 +47,30 @@ func requestBody(t *testing.T, request webclient.FlinkClusterRequest) map[string
 }
 
 func TestCreateFlinkClusterRequestSendsTheOwner(t *testing.T) {
-	request := createFlinkClusterRequestFromData(flinkClusterData("owner-id", types.SetNull(types.StringType)), false)
+	request := createFlinkClusterRequestFromData(flinkClusterData("owner-id", types.SetNull(types.StringType)))
 
 	if request.OwnerGroupId != "owner-id" {
 		t.Errorf("owner = %q, expected owner-id", request.OwnerGroupId)
 	}
 }
 
-func TestCreateFlinkClusterRequestOmitsAuthorizedGroupsThatAreNotConfigured(t *testing.T) {
-	request := createFlinkClusterRequestFromData(flinkClusterData("owner-id", types.SetNull(types.StringType)), false)
+func TestCreateFlinkClusterRequestOmitsAuthorizedGroupsThatHaveNoValue(t *testing.T) {
+	for name, groups := range map[string]types.Set{
+		"null":    types.SetNull(types.StringType),
+		"unknown": types.SetUnknown(types.StringType),
+	} {
+		t.Run(name, func(t *testing.T) {
+			request := createFlinkClusterRequestFromData(flinkClusterData("owner-id", groups))
 
-	if _, present := requestBody(t, request)["authorizedGroupIds"]; present {
-		t.Error("authorizedGroupIds was sent, expected it left out")
+			if _, present := requestBody(t, request)["authorizedGroupIds"]; present {
+				t.Error("authorizedGroupIds was sent, expected it left out")
+			}
+		})
 	}
 }
 
 func TestCreateFlinkClusterRequestSendsTheConfiguredAuthorizedGroups(t *testing.T) {
-	request := createFlinkClusterRequestFromData(flinkClusterData("owner-id", groupSet("b", "a")), false)
+	request := createFlinkClusterRequestFromData(flinkClusterData("owner-id", groupSet("b", "a")))
 
 	ids, _ := requestBody(t, request)["authorizedGroupIds"].([]any)
 	got := make([]string, 0, len(ids))
@@ -77,28 +84,11 @@ func TestCreateFlinkClusterRequestSendsTheConfiguredAuthorizedGroups(t *testing.
 }
 
 func TestCreateFlinkClusterRequestSendsAnEmptyListForEmptyAuthorizedGroups(t *testing.T) {
-	request := createFlinkClusterRequestFromData(flinkClusterData("owner-id", groupSet()), false)
+	request := createFlinkClusterRequestFromData(flinkClusterData("owner-id", groupSet()))
 
 	ids, present := requestBody(t, request)["authorizedGroupIds"]
 	if list, ok := ids.([]any); !present || !ok || len(list) != 0 {
 		t.Errorf("authorizedGroupIds = %v (present %t), expected an empty list", ids, present)
-	}
-}
-
-func TestUpdateFlinkClusterRequestSendsAnEmptyListWhenAuthorizedGroupsAreRemoved(t *testing.T) {
-	request := createFlinkClusterRequestFromData(flinkClusterData("owner-id", types.SetNull(types.StringType)), true)
-
-	ids, present := requestBody(t, request)["authorizedGroupIds"]
-	if list, ok := ids.([]any); !present || !ok || len(list) != 0 {
-		t.Errorf("authorizedGroupIds = %v (present %t), expected an empty list: a null is rejected and a missing key keeps the groups", ids, present)
-	}
-}
-
-func TestUpdateFlinkClusterRequestOmitsAuthorizedGroupsWhenThereWereNoneAndNoneArePlanned(t *testing.T) {
-	request := createFlinkClusterRequestFromData(flinkClusterData("owner-id", types.SetNull(types.StringType)), false)
-
-	if _, present := requestBody(t, request)["authorizedGroupIds"]; present {
-		t.Error("authorizedGroupIds was sent, expected it left out")
 	}
 }
 
@@ -107,8 +97,8 @@ func TestMapFlinkClusterResponseMapsAMissingOwnerToNull(t *testing.T) {
 
 	mapFlinkClusterResponseToData(data, &webclient.FlinkClusterResponse{Uid: "id"})
 
-	if !data.Owner.IsNull() {
-		t.Errorf("owner = %s, expected null", data.Owner)
+	if !data.Owners.IsNull() {
+		t.Errorf("owners = %s, expected null", data.Owners)
 	}
 }
 
@@ -125,30 +115,28 @@ func TestMapFlinkClusterResponseMapsTheOwnerAndAuthorizedGroups(t *testing.T) {
 		},
 	})
 
-	if data.Owner.ValueString() != "owner-id" {
-		t.Errorf("owner = %s, expected owner-id", data.Owner)
+	if data.Owners.ValueString() != "owner-id" {
+		t.Errorf("owners = %s, expected owner-id", data.Owners)
 	}
 	if !data.AuthorizedGroups.Equal(groupSet("a", "b")) {
 		t.Errorf("authorized_groups = %s, expected [a b]", data.AuthorizedGroups)
 	}
 }
 
-func TestMapFlinkClusterResponseMapsNoAuthorizedGroupsToNullWhenTheAttributeIsNotSet(t *testing.T) {
-	data := &FlinkClusterResourceData{AuthorizedGroups: types.SetNull(types.StringType)}
+func TestMapFlinkClusterResponseMapsNoAuthorizedGroupsToAnEmptySet(t *testing.T) {
+	for name, before := range map[string]types.Set{
+		"null":    types.SetNull(types.StringType),
+		"unknown": types.SetUnknown(types.StringType),
+		"groups":  groupSet("a"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			data := &FlinkClusterResourceData{AuthorizedGroups: before}
 
-	mapFlinkClusterResponseToData(data, &webclient.FlinkClusterResponse{Uid: "id", OwnerGroupId: "owner-id"})
+			mapFlinkClusterResponseToData(data, &webclient.FlinkClusterResponse{Uid: "id", OwnerGroupId: "owner-id"})
 
-	if !data.AuthorizedGroups.IsNull() {
-		t.Errorf("authorized_groups = %s, expected null", data.AuthorizedGroups)
-	}
-}
-
-func TestMapFlinkClusterResponseKeepsAnEmptySetForEmptyAuthorizedGroups(t *testing.T) {
-	data := &FlinkClusterResourceData{AuthorizedGroups: groupSet()}
-
-	mapFlinkClusterResponseToData(data, &webclient.FlinkClusterResponse{Uid: "id", OwnerGroupId: "owner-id"})
-
-	if data.AuthorizedGroups.IsNull() || len(data.AuthorizedGroups.Elements()) != 0 {
-		t.Errorf("authorized_groups = %s, expected an empty set", data.AuthorizedGroups)
+			if !data.AuthorizedGroups.Equal(groupSet()) {
+				t.Errorf("authorized_groups = %s, expected an empty set", data.AuthorizedGroups)
+			}
+		})
 	}
 }

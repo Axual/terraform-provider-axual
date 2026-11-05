@@ -8,8 +8,8 @@ A Flink Cluster registers a Ververica Platform namespace on an Instance-Cluster,
 - `instance_id` and `cluster_id` identify where the Flink Cluster is registered. Changing either one forces the resource to be replaced.
 - `api_token` is a namespace-scoped Ververica API token. It is marked sensitive, is never shown in plan output or logs, and is not returned by the API, so it is kept as written in the Terraform state and configuration.
 - `schema_registries` lists the registries a Flink SQL job reads schemas from. It is required for jobs over AVRO topics: the platform injects the registry url into the generated table DDL, and a job using `'value.format' = 'avro-confluent'` takes the first `CONFLUENT`-type entry in the list. Removing the block again clears the stored list.
-- `owner` is the id of the Group that owns the Flink Cluster. Its members can edit the Flink Cluster, but owning it does not allow deploying to it. Only a Tenant Admin can change the owner.
-- `authorized_groups` lists the Groups that may deploy Flink SQL applications to the Flink Cluster, and a Group that is not listed cannot select it as a deployment target. **Without `authorized_groups`, no Group can deploy to the Flink Cluster, the owner included**, so add the Group of every application that deploys to it. A Group cannot be removed while it has a running Flink SQL deployment on the Flink Cluster. Removing the attribute removes all authorized Groups.
+- `owners` is the id of the Group that owns the Flink Cluster. Its members can edit the Flink Cluster, but owning it does not allow deploying to it. Only a Tenant Admin can change the owner.
+- `authorized_groups` lists the Groups that may deploy Flink SQL applications to the Flink Cluster, and a Group that is not listed cannot select it as a deployment target. **A Flink Cluster without authorized Groups accepts no deployments, from the owner Group either**, so add the Group of every application that deploys to it. Leave `authorized_groups` out to keep the Groups the Flink Cluster has; `authorized_groups = []` removes all of them. A Group cannot be removed while it has a running Flink SQL deployment on the Flink Cluster.
 - Platform Manager does not allow renaming a Flink Cluster. Changing `name` destroys the Flink Cluster and creates a new one, which fails while a `FLINK_SQL` deployment still targets it: remove the deployments first.
 - Currently, a data source for `axual_flink_cluster` is not supported.
 
@@ -37,13 +37,13 @@ A Flink Cluster registers a Ververica Platform namespace on an Instance-Cluster,
 - `instance_id` (String) The Uid of the Instance this Flink Cluster belongs to.
 - `name` (String) Human-readable name of the Flink Cluster. Must be between 3 and 50 characters, and unique within your tenant. Platform Manager does not allow renaming, so changing the name destroys and re-creates the Flink Cluster.
 - `namespace` (String) Ververica namespace name, e.g. `default`. Must be at most 50 characters.
-- `owner` (String) The id of the Group that owns the Flink Cluster, for example `data.axual_group.platform_team.id`. Members of the owner Group can edit the Flink Cluster, but owning it does not allow deploying to it: add the Group to `authorized_groups` for that. Only a Tenant Admin can change the owner.
+- `owners` (String) The id of the Group that owns the Flink Cluster, for example `data.axual_group.platform_team.id`. Members of the owner Group can edit the Flink Cluster, but owning it does not allow deploying to it: add the Group to `authorized_groups` for that. Only a Tenant Admin can change the owner.
 - `url` (String) Ververica Platform base URL, e.g. `https://vvp.internal`. Must be at most 255 characters.
 - `workspace` (String) Ververica workspace name, e.g. `defaultworkspace`. Must be at most 50 characters.
 
 ### Optional
 
-- `authorized_groups` (Set of String) The ids of the Groups that may deploy Flink SQL applications to the Flink Cluster. **If this is empty or left out, no Group can deploy to it, the owner Group included.** A Group cannot be removed while it has a running Flink SQL deployment on this Flink Cluster. Removing the attribute removes all authorized Groups.
+- `authorized_groups` (Set of String) The ids of the Groups that may deploy Flink SQL applications to the Flink Cluster. Leave it out to keep the Groups the Flink Cluster has; `authorized_groups = []` removes all of them. **A Flink Cluster without authorized Groups accepts no deployments, from the owner Group either.** A Group cannot be removed while it has a running Flink SQL deployment on this Flink Cluster.
 - `description` (String) A short description of the Flink Cluster. Must be at most 255 characters.
 - `schema_registries` (Attributes List) Schema registries the Flink Cluster reads schemas from. Required for Flink SQL jobs over AVRO topics: the platform injects the url into the generated table DDL. When more than one is configured, a job using `'value.format' = 'avro-confluent'` uses the first Confluent-type registry in the list. (see [below for nested schema](#nestedatt--schema_registries))
 
@@ -66,7 +66,7 @@ resource "axual_flink_cluster" "example_flink_cluster" {
   instance_id       = data.axual_instance.testinstance.id
   cluster_id        = "<CLUSTER UID>"
   name              = "Example Flink Cluster"
-  owner             = data.axual_group.platform_team.id
+  owners            = data.axual_group.platform_team.id
   description       = "Ververica Platform namespace used for Flink SQL applications"
   url               = "https://vvp.example.com"
   workspace         = "defaultworkspace"

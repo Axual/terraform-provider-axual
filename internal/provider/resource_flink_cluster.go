@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -54,7 +55,7 @@ type FlinkClusterResourceData struct {
 	DeploymentTarget types.String `tfsdk:"deployment_target"`
 	ApiToken         types.String `tfsdk:"api_token"`
 	SchemaRegistries types.List   `tfsdk:"schema_registries"`
-	Owner            types.String `tfsdk:"owner"`
+	Owners           types.String `tfsdk:"owners"`
 	AuthorizedGroups types.Set    `tfsdk:"authorized_groups"`
 }
 
@@ -90,14 +91,18 @@ func (r *flinkClusterResource) Schema(ctx context.Context, req resource.SchemaRe
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
-			"owner": schema.StringAttribute{
+			"owners": schema.StringAttribute{
 				MarkdownDescription: "The id of the Group that owns the Flink Cluster, for example `data.axual_group.platform_team.id`. Members of the owner Group can edit the Flink Cluster, but owning it does not allow deploying to it: add the Group to `authorized_groups` for that. Only a Tenant Admin can change the owner.",
 				Required:            true,
 			},
 			"authorized_groups": schema.SetAttribute{
-				MarkdownDescription: "The ids of the Groups that may deploy Flink SQL applications to the Flink Cluster. **If this is empty or left out, no Group can deploy to it, the owner Group included.** A Group cannot be removed while it has a running Flink SQL deployment on this Flink Cluster. Removing the attribute removes all authorized Groups.",
+				MarkdownDescription: "The ids of the Groups that may deploy Flink SQL applications to the Flink Cluster. Leave it out to keep the Groups the Flink Cluster has; `authorized_groups = []` removes all of them. **A Flink Cluster without authorized Groups accepts no deployments, from the owner Group either.** A Group cannot be removed while it has a running Flink SQL deployment on this Flink Cluster.",
 				ElementType:         types.StringType,
 				Optional:            true,
+				Computed:            true,
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"description": schema.StringAttribute{
 				MarkdownDescription: "A short description of the Flink Cluster. Must be at most 255 characters.",
@@ -182,7 +187,7 @@ func (r *flinkClusterResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	flinkClusterRequest := createFlinkClusterRequestFromData(&data, false)
+	flinkClusterRequest := createFlinkClusterRequestFromData(&data)
 
 	flinkCluster, err := r.provider.client.CreateFlinkCluster(data.InstanceId.ValueString(), data.ClusterId.ValueString(), flinkClusterRequest)
 	if err != nil {
@@ -234,13 +239,7 @@ func (r *flinkClusterResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	var state FlinkClusterResourceData
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	flinkClusterRequest := createFlinkClusterRequestFromData(&data, !state.AuthorizedGroups.IsNull() && len(state.AuthorizedGroups.Elements()) > 0)
+	flinkClusterRequest := createFlinkClusterRequestFromData(&data)
 
 	flinkCluster, err := r.provider.client.UpdateFlinkCluster(data.InstanceId.ValueString(), data.ClusterId.ValueString(), data.Id.ValueString(), flinkClusterRequest)
 	if err != nil {
@@ -288,7 +287,7 @@ func (r *flinkClusterResource) ImportState(ctx context.Context, req resource.Imp
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[2])...)
 }
 
-func createFlinkClusterRequestFromData(data *FlinkClusterResourceData, hadAuthorizedGroups bool) webclient.FlinkClusterRequest {
+func createFlinkClusterRequestFromData(data *FlinkClusterResourceData) webclient.FlinkClusterRequest {
 	// A removed description is sent as an explicit null, which is what the PATCH needs to clear it.
 	var description *string
 	if !data.Description.IsNull() && !data.Description.IsUnknown() {
@@ -320,8 +319,8 @@ func createFlinkClusterRequestFromData(data *FlinkClusterResourceData, hadAuthor
 	}
 
 	return webclient.FlinkClusterRequest{
-		OwnerGroupId:       data.Owner.ValueString(),
-		AuthorizedGroupIds: authorizedGroupIdsForRequest(data, hadAuthorizedGroups),
+		OwnerGroupId:       data.Owners.ValueString(),
+		AuthorizedGroupIds: authorizedGroupIdsForRequest(data),
 		Name:               data.Name.ValueString(),
 		Description:        description,
 		Url:                data.Url.ValueString(),
@@ -333,14 +332,11 @@ func createFlinkClusterRequestFromData(data *FlinkClusterResourceData, hadAuthor
 	}
 }
 
-// authorizedGroupIdsForRequest leaves the key out when nothing changes. Platform Manager keeps the stored groups
-// for an omitted key and rejects a null, so an attribute removed from the configuration (hadAuthorizedGroups)
-// is sent as an empty array.
-func authorizedGroupIdsForRequest(data *FlinkClusterResourceData, hadAuthorizedGroups bool) *[]string {
+// authorizedGroupIdsForRequest leaves the key out when there is no value yet, which is a create without the
+// attribute: Platform Manager then starts with no authorized groups. On an update the plan holds the groups from
+// the state when the attribute is left out, so they are kept.
+func authorizedGroupIdsForRequest(data *FlinkClusterResourceData) *[]string {
 	if data.AuthorizedGroups.IsNull() || data.AuthorizedGroups.IsUnknown() {
-		if hadAuthorizedGroups {
-			return &[]string{}
-		}
 		return nil
 	}
 
@@ -392,24 +388,15 @@ func mapSchemaRegistriesToData(data *FlinkClusterResourceData, registries []webc
 
 func mapOwnerToData(data *FlinkClusterResourceData, flinkCluster *webclient.FlinkClusterResponse) {
 	if flinkCluster.OwnerGroupId == "" {
-		data.Owner = types.StringNull()
+		data.Owners = types.StringNull()
 		return
 	}
-	data.Owner = types.StringValue(flinkCluster.OwnerGroupId)
+	data.Owners = types.StringValue(flinkCluster.OwnerGroupId)
 }
 
-// mapAuthorizedGroupsToData keeps `authorized_groups = []` an empty set and a left out attribute null: the API
-// answers with an empty list for both, and the framework rejects a result that differs from the plan.
+// mapAuthorizedGroupsToData writes the API's groups into state. The attribute is computed, so a cluster without
+// authorized groups is an empty set, never null.
 func mapAuthorizedGroupsToData(data *FlinkClusterResourceData, flinkCluster *webclient.FlinkClusterResponse) {
-	if len(flinkCluster.AuthorizedGroups) == 0 {
-		if !data.AuthorizedGroups.IsNull() && !data.AuthorizedGroups.IsUnknown() && len(data.AuthorizedGroups.Elements()) == 0 {
-			data.AuthorizedGroups = types.SetValueMust(types.StringType, []attr.Value{})
-			return
-		}
-		data.AuthorizedGroups = types.SetNull(types.StringType)
-		return
-	}
-
 	ids := make([]attr.Value, 0, len(flinkCluster.AuthorizedGroups))
 	for _, group := range flinkCluster.AuthorizedGroups {
 		ids = append(ids, types.StringValue(group.Id))

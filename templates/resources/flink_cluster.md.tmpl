@@ -8,8 +8,8 @@
 - `instance_id` and `cluster_id` identify where the Flink Cluster is registered. Changing either one forces the resource to be replaced.
 - `api_token` is a namespace-scoped Ververica API token. It is marked sensitive, is never shown in plan output or logs, and is not returned by the API, so it is kept as written in the Terraform state and configuration.
 - `schema_registries` lists the registries a Flink SQL job reads schemas from. It is required for jobs over AVRO topics: the platform injects the registry url into the generated table DDL, and a job using `'value.format' = 'avro-confluent'` takes the first `CONFLUENT`-type entry in the list. Removing the block again clears the stored list.
-- `owner` is the id of the Group that owns the Flink Cluster. Its members can edit the Flink Cluster, but owning it does not allow deploying to it. Only a Tenant Admin can change the owner.
-- `authorized_groups` lists the Groups that may deploy Flink SQL applications to the Flink Cluster, and a Group that is not listed cannot select it as a deployment target. **Without `authorized_groups`, no Group can deploy to the Flink Cluster, the owner included**, so add the Group of every application that deploys to it. A Group cannot be removed while it has a running Flink SQL deployment on the Flink Cluster. Removing the attribute removes all authorized Groups.
+- `owners` is the id of the Group that owns the Flink Cluster. Its members can edit the Flink Cluster, but owning it does not allow deploying to it. Only a Tenant Admin can change the owner.
+- `authorized_groups` lists the Groups that may deploy Flink SQL applications to the Flink Cluster, and a Group that is not listed cannot select it as a deployment target. **A Flink Cluster without authorized Groups accepts no deployments, from the owner Group either**, so add the Group of every application that deploys to it. Leave `authorized_groups` out to keep the Groups the Flink Cluster has; `authorized_groups = []` removes all of them. A Group cannot be removed while it has a running Flink SQL deployment on the Flink Cluster.
 - Platform Manager does not allow renaming a Flink Cluster. Changing `name` destroys the Flink Cluster and creates a new one, which fails while a `FLINK_SQL` deployment still targets it: remove the deployments first.
 - Currently, a data source for `axual_flink_cluster` is not supported.
 
@@ -35,7 +35,7 @@ resource "axual_flink_cluster" "example_flink_cluster" {
   instance_id       = data.axual_instance.testinstance.id
   cluster_id        = "<CLUSTER UID>"
   name              = "Example Flink Cluster"
-  owner             = data.axual_group.platform_team.id
+  owners            = data.axual_group.platform_team.id
   description       = "Ververica Platform namespace used for Flink SQL applications"
   url               = "https://vvp.example.com"
   workspace         = "defaultworkspace"

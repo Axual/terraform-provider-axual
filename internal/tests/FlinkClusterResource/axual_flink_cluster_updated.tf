@@ -4,7 +4,7 @@ resource "axual_flink_cluster" "tf_test_flink_cluster" {
   url         = local.ververica_url
   api_token   = local.ververica_api_token
   name        = "tf-test-flink-cluster"
-  owner       = data.axual_group.test_group.id
+  owners      = data.axual_group.test_group.id
   # Emptied on update; the next step leaves the attribute out, which must produce no diff.
   authorized_groups = []
   description       = "Axual's TF Test Flink Cluster, updated"
