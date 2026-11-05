@@ -29,6 +29,7 @@ All notable changes to this project will be documented in this file.
 * An `axual_schema_version` `body` that differs from the stored body only in JSON whitespace or key order is not a change any more. Before, the apply failed with `API does not allow update of schema version`
 * An `axual_topic_browse_permissions` whose topic configuration was deleted is removed from the state, and its destroy skips users and groups that were deleted meanwhile. Before, plan and destroy failed
 * An `axual_application_credential` of a Schema Registry that uses OAuth, imported or exported with `terraform query`, now gets `target = "SCHEMA_REGISTRY"` instead of `"KAFKA"`, so destroying it deletes it. A configuration that sets `target = "KAFKA"` for such a credential must change it to `"SCHEMA_REGISTRY"`
+* A `retention_time` above 160704000000 (5 years) on `axual_topic_config` fails at plan. Before, the apply failed, and releases before Axual Platform 2026.4 had already set the value on the topic
 
 ## [3.2.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.2.0) - 2026-10-08
 ### Added

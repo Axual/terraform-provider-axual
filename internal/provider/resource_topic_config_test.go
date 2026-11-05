@@ -17,7 +17,7 @@ func TestTopicConfigRetentionTime(t *testing.T) {
 	var resp resource.SchemaResponse
 	NewTopicConfigResource(AxualProvider{}).Schema(ctx, resource.SchemaRequest{}, &resp)
 	attr := resp.Schema.Attributes["retention_time"].(schema.Int64Attribute)
-	for value, want := range map[int64]bool{-2: false, -1: true, 0: false, 999: false, 1000: true, 160704000000: true} {
+	for value, want := range map[int64]bool{-2: false, -1: true, 0: false, 999: false, 1000: true, 160704000000: true, 160704000001: false} {
 		var diags diag.Diagnostics
 		for _, v := range attr.Validators {
 			r := validator.Int64Response{}
