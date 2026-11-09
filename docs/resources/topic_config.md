@@ -12,7 +12,7 @@ Topic Config resource. Once the Topic has been created, the next step to actuall
 
 - `environment` (String) The environment this topic configuration is associated with
 - `partitions` (Number) The number of partitions define how many consumer instances can be started in parallel on this topic. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#partitions-number
-- `retention_time` (Number) Determine how long the messages should be available on a topic. There should be an agreed value most likely discussed in Intake session with the team supporting Axual Platform. In most cases, it is 7 days. The value is in milliseconds, from 1000 to 160704000000 (5 years). `-1` means infinite retention: messages are never deleted, so disk usage grows without limit. `-1` needs Axual Platform 2026.4 or later. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#retention-time
+- `retention_time` (Number) Determine how long the messages should be available on a topic. There should be an agreed value most likely discussed in Intake session with the team supporting Axual Platform. In most cases, it is 7 days. The value is in milliseconds, from 1000 to 160704000000 (5 years). `-1` means infinite retention: messages are never deleted, so disk usage grows without limit. `-1` needs Platform Manager 16.1.0 or later; with an older one, the plan fails. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#retention-time
 - `topic` (String) The Topic this topic configuration is associated with
 
 ### Optional
