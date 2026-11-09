@@ -2,7 +2,7 @@ package webclient
 
 type TopicConfigResponse struct {
 	Properties         map[string]interface{} `json:"properties"`
-	RetentionTime      int                    `json:"retentionTime"`
+	RetentionTime      int64                  `json:"retentionTime"`
 	Partitions         int                    `json:"partitions"`
 	Uid                string                 `json:"uid"`
 	KeySchemaVersion   string                 `json:"key_schema_version"`
@@ -21,7 +21,7 @@ type TopicConfigResponse struct {
 
 type TopicConfigRequest struct {
 	Partitions         int                    `json:"partitions,omitempty"`
-	RetentionTime      int                    `json:"retentionTime,omitempty"`
+	RetentionTime      int64                  `json:"retentionTime,omitempty"`
 	Stream             string                 `json:"stream,omitempty"`
 	Environment        string                 `json:"environment,omitempty"`
 	Properties         map[string]interface{} `json:"properties,omitempty"`

@@ -30,6 +30,10 @@ jobs:
       - name: Unit tests
         run: go test -count 1 ./internal/provider/
 
+      # The 386 and arm releases have a 32-bit int: this catches values that overflow it, such as a long retention_time.
+      - name: Unit tests (32-bit)
+        run: GOARCH=386 go test -count 1 ./internal/provider/
+
       # axual-webclient is a separate module, so its tests are not part of the run above.
       - name: Unit tests (axual-webclient)
         run: go test -count 1 ./...

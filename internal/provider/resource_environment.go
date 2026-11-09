@@ -338,7 +338,7 @@ func createEnvironmentRequestFromData(ctx context.Context, data *environmentReso
 		Owners:              owners,
 		Viewers:             viewers,
 		Instance:            instance,
-		RetentionTime:       int(data.RetentionTime.ValueInt64()),
+		RetentionTime:       data.RetentionTime.ValueInt64(),
 		Partitions:          int(data.Partitions.ValueInt64()),
 	}
 
@@ -398,7 +398,7 @@ func mapEnvironmentResponseToData(ctx context.Context, data *environmentResource
 	data.Visibility = types.StringValue(environment.Visibility)
 	data.AuthorizationIssuer = types.StringValue(environment.AuthorizationIssuer)
 	data.Owners = types.StringValue(environment.Embedded.Owners.Uid)
-	data.RetentionTime = types.Int64Value(int64(environment.RetentionTime))
+	data.RetentionTime = types.Int64Value(environment.RetentionTime)
 	data.Partitions = types.Int64Value(int64(environment.Partitions))
 	data.Properties = utils.HandlePropertiesMapping(ctx, environment.Properties)
 	data.Settings = utils.HandlePropertiesMapping(ctx, environment.Settings)
