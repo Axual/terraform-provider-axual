@@ -7,15 +7,23 @@ type SchemaRegistryConfig struct {
 	Url  string `json:"url"`
 }
 
+type FlinkClusterAuthorizedGroup struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
 type FlinkClusterResponse struct {
-	SchemaRegistries []SchemaRegistryConfig `json:"schemaRegistries"`
-	Name             string                 `json:"name"`
-	Description      string                 `json:"description"`
-	Url              string                 `json:"url"`
-	Workspace        string                 `json:"workspace"`
-	Namespace        string                 `json:"namespace"`
-	DeploymentTarget string                 `json:"deploymentTarget"`
-	Uid              string                 `json:"id"`
+	SchemaRegistries []SchemaRegistryConfig        `json:"schemaRegistries"`
+	Name             string                        `json:"name"`
+	Description      string                        `json:"description"`
+	Url              string                        `json:"url"`
+	Workspace        string                        `json:"workspace"`
+	Namespace        string                        `json:"namespace"`
+	DeploymentTarget string                        `json:"deploymentTarget"`
+	Uid              string                        `json:"id"`
+	OwnerGroupId     string                        `json:"ownerGroupId"`
+	OwnerGroupName   string                        `json:"ownerGroupName"`
+	AuthorizedGroups []FlinkClusterAuthorizedGroup `json:"authorizedGroups"`
 }
 
 // FlinkClusterRequest is the body of both the create POST and the update PATCH. Description and
@@ -31,4 +39,8 @@ type FlinkClusterRequest struct {
 	ApiToken         string  `json:"apiToken,omitempty"`
 
 	SchemaRegistries *[]SchemaRegistryConfig `json:"schemaRegistries"`
+
+	OwnerGroupId string `json:"ownerGroupId,omitempty"`
+	// Omitted keeps the stored groups, an empty array clears them. The API rejects an explicit null.
+	AuthorizedGroupIds *[]string `json:"authorizedGroupIds,omitempty"`
 }
