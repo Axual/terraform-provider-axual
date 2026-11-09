@@ -1,9 +1,12 @@
 resource "axual_flink_cluster" "tf_test_flink_cluster" {
-  instance_id       = data.axual_instance.test_instance.id
-  cluster_id        = local.cluster_id
-  url               = local.ververica_url
-  api_token         = local.ververica_api_token
-  name              = "tf-test-flink-cluster"
+  instance_id = data.axual_instance.test_instance.id
+  cluster_id  = local.cluster_id
+  url         = local.ververica_url
+  api_token   = local.ververica_api_token
+  name        = "tf-test-flink-cluster"
+  owners      = data.axual_group.test_group.id
+  # Emptied on update; the next step leaves the attribute out, which must produce no diff.
+  authorized_groups = []
   description       = "Axual's TF Test Flink Cluster, updated"
   workspace         = local.ververica_workspace
   namespace         = local.ververica_namespace

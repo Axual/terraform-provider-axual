@@ -87,9 +87,8 @@ managed by Terraform.
 
 ## Good to know
 
-- Secret values (certificates, private keys, connector `configs`, KSML `definition` and Flink
-  `sql_script`) are not exported. Terraform writes
-  `null # sensitive`; fill them in before step 5. For a deployment, the plan stops with
+- Secret values (private keys and connector `configs`) are not exported. Terraform writes
+  `null # sensitive`; fill them in before step 5. For a Connector deployment, the plan stops with
   `Missing configs` until you do. A principal's private key is stored again by the first apply.
 - After the import, `terraform destroy` or removing a block deletes the resource on the platform, also
   a user. Use a `removed` block with `lifecycle { destroy = false }` to stop managing it instead.

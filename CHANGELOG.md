@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 ### Added
+* `owners` and `authorized_groups` on `axual_flink_cluster` (Platform Manager 17.0.0 or later). `owners` is the Group that manages the Flink Cluster. `authorized_groups` lists the Groups that may deploy Flink SQL applications to it: with no authorized Groups, no Group can deploy, the owner included. Leave `authorized_groups` out to keep the Groups the Flink Cluster has; `authorized_groups = []` removes all of them
 * `tags` on `axual_topic` and the `axual_topic` data source: the topic tags shown in the Self-Service UI. Leaving out `tags` keeps the tags the topic has; `tags = []` removes them ([#177](https://github.com/Axual/terraform-provider-axual/issues/177))
 * Import by name instead of ID: `name:<name>` for `axual_topic`, `axual_environment`, `axual_application` and `axual_group`, `email:<email address>` for `axual_user`, and `name:<topic name>/<environment short name>` for `axual_topic_config`, for example `terraform import axual_topic.payments name:payments`. Works in `import` blocks too ([#114](https://github.com/Axual/terraform-provider-axual/issues/114))
 * `terraform query` support (Terraform 1.14 or newer): list resources with filters, so `terraform query -generate-config-out` writes `resource` and `import` blocks for resources that already exist. Not for `axual_flink_cluster`. The access grant list leaves out revoked and cancelled grants unless its `status` filter asks for them
@@ -12,10 +13,13 @@ All notable changes to this project will be documented in this file.
 * `retention_time = -1` on `axual_topic_config`: infinite retention, so messages are never deleted. Needs Platform Manager 16.1.0 or later; with an older one, the plan fails
 
 ### Changed
+* **Breaking:** `owners` is required on `axual_flink_cluster`, and a changed `name` now replaces the Flink Cluster instead of renaming it, because Platform Manager does not allow renaming. Add `owners`, and `authorized_groups` with the Group of every application that deploys to the Flink Cluster, before you upgrade: an `axual_application_deployment` of a `FLINK_SQL` application is refused with `403 Forbidden` when its application owner Group is not authorized on the Flink Cluster
+* More than one `axual_flink_cluster` can be registered per Instance-Cluster (Platform Manager 17.0.0 or later)
 * Leaving out `roles` on an `axual_user` now keeps the roles the user has. Only `roles = []` removes them
 * A plan that leaves out `configs`, `definition` or `sql_script` of an `axual_application_deployment` that has them stops with `Missing configs` (or `definition`, `sql_script`), unless the application or environment changes. `configs = {}` removes all configs (Platform Manager 16.0.0 or later). Before, the apply removed them and stopped the deployment
 
 ### Fixed
+* `principal` of `axual_application_principal`, and `definition` and `sql_script` of `axual_application_deployment`, are no longer sensitive. `terraform query -generate-config-out` now writes them. `private_key` and `configs` stay sensitive. After the upgrade, the first plan shows an in-place update for each `axual_application_principal` and `axual_application_deployment`, with the note that the value is no longer marked as sensitive. Applying it makes no API call and does not restart a deployment. `terraform plan -detailed-exitcode` returns `2` once (AXPD-12611)
 * A STOP that fails with a `5xx` (for example while the Connect worker rebalances) is retried, like START. It is not sent again once the deployment has stopped
 * An `axual_application_deployment` deleted outside Terraform no longer breaks `plan` and `destroy` with `no application deployment found`; it is removed from the state and planned again
 * `roles = []` on an `axual_user` removes all roles instead of failing with `Required request body is missing` (AXPD-9562)

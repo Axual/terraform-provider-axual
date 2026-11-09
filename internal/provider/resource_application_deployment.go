@@ -147,9 +147,8 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				Sensitive:           true,
 			},
 			"definition": schema.StringAttribute{
-				MarkdownDescription: "KSML definition for Application Deployment. Required for KSML deployments. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. Once set, it cannot be left out.",
+				MarkdownDescription: "KSML definition for Application Deployment. Required for KSML deployments. Once set, it cannot be left out.",
 				Optional:            true,
-				Sensitive:           true,
 			},
 			"deployment_size": schema.StringAttribute{
 				MarkdownDescription: "The t-shirt size of the deployment. Optional for KSML and FLINK_SQL deployments; for FLINK_SQL it sizes the Flink TaskManager. The accepted sizes are configured per Platform Manager install (`axual.application-deployment.flink.deployment-sizes`, `...ksml.deployment-sizes`) and default to `XS`, `S`, `M`, `L` and `XL`, so your instance may accept a different set; the match is case-insensitive. No endpoint lists them, so an unknown size is only rejected once the apply reaches the API. If not specified, the Platform Manager will assign a default value.",
@@ -197,9 +196,8 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				},
 			},
 			"sql_script": schema.StringAttribute{
-				MarkdownDescription: "The user-authored Flink SQL script. Required for FLINK_SQL deployments. Each statement must be a `CREATE TEMPORARY TABLE` or an `INSERT INTO ... SELECT`; two or more top-level `INSERT INTO` statements must be wrapped in `BEGIN STATEMENT SET; ... END;`. With `generate_tables_sql = true` the platform generates the `CREATE TEMPORARY TABLE` statements from the application's approved topic access and the script carries only the `INSERT INTO ... SELECT`; with `false` you write the table DDL yourself. Kafka and schema registry connection options (`bootstrap.servers`, `properties.security.protocol`, `properties.sasl.*`, `ssl.*`, and the `avro-confluent` `url`/`basic-auth.*`/`bearer-auth.*` options) are injected by the platform and are rejected here, `connector` must stay `kafka` or `upsert-kafka`, and each side is declared with `key.format`/`value.format` rather than Flink's `format` shorthand. This field is Sensitive and will not be displayed in server log outputs when using Terraform commands. Once set, it cannot be left out.",
+				MarkdownDescription: "The user-authored Flink SQL script. Required for FLINK_SQL deployments. Each statement must be a `CREATE TEMPORARY TABLE` or an `INSERT INTO ... SELECT`; two or more top-level `INSERT INTO` statements must be wrapped in `BEGIN STATEMENT SET; ... END;`. With `generate_tables_sql = true` the platform generates the `CREATE TEMPORARY TABLE` statements from the application's approved topic access and the script carries only the `INSERT INTO ... SELECT`; with `false` you write the table DDL yourself. Kafka and schema registry connection options (`bootstrap.servers`, `properties.security.protocol`, `properties.sasl.*`, `ssl.*`, and the `avro-confluent` `url`/`basic-auth.*`/`bearer-auth.*` options) are injected by the platform and are rejected here, `connector` must stay `kafka` or `upsert-kafka`, and each side is declared with `key.format`/`value.format` rather than Flink's `format` shorthand. Once set, it cannot be left out.",
 				Optional:            true,
-				Sensitive:           true,
 			},
 			"generate_tables_sql": schema.BoolAttribute{
 				// Computed as well as Optional: the API defaults an absent value to `false` and
@@ -575,14 +573,15 @@ func (r *applicationDeploymentResource) checkStartPrerequisites(data *Applicatio
 	return true, diags
 }
 
-// refuseClearingDeployment stops a plan that clears configs, a definition or a SQL script. Generated
-// configuration leaves these sensitive values null, and applying it would stop the deployment.
+// refuseClearingDeployment stops a plan that clears configs, a definition or a SQL script. A
+// configuration that leaves them out would stop the deployment.
 func refuseClearingDeployment(plan, state *ApplicationDeploymentResourceData, diags *diag.Diagnostics) {
-	const howTo = "Set it. Configuration from `terraform query` leaves it out, because it is sensitive."
+	const howTo = "Set it."
+	const configsHowTo = "Set it. Configuration from `terraform query` leaves it out, because it is sensitive."
 	if plan.Configs.IsNull() && len(state.Configs.Elements()) > 0 {
 		diags.AddAttributeError(path.Root("configs"), "Missing configs",
 			"configs is not set, but the deployment has configs. This apply would remove them and stop the deployment. "+
-				howTo+" To remove all configs, set `configs = {}` (Platform Manager 16.0.0 or later).")
+				configsHowTo+" To remove all configs, set `configs = {}` (Platform Manager 16.0.0 or later).")
 	}
 	if plan.Definition.IsNull() && state.Definition.ValueString() != "" {
 		diags.AddAttributeError(path.Root("definition"), "Missing definition",
