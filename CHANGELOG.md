@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 * `terraform query` support (Terraform 1.14 or newer): list resources with filters, so `terraform query -generate-config-out` writes `resource` and `import` blocks for resources that already exist. Not for `axual_flink_cluster`. The access grant list leaves out revoked and cancelled grants unless its `status` filter asks for them
 * Resource identity for every resource except `axual_flink_cluster`, so an `import` block can use `identity` instead of `id`
 * Guides: `Quick start: export your resources with terraform query` and `Exporting existing resources with terraform query`, and an example in `examples/terraform-query`
+* `retention_time = -1` on `axual_topic_config`: infinite retention, so messages are never deleted. Needs Platform Manager 16.1.0 or later; with an older one, the plan fails
 
 ### Changed
 * **Breaking:** `owners` is required on `axual_flink_cluster`, and a changed `name` now replaces the Flink Cluster instead of renaming it, because Platform Manager does not allow renaming. Add `owners`, and `authorized_groups` with the Group of every application that deploys to the Flink Cluster, before you upgrade: an `axual_application_deployment` of a `FLINK_SQL` application is refused with `403 Forbidden` when its application owner Group is not authorized on the Flink Cluster
@@ -33,6 +34,7 @@ All notable changes to this project will be documented in this file.
 * An `axual_schema_version` `body` that differs from the stored body only in JSON whitespace or key order is not a change any more. Before, the apply failed with `API does not allow update of schema version`
 * An `axual_topic_browse_permissions` whose topic configuration was deleted is removed from the state, and its destroy skips users and groups that were deleted meanwhile. Before, plan and destroy failed
 * An `axual_application_credential` of a Schema Registry that uses OAuth, imported or exported with `terraform query`, now gets `target = "SCHEMA_REGISTRY"` instead of `"KAFKA"`, so destroying it deletes it. A configuration that sets `target = "KAFKA"` for such a credential must change it to `"SCHEMA_REGISTRY"`
+* A `retention_time` above 160704000000 (5 years) on `axual_topic_config` fails at plan. Before, the apply failed, and Platform Manager before 16.1.0 had already set the value on the topic
 
 ## [3.2.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.2.0) - 2026-10-08
 ### Added

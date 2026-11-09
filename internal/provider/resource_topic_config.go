@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	custom_validator "axual.com/terraform-provider-axual/internal/custom-validator"
 	"axual.com/terraform-provider-axual/internal/provider/utils"
-	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/mapvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -25,6 +25,11 @@ import (
 
 var _ resource.Resource = &topicConfigResource{}
 var _ resource.ResourceWithImportState = &topicConfigResource{}
+var _ resource.ResourceWithModifyPlan = &topicConfigResource{}
+
+// Platform Manager accepts retention_time = -1 from 16.1.0 on. Older versions set retention.ms=-1 on
+// the topic and only then answer 400, so the plan refuses -1 on them.
+const infiniteRetentionMajor, infiniteRetentionMinor = 16, 1
 
 func NewTopicConfigResource(provider AxualProvider) resource.Resource {
 	return &topicConfigResource{
@@ -63,10 +68,10 @@ func (r *topicConfigResource) Schema(ctx context.Context, req resource.SchemaReq
 				Required:            true,
 			},
 			"retention_time": schema.Int64Attribute{
-				MarkdownDescription: "Determine how long the messages should be available on a topic. There should be an agreed value most likely discussed in Intake session with the team supporting Axual Platform. In most cases, it is 7 days. Minimum value is 1000 (ms). Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#retention-time",
+				MarkdownDescription: "Determine how long the messages should be available on a topic. There should be an agreed value most likely discussed in Intake session with the team supporting Axual Platform. In most cases, it is 7 days. The value is in milliseconds, from 1000 to 160704000000 (5 years). `-1` means infinite retention: messages are never deleted, so disk usage grows without limit. `-1` needs Platform Manager 16.1.0 or later; with an older one, the plan fails. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#retention-time",
 				Required:            true,
 				Validators: []validator.Int64{
-					int64validator.AtLeast(1000),
+					custom_validator.NewRetentionTimeValidator(),
 				},
 			},
 			"topic": schema.StringAttribute{
@@ -112,6 +117,47 @@ func (r *topicConfigResource) Schema(ctx context.Context, req resource.SchemaReq
 			},
 		},
 	}
+}
+
+// ModifyPlan refuses a new retention_time = -1 when Platform Manager is older than 16.1.0, or when its
+// version cannot be read.
+func (r *topicConfigResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() || r.provider.client == nil {
+		return
+	}
+	var plan topicConfigResourceData
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() || plan.RetentionTime.IsUnknown() || plan.RetentionTime.ValueInt64() != -1 {
+		return
+	}
+	if !req.State.Raw.IsNull() {
+		var state topicConfigResourceData
+		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+		if resp.Diagnostics.HasError() || state.RetentionTime.ValueInt64() == -1 {
+			return
+		}
+	}
+	summary := fmt.Sprintf("retention_time = -1 needs Platform Manager %d.%d.0 or later", infiniteRetentionMajor, infiniteRetentionMinor)
+	version, err := r.provider.client.GetPlatformVersion()
+	if err != nil {
+		resp.Diagnostics.AddAttributeError(path.Root("retention_time"), summary,
+			fmt.Sprintf("Reading the Platform Manager version failed: %s", err))
+		return
+	}
+	if !SupportsInfiniteRetention(version) {
+		resp.Diagnostics.AddAttributeError(path.Root("retention_time"), summary,
+			fmt.Sprintf("This Platform Manager is %s. It would set infinite retention on the topic and then fail.", version))
+	}
+}
+
+// SupportsInfiniteRetention reports whether a Platform Manager version, as GET /info returns it,
+// accepts retention_time = -1. A version it cannot read counts as too old.
+func SupportsInfiniteRetention(version string) bool {
+	var major, minor int
+	if _, err := fmt.Sscanf(version, "%d.%d", &major, &minor); err != nil {
+		return false
+	}
+	return major > infiniteRetentionMajor || major == infiniteRetentionMajor && minor >= infiniteRetentionMinor
 }
 func (r *topicConfigResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data topicConfigResourceData

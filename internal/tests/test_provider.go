@@ -125,6 +125,23 @@ func SkipWithoutConnectCluster(t *testing.T, config ProviderConfig) {
 	}
 }
 
+// SkipWithoutInfiniteRetention skips a test that sets retention_time = -1 on a Platform Manager that
+// refuses it. It signs in, so call it from PreCheck, which only runs with TF_ACC set.
+func SkipWithoutInfiniteRetention(t *testing.T) {
+	t.Helper()
+	client, err := apiClient()
+	if err != nil {
+		t.Fatalf("Error signing in to read the Platform Manager version: %v", err)
+	}
+	version, err := client.GetPlatformVersion()
+	if err != nil {
+		t.Fatalf("Error reading the Platform Manager version: %v", err)
+	}
+	if !provider.SupportsInfiniteRetention(version) {
+		t.Skipf("Platform Manager %s does not accept retention_time = -1", version)
+	}
+}
+
 // This function helps select the appropriate provider configuration for tests.
 func testProviderConfig() (resource.TestCase, error) {
 	// Load the provider configuration from the YAML file
