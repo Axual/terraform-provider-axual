@@ -90,8 +90,10 @@ type ApplicationAccessGrantAttributes struct {
 	Size          int    `json:"size"`
 }
 
+// grantSearchPath is the grant search, relative to the API URL (Platform Manager 16.1.0 or later).
+const grantSearchPath = "application_access_grants/search/findSummariesByAttributes"
+
 func (c *Client) GetApplicationAccessGrantsByAttributes(data ApplicationAccessGrantAttributes) (*GetApplicationAccessGrantsByAttributeResponse, error) {
-	o := GetApplicationAccessGrantsByAttributeResponse{}
 	headers := map[string]string{
 		"Content-Type": "application/json",
 		"Accept":       "application/hal+json",
@@ -111,11 +113,15 @@ func (c *Client) GetApplicationAccessGrantsByAttributes(data ApplicationAccessGr
 		}
 	}
 
-	endpoint := fmt.Sprintf("%s/application_access_grants/search/findByAttributes?%s", c.ApiURL, values.Encode())
-
-	err := c.RequestAndMap("GET", endpoint, nil, headers, &o)
+	o := GetApplicationAccessGrantsByAttributeResponse{}
+	err := c.RequestAndMap("GET", fmt.Sprintf("%s/%s?%s", c.ApiURL, grantSearchPath, values.Encode()), nil, headers, &o)
 	if err != nil {
 		return nil, err
 	}
 	return &o, nil
+}
+
+// ListApplicationAccessGrants returns every grant that matches params, from all pages. See ListAll.
+func (c *Client) ListApplicationAccessGrants(params url.Values) ([]ListItem, error) {
+	return c.ListAll(grantSearchPath, params)
 }

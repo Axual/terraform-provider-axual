@@ -661,7 +661,7 @@ func findGrants(_ context.Context, c *webclient.Client, f map[string]string, sta
 			if streamID != "" {
 				p.Set("streamId", streamID)
 			}
-			items, err := c.ListAll("application_access_grants/search/findByAttributes", p)
+			items, err := c.ListApplicationAccessGrants(p)
 			if err != nil {
 				return nil, err
 			}
