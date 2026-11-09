@@ -88,3 +88,36 @@ func (v KsmlApplicationTypeValidator) ValidateString(ctx context.Context, req va
 		)
 	}
 }
+
+// RetentionTimeValidator accepts -1 (infinite retention) or a value from 1000 to 160704000000 (5 years).
+type RetentionTimeValidator struct{}
+
+// Description returns the description of the validator.
+func (v RetentionTimeValidator) Description(_ context.Context) string {
+	return "Must be -1 (infinite) or between 1000 and 160704000000 (5 years)."
+}
+
+// MarkdownDescription returns the markdown description of the validator.
+func (v RetentionTimeValidator) MarkdownDescription(_ context.Context) string {
+	return v.Description(context.Background())
+}
+
+// NewRetentionTimeValidator creates a new instance of RetentionTimeValidator.
+func NewRetentionTimeValidator() validator.Int64 {
+	return RetentionTimeValidator{}
+}
+
+// ValidateInt64 reports one error for a value that is neither -1 nor between 1000 and 160704000000.
+func (v RetentionTimeValidator) ValidateInt64(_ context.Context, req validator.Int64Request, resp *validator.Int64Response) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+
+	if value := req.ConfigValue.ValueInt64(); value != -1 && (value < 1000 || value > 160704000000) {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Invalid Attribute Value",
+			fmt.Sprintf("Attribute %s value must be -1 (infinite) or between 1000 and 160704000000 (5 years), got: %d", req.Path, value),
+		)
+	}
+}

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	custom_validator "axual.com/terraform-provider-axual/internal/custom-validator"
 	"axual.com/terraform-provider-axual/internal/provider/utils"
-	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/mapvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -66,7 +66,7 @@ func (r *topicConfigResource) Schema(ctx context.Context, req resource.SchemaReq
 				MarkdownDescription: "Determine how long the messages should be available on a topic. There should be an agreed value most likely discussed in Intake session with the team supporting Axual Platform. In most cases, it is 7 days. The value is in milliseconds, from 1000 to 160704000000 (5 years). `-1` means infinite retention: messages are never deleted, so disk usage grows without limit. `-1` needs Axual Platform 2026.4 or later. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#retention-time",
 				Required:            true,
 				Validators: []validator.Int64{
-					int64validator.Any(int64validator.OneOf(-1), int64validator.Between(1000, 160704000000)),
+					custom_validator.NewRetentionTimeValidator(),
 				},
 			},
 			"topic": schema.StringAttribute{

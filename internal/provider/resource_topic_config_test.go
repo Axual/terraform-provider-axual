@@ -27,5 +27,8 @@ func TestTopicConfigRetentionTime(t *testing.T) {
 		if got := !diags.HasError(); got != want {
 			t.Errorf("retention_time %d valid = %v, expected %v", value, got, want)
 		}
+		if n := diags.ErrorsCount(); n > 1 {
+			t.Errorf("retention_time %d gives %d errors, expected one", value, n)
+		}
 	}
 }
