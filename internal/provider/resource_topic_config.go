@@ -368,7 +368,7 @@ func createTopicConfigRequestFromData(ctx context.Context, data *topicConfigReso
 
 	topicConfigRequest := webclient.TopicConfigRequest{
 		Partitions:    int(data.Partitions.ValueInt64()),
-		RetentionTime: int(data.RetentionTime.ValueInt64()),
+		RetentionTime: data.RetentionTime.ValueInt64(),
 		Stream:        topic,
 		Environment:   environment,
 	}
@@ -390,7 +390,7 @@ func createTopicConfigRequestFromData(ctx context.Context, data *topicConfigReso
 func mapTopicConfigResponseToData(ctx context.Context, data *topicConfigResourceData, topicConfig *webclient.TopicConfigResponse) {
 	data.Id = types.StringValue(topicConfig.Uid)
 	data.Partitions = types.Int64Value(int64(topicConfig.Partitions))
-	data.RetentionTime = types.Int64Value(int64(topicConfig.RetentionTime))
+	data.RetentionTime = types.Int64Value(topicConfig.RetentionTime)
 	data.Topic = types.StringValue(topicConfig.Embedded.Stream.Uid)
 	data.Environment = types.StringValue(topicConfig.Embedded.Environment.Uid)
 	data.Properties = utils.HandlePropertiesMapping(ctx, topicConfig.Properties)

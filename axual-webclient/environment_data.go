@@ -19,7 +19,7 @@ type EnvironmentResponse struct {
 	Color               string                 `json:"color"`
 	AuthorizationIssuer string                 `json:"authorizationIssuer"`
 	Visibility          string                 `json:"visibility"`
-	RetentionTime       int                    `json:"retentionTime"`
+	RetentionTime       int64                  `json:"retentionTime"`
 	Partitions          int                    `json:"partitions"`
 	Private             bool                   `json:"private"`
 	AutoApproved        bool                   `json:"autoApproved"`
@@ -45,7 +45,7 @@ type EnvironmentRequest struct {
 	ShortName           string                 `json:"shortName,omitempty"`
 	Description         interface{}            `json:"description,omitempty"`
 	Color               string                 `json:"color,omitempty"`
-	RetentionTime       int                    `json:"retentionTime,omitempty"`
+	RetentionTime       int64                  `json:"retentionTime,omitempty"`
 	Partitions          int                    `json:"partitions,omitempty"`
 	AuthorizationIssuer string                 `json:"authorizationIssuer,omitempty"`
 	Visibility          string                 `json:"visibility,omitempty"`
