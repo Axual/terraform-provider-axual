@@ -71,6 +71,7 @@ func TestTopicConfigResource(t *testing.T) {
 
 func TestTopicConfigInfiniteRetention(t *testing.T) {
 	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { SkipWithoutInfiniteRetention(t) },
 		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
 		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
 
