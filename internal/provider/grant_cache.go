@@ -270,8 +270,8 @@ func (c *grantCache) removed(grantUid string) string {
 var uidPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
 // matchGrant finds the grant of an application. The grant UID from the last Read matches first, so a
-// renamed application keeps its grant; then the application UID, then its name (names are unique
-// per tenant, but a name could look like a UID).
+// renamed application keeps its grant; then the application UID, then its name, ignoring case like
+// Platform Manager (names are unique per tenant, also ignoring case, but a name could look like a UID).
 func matchGrant(grants []webclient.GrantView, application, grantID string) *webclient.GrantView {
 	if grantID != "" {
 		for i := range grants {
@@ -288,7 +288,7 @@ func matchGrant(grants []webclient.GrantView, application, grantID string) *webc
 		}
 	}
 	for i := range grants {
-		if grants[i].ApplicationName == application {
+		if strings.EqualFold(grants[i].ApplicationName, application) {
 			return &grants[i]
 		}
 	}

@@ -20,9 +20,10 @@ type Client struct {
 	grantActions     chan struct{}
 }
 
-// maxGrantActions is how many approves, rejects, revokes and cancels the client sends at the same time.
-// Platform Manager can stop responding when it gets about 10 at once (each holds a database connection
-// while it waits for another one), and Terraform runs 10 operations at a time by default.
+// maxGrantActions is how many approves, rejects, revokes and cancels the client sends at the same time,
+// to protect Platform Manager: Terraform runs 10 operations at a time by default. In a load test (50
+// approvals, 10 at once, Platform Manager 16.0.0, pool size 10) each approval held a database connection
+// while it waited for another one, and the pool ran out. It is a race and doesn't happen every time.
 const maxGrantActions = 4
 
 // grantAction runs a grant approve, reject, revoke or cancel request, at most maxGrantActions at a time.

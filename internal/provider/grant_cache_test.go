@@ -17,6 +17,7 @@ func TestMatchGrant(t *testing.T) {
 	}
 	tests := []struct{ application, want string }{
 		{"Log Scraper", "g1"},
+		{"log scraper", "g1"}, // Platform Manager ignores case in names
 		{"0123456789abcdef0123456789abcdef", "g1"}, // UID first
 		{"ffffffffffffffffffffffffffffffff", "g2"},
 		{"Unknown", ""},

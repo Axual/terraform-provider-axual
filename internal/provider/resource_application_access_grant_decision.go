@@ -310,7 +310,7 @@ func grantMatchesLookups(g webclient.GrantView, d grantDecisionData) bool {
 	app := d.Application.ValueString()
 	return g.TopicUid == d.Topic.ValueString() && g.EnvironmentUid == d.Environment.ValueString() &&
 		strings.EqualFold(g.AccessType, d.AccessType.ValueString()) &&
-		(app == g.ApplicationName || strings.EqualFold(app, g.ApplicationUid))
+		(strings.EqualFold(app, g.ApplicationName) || strings.EqualFold(app, g.ApplicationUid))
 }
 
 func known(v types.String) bool { return !v.IsNull() && !v.IsUnknown() && v.ValueString() != "" }
@@ -336,7 +336,7 @@ func (r *grantDecisionResource) Read(ctx context.Context, req resource.ReadReque
 		if !known(d.ApplicationUid) && g.ApplicationUid != "" {
 			d.ApplicationUid = types.StringValue(g.ApplicationUid) // the first application found; never changed by Read
 		}
-		if app := d.Application.ValueString(); app != "" && !strings.EqualFold(app, g.ApplicationUid) && g.ApplicationName != "" && app != g.ApplicationName {
+		if app := d.Application.ValueString(); app != "" && !strings.EqualFold(app, g.ApplicationUid) && g.ApplicationName != "" && !strings.EqualFold(app, g.ApplicationName) {
 			resp.Diagnostics.AddWarning(fmt.Sprintf("Application %q is now named %q", app, g.ApplicationName),
 				fmt.Sprintf("The decision still finds its grant (%s). Update application to %q, or to the application UID %s.", g.Uid, g.ApplicationName, g.ApplicationUid))
 		}
@@ -741,7 +741,7 @@ func (r *grantDecisionResource) label(d grantDecisionData, g *webclient.GrantVie
 	} else if r.provider.grants != nil && known(d.Topic) && known(d.Environment) && known(d.AccessType) {
 		if grants, err := r.provider.grants.search(d.Topic.ValueString(), d.Environment.ValueString(), d.AccessType.ValueString(), false); err == nil {
 			for _, found := range grants {
-				if found.Uid == d.GrantId.ValueString() || found.ApplicationUid == d.Application.ValueString() || found.ApplicationName == d.Application.ValueString() {
+				if found.Uid == d.GrantId.ValueString() || strings.EqualFold(found.ApplicationUid, d.Application.ValueString()) || strings.EqualFold(found.ApplicationName, d.Application.ValueString()) {
 					v = found
 					break
 				}
@@ -970,6 +970,10 @@ func (r *grantDecisionResource) Delete(ctx context.Context, req resource.DeleteR
 	}
 	if g != nil && g.Status == "Approved" {
 		if err := r.provider.client.RevokeOrDenyGrant(g.Uid, destroyReason(state)); err != nil {
+			// Revoked or deleted at the same time by another resource in this destroy, for example the grant.
+			if now, getErr := r.provider.client.GetGrantView(g.Uid); isGone(getErr) || (getErr == nil && now.IsClosed()) {
+				return
+			}
 			resp.Diagnostics.AddError(fmt.Sprintf("Failed to revoke %s", grantName(*g)), err.Error())
 		}
 	}

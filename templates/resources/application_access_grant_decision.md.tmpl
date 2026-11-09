@@ -8,7 +8,7 @@ Use it in the topic team's repository. The application team requests access with
 
 1. **The topic team writes `decision`.** `APPROVED` approves every request from that application, now and later. `DENIED` (with a `reason`) rejects or revokes, also every later request.
 2. **The application team changes `request_again` to ask again.** The text isn't sent to the platform, so explain the reason in the PR to the topic repository. After `DENIED`, the topic team changes the decision first.
-3. **Removing a block revokes** an `Approved` grant (`revoke_on_destroy` defaults to `true`). To rename or move a block, add a `moved` block. To drop a block without revoking, set `revoke_on_destroy = false` and apply before you remove it, or use `terraform state rm`. See [Removing a block](#removing-a-block-or-pointing-it-at-another-grant).
+3. **Removing a block revokes** an `Approved` grant (`revoke_on_destroy` defaults to `true`). To rename or move a block, add a `moved` block. To drop a block without revoking, set `revoke_on_destroy = false` and apply before you remove it, or use `terraform state rm`. `terraform apply -replace` on a decision revokes its grant too, and the plan doesn't show it: don't use `-replace` on a decision. See [Removing a block](#removing-a-block-or-pointing-it-at-another-grant).
 
 ## What the provider does
 
@@ -134,6 +134,7 @@ To cut access now:
 
 - Removing the block revokes an `Approved` grant, with the reason "Decision removed from Terraform" (plus `reason` when set); the plan warns. With `revoke_on_destroy = false` it makes no API call: the grant stays as it is, and the plan warns that it stays `Approved`. `terraform state rm '<address>'` also leaves the grant as it is; in a PR, a `removed` block with `lifecycle { destroy = false }` does the same for a whole resource block (it can't name one `for_each` key).
 - To rename a `for_each` key or move the block (for example into a module), add a `moved` block. Without it the plan fails: the old block would revoke the grant that the new one approves. When both blocks are already in the state (the new one was added in an earlier apply), `moved` can't help: drop the old one with `terraform state rm`.
+- `terraform apply -replace` on a decision revokes its grant too, and the plan doesn't show it. Don't use `-replace` on a decision.
 - `terraform destroy -target` on one of two blocks for the same grant revokes it: Terraform plans only that block, so the provider doesn't see the other one. Use `terraform state rm` to drop a duplicate.
 - Changing `application` from a name to a UID (or the reverse) is an in-place update without an action.
 - Changing `application`, `topic`, `environment`, `access_type` or `grant_id` to another grant replaces the block, which revokes the old grant (with `revoke_on_destroy = false` it stays `Approved`, and the plan warns).

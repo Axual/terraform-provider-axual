@@ -171,7 +171,7 @@ Removing the block revokes an Approved grant, as removing an approval does. To r
 
 ### Many Decisions in One Apply
 
-Platform Manager can stop responding when it gets about 10 approvals, rejects or revokes at the same time. The provider sends at most 4 of them at a time, so an apply that acts on many grants, for example the first apply of a topic repository, takes longer but doesn't need `-parallelism`.
+The provider sends at most 4 approvals, rejects or revokes at a time, to protect Platform Manager. No `-parallelism` is needed.
 
 ---
 

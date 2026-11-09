@@ -72,7 +72,7 @@ func TestGrantMatchesLookups(t *testing.T) {
 		{"by UID, other case", d("0123456789ABCDEF0123456789ABCDEF", "t", "e", "CONSUMER"), true},
 		{"access type in lower case", d("Log Scraper", "t", "e", "consumer"), true},
 		{"other application", d("POC Secret", "t", "e", "CONSUMER"), false},
-		{"name in other case", d("log scraper", "t", "e", "CONSUMER"), false},
+		{"name in other case", d("log scraper", "t", "e", "CONSUMER"), true},
 		{"other topic", d("Log Scraper", "t2", "e", "CONSUMER"), false},
 		{"other environment", d("Log Scraper", "t", "e2", "CONSUMER"), false},
 		{"other access type", d("Log Scraper", "t", "e", "PRODUCER"), false},

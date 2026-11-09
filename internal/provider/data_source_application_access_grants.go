@@ -126,7 +126,7 @@ func (d *applicationAccessGrantsDataSource) Read(ctx context.Context, req dataso
 	}
 	data.Grants = []applicationGrantItem{}
 	for _, g := range grants {
-		if application != "" && applicationFilter == "" && g.ApplicationName != application {
+		if application != "" && applicationFilter == "" && !strings.EqualFold(g.ApplicationName, application) {
 			continue
 		}
 		data.Grants = append(data.Grants, applicationGrantItem{
