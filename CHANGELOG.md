@@ -11,12 +11,26 @@ All notable changes to this project will be documented in this file.
 * Resource identity for every resource except `axual_flink_cluster`, so an `import` block can use `identity` instead of `id`
 * Guides: `Quick start: export your resources with terraform query` and `Exporting existing resources with terraform query`, and an example in `examples/terraform-query`
 * `retention_time = -1` on `axual_topic_config`: infinite retention, so messages are never deleted. Needs Platform Manager 16.1.0 or later; with an older one, the plan fails
+* `axual_application_access_grant_decision`: the topic team's standing decision about one application's access to a topic. `APPROVED` approves every request from the application, now and later; `DENIED` (with a `reason`) rejects or revokes. It finds the grant itself by application name or UID, topic, environment and access type, also before the request exists; in a single repository, set `grant_id` instead. A decision by name stays with the application it first matched: a deleted and re-created application is approved only after `application` is set to its new UID. Removing the block revokes an Approved grant, like removing an approval did; `revoke_on_destroy = false` only stops managing it. See the guide "Managing application access to topics" (AXPD-12412)
+* Existing `_approval` and `_rejection` blocks move to the decision with a `moved` block (Terraform 1.8 or later), with no diff. A plan that deletes an approval and adds a decision for the same grant without `moved` fails instead of revoking the grant; so does a renamed `for_each` key without `moved` (AXPD-12412)
+* A list resource for the decision, so `terraform query` can export existing decisions (AXPD-12412)
+* `request_again`, `decision_reason`, `decided_at` and `decided_by` on `axual_application_access_grant`, and the decision fields on its data source: the application team sees the answer and asks again by changing `request_again` (AXPD-12412)
+* `axual_application_access_grants` data source: lists grants, for example the open requests on a topic (AXPD-12412)
 
 ### Changed
 * **Breaking:** `owners` is required on `axual_flink_cluster`, and a changed `name` now replaces the Flink Cluster instead of renaming it, because Platform Manager does not allow renaming. Add `owners`, and `authorized_groups` with the Group of every application that deploys to the Flink Cluster, before you upgrade: an `axual_application_deployment` of a `FLINK_SQL` application is refused with `403 Forbidden` when its application owner Group is not authorized on the Flink Cluster
 * More than one `axual_flink_cluster` can be registered per Instance-Cluster (Platform Manager 17.0.0 or later)
 * Leaving out `roles` on an `axual_user` now keeps the roles the user has. Only `roles = []` removes them
+* Changing `application`, `topic`, `environment` or `access_type` of an `axual_application_access_grant` fails in the plan instead of at apply (AXPD-12412)
+* Upgrading from `axual_application_access_grant_approval`: a `moved` block keeps today's behaviour (removing the moved decision revokes), with no diff. Removing an approval now warns that it revokes the grant (AXPD-12412)
+* Upgrading from `axual_application_access_grant_approval` on an instance with self-approval disabled: the decision approves only when the platform offers approve to the signed-in user, so it doesn't approve a request this user made itself, while the approval resource did. With `grant_id`, creating the decision then fails, as it does on a Rejected or Revoked grant, so a deployment with `depends_on` on the decision isn't created; an existing decision and the lookup attributes (multi-repo) only warn (AXPD-12412)
+* Approvals, rejects, revokes and cancels of access grants run at most 4 at a time, to protect Platform Manager. No `-parallelism` is needed for an apply that acts on many grants (AXPD-12412)
+* The `axual_application_access_grants` data source matches `application` by name ignoring case, as Platform Manager does (AXPD-12412)
+* The access guides describe the platform correctly: Rejected, Revoked and Cancelled grants are closed, not final; a new request reopens the same grant (AXPD-12412)
 * A plan that leaves out `configs`, `definition` or `sql_script` of an `axual_application_deployment` that has them stops with `Missing configs` (or `definition`, `sql_script`), unless the application or environment changes. `configs = {}` removes all configs (Platform Manager 16.0.0 or later). Before, the apply removed them and stopped the deployment
+
+### Deprecated
+* `axual_application_access_grant_approval` and `axual_application_access_grant_rejection`: use `axual_application_access_grant_decision` (AXPD-12412)
 
 ### Fixed
 * 32-bit builds (386 and arm) handle a `retention_time` above 2147483647 (about 25 days) on `axual_topic_config` and `axual_environment`. Before, the apply could set a shorter retention and then fail, and reading such a value failed

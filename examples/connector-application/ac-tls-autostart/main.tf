@@ -2,7 +2,10 @@
 # axual_application_deployment.autostart = true (the default).
 #
 # Order: principal -> grant + approval -> deployment. Creating the deployment starts the connector,
-# so the principal and the approved grant must exist first.
+# so the principal and the approved grant must exist first. When the new decision can't approve the
+# grant (the platform doesn't offer approve to this user, for example with self-approval disabled, or
+# the grant is Rejected), the apply fails and the deployment isn't created: approve the grant in the
+# UI as another topic owner, then apply again.
 #
 # Replace every YOUR_* value below. This example uses its own directory, and therefore its own
 # terraform.tfstate.
@@ -79,8 +82,9 @@ resource "axual_application_access_grant" "example" {
   depends_on  = [axual_topic_config.example, axual_application_principal.example]
 }
 
-resource "axual_application_access_grant_approval" "example" {
-  application_access_grant = axual_application_access_grant.example.id
+resource "axual_application_access_grant_decision" "example" {
+  grant_id = axual_application_access_grant.example.id
+  decision = "APPROVED"
 }
 
 # 3. The deployment: no target_id (legacy Axual Connect). Creating it starts the connector.
@@ -94,5 +98,5 @@ resource "axual_application_deployment" "example" {
     "value.converter" = "org.apache.kafka.connect.storage.StringConverter",
     "tasks.max"       = "1",
   }
-  depends_on = [axual_application_access_grant_approval.example]
+  depends_on = [axual_application_access_grant_decision.example]
 }

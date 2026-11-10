@@ -442,7 +442,7 @@ resource "axual_application_deployment" "ac_exp" {
 resource "axual_application_deployment_state" "ac_exp" {
   application_deployment = axual_application_deployment.ac_exp.id
   state                  = "%s"
-  depends_on             = [axual_application_access_grant_approval.ac_exp, axual_application_principal.ac_exp]
+  depends_on             = [axual_application_access_grant_decision.ac_exp, axual_application_principal.ac_exp]
 }
 `, endpoint, state)
 }

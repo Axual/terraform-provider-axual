@@ -55,6 +55,11 @@ resource "axual_application_access_grant" "tf-test-ksml-application-access-grant
   ]
 }
 
-resource "axual_application_access_grant_approval" "tf-test-ksml-application-access-grant-approval" {
-  application_access_grant = axual_application_access_grant.tf-test-ksml-application-access-grant.id
+resource "axual_application_access_grant_decision" "tf-test-ksml-application-access-grant-approval" {
+  application       = axual_application_access_grant.tf-test-ksml-application-access-grant.application
+  topic             = axual_application_access_grant.tf-test-ksml-application-access-grant.topic
+  environment       = axual_application_access_grant.tf-test-ksml-application-access-grant.environment
+  access_type       = axual_application_access_grant.tf-test-ksml-application-access-grant.access_type
+  decision          = "APPROVED"
+  revoke_on_destroy = true
 }

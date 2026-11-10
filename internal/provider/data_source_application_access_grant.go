@@ -31,6 +31,7 @@ type applicationAccessGrantDataSourceData struct {
 	EnvironmentId types.String `tfsdk:"environment"`
 	Status        types.String `tfsdk:"status"`
 	AccessType    types.String `tfsdk:"access_type"`
+	decisionFields
 }
 
 func (d *applicationAccessGrantDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -68,6 +69,18 @@ func (d *applicationAccessGrantDataSource) Schema(ctx context.Context, req datas
 					stringvalidator.OneOf("CONSUMER", "PRODUCER"),
 				},
 			},
+			"decision_reason": schema.StringAttribute{
+				MarkdownDescription: decisionReasonAttribute().MarkdownDescription,
+				Computed:            true,
+			},
+			"decided_at": schema.StringAttribute{
+				MarkdownDescription: decidedAtAttribute().MarkdownDescription,
+				Computed:            true,
+			},
+			"decided_by": schema.StringAttribute{
+				MarkdownDescription: decidedByAttribute().MarkdownDescription,
+				Computed:            true,
+			},
 		},
 	}
 }
@@ -102,6 +115,10 @@ func (d applicationAccessGrantDataSource) Read(ctx context.Context, req datasour
 	}
 
 	mapApplicationAccessGrantDataSourceResponseToData(ctx, &data, applicationAccessGrant)
+	data.decisionFields = decisionFields{}.null()
+	if g, err := d.provider.client.GetGrantView(data.Id.ValueString()); err == nil {
+		data.decisionFields = decisionFieldsOf(*g)
+	}
 
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)

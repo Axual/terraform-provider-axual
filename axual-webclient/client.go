@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sync"
 )
 
 // Client represents an HTTP client configured to communicate with the API.
@@ -14,6 +15,23 @@ type Client struct {
 	HTTPClient *http.Client
 	ApiURL     string
 	Realm      string
+
+	grantActionsOnce sync.Once
+	grantActions     chan struct{}
+}
+
+// maxGrantActions is how many approves, rejects, revokes and cancels the client sends at the same time,
+// to protect Platform Manager: Terraform runs 10 operations at a time by default. In a load test (50
+// approvals, 10 at once, Platform Manager 16.0.0, pool size 10) each approval held a database connection
+// while it waited for another one, and the pool ran out. It is a race and doesn't happen every time.
+const maxGrantActions = 4
+
+// grantAction runs a grant approve, reject, revoke or cancel request, at most maxGrantActions at a time.
+func (c *Client) grantAction(request func() error) error {
+	c.grantActionsOnce.Do(func() { c.grantActions = make(chan struct{}, maxGrantActions) })
+	c.grantActions <- struct{}{}
+	defer func() { <-c.grantActions }()
+	return request()
 }
 
 var NotFoundError = errors.New("resource not found")
@@ -36,12 +54,11 @@ func NewClient(apiUrl string, realm string, credentials Credentials) (*Client, e
 	if err != nil {
 		return nil, err
 	}
-	c := Client{
+	return &Client{
 		HTTPClient: client,
 		ApiURL:     apiUrl,
 		Realm:      realm,
-	}
-	return &c, nil
+	}, nil
 }
 
 // doRequest performs the request and returns only the response body. Use

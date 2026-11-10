@@ -14,6 +14,7 @@ import (
 
 var _ resource.Resource = &applicationAccessGrantApprovalResource{}
 var _ resource.ResourceWithImportState = &applicationAccessGrantApprovalResource{}
+var _ resource.ResourceWithModifyPlan = &applicationAccessGrantApprovalResource{}
 
 func NewApplicationAccessGrantApprovalResource(provider AxualProvider) resource.Resource {
 	return &applicationAccessGrantApprovalResource{
@@ -35,6 +36,7 @@ func (r *applicationAccessGrantApprovalResource) Metadata(ctx context.Context, r
 func (r *applicationAccessGrantApprovalResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: `Application Access Grant Approval: Approve access to a topic`,
+		DeprecationMessage:  "Use axual_application_access_grant_decision with decision = \"APPROVED\" instead. Move existing blocks with a moved block (Terraform 1.8 or later). See the guide \"Managing application access to topics\".",
 		Attributes: map[string]schema.Attribute{
 			"application_access_grant": schema.StringAttribute{
 				MarkdownDescription: "Application Access Grant Unique Identifier.",
@@ -199,7 +201,7 @@ func (r *applicationAccessGrantApprovalResource) Delete(ctx context.Context, req
 	}
 
 	if applicationAccessGrant.Links.Revoke.Href != "" {
-		err := r.provider.client.RevokeOrDenyGrant(data.ApplicationAccessGrant.ValueString(), "Revoked in terraform")
+		err := r.provider.client.RevokeOrDenyGrant(data.ApplicationAccessGrant.ValueString(), approvalRevokeReason)
 		if err != nil {
 			// Revoked or deleted at the same time by another resource in this destroy.
 			updated, fetchErr := r.provider.client.GetApplicationAccessGrant(data.ApplicationAccessGrant.ValueString())
@@ -218,6 +220,29 @@ func (r *applicationAccessGrantApprovalResource) Delete(ctx context.Context, req
 		"Error: Failed to Revoke grant",
 		fmt.Sprintf("Only Approved grants can be revoked \n Current status of the grant is: %s", applicationAccessGrant.Status))
 
+}
+
+// ModifyPlan warns that removing the approval revokes the grant. It fails the plan when a decision
+// approves the same grant in this plan (a migration without a moved block): the decision finds the
+// grant Approved and keeps it, then the removal revokes it.
+func (r *applicationAccessGrantApprovalResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if r.provider.grants == nil || !req.Plan.Raw.IsNull() || req.State.Raw.IsNull() {
+		return
+	}
+	var state GrantApprovalData
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() || !known(state.ApplicationAccessGrant) {
+		return
+	}
+	// Read keeps the approval in the state only while the grant is Approved, so the removal revokes it.
+	grantUid := state.ApplicationAccessGrant.ValueString()
+	label := fmt.Sprintf("grant %s", grantUid)
+	if other := r.provider.grants.remove(grantUid, approvalRemoval); other.id != "" {
+		resp.Diagnostics.AddError(removedAndApproved(label, approvalRemoval))
+		return
+	}
+	resp.Diagnostics.AddWarning(fmt.Sprintf("Removing the approval revokes %s", label),
+		fmt.Sprintf("The apply revokes the grant with the reason %q.", approvalRevokeReason))
 }
 
 func (r *applicationAccessGrantApprovalResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
