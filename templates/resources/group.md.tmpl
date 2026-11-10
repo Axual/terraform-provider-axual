@@ -43,9 +43,8 @@ resource "axual_group" "payments" {
 ```
 
 - A Tenant Admin has to switch on IAM group management for the tenant. The provider does not change these settings.
-- Removing `iam_reference` makes the group Axual-managed again. The members and managers that Platform Manager has stored count again, and the next plan shows them.
-- A group that is already linked outside Terraform, for example in Self-Service, is planned to be unlinked until you add its `iam_reference`.
-- People who are members only through their token cannot yet create applications, topics or environments for the group, and cannot save an application in Self-Service. These are Platform Manager problems.
+- Leave `iam_reference` out to keep the link the group has, also a link made outside Terraform, for example in Self-Service. `iam_reference = ""` makes the group Axual-managed again: the members and managers that Platform Manager has stored count again, and the next plan shows them.
+- On Platform Manager before 16.1.0, people who are members only through their token cannot create applications, topics or environments for the group, and cannot save an application in Self-Service.
 
 For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 

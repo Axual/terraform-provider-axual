@@ -25,6 +25,8 @@ type groupPM struct {
 	bodies map[string]map[string]any
 	// refuse makes the call with this "METHOD path" answer 400.
 	refuse string
+	// noReference makes a GET answer with a group that is not linked.
+	noReference bool
 }
 
 func (p *groupPM) handler(t *testing.T) http.HandlerFunc {
@@ -51,7 +53,9 @@ func (p *groupPM) handler(t *testing.T) http.HandlerFunc {
 			answer["iamReference"] = ref
 		}
 		if r.Method == http.MethodGet {
-			answer["iamReference"] = "stored-ref"
+			if !p.noReference {
+				answer["iamReference"] = "stored-ref"
+			}
 			answer["_embedded"] = map[string]any{"members": []any{map[string]any{"uid": "m1"}}, "managers": []any{map[string]any{"uid": "m1"}}}
 		}
 		if strings.HasSuffix(r.URL.Path, "/externalize") && r.Method == http.MethodDelete {
@@ -82,6 +86,39 @@ func groupData(iamReference string, members ...string) groupResourceData {
 		data.Members = uidSet(members...)
 	}
 	return data
+}
+
+// emptyReference is a group whose configuration says iam_reference = "": the group is Axual-managed.
+func emptyReference(members ...string) groupResourceData {
+	data := groupData("", members...)
+	data.IamReference = types.StringValue("")
+	return data
+}
+
+// modifyPlan runs ModifyPlan with the configuration, the plan that Terraform proposes, and the state.
+func modifyPlan(t *testing.T, config, plan groupResourceData, state *groupResourceData) resource.ModifyPlanResponse {
+	t.Helper()
+	r := &groupResource{}
+	planState := stateFor(t, r, plan)
+	configState := stateFor(t, r, config)
+	req := resource.ModifyPlanRequest{
+		Config: tfsdk.Config{Schema: configState.Schema, Raw: configState.Raw},
+		Plan:   tfsdk.Plan{Schema: planState.Schema, Raw: planState.Raw},
+		State:  emptyState(t, r),
+	}
+	if state != nil {
+		req.State = stateFor(t, r, *state)
+	}
+	resp := resource.ModifyPlanResponse{Plan: req.Plan}
+	r.ModifyPlan(context.Background(), req, &resp)
+	return resp
+}
+
+func plannedReference(t *testing.T, resp resource.ModifyPlanResponse) types.String {
+	t.Helper()
+	var reference types.String
+	resp.Plan.GetAttribute(context.Background(), path.Root("iam_reference"), &reference)
+	return reference
 }
 
 func updateGroup(t *testing.T, pm *groupPM, state, plan groupResourceData) (resource.UpdateResponse, groupResourceData) {
@@ -161,6 +198,42 @@ func TestGroupCreate_sendsTheIamReference(t *testing.T) {
 	}
 }
 
+func TestGroupCreate_anEmptyReferenceMakesAnAxualManagedGroup(t *testing.T) {
+	pm := &groupPM{noReference: true}
+	r := &groupResource{provider: AxualProvider{client: fakePM(t, pm.handler(t))}}
+	plan := tfsdk.Plan{Schema: stateFor(t, r, groupData("")).Schema, Raw: stateFor(t, r, emptyReference("m1")).Raw}
+	config := tfsdk.Config{Schema: plan.Schema, Raw: plan.Raw}
+	resp := resource.CreateResponse{State: emptyState(t, r)}
+
+	r.Create(context.Background(), resource.CreateRequest{Config: config, Plan: plan}, &resp)
+
+	var saved groupResourceData
+	resp.State.Get(context.Background(), &saved)
+	body := pm.bodies["POST /groups"]
+	if resp.Diagnostics.HasError() || hasKey(body, "iamReference") || !hasKey(body, "members") {
+		t.Errorf("create = %v, body %v; expected the members sent and no reference", resp.Diagnostics, body)
+	}
+	if saved.IamReference.IsNull() || saved.IamReference.ValueString() != "" {
+		t.Errorf("saved reference = %s, expected the empty string of the plan", saved.IamReference)
+	}
+}
+
+func TestGroupCreate_withoutAReferenceSavesNull(t *testing.T) {
+	pm := &groupPM{noReference: true}
+	r := &groupResource{provider: AxualProvider{client: fakePM(t, pm.handler(t))}}
+	plan := tfsdk.Plan{Schema: stateFor(t, r, groupData("")).Schema, Raw: stateFor(t, r, groupData("", "m1")).Raw}
+	config := tfsdk.Config{Schema: plan.Schema, Raw: plan.Raw}
+	resp := resource.CreateResponse{State: emptyState(t, r)}
+
+	r.Create(context.Background(), resource.CreateRequest{Config: config, Plan: plan}, &resp)
+
+	var saved groupResourceData
+	resp.State.Get(context.Background(), &saved)
+	if resp.Diagnostics.HasError() || !saved.IamReference.IsNull() {
+		t.Errorf("create = %v, saved reference = %s; expected a null reference", resp.Diagnostics, saved.IamReference)
+	}
+}
+
 func TestGroupUpdate_addingAReferenceExternalizesFirst(t *testing.T) {
 	pm := &groupPM{}
 
@@ -183,10 +256,10 @@ func TestGroupUpdate_addingAReferenceExternalizesFirst(t *testing.T) {
 	}
 }
 
-func TestGroupUpdate_removingTheReferenceInternalizesFirst(t *testing.T) {
+func TestGroupUpdate_anEmptyReferenceInternalizesFirst(t *testing.T) {
 	pm := &groupPM{}
 
-	resp, saved := updateGroup(t, pm, groupData("engineering"), groupData("", "m1"))
+	resp, saved := updateGroup(t, pm, groupData("engineering"), emptyReference("m1"))
 
 	if resp.Diagnostics.HasError() {
 		t.Fatalf("update failed: %v", resp.Diagnostics)
@@ -197,8 +270,43 @@ func TestGroupUpdate_removingTheReferenceInternalizesFirst(t *testing.T) {
 	if members, ok := pm.bodies["PATCH /groups/g1"]["members"].([]any); !ok || len(members) != 1 {
 		t.Errorf("PATCH body %v, expected the members back under Terraform", pm.bodies["PATCH /groups/g1"])
 	}
-	if !saved.IamReference.IsNull() {
-		t.Errorf("saved reference = %s, expected null", saved.IamReference)
+	if saved.IamReference.IsNull() || saved.IamReference.ValueString() != "" {
+		t.Errorf("saved reference = %s, expected the empty string of the plan", saved.IamReference)
+	}
+}
+
+func TestGroupUpdate_anEmptyReferenceOnAGroupThatIsNotLinkedOnlyPatches(t *testing.T) {
+	pm := &groupPM{noReference: true}
+
+	resp, saved := updateGroup(t, pm, groupData("", "m1"), emptyReference("m1"))
+
+	if resp.Diagnostics.HasError() {
+		t.Fatalf("update failed: %v", resp.Diagnostics)
+	}
+	if got := strings.Join(pm.calls, ", "); got != "PATCH /groups/g1" {
+		t.Errorf("calls = %s, expected only a PATCH: there is nothing to unlink", got)
+	}
+	if saved.IamReference.IsNull() || saved.IamReference.ValueString() != "" {
+		t.Errorf("saved reference = %s, expected the empty string of the plan", saved.IamReference)
+	}
+}
+
+func TestGroupUpdate_aKeptLinkIsOnlyAPatchWithTheSameReference(t *testing.T) {
+	pm := &groupPM{}
+
+	resp, saved := updateGroup(t, pm, groupData("engineering"), groupData("engineering"))
+
+	if resp.Diagnostics.HasError() {
+		t.Fatalf("update failed: %v", resp.Diagnostics)
+	}
+	if got := strings.Join(pm.calls, ", "); got != "PATCH /groups/g1" {
+		t.Errorf("calls = %s, expected only a PATCH: the link is not touched", got)
+	}
+	if pm.bodies["PATCH /groups/g1"]["iamReference"] != "engineering" {
+		t.Errorf("PATCH body %v, expected the same reference", pm.bodies["PATCH /groups/g1"])
+	}
+	if saved.IamReference.ValueString() != "engineering" {
+		t.Errorf("saved reference = %q, expected engineering", saved.IamReference.ValueString())
 	}
 }
 
@@ -207,7 +315,7 @@ func TestGroupUpdate_removingTheReferenceInternalizesFirst(t *testing.T) {
 func TestGroupUpdate_unlinkingWithoutMembersKeepsTheStoredLists(t *testing.T) {
 	pm := &groupPM{}
 
-	resp, saved := updateGroup(t, pm, groupData("engineering"), groupData(""))
+	resp, saved := updateGroup(t, pm, groupData("engineering"), emptyReference())
 
 	if resp.Diagnostics.HasError() {
 		t.Fatalf("update failed: %v", resp.Diagnostics)
@@ -224,7 +332,7 @@ func TestGroupUpdate_unlinkingWithoutMembersKeepsTheStoredLists(t *testing.T) {
 func TestGroupUpdate_unlinkingWithOnlyMembersKeepsTheStoredManagers(t *testing.T) {
 	pm := &groupPM{}
 
-	resp, saved := updateGroup(t, pm, groupData("engineering"), groupData("", "m1"))
+	resp, saved := updateGroup(t, pm, groupData("engineering"), emptyReference("m1"))
 
 	if resp.Diagnostics.HasError() {
 		t.Fatalf("update failed: %v", resp.Diagnostics)
@@ -286,6 +394,36 @@ func TestGroupRead_iamManagedGroupKeepsItsMembersOutOfState(t *testing.T) {
 	}
 }
 
+func TestGroupRead_keepsAnEmptyReferenceForAGroupThatIsNotLinked(t *testing.T) {
+	pm := &groupPM{noReference: true}
+	r := &groupResource{provider: AxualProvider{client: fakePM(t, pm.handler(t))}}
+	state := stateFor(t, r, emptyReference())
+	resp := resource.ReadResponse{State: state}
+
+	r.Read(context.Background(), resource.ReadRequest{State: state}, &resp)
+
+	var saved groupResourceData
+	resp.State.Get(context.Background(), &saved)
+	if saved.IamReference.IsNull() || saved.IamReference.ValueString() != "" {
+		t.Errorf("saved reference = %s, expected the empty string to stay", saved.IamReference)
+	}
+}
+
+func TestGroupRead_aLinkMadeOutsideReplacesTheEmptyReference(t *testing.T) {
+	pm := &groupPM{}
+	r := &groupResource{provider: AxualProvider{client: fakePM(t, pm.handler(t))}}
+	state := stateFor(t, r, emptyReference())
+	resp := resource.ReadResponse{State: state}
+
+	r.Read(context.Background(), resource.ReadRequest{State: state}, &resp)
+
+	var saved groupResourceData
+	resp.State.Get(context.Background(), &saved)
+	if saved.IamReference.ValueString() != "stored-ref" {
+		t.Errorf("saved reference = %s, expected the link that now exists, so that the plan unlinks it again", saved.IamReference)
+	}
+}
+
 func TestGroupResponseMapping_aBlankReferenceMeansAxualManaged(t *testing.T) {
 	var group = groupDataFromResponse(`{"uid":"g1","name":"team","iamReference":"   ","_embedded":{"members":[{"uid":"m1"}]}}`)
 
@@ -303,37 +441,100 @@ func groupDataFromResponse(body string) groupResourceData {
 }
 
 func TestGroupModifyPlan_refusesMembersOfAnIamManagedGroup(t *testing.T) {
-	r := &groupResource{}
-	plan := stateFor(t, r, groupData("engineering", "m1"))
-	resp := resource.ModifyPlanResponse{}
+	data := groupData("engineering", "m1")
 
-	r.ModifyPlan(context.Background(), resource.ModifyPlanRequest{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}, State: emptyState(t, r)}, &resp)
+	resp := modifyPlan(t, data, data, nil)
 
 	if resp.Diagnostics.ErrorsCount() != 1 || resp.Diagnostics.Errors()[0].Summary() != "Members and managers not supported" {
 		t.Errorf("diagnostics = %v, expected one error about members of an IAM-managed group", resp.Diagnostics)
 	}
 }
 
-func TestGroupModifyPlan_warnsWhenRemovingTheReferenceInternalizes(t *testing.T) {
-	r := &groupResource{}
-	state := stateFor(t, r, groupData("engineering"))
-	plan := stateFor(t, r, groupData(""))
-	resp := resource.ModifyPlanResponse{}
+func TestGroupModifyPlan_namesTheKeptLinkWhenMembersAreSetAndTheReferenceIsLeftOut(t *testing.T) {
+	state := groupData("engineering")
+	config := groupData("", "m1")
+	plan := groupData("", "m1")
+	plan.IamReference = types.StringUnknown()
 
-	r.ModifyPlan(context.Background(), resource.ModifyPlanRequest{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}, State: state}, &resp)
+	resp := modifyPlan(t, config, plan, &state)
+
+	if resp.Diagnostics.ErrorsCount() != 1 || !strings.Contains(resp.Diagnostics.Errors()[0].Detail(), `linked to IAM group "engineering"`) ||
+		!strings.Contains(resp.Diagnostics.Errors()[0].Detail(), `iam_reference = ""`) {
+		t.Errorf("diagnostics = %v, expected an error that names the kept link and says how to unlink", resp.Diagnostics)
+	}
+}
+
+func TestGroupModifyPlan_keepsTheLinkWhenTheReferenceIsLeftOut(t *testing.T) {
+	state := groupData("engineering")
+	config := groupData("")
+	plan := groupData("")
+	plan.IamReference = types.StringUnknown()
+
+	resp := modifyPlan(t, config, plan, &state)
+
+	if len(resp.Diagnostics) != 0 {
+		t.Errorf("diagnostics = %v, expected none", resp.Diagnostics)
+	}
+	if got := plannedReference(t, resp); got.ValueString() != "engineering" {
+		t.Errorf("planned reference = %s, expected the link the group has", got)
+	}
+}
+
+func TestGroupModifyPlan_planNullForANewGroupWithoutAReference(t *testing.T) {
+	config := groupData("")
+	plan := groupData("")
+	plan.IamReference = types.StringUnknown()
+
+	resp := modifyPlan(t, config, plan, nil)
+
+	if got := plannedReference(t, resp); !got.IsNull() {
+		t.Errorf("planned reference = %s, expected null and not unknown", got)
+	}
+}
+
+func TestGroupModifyPlan_keepsNullWhenTheGroupIsNotLinked(t *testing.T) {
+	state := groupData("", "m1")
+	config := groupData("", "m1", "m2")
+	plan := groupData("", "m1", "m2")
+	plan.IamReference = types.StringUnknown()
+
+	resp := modifyPlan(t, config, plan, &state)
+
+	if len(resp.Diagnostics) != 0 {
+		t.Errorf("diagnostics = %v, expected none", resp.Diagnostics)
+	}
+	if got := plannedReference(t, resp); !got.IsNull() {
+		t.Errorf("planned reference = %s, expected null: an update of another field must not show iam_reference as unknown", got)
+	}
+}
+
+func TestGroupModifyPlan_warnsWhenAnEmptyReferenceInternalizes(t *testing.T) {
+	state := groupData("engineering")
+	data := emptyReference()
+
+	resp := modifyPlan(t, data, data, &state)
 
 	if resp.Diagnostics.HasError() || resp.Diagnostics.WarningsCount() != 1 || resp.Diagnostics.Warnings()[0].Summary() != "The group becomes Axual-managed again" {
 		t.Errorf("diagnostics = %v, expected one warning about becoming Axual-managed", resp.Diagnostics)
 	}
 }
 
-func TestGroupModifyPlan_warnsWhenLinkingAGroupThatHasStoredMembers(t *testing.T) {
-	r := &groupResource{}
-	state := stateFor(t, r, groupData("", "m1"))
-	plan := stateFor(t, r, groupData("engineering"))
-	resp := resource.ModifyPlanResponse{}
+func TestGroupModifyPlan_isQuietWhenAnEmptyReferenceIsOnAGroupThatIsNotLinked(t *testing.T) {
+	state := groupData("", "m1")
+	data := emptyReference("m1")
 
-	r.ModifyPlan(context.Background(), resource.ModifyPlanRequest{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}, State: state}, &resp)
+	resp := modifyPlan(t, data, data, &state)
+
+	if len(resp.Diagnostics) != 0 {
+		t.Errorf("diagnostics = %v, expected none", resp.Diagnostics)
+	}
+}
+
+func TestGroupModifyPlan_warnsWhenLinkingAGroupThatHasStoredMembers(t *testing.T) {
+	state := groupData("", "m1")
+	data := groupData("engineering")
+
+	resp := modifyPlan(t, data, data, &state)
 
 	if resp.Diagnostics.HasError() || resp.Diagnostics.WarningsCount() != 1 || resp.Diagnostics.Warnings()[0].Summary() != "Stored members and managers stay in Platform Manager" {
 		t.Errorf("diagnostics = %v, expected one warning that the stored members stay", resp.Diagnostics)
@@ -341,12 +542,10 @@ func TestGroupModifyPlan_warnsWhenLinkingAGroupThatHasStoredMembers(t *testing.T
 }
 
 func TestGroupModifyPlan_isQuietWhenLinkingAGroupWithoutMembers(t *testing.T) {
-	r := &groupResource{}
-	state := stateFor(t, r, groupData(""))
-	plan := stateFor(t, r, groupData("engineering"))
-	resp := resource.ModifyPlanResponse{}
+	state := groupData("")
+	data := groupData("engineering")
 
-	r.ModifyPlan(context.Background(), resource.ModifyPlanRequest{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}, State: state}, &resp)
+	resp := modifyPlan(t, data, data, &state)
 
 	if len(resp.Diagnostics) != 0 {
 		t.Errorf("diagnostics = %v, expected none", resp.Diagnostics)
@@ -354,12 +553,10 @@ func TestGroupModifyPlan_isQuietWhenLinkingAGroupWithoutMembers(t *testing.T) {
 }
 
 func TestGroupModifyPlan_isQuietForAnOrdinaryGroup(t *testing.T) {
-	r := &groupResource{}
-	state := stateFor(t, r, groupData("", "m1"))
-	plan := stateFor(t, r, groupData("", "m1", "m2"))
-	resp := resource.ModifyPlanResponse{}
+	state := groupData("", "m1")
+	data := groupData("", "m1", "m2")
 
-	r.ModifyPlan(context.Background(), resource.ModifyPlanRequest{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}, State: state}, &resp)
+	resp := modifyPlan(t, data, data, &state)
 
 	if len(resp.Diagnostics) != 0 {
 		t.Errorf("diagnostics = %v, expected none", resp.Diagnostics)
@@ -378,7 +575,7 @@ func TestIamReferenceValidation(t *testing.T) {
 		"\u00fcn\u00ef-team":                   true,
 		"a":                                    true,
 		strings.Repeat("a", 255):               true,
-		"":                                     false,
+		"":                                     true,
 		"   ":                                  false,
 		" data-team":                           false,
 		"data-team ":                           false,
@@ -390,6 +587,10 @@ func TestIamReferenceValidation(t *testing.T) {
 		"a\u00a0":                              false,
 		"a\u00a0b":                             true,
 		strings.Repeat("a", 256):               false,
+		strings.Repeat("\u00e9", 255):          true,
+		strings.Repeat("\u00e9", 256):          false,
+		strings.Repeat("\U0001F600", 127):      true,
+		strings.Repeat("\U0001F600", 128):      false,
 	}
 	for value, valid := range cases {
 		var vr validator.StringResponse

@@ -30,10 +30,7 @@ type GroupRequest struct {
 	Managers     []string    `json:"managers"`
 	IamReference string      `json:"iamReference,omitempty"`
 
-	// SkipMembers and SkipManagers leave that list out of the body, so Platform Manager keeps the
-	// stored list. For an IAM-managed group the IAM system decides who is a member, so the provider
-	// must not send (or clear) the stored lists. The same holds for a list the configuration does
-	// not have when a group is made Axual-managed again.
+	// SkipMembers and SkipManagers leave that list out of the body, so Platform Manager keeps the stored list.
 	SkipMembers  bool `json:"-"`
 	SkipManagers bool `json:"-"`
 }

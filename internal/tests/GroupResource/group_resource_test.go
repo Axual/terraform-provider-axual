@@ -97,8 +97,9 @@ func TestGroupResourceServiceAccountMemberAndManager(t *testing.T) {
 }
 
 // An IAM-managed group is an ordinary group with an iam_reference. Adding the reference to a group
-// links it to the IAM system, and removing it makes the group Axual-managed again. The IAM system
-// decides who is a member, so no members are kept in state.
+// links it to the IAM system. Leaving it out keeps the link the group has, and iam_reference = ""
+// makes the group Axual-managed again. The IAM system decides who is a member, so no members are
+// kept in state.
 func TestGroupResourceIamManaged(t *testing.T) {
 	RequireIamGroupManagement(t)
 	const name = "axual_group.team-iam"
@@ -138,11 +139,21 @@ func TestGroupResourceIamManaged(t *testing.T) {
 				ImportStateVerify: true,
 			},
 			{
-				// No iam_reference: the group is Axual-managed again and its members are Terraform's.
+				// iam_reference = "": the group is Axual-managed again and its members are Terraform's.
 				Config: GetProvider() + GetFile("axual_group_iam_axual_managed.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckNoResourceAttr(name, "iam_reference"),
+					resource.TestCheckResourceAttr(name, "iam_reference", ""),
 					resource.TestCheckResourceAttr(name, "members.#", "1"),
+				),
+			},
+			{
+				// Someone links the group in Self-Service. The configuration leaves iam_reference out, so the link stays
+				// and the plan has no changes.
+				PreConfig: func() { linkOutsideTerraform(t, "testiamgroup9999", "tf-test-iam-group-9999-outside") },
+				Config:    GetProvider() + GetFile("axual_group_iam_left_out.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(name, "iam_reference", "tf-test-iam-group-9999-outside"),
+					resource.TestCheckNoResourceAttr(name, "members.#"),
 				),
 			},
 			{
@@ -152,6 +163,17 @@ func TestGroupResourceIamManaged(t *testing.T) {
 					resource.TestCheckResourceAttr(name, "iam_reference", "tf-test-iam-group-9999-c"),
 					resource.TestCheckNoResourceAttr(name, "members.#"),
 				),
+			},
+			{
+				// Leaving iam_reference out does not unlink the group.
+				Config: GetProvider() + GetFile("axual_group_iam_left_out.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(name, "iam_reference", "tf-test-iam-group-9999-c"),
+				),
+			},
+			{
+				// Back to the configuration of the next step.
+				Config: GetProvider() + GetFile("axual_group_iam_linked_again.tf"),
 			},
 			{
 				// Platform Manager keeps the reference unique within the tenant.
@@ -165,4 +187,20 @@ func TestGroupResourceIamManaged(t *testing.T) {
 			},
 		},
 	})
+}
+
+// linkOutsideTerraform links the group to an IAM group through the API, like a Tenant Admin does in Self-Service.
+func linkOutsideTerraform(t *testing.T, groupName, iamReference string) {
+	t.Helper()
+	client, err := ApiClient()
+	if err != nil {
+		t.Fatalf("unable to build API client: %v", err)
+	}
+	found, err := client.GetGroupByName(groupName)
+	if err != nil || len(found.Embedded.Groups) != 1 {
+		t.Fatalf("expected one group named %q, got %v (error %v)", groupName, found, err)
+	}
+	if _, err := client.ExternalizeGroup(found.Embedded.Groups[0].Uid, iamReference); err != nil {
+		t.Fatalf("unable to link the group: %v", err)
+	}
 }

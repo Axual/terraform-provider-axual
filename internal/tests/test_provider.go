@@ -353,13 +353,8 @@ func apiClient() (*webclient.Client, error) {
 	)
 }
 
-// RequireIamGroupManagement makes the tenant of the credentials allow IAM-managed groups for the length of
-// the test, and puts the settings back afterwards. It skips the test when the tenant does not allow
-// Axual-managed groups (the tests also need those).
-//
-// While the test runs, automatic creation of IAM groups is switched off, so that real sign-ins on a shared
-// tenant do not create groups. A run that is stopped (Ctrl-C or -timeout) does not run the cleanup, and
-// leaves IAM group management on: switch it off in the tenant settings then.
+// RequireIamGroupManagement switches IAM group management on for the test and off again afterwards, and skips the test
+// when the tenant does not allow Axual-managed groups. A stopped run (Ctrl-C or -timeout) leaves it on: switch it off in the tenant settings then.
 func RequireIamGroupManagement(t *testing.T) {
 	t.Helper()
 	if os.Getenv(resource.EnvTfAcc) == "" {

@@ -37,10 +37,9 @@ type groupResource struct {
 	provider AxualProvider
 }
 
-// iamReferenceFormat is the value of the group claim in the token. The API gateway joins the claim values
-// with commas, so a comma can never match. A space at the start or the end, and a control character
-// (a tab or a new line), can never match either, so the provider refuses them.
-var iamReferenceFormat = regexp.MustCompile(`^[^\s\p{Z}\p{Cc},](?:[^,\p{Cc}]*[^\s\p{Z}\p{Cc},])?$`)
+// A comma, a space at the start or end, and a control character never match a group claim (the gateway joins the claims with commas).
+// An empty value is allowed: it makes the group Axual-managed.
+var iamReferenceFormat = regexp.MustCompile(`^(?:[^\s\p{Z}\p{Cc},](?:[^,\p{Cc}]*[^\s\p{Z}\p{Cc},])?)?$`)
 
 type groupResourceData struct {
 	Name         types.String `tfsdk:"name"`
@@ -95,10 +94,14 @@ func (r *groupResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				},
 			},
 			"iam_reference": schema.StringAttribute{
-				MarkdownDescription: "The group's value in your identity system, as it is in the token (for example an Azure AD group object id). Setting it makes the group IAM-managed: the identity system decides who is a member. Removing it makes the group Axual-managed again. Must be unique in the tenant. See the guide \"IAM-managed groups\".",
+				MarkdownDescription: "The group's value in your identity system, as it is in the token (for example an Azure AD group object id). Setting it makes the group IAM-managed: the identity system decides who is a member. Leave it out to keep the link the group has; `iam_reference = \"\"` makes the group Axual-managed again. Cannot be set together with `members` or `managers`.",
 				Optional:            true,
+				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 				Validators: []validator.String{
-					stringvalidator.LengthBetween(1, 255),
+					custom_validator.NewUtf16LengthBetweenValidator(0, 255),
 					stringvalidator.RegexMatches(iamReferenceFormat,
 						"must not start or end with a space, and must not contain a comma or a control character"),
 				},
@@ -171,8 +174,9 @@ func (r *groupResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	resp.Diagnostics.Append(diags...)
 }
 
-// ModifyPlan refuses members or managers on an IAM-managed group, because the provider does not send
-// them, and warns when removing iam_reference makes the group Axual-managed again.
+// ModifyPlan keeps the link of a group when iam_reference is left out (like tags and roles), refuses members or
+// managers on an IAM-managed group, because the provider does not send them, and warns when an empty iam_reference
+// makes the group Axual-managed again.
 func (r *groupResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	if req.Plan.Raw.IsNull() {
 		return
@@ -181,27 +185,42 @@ func (r *groupResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanR
 	if diags := req.Plan.Get(ctx, &data); diags.HasError() {
 		return
 	}
-	if isIamManaged(data) && (!data.Members.IsNull() || !data.Managers.IsNull()) {
-		resp.Diagnostics.AddAttributeError(path.Root("iam_reference"),
-			"Members and managers not supported",
-			"This group has an iam_reference, so the IAM system decides who is a member. Remove members and managers from the configuration.")
-	}
-
-	// Leaving out iam_reference on a group that has one makes it Axual-managed again, and the members
-	// Platform Manager has stored for the group count again. Say so in the plan.
-	var state groupResourceData
-	if req.State.Raw.IsNull() || req.State.Get(ctx, &state).HasError() {
+	var configReference types.String
+	if diags := req.Config.GetAttribute(ctx, path.Root("iam_reference"), &configReference); diags.HasError() {
 		return
 	}
-	if state.IamReference.IsNull() && !data.IamReference.IsNull() && (!state.Members.IsNull() || !state.Managers.IsNull()) {
+	var state groupResourceData
+	hasState := !req.State.Raw.IsNull() && !req.State.Get(ctx, &state).HasError()
+
+	// Left out: the plan is what the group has now, so a link made outside Terraform stays.
+	if configReference.IsNull() {
+		data.IamReference = types.StringNull()
+		if hasState {
+			data.IamReference = state.IamReference
+		}
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("iam_reference"), data.IamReference)...)
+	}
+
+	if isIamManaged(data) && (!data.Members.IsNull() || !data.Managers.IsNull()) {
+		detail := "This group has an iam_reference, so the IAM system decides who is a member. Remove members and managers from the configuration."
+		if configReference.IsNull() {
+			detail = fmt.Sprintf("This group is linked to IAM group %q and the configuration has no iam_reference, so the IAM system decides who is a member. Remove members and managers from the configuration, or set iam_reference = \"\" to make the group Axual-managed.", data.IamReference.ValueString())
+		}
+		resp.Diagnostics.AddAttributeError(path.Root("iam_reference"), "Members and managers not supported", detail)
+	}
+
+	if !hasState {
+		return
+	}
+	if !hasIamLink(state.IamReference) && isIamManaged(data) && (!state.Members.IsNull() || !state.Managers.IsNull()) {
 		resp.Diagnostics.AddAttributeWarning(path.Root("iam_reference"),
 			"Stored members and managers stay in Platform Manager",
-			"Linking does not remove the members and managers stored for this group. They still count for service accounts and for creating applications, topics and environments for the group. This plan shows them as removed from the Terraform state only. Do not empty them just to be clean: today Platform Manager lets only a stored member (or a Tenant Admin or Application Admin) create resources for the group.")
+			"Linking does not remove the members and managers stored for this group. They still count for service accounts and for group managers. This plan shows them as removed from the Terraform state only. On Platform Manager before 16.1.0 they also decide who can create applications, topics and environments for the group, so do not empty them just to be clean.")
 	}
-	if !state.IamReference.IsNull() && data.IamReference.IsNull() {
+	if hasIamLink(state.IamReference) && !isIamManaged(data) {
 		resp.Diagnostics.AddAttributeWarning(path.Root("iam_reference"),
 			"The group becomes Axual-managed again",
-			fmt.Sprintf("The group is linked to IAM group %q, and iam_reference is not in the configuration. Applying makes the group Axual-managed. Its stored members and managers count again, and the next plan shows them: add them to members and managers to keep them.", state.IamReference.ValueString()))
+			fmt.Sprintf("The group is linked to IAM group %q, and iam_reference is empty. Applying makes the group Axual-managed. Its stored members and managers count again, and the next plan shows them: add them to members and managers to keep them.", state.IamReference.ValueString()))
 	}
 }
 
@@ -216,17 +235,16 @@ func (r *groupResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
-	// Link or unlink the IAM group first: Platform Manager checks the tenant settings before it
-	// changes anything, so a refused link leaves the group as it was. Changing the reference of an
-	// IAM-managed group is a normal update.
+	// Link or unlink first: Platform Manager checks the tenant settings before it changes anything, so a refused link changes nothing.
 	id := data.Id.ValueString()
+	wasLinked, isLinked := hasIamLink(state.IamReference), isIamManaged(data)
 	switch {
-	case state.IamReference.IsNull() && !data.IamReference.IsNull():
+	case !wasLinked && isLinked:
 		if _, err := r.provider.client.ExternalizeGroup(id, data.IamReference.ValueString()); err != nil {
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to link the group to IAM group %q, got error: %s", data.IamReference.ValueString(), err))
 			return
 		}
-	case !state.IamReference.IsNull() && data.IamReference.IsNull():
+	case wasLinked && !isLinked:
 		if _, err := r.provider.client.InternalizeGroup(id); err != nil {
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to make the group Axual-managed again, got error: %s", err))
 			return
@@ -238,10 +256,8 @@ func (r *groupResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		resp.Diagnostics.AddError("Error creating UPDATE request struct for group resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
-	// The state of an IAM-managed group has no members, so a plan cannot show what is stored. When the
-	// group is unlinked, do not clear a list that the configuration does not have: keep it, and let
-	// the next plan show it. Otherwise this apply would remove it, unseen.
-	unlinked := !state.IamReference.IsNull() && data.IamReference.IsNull()
+	// An IAM-managed group has no members in the state. When it is unlinked, keep the stored lists that the configuration does not have: the next plan shows them.
+	unlinked := wasLinked && !isLinked
 	keepMembers := unlinked && data.Members.IsNull()
 	keepManagers := unlinked && data.Managers.IsNull()
 	groupRequest.SkipMembers = groupRequest.SkipMembers || keepMembers
@@ -301,14 +317,17 @@ func mapGroupResponseToData(ctx context.Context, data *groupResourceData, group 
 	data.Name = types.StringValue(group.Name)
 
 	iamReference := strings.TrimSpace(group.IamReference)
-	if iamReference == "" {
-		data.IamReference = types.StringNull()
-	} else {
+	switch {
+	case iamReference != "":
 		data.IamReference = types.StringValue(group.IamReference)
+	case !data.IamReference.IsNull() && !data.IamReference.IsUnknown() && data.IamReference.ValueString() == "":
+		// The configuration says "": keep it, so that the state is what was planned.
+		data.IamReference = types.StringValue("")
+	default:
+		data.IamReference = types.StringNull()
 	}
 
-	// The provider does not manage the lists Platform Manager stores for an IAM-managed group, so
-	// they stay null (the configuration cannot have them).
+	// The lists Platform Manager stores for an IAM-managed group are not managed: they stay null.
 	if iamReference != "" {
 		mapGroupContactToData(ctx, data, group)
 		return
@@ -360,8 +379,13 @@ func mapGroupContactToData(ctx context.Context, data *groupResourceData, group *
 	}
 }
 
+// hasIamLink tells if the value links the group to an IAM group. A null, an unknown and an empty value do not.
+func hasIamLink(reference types.String) bool {
+	return !reference.IsNull() && !reference.IsUnknown() && reference.ValueString() != ""
+}
+
 func isIamManaged(data groupResourceData) bool {
-	return !data.IamReference.IsNull() && !data.IamReference.IsUnknown()
+	return hasIamLink(data.IamReference)
 }
 
 func createGroupRequestFromData(ctx context.Context, data *groupResourceData) (webclient.GroupRequest, error) {
