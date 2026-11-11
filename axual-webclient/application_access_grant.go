@@ -90,7 +90,7 @@ type ApplicationAccessGrantAttributes struct {
 	Size          int    `json:"size"`
 }
 
-// grantSearchPath is the grant search, relative to the API URL (Platform Manager 16.1.0 or later).
+// grantSearchPath is the grant search, relative to the API URL (Platform Manager 17.0.0 or later).
 const grantSearchPath = "application_access_grants/search/findSummariesByAttributes"
 
 func (c *Client) GetApplicationAccessGrantsByAttributes(data ApplicationAccessGrantAttributes) (*GetApplicationAccessGrantsByAttributeResponse, error) {
