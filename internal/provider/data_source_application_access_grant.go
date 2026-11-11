@@ -129,7 +129,7 @@ func mapApplicationAccessGrantDataSourceResponseToData(ctx context.Context, data
 	data.Id = types.StringValue(applicationAccessResponse.Uid)
 	data.Status = types.StringValue(applicationAccessResponse.Status)
 	data.AccessType = types.StringValue(applicationAccessResponse.AccessType)
-	data.EnvironmentId = types.StringValue(applicationAccessResponse.Embedded.Environment.Uid)
-	data.TopicId = types.StringValue(applicationAccessResponse.Embedded.Stream.Uid)
-	data.ApplicationId = types.StringValue(applicationAccessResponse.Embedded.Application.Uid)
+	data.EnvironmentId = types.StringValue(applicationAccessResponse.Environment.Uid)
+	data.TopicId = types.StringValue(applicationAccessResponse.Stream.Uid)
+	data.ApplicationId = types.StringValue(applicationAccessResponse.Application.Uid)
 }

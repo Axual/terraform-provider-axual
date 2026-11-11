@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 * **Breaking:** `owners` is required on `axual_flink_cluster`, and a changed `name` now replaces the Flink Cluster instead of renaming it, because Platform Manager does not allow renaming. Add `owners`, and `authorized_groups` with the Group of every application that deploys to the Flink Cluster, before you upgrade: an `axual_application_deployment` of a `FLINK_SQL` application is refused with `403 Forbidden` when its application owner Group is not authorized on the Flink Cluster
 * More than one `axual_flink_cluster` can be registered per Instance-Cluster (Platform Manager 17.0.0 or later)
+* Platform Manager 17.0.0 or later is required. The `axual_application_access_grant` data source, the `axual_application_access_grant` list resource and the grant check of `axual_application_deployment` search grants with `findSummariesByAttributes`, which answers in a fixed number of queries, instead of `findByAttributes`, deprecated in Platform Manager 17.0.0 (AXPD-11328)
 * Leaving out `roles` on an `axual_user` now keeps the roles the user has. Only `roles = []` removes them
 * Changing `application`, `topic`, `environment` or `access_type` of an `axual_application_access_grant` fails in the plan instead of at apply (AXPD-12412)
 * Upgrading from `axual_application_access_grant_approval`: a `moved` block keeps today's behaviour (removing the moved decision revokes), with no diff. Removing an approval now warns that it revokes the grant (AXPD-12412)
