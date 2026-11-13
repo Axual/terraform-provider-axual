@@ -1,8 +1,10 @@
 package tests
 
 import (
+	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -383,7 +385,11 @@ func RequireIamGroupManagement(t *testing.T) {
 	}
 	automatic := fmt.Sprint(settings["autoIAMGroupCreationEnabled"]) == "true"
 	if err := post(`{"iamGroupManagement":{"enabled":true,"automaticGroupCreationEnabled":false}}`); err != nil {
-		t.Skipf("unable to enable IAM group management (Tenant Admin needed): %v", err)
+		var httpErr *webclient.HTTPError
+		if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusForbidden {
+			t.Skip("IAM group management is off, and only a Tenant Admin can switch it on")
+		}
+		t.Fatalf("unable to enable IAM group management: %v", err)
 	}
 	t.Cleanup(func() {
 		// The automatic setting can only be changed while IAM group management is on.

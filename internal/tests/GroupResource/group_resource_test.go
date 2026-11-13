@@ -9,6 +9,7 @@ import (
 	. "axual.com/terraform-provider-axual/internal/tests"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 )
 
 func TestGroupResource(t *testing.T) {
@@ -151,6 +152,9 @@ func TestGroupResourceIamManaged(t *testing.T) {
 				// and the plan has no changes.
 				PreConfig: func() { linkOutsideTerraform(t, "testiamgroup9999", "tf-test-iam-group-9999-outside") },
 				Config:    GetProvider() + GetFile("axual_group_iam_left_out.tf"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(name, "iam_reference", "tf-test-iam-group-9999-outside"),
 					resource.TestCheckNoResourceAttr(name, "members.#"),

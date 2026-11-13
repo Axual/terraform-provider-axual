@@ -66,7 +66,7 @@ func (d *groupDataSource) Schema(ctx context.Context, req datasource.SchemaReque
 				Computed:            true,
 			},
 			"members": schema.SetAttribute{
-				MarkdownDescription: "Group's members. Each entry is the uid of a user or of a service account. For an IAM-managed group (see `iam_reference`) this is the stored list. It holds service accounts and managers, not the people in the IAM group.",
+				MarkdownDescription: "Group's members. Each entry is the uid of a user or of a service account. For an IAM-managed group (see `iam_reference`) this is the stored list, not the people in the IAM group.",
 				Computed:            true,
 				ElementType:         types.StringType,
 			},

@@ -52,8 +52,8 @@ func (p *groupPM) handler(t *testing.T) http.HandlerFunc {
 		if ref, ok := body["iamReference"].(string); ok && ref != "" {
 			answer["iamReference"] = ref
 		}
-		if r.Method == http.MethodGet {
-			if !p.noReference {
+		if r.Method == http.MethodGet || key == "DELETE /groups/g1/externalize" {
+			if !p.noReference && r.Method == http.MethodGet {
 				answer["iamReference"] = "stored-ref"
 			}
 			answer["_embedded"] = map[string]any{"members": []any{map[string]any{"uid": "m1"}}, "managers": []any{map[string]any{"uid": "m1"}}}
@@ -256,7 +256,7 @@ func TestGroupUpdate_addingAReferenceExternalizesFirst(t *testing.T) {
 	}
 }
 
-func TestGroupUpdate_anEmptyReferenceInternalizesFirst(t *testing.T) {
+func TestGroupUpdate_anEmptyReferenceInternalizesLast(t *testing.T) {
 	pm := &groupPM{}
 
 	resp, saved := updateGroup(t, pm, groupData("engineering"), emptyReference("m1"))
@@ -264,8 +264,11 @@ func TestGroupUpdate_anEmptyReferenceInternalizesFirst(t *testing.T) {
 	if resp.Diagnostics.HasError() {
 		t.Fatalf("update failed: %v", resp.Diagnostics)
 	}
-	if got := strings.Join(pm.calls, ", "); got != "DELETE /groups/g1/externalize, PATCH /groups/g1" {
-		t.Errorf("calls = %s, expected internalize and then a PATCH", got)
+	if got := strings.Join(pm.calls, ", "); got != "PATCH /groups/g1, DELETE /groups/g1/externalize" {
+		t.Errorf("calls = %s, expected a PATCH and then internalize", got)
+	}
+	if hasKey(pm.bodies["PATCH /groups/g1"], "iamReference") {
+		t.Errorf("PATCH body %v has iamReference, expected none so that the link is only removed by the internalize", pm.bodies["PATCH /groups/g1"])
 	}
 	if members, ok := pm.bodies["PATCH /groups/g1"]["members"].([]any); !ok || len(members) != 1 {
 		t.Errorf("PATCH body %v, expected the members back under Terraform", pm.bodies["PATCH /groups/g1"])
@@ -375,6 +378,40 @@ func TestGroupUpdate_aRefusedLinkStopsBeforeAnyOtherChange(t *testing.T) {
 	}
 	if !strings.Contains(resp.Diagnostics.Errors()[0].Detail(), "IAM Group Management is disabled") {
 		t.Errorf("error %q does not carry the platform message", resp.Diagnostics.Errors()[0].Detail())
+	}
+}
+
+// A refused update must not leave the group unlinked: then the old stored members would count again.
+func TestGroupUpdate_aRefusedUpdateWhileUnlinkingKeepsTheLink(t *testing.T) {
+	pm := &groupPM{refuse: "PATCH /groups/g1"}
+
+	resp, _ := updateGroup(t, pm, groupData("engineering"), emptyReference("m1"))
+
+	if !resp.Diagnostics.HasError() {
+		t.Fatal("expected an error when Platform Manager refuses the update")
+	}
+	if got := strings.Join(pm.calls, ", "); got != "PATCH /groups/g1" {
+		t.Errorf("calls = %s, expected no internalize after the refused PATCH", got)
+	}
+}
+
+// A group that is linked outside Terraform still has the old lists in the state. Read removes them, so the plan
+// does not show them as removed.
+func TestGroupRead_aLinkMadeOutsideRemovesTheListsFromState(t *testing.T) {
+	pm := &groupPM{}
+	r := &groupResource{provider: AxualProvider{client: fakePM(t, pm.handler(t))}}
+	before := groupData("", "m1")
+	before.Managers = uidSet("m1")
+	state := stateFor(t, r, before)
+	resp := resource.ReadResponse{State: state}
+
+	r.Read(context.Background(), resource.ReadRequest{State: state}, &resp)
+
+	var saved groupResourceData
+	resp.State.Get(context.Background(), &saved)
+	if saved.IamReference.ValueString() != "stored-ref" || !saved.Members.IsNull() || !saved.Managers.IsNull() {
+		t.Errorf("saved reference %q, members %s, managers %s; expected the link and no lists",
+			saved.IamReference.ValueString(), saved.Members, saved.Managers)
 	}
 }
 

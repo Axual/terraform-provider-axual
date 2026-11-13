@@ -7,7 +7,7 @@ description: |-
 
 # IAM-managed groups
 
-Needs Platform Manager 15.0.7 or later. Service accounts need 16.0.0 or later. If people get into the group through the token, use Platform Manager 16.1.0 or later: older versions have problems for them (see "Known Platform Manager problems").
+Needs Platform Manager 15.0.0 or later. Service accounts need 16.0.0 or later. If people get into the group through the token, use Platform Manager 16.1.0 or later: older versions have problems for them (see "Known Platform Manager problems").
 
 A normal group (**Axual-managed**) has a member list that is stored in Axual. An
 **IAM-managed** group has no member list that counts. Your identity system decides who is in
@@ -46,7 +46,7 @@ and so do the topics and applications it owns.
 
 | You change | What happens |
 |---|---|
-| Add `iam_reference` | The group is linked. The members stored in Axual stay, and Platform Manager still uses them for service accounts and group managers. The plan shows them as removed from the Terraform state, and a warning says that they stay in Platform Manager. On Platform Manager before 16.1.0 they also decide who can create applications, topics and environments for the group, so keep them there. |
+| Add `iam_reference` | The group is linked. The stored members stay in Axual, and service accounts in the list stay members. From Platform Manager 16.0, a person in the list is a member only when the token has the group, so a stored manager can no longer change the group. Before 16.1.0 the stored members also decide who can create applications, topics and environments for the group. The plan shows the lists as removed from the Terraform state only, with a warning. |
 | Change `iam_reference` | The group moves to another IAM group. |
 | Leave `iam_reference` out | Nothing changes: the group keeps the link it has, also a link that was made outside Terraform. |
 | Write `iam_reference = ""` | The group is Axual-managed again (Terraform prints the change as `"..." -> null`). Its stored members and managers count again. The plan warns you, and the next plan shows them: add them to `members` and `managers` to keep them, or the next apply removes them. |
@@ -131,5 +131,5 @@ them works.
 |---|---|
 | IAM Group Management is disabled for this tenant | Ask a Tenant Admin to switch on IAM-managed groups. |
 | Axual Group Management is disabled for this tenant | The tenant allows IAM-managed groups only. Add an `iam_reference`, or switch on Axual-managed groups. |
-| ... already exists in this tenant | Another group has this reference. Reference values are unique. |
+| ... already exists in this tenant | Another group has this reference. Reference values are unique. To swap the references of two groups, use three applies: first give group A a temporary value, then give group B the old value of A, then give A the old value of B. |
 | Access Denied (403) | The user or service account needs `TENANT_ADMIN`. |

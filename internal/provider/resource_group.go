@@ -168,6 +168,11 @@ func (r *groupResource) Read(ctx context.Context, req resource.ReadRequest, resp
 
 	tflog.Info(ctx, "mapping the resource")
 	mapGroupResponseToData(ctx, &data, group)
+	// A group linked outside Terraform: its stored lists are not managed, so the plan must not show them as removed.
+	if isIamManaged(data) {
+		data.Members = types.SetNull(types.StringType)
+		data.Managers = types.SetNull(types.StringType)
+	}
 
 	tflog.Info(ctx, "saving the resource to state")
 	diags = resp.State.Set(ctx, &data)
@@ -215,7 +220,7 @@ func (r *groupResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanR
 	if !hasIamLink(state.IamReference) && isIamManaged(data) && (!state.Members.IsNull() || !state.Managers.IsNull()) {
 		resp.Diagnostics.AddAttributeWarning(path.Root("iam_reference"),
 			"Stored members and managers stay in Platform Manager",
-			"Linking does not remove the members and managers stored for this group. They still count for service accounts and for group managers. This plan shows them as removed from the Terraform state only. On Platform Manager before 16.1.0 they also decide who can create applications, topics and environments for the group, so do not empty them just to be clean.")
+			"Linking keeps the stored members and managers; this plan only removes them from the Terraform state. Service accounts in the list stay members. From Platform Manager 16.0, a person in the list is a member only when the token has the group, so a stored manager can no longer change the group. Before 16.1.0 the stored members also decide who can create applications, topics and environments for the group.")
 	}
 	if hasIamLink(state.IamReference) && !isIamManaged(data) {
 		resp.Diagnostics.AddAttributeWarning(path.Root("iam_reference"),
@@ -235,18 +240,13 @@ func (r *groupResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
-	// Link or unlink first: Platform Manager checks the tenant settings before it changes anything, so a refused link changes nothing.
+	// Link first and unlink last: if Platform Manager refuses a change, the old stored members do not count again.
 	id := data.Id.ValueString()
 	wasLinked, isLinked := hasIamLink(state.IamReference), isIamManaged(data)
-	switch {
-	case !wasLinked && isLinked:
+	unlinked := wasLinked && !isLinked
+	if !wasLinked && isLinked {
 		if _, err := r.provider.client.ExternalizeGroup(id, data.IamReference.ValueString()); err != nil {
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to link the group to IAM group %q, got error: %s", data.IamReference.ValueString(), err))
-			return
-		}
-	case wasLinked && !isLinked:
-		if _, err := r.provider.client.InternalizeGroup(id); err != nil {
-			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to make the group Axual-managed again, got error: %s", err))
 			return
 		}
 	}
@@ -257,7 +257,6 @@ func (r *groupResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 	// An IAM-managed group has no members in the state. When it is unlinked, keep the stored lists that the configuration does not have: the next plan shows them.
-	unlinked := wasLinked && !isLinked
 	keepMembers := unlinked && data.Members.IsNull()
 	keepManagers := unlinked && data.Managers.IsNull()
 	groupRequest.SkipMembers = groupRequest.SkipMembers || keepMembers
@@ -266,6 +265,12 @@ func (r *groupResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update group, got error: %s", err))
 		return
+	}
+	if unlinked {
+		if group, err = r.provider.client.InternalizeGroup(id); err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to make the group Axual-managed again, got error: %s", err))
+			return
+		}
 	}
 
 	mapGroupResponseToData(ctx, &data, group)
