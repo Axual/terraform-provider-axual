@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sync/atomic"
 )
 
 // Client represents an HTTP client configured to communicate with the API.
@@ -14,6 +15,10 @@ type Client struct {
 	HTTPClient *http.Client
 	ApiURL     string
 	Realm      string
+
+	// oldGrantSearch is set once the grant search answered 404: Platform Manager is older
+	// than 17.0.0, so later grant searches go straight to findByAttributes.
+	oldGrantSearch atomic.Bool
 }
 
 var NotFoundError = errors.New("resource not found")
