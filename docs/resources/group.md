@@ -20,8 +20,9 @@ Group resource. Read more: https://docs.axual.io/axual/2026.1/self-service/user-
 ### Optional
 
 - `email_address` (String) Group's email address
-- `managers` (Set of String) A Group Manager can edit this group, including adding or removing users and other group managers. Each entry is the uid of a user or of a service account, and must also be listed in `members`. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#making-a-group-member-manager-of-the-group
-- `members` (Set of String) Group's members. Each entry is the uid of a user or of a service account. Adding a service account requires Tenant Admin; once it is a member, a group manager may promote or remove it.
+- `iam_reference` (String) The group's value in your identity system, as it is in the token (for example an Azure AD group object id). Setting it makes the group IAM-managed: the identity system decides who is a member. Leave it out to keep the link the group has; `iam_reference = ""` makes the group Axual-managed again. Cannot be set together with `members` or `managers`.
+- `managers` (Set of String) A Group Manager can edit this group, including adding or removing users and other group managers. Each entry is the uid of a user or of a service account, and must also be listed in `members`. Cannot be set when `iam_reference` is set. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#making-a-group-member-manager-of-the-group
+- `members` (Set of String) Group's members. Each entry is the uid of a user or of a service account. Adding a service account requires Tenant Admin; once it is a member, a group manager may promote or remove it. Cannot be set when `iam_reference` is set.
 - `phone_number` (String) Group's phone number
 
 ### Read-Only
@@ -45,6 +46,22 @@ resource "axual_group" "team-awesome" {
       	]
 }
 ```
+
+## IAM-managed groups
+
+Set `iam_reference` to let your identity system decide who is a member of the group. Leave out `members` and `managers`: the plan refuses them when `iam_reference` is set. The guide [IAM-managed groups](../guides/iam-managed-groups.md) explains linking, unlinking, import and service accounts.
+
+```hcl
+resource "axual_group" "payments" {
+  name          = "Payments Team"
+  email_address = "payments@example.com"
+  iam_reference = "payments-team"
+}
+```
+
+- A Tenant Admin has to switch on IAM group management for the tenant. The provider does not change these settings.
+- Leave `iam_reference` out to keep the link the group has, also a link made outside Terraform, for example in Self-Service. `iam_reference = ""` makes the group Axual-managed again: the members and managers that Platform Manager has stored count again, and the next plan shows them.
+- On Platform Manager before 16.1.0, people who are members only through their token cannot create applications, topics or environments for the group, and cannot save an application in Self-Service.
 
 For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 

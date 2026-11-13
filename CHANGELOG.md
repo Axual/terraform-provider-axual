@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 * `tags` on `axual_topic` and the `axual_topic` data source: the topic tags shown in the Self-Service UI. Leaving out `tags` keeps the tags the topic has; `tags = []` removes them ([#177](https://github.com/Axual/terraform-provider-axual/issues/177))
 * Import by name instead of ID: `name:<name>` for `axual_topic`, `axual_environment`, `axual_application` and `axual_group`, `email:<email address>` for `axual_user`, and `name:<topic name>/<environment short name>` for `axual_topic_config`, for example `terraform import axual_topic.payments name:payments`. Works in `import` blocks too ([#114](https://github.com/Axual/terraform-provider-axual/issues/114))
 * `terraform query` support (Terraform 1.14 or newer): list resources with filters, so `terraform query -generate-config-out` writes `resource` and `import` blocks for resources that already exist. Not for `axual_flink_cluster`. The access grant list leaves out revoked and cancelled grants unless its `status` filter asks for them
+* `iam_reference` on `axual_group` and its data source: link a group to a group in your identity system. Add it to link. Leaving it out keeps the link the group has, and `iam_reference = ""` unlinks, like `tags` and `roles`. `members` and `managers` are refused for a linked group. Needs IAM group management in the tenant settings (AXPD-12492)
 * Resource identity for every resource except `axual_flink_cluster`, so an `import` block can use `identity` instead of `id`
 * Guides: `Quick start: export your resources with terraform query` and `Exporting existing resources with terraform query`, and an example in `examples/terraform-query`
 * `retention_time = -1` on `axual_topic_config`: infinite retention, so messages are never deleted. Needs Platform Manager 16.1.0 or later; with an older one, the plan fails
@@ -16,6 +17,7 @@ All notable changes to this project will be documented in this file.
 * A list resource for the decision, so `terraform query` can export existing decisions (AXPD-12412)
 * `request_again`, `decision_reason`, `decided_at` and `decided_by` on `axual_application_access_grant`, and the decision fields on its data source: the application team sees the answer and asks again by changing `request_again` (AXPD-12412)
 * `axual_application_access_grants` data source: lists grants, for example the open requests on a topic (AXPD-12412)
+* Guide: `IAM-managed groups`, how to link a group to a group in your identity system with `iam_reference`, and how service accounts work with such groups (AXPD-12492)
 
 ### Changed
 * **Breaking:** `owners` is required on `axual_flink_cluster`, and a changed `name` now replaces the Flink Cluster instead of renaming it, because Platform Manager does not allow renaming. Add `owners`, and `authorized_groups` with the Group of every application that deploys to the Flink Cluster, before you upgrade: an `axual_application_deployment` of a `FLINK_SQL` application is refused with `403 Forbidden` when its application owner Group is not authorized on the Flink Cluster
