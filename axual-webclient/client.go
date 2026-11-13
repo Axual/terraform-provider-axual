@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"sync/atomic"
 )
 
 // Client represents an HTTP client configured to communicate with the API.
@@ -18,6 +19,10 @@ type Client struct {
 
 	grantActionsOnce sync.Once
 	grantActions     chan struct{}
+
+	// oldGrantSearch is set once the grant search answered 404: Platform Manager is older
+	// than 17.0.0, so later grant searches go straight to findByAttributes.
+	oldGrantSearch atomic.Bool
 }
 
 // maxGrantActions is how many approves, rejects, revokes and cancels the client sends at the same time,

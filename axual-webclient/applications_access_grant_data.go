@@ -54,7 +54,8 @@ type ApplicationAccessGrantResponse struct {
 }
 
 // GetApplicationAccessGrantsByAttributeResponse represents the response from the grant search
-// GET /application_access_grants/search/findSummariesByAttributes.
+// GET /application_access_grants/search/findSummariesByAttributes, or findByAttributes before
+// Platform Manager 17.0.0.
 // Only fields actually used by the provider are included.
 type GetApplicationAccessGrantsByAttributeResponse struct {
 	Embedded struct {
@@ -77,4 +78,19 @@ type ApplicationAccessGrantSummary struct {
 	Application ApplicationAccessGrantRef `json:"application"`
 	Stream      ApplicationAccessGrantRef `json:"stream"`
 	Environment ApplicationAccessGrantRef `json:"environment"`
+
+	// Embedded holds the application, stream and environment in a findByAttributes answer
+	// (before Platform Manager 17.0.0). Remove it with oldGrantSearchPath.
+	Embedded *struct {
+		Application ApplicationAccessGrantRef `json:"application"`
+		Stream      ApplicationAccessGrantRef `json:"stream"`
+		Environment ApplicationAccessGrantRef `json:"environment"`
+	} `json:"_embedded"`
+}
+
+// useEmbedded copies the application, stream and environment of a findByAttributes answer to the plain fields.
+func (g *ApplicationAccessGrantSummary) useEmbedded() {
+	if g.Embedded != nil {
+		g.Application, g.Stream, g.Environment = g.Embedded.Application, g.Embedded.Stream, g.Embedded.Environment
+	}
 }
