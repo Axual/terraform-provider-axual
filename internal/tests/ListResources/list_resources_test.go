@@ -146,7 +146,8 @@ func TestListResources(t *testing.T) {
 				QueryResultChecks: []querycheck.QueryResultCheck{
 					querycheck.ExpectLength("axual_environment.env", 1),
 					querycheck.ExpectLength("axual_topic.topic", 1),
-					querycheck.ExpectLength("axual_topic_config.topic_config", 1),
+					// A connector deployment on an instance with connector logging on adds a topic config of its own.
+					querycheck.ExpectLengthAtLeast("axual_topic_config.topic_config", 1),
 					querycheck.ExpectLengthAtLeast("axual_application.apps", 2),
 					// The display name of an application is its name.
 					querycheck.ExpectResourceKnownValues("axual_application.apps",
@@ -176,9 +177,9 @@ func TestListResources(t *testing.T) {
 					querycheck.ExpectLength("axual_application_deployment_state.deployment_state", 1),
 					querycheck.ExpectLength("axual_schema_version.schema", 1),
 
-					// One result each, so select it by identity and check its display name.
+					// The topic config is selected by its display name, the others are one result each: select them by identity.
 					querycheck.ExpectResourceDisplayName("axual_topic_config.topic_config",
-						queryfilter.ByResourceIdentity(map[string]knownvalue.Check{"id": knownvalue.NotNull()}),
+						queryfilter.ByDisplayName(knownvalue.StringExact("tf-query-topic on tfqueryenv")),
 						knownvalue.StringExact("tf-query-topic on tfqueryenv")),
 					querycheck.ExpectResourceDisplayName("axual_application_deployment.deployment",
 						queryfilter.ByResourceIdentity(map[string]knownvalue.Check{"id": knownvalue.NotNull()}),
