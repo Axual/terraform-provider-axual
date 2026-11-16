@@ -3,6 +3,7 @@ package custom_validator
 import (
 	"context"
 	"fmt"
+	"unicode/utf16"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -119,5 +120,35 @@ func (v RetentionTimeValidator) ValidateInt64(_ context.Context, req validator.I
 			"Invalid Attribute Value",
 			fmt.Sprintf("Attribute %s value must be -1 (infinite) or between 1000 and 160704000000 (5 years), got: %d", req.Path, value),
 		)
+	}
+}
+
+// Utf16LengthBetweenValidator checks the length of a string in UTF-16 code units, like Java's String.length(),
+// which Platform Manager uses. A character outside the Basic Multilingual Plane (for example an emoji) counts as 2.
+type Utf16LengthBetweenValidator struct{ min, max int }
+
+// NewUtf16LengthBetweenValidator creates a validator for a length from min to max, in UTF-16 code units.
+func NewUtf16LengthBetweenValidator(min, max int) validator.String {
+	return Utf16LengthBetweenValidator{min: min, max: max}
+}
+
+// Description returns the description of the validator.
+func (v Utf16LengthBetweenValidator) Description(_ context.Context) string {
+	return fmt.Sprintf("Length must be between %d and %d (UTF-16 code units).", v.min, v.max)
+}
+
+// MarkdownDescription returns the markdown description of the validator.
+func (v Utf16LengthBetweenValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+// ValidateString validates the length of the string.
+func (v Utf16LengthBetweenValidator) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if n := len(utf16.Encode([]rune(req.ConfigValue.ValueString()))); n < v.min || n > v.max {
+		resp.Diagnostics.AddAttributeError(req.Path, "Invalid Attribute Value Length",
+			fmt.Sprintf("Length must be between %d and %d (a character outside the Basic Multilingual Plane counts as 2), got: %d.", v.min, v.max, n))
 	}
 }

@@ -201,6 +201,7 @@ Before running acceptance tests:
    - `userEmail`: Your email
    - `username`: Your username
    - `password`: Your password
+   - `iamGroupTests`: Optional. `true` runs the IAM group tests, see "Verify Test User Permissions" below. Default `false`.
 
    The following values are only needed by the Flink cluster tests
    (`internal/tests/FlinkClusterResource`) and the Flink parts of the Application Deployment tests.
@@ -256,6 +257,16 @@ Before running acceptance tests:
    - Topic Author
    - Schema Author
    - Schema Admin (needed for deleting Schemas not assigned to your Group)
+
+   The IAM group tests (`TestGroupResourceIamManaged` and `TestGroupDataSourceIamManaged`) run only when
+   `test_config.yaml` has `iamGroupTests: true`. The default is `false`, and a missing key also means `false`.
+   Write the value without quotes. Turn it on when you work on IAM-managed groups, and run the acceptance tests once
+   with it on before a release: CI runs no acceptance tests. The tests need the Tenant Admin role. They change a
+   tenant setting: when IAM group management is off, they switch it on (with automatic group creation off) for the
+   run and switch it off again at the end. A run that is stopped with Ctrl-C or `-timeout` leaves it on and leaves
+   the test group behind, so switch it off in the tenant settings and delete the group. With `iamGroupTests: true`
+   the tests fail, and do not skip, when the test user is not a Tenant Admin or the tenant has Axual group
+   management off.
 
 4. **Creating Test Users:**
    Some tests (e.g., `TopicBrowsePermissionsResource`) require existing users to be referenced. Update the test files in [`internal/tests/TopicBrowsePermissionsResource/`](./internal/tests/TopicBrowsePermissionsResource/) with email addresses of users that exist in your test environment.

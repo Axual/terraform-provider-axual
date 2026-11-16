@@ -44,6 +44,31 @@ func (c *Client) UpdateGroup(id string, group GroupRequest) (*GroupResponse, err
 	return &o, nil
 }
 
+// ExternalizeGroup links an Axual-managed group to a group in the IAM system (an IAM-managed group).
+func (c *Client) ExternalizeGroup(id string, iamReference string) (*GroupResponse, error) {
+	o := GroupResponse{}
+	marshal, err := json.Marshal(ExternalizeGroupRequest{IamReference: iamReference})
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.RequestAndMap("POST", fmt.Sprintf("%s/groups/%v/externalize", c.ApiURL, id), strings.NewReader(string(marshal)), nil, &o)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
+}
+
+// InternalizeGroup removes the IAM link of an IAM-managed group, so it is Axual-managed again.
+func (c *Client) InternalizeGroup(id string) (*GroupResponse, error) {
+	o := GroupResponse{}
+	err := c.RequestAndMap("DELETE", fmt.Sprintf("%s/groups/%v/externalize", c.ApiURL, id), nil, nil, &o)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
+}
+
 func (c *Client) DeleteGroup(id string) error {
 	err := c.RequestAndMap("DELETE", fmt.Sprintf("%s/groups/%v", c.ApiURL, id), nil, nil, nil)
 	if err != nil {

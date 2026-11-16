@@ -1,8 +1,10 @@
 package tests
 
 import (
+	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -38,6 +40,8 @@ type ProviderConfig struct {
 	ServiceAccountUid string `yaml:"serviceAccountUid"`
 	// The email of a user who logged in once and may have its roles changed: TestUserResource imports it.
 	TestUserEmail string `yaml:"testUserEmail"`
+	// IamGroupTests turns on the IAM group tests. Missing means false.
+	IamGroupTests bool `yaml:"iamGroupTests"`
 	// The Ververica values the Flink suites need. The API validates the workspace, namespace and
 	// deployment target live, so a developer whose namespace differs sets them here rather than
 	// editing the fixtures; they default to defaultworkspace / default / default-target.
@@ -351,6 +355,64 @@ func apiClient() (*webclient.Client, error) {
 			Scopes:   []string{"openid", "profile", "email"},
 		},
 	)
+}
+
+// RequireIamGroupManagement runs an IAM group test only when test_config.yaml has iamGroupTests: true, and skips it
+// otherwise, before any call to Platform Manager. With the switch on, it switches IAM group management on for the test
+// and off again afterwards, and it fails, and does not skip, when it cannot. A stopped run (Ctrl-C or -timeout) leaves
+// the setting on: switch it off in the tenant settings then.
+func RequireIamGroupManagement(t *testing.T) {
+	t.Helper()
+	if os.Getenv(resource.EnvTfAcc) == "" {
+		t.Skipf("Acceptance tests skipped unless env '%s' set", resource.EnvTfAcc)
+	}
+	config, err := LoadProviderConfig()
+	if err != nil {
+		t.Fatalf("Error loading provider config: %v", err)
+	}
+	if !config.IamGroupTests {
+		t.Skip("iamGroupTests is not true in test_config.yaml, so the IAM group tests are skipped")
+	}
+	client, err := apiClient()
+	if err != nil {
+		t.Fatalf("unable to build API client: %v", err)
+	}
+	// The tenant of the signed-in user: the same tenant that the settings call below changes.
+	var tenant struct {
+		Settings map[string]any `json:"settings"`
+	}
+	if err := client.RequestAndMap("GET", client.ApiURL+"/tenant", nil, map[string]string{"Accept": "application/hal+json"}, &tenant); err != nil {
+		t.Fatalf("unable to read the tenant settings: %v", err)
+	}
+	settings := tenant.Settings
+	if fmt.Sprint(settings["axualGroupManagementEnabled"]) == "false" {
+		t.Fatal("iamGroupTests is true, but the tenant has Axual group management off, and the IAM group tests also need it: switch it on in the tenant settings")
+	}
+	if fmt.Sprint(settings["iamGroupManagementEnabled"]) == "true" {
+		return
+	}
+	post := func(body string) error {
+		return client.RequestAndMap("POST", client.ApiURL+"/tenant/settings/group-management", strings.NewReader(body), map[string]string{"Content-Type": "application/json"}, nil)
+	}
+	automatic := fmt.Sprint(settings["autoIAMGroupCreationEnabled"]) == "true"
+	if err := post(`{"iamGroupManagement":{"enabled":true,"automaticGroupCreationEnabled":false}}`); err != nil {
+		var httpErr *webclient.HTTPError
+		if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusForbidden {
+			t.Fatal("iamGroupTests is true, but IAM group management is off and only a Tenant Admin can switch it on: use a Tenant Admin in test_config.yaml, or switch it on in the tenant settings")
+		}
+		t.Fatalf("unable to enable IAM group management: %v", err)
+	}
+	t.Cleanup(func() {
+		// The automatic setting can only be changed while IAM group management is on.
+		if automatic {
+			if err := post(`{"iamGroupManagement":{"enabled":true,"automaticGroupCreationEnabled":true}}`); err != nil {
+				t.Errorf("unable to put automatic IAM group creation back: %v", err)
+			}
+		}
+		if err := post(`{"iamGroupManagement":{"enabled":false}}`); err != nil {
+			t.Errorf("unable to switch IAM group management off again: %v", err)
+		}
+	})
 }
 
 // CheckPrincipalActiveInAPI asserts the LIVE API activation status of the principal backing the
