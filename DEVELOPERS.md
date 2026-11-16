@@ -257,6 +257,12 @@ Before running acceptance tests:
    - Schema Author
    - Schema Admin (needed for deleting Schemas not assigned to your Group)
 
+   The IAM group tests (`TestGroupResourceIamManaged` and `TestGroupDataSourceIamManaged`) need the Tenant Admin
+   role. They change a tenant setting: when IAM group management is off, they switch it on (with automatic group
+   creation off) for the run and switch it off again at the end. A run that is stopped with Ctrl-C or `-timeout`
+   leaves it on, so switch it off in the tenant settings. The tests skip when the test user is not a Tenant Admin,
+   and when the tenant has Axual group management off.
+
 4. **Creating Test Users:**
    Some tests (e.g., `TopicBrowsePermissionsResource`) require existing users to be referenced. Update the test files in [`internal/tests/TopicBrowsePermissionsResource/`](./internal/tests/TopicBrowsePermissionsResource/) with email addresses of users that exist in your test environment.
    

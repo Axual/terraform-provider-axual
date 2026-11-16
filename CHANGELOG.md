@@ -21,6 +21,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 * **Breaking:** `owners` is required on `axual_flink_cluster`, and a changed `name` now replaces the Flink Cluster instead of renaming it, because Platform Manager does not allow renaming. Add `owners`, and `authorized_groups` with the Group of every application that deploys to the Flink Cluster, before you upgrade: an `axual_application_deployment` of a `FLINK_SQL` application is refused with `403 Forbidden` when its application owner Group is not authorized on the Flink Cluster
+* **Breaking:** a group that is linked to an IAM group outside Terraform (for example in Self-Service) now fails the plan when the configuration sets `members` or `managers`. Before, such a configuration planned and applied. Remove `members` and `managers`, or set `iam_reference = ""` to make the group Axual-managed again (AXPD-12492)
 * More than one `axual_flink_cluster` can be registered per Instance-Cluster (Platform Manager 17.0.0 or later)
 * Leaving out `roles` on an `axual_user` now keeps the roles the user has. Only `roles = []` removes them
 * Changing `application`, `topic`, `environment` or `access_type` of an `axual_application_access_grant` fails in the plan instead of at apply (AXPD-12412)

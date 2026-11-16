@@ -132,4 +132,5 @@ them works.
 | IAM Group Management is disabled for this tenant | Ask a Tenant Admin to switch on IAM-managed groups. |
 | Axual Group Management is disabled for this tenant | The tenant allows IAM-managed groups only. Add an `iam_reference`, or switch on Axual-managed groups. |
 | ... already exists in this tenant | Another group has this reference. Reference values are unique. To swap the references of two groups, use three applies: first give group A a temporary value, then give group B the old value of A, then give A the old value of B. |
+| Members and managers not supported | A group with an `iam_reference` has no `members` and `managers` in Terraform, because the IAM system decides. Remove them, or set `iam_reference = ""`. This also stops a group that someone linked in Self-Service. If `iam_reference` comes from another resource, the plan only warns and the apply stops with this error. |
 | Access Denied (403) | The user or service account needs `TENANT_ADMIN`. |

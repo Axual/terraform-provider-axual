@@ -589,6 +589,29 @@ func TestGroupModifyPlan_isQuietWhenLinkingAGroupWithoutMembers(t *testing.T) {
 	}
 }
 
+func TestGroupModifyPlan_warnsEarlyWhenTheReferenceIsUnknownAndMembersAreSet(t *testing.T) {
+	data := groupData("", "m1")
+	data.IamReference = types.StringUnknown()
+
+	resp := modifyPlan(t, data, data, nil)
+
+	if resp.Diagnostics.HasError() || resp.Diagnostics.WarningsCount() != 1 || resp.Diagnostics.Warnings()[0].Summary() != "iam_reference is not known yet" {
+		t.Errorf("diagnostics = %v, expected one warning and no error, because the value can still be empty", resp.Diagnostics)
+	}
+}
+
+func TestGroupModifyPlan_isQuietWhenTheReferenceIsUnknownAndThereAreNoMembers(t *testing.T) {
+	state := groupData("engineering")
+	data := groupData("")
+	data.IamReference = types.StringUnknown()
+
+	resp := modifyPlan(t, data, data, &state)
+
+	if len(resp.Diagnostics) != 0 {
+		t.Errorf("diagnostics = %v, expected none: an unknown reference is not an empty one, so the group does not become Axual-managed", resp.Diagnostics)
+	}
+}
+
 func TestGroupModifyPlan_isQuietForAnOrdinaryGroup(t *testing.T) {
 	state := groupData("", "m1")
 	data := groupData("", "m1", "m2")

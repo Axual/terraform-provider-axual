@@ -181,7 +181,7 @@ func (r *groupResource) Read(ctx context.Context, req resource.ReadRequest, resp
 
 // ModifyPlan keeps the link of a group when iam_reference is left out (like tags and roles), refuses members or
 // managers on an IAM-managed group, because the provider does not send them, and warns when an empty iam_reference
-// makes the group Axual-managed again.
+// makes the group Axual-managed again, or when iam_reference is not known yet and members are set.
 func (r *groupResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	if req.Plan.Raw.IsNull() {
 		return
@@ -204,6 +204,17 @@ func (r *groupResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanR
 			data.IamReference = state.IamReference
 		}
 		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("iam_reference"), data.IamReference)...)
+	}
+
+	// Not known yet (it comes from a resource that this apply creates): Terraform plans again at apply, and the checks below
+	// then run with the real value. An unknown value is not an empty one, so warn now and skip the rest.
+	if configReference.IsUnknown() {
+		if !data.Members.IsNull() || !data.Managers.IsNull() {
+			resp.Diagnostics.AddAttributeWarning(path.Root("iam_reference"),
+				"iam_reference is not known yet",
+				"iam_reference gets its value during the apply. If the value is not empty, the apply stops with an error, because a group with an iam_reference cannot have members or managers. Remove them from the configuration.")
+		}
+		return
 	}
 
 	if isIamManaged(data) && (!data.Members.IsNull() || !data.Managers.IsNull()) {

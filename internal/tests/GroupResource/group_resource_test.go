@@ -148,6 +148,23 @@ func TestGroupResourceIamManaged(t *testing.T) {
 				),
 			},
 			{
+				// Terraform links the Axual-managed group: one call to the externalize endpoint. Its stored member stays in
+				// Platform Manager, and the state has no members.
+				Config: GetProvider() + GetFile("axual_group_iam_linked_again.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(name, "iam_reference", "tf-test-iam-group-9999-c"),
+					resource.TestCheckNoResourceAttr(name, "members.#"),
+				),
+			},
+			{
+				// Unlinked again, so that the next step can link the group outside Terraform.
+				Config: GetProvider() + GetFile("axual_group_iam_axual_managed.tf"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(name, "iam_reference", ""),
+					resource.TestCheckResourceAttr(name, "members.#", "1"),
+				),
+			},
+			{
 				// Someone links the group in Self-Service. The configuration leaves iam_reference out, so the link stays
 				// and the plan has no changes.
 				PreConfig: func() { linkOutsideTerraform(t, "testiamgroup9999", "tf-test-iam-group-9999-outside") },
@@ -161,7 +178,7 @@ func TestGroupResourceIamManaged(t *testing.T) {
 				),
 			},
 			{
-				// Linked again, without members.
+				// Change the reference of a linked group.
 				Config: GetProvider() + GetFile("axual_group_iam_linked_again.tf"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(name, "iam_reference", "tf-test-iam-group-9999-c"),
