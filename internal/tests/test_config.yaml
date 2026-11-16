@@ -34,6 +34,13 @@ serviceAccountUid: ""
 # own: a failed run can leave it without roles. Leave empty to skip that test.
 testUserEmail: ""
 
+# Set to true to run the IAM group tests (TestGroupResourceIamManaged and TestGroupDataSourceIamManaged).
+# They need a Tenant Admin. They switch IAM group management on in your tenant for the run and off again at
+# the end. A run that is stopped (Ctrl-C or -timeout) leaves it on and leaves the test group behind. With
+# true, a user who is not a Tenant Admin, or a tenant with Axual group management off, fails the tests.
+# Write true or false without quotes: a quoted value stops every test. Missing means false.
+iamGroupTests: false
+
 # Two Kafka Connect clusters already registered on one Instance-Cluster, used by the Kafka Connect
 # tests (ConnectClusterDataSource, ApplicationDeploymentStateResource): one MTLS, one SASL_SCRAM.
 # The tests never register them. They skip while any of these is still a YOUR_ placeholder.

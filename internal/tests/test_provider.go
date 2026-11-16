@@ -40,6 +40,8 @@ type ProviderConfig struct {
 	ServiceAccountUid string `yaml:"serviceAccountUid"`
 	// The email of a user who logged in once and may have its roles changed: TestUserResource imports it.
 	TestUserEmail string `yaml:"testUserEmail"`
+	// IamGroupTests turns on the IAM group tests. Missing means false.
+	IamGroupTests bool `yaml:"iamGroupTests"`
 	// The Ververica values the Flink suites need. The API validates the workspace, namespace and
 	// deployment target live, so a developer whose namespace differs sets them here rather than
 	// editing the fixtures; they default to defaultworkspace / default / default-target.
@@ -355,12 +357,21 @@ func apiClient() (*webclient.Client, error) {
 	)
 }
 
-// RequireIamGroupManagement switches IAM group management on for the test and off again afterwards, and skips the test
-// when the tenant does not allow Axual-managed groups. A stopped run (Ctrl-C or -timeout) leaves it on: switch it off in the tenant settings then.
+// RequireIamGroupManagement runs an IAM group test only when test_config.yaml has iamGroupTests: true, and skips it
+// otherwise, before any call to Platform Manager. With the switch on, it switches IAM group management on for the test
+// and off again afterwards, and it fails, and does not skip, when it cannot. A stopped run (Ctrl-C or -timeout) leaves
+// the setting on: switch it off in the tenant settings then.
 func RequireIamGroupManagement(t *testing.T) {
 	t.Helper()
 	if os.Getenv(resource.EnvTfAcc) == "" {
 		t.Skipf("Acceptance tests skipped unless env '%s' set", resource.EnvTfAcc)
+	}
+	config, err := LoadProviderConfig()
+	if err != nil {
+		t.Fatalf("Error loading provider config: %v", err)
+	}
+	if !config.IamGroupTests {
+		t.Skip("iamGroupTests is not true in test_config.yaml, so the IAM group tests are skipped")
 	}
 	client, err := apiClient()
 	if err != nil {
@@ -375,7 +386,7 @@ func RequireIamGroupManagement(t *testing.T) {
 	}
 	settings := tenant.Settings
 	if fmt.Sprint(settings["axualGroupManagementEnabled"]) == "false" {
-		t.Skip("the IAM group tests also need Axual group management in the tenant settings")
+		t.Fatal("iamGroupTests is true, but the tenant has Axual group management off, and the IAM group tests also need it: switch it on in the tenant settings")
 	}
 	if fmt.Sprint(settings["iamGroupManagementEnabled"]) == "true" {
 		return
@@ -387,7 +398,7 @@ func RequireIamGroupManagement(t *testing.T) {
 	if err := post(`{"iamGroupManagement":{"enabled":true,"automaticGroupCreationEnabled":false}}`); err != nil {
 		var httpErr *webclient.HTTPError
 		if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusForbidden {
-			t.Skip("IAM group management is off, and only a Tenant Admin can switch it on")
+			t.Fatal("iamGroupTests is true, but IAM group management is off and only a Tenant Admin can switch it on: use a Tenant Admin in test_config.yaml, or switch it on in the tenant settings")
 		}
 		t.Fatalf("unable to enable IAM group management: %v", err)
 	}
