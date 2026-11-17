@@ -277,6 +277,6 @@ func createUserRequestFromData(ctx context.Context, data *userResourceData, desi
 		userRequest.MiddleName = data.MiddleName.ValueString()
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("user request %q", userRequest))
+	tflog.Info(ctx, fmt.Sprintf("user request %+v", userRequest))
 	return userRequest
 }

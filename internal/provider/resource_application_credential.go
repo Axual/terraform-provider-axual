@@ -131,7 +131,7 @@ func (r *applicationCredentialResource) Create(ctx context.Context, req resource
 		resp.Diagnostics.AddError("Error creating CREATE request struct for application credential resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
-	tflog.Info(ctx, fmt.Sprintf("Create application credential request %q", applicationCredentialCreateRequest))
+	tflog.Info(ctx, fmt.Sprintf("Create application credential request %+v", applicationCredentialCreateRequest))
 	applicationCredential, err := r.provider.client.CreateApplicationCredential(applicationCredentialCreateRequest)
 
 	if err != nil {
