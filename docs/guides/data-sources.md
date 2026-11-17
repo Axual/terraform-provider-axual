@@ -115,6 +115,28 @@ resource "axual_environment" "test" {
 
 **Available attributes:** `id`, `name`, `short_name`, `description`
 
+### axual_cluster
+
+To define an `axual_cluster` data source, provide the exact Cluster `name`:
+
+```hcl
+data "axual_cluster" "existing" {
+  name = "production-ams"
+}
+```
+
+Now we can use this data source when creating a resource:
+
+```hcl
+resource "axual_instance" "test" {
+  name       = "Test"
+  short_name = "test"
+  clusters   = [data.axual_cluster.existing.id]
+}
+```
+
+**Available attributes:** `id`, `description`, `location`, `provider_type`, `shared`, `topic_pattern`, `group_pattern`, `transactional_pattern`, `kafka_version`, `bootstrap_urls_by_authentication`
+
 ### axual_environment
 
 To define an `axual_environment` data source, provide either the environment `name` or `short_name`:

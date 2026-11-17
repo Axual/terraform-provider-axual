@@ -18,7 +18,7 @@ A Cluster is a Kafka cluster that Platform Manager governs. Add it to an Instanc
 - Platform Manager connects to the brokers when the Cluster is created. A bootstrap host it cannot reach fails the apply. Some Platform Manager versions do not refuse credentials the brokers reject; they only log a warning, so check that a topic can be created.
 
 ## Platform Manager version
-- Platform Manager 16.0.0 or later. `provider_type = "strimzi"` needs the next Platform Manager release after 16.0.x.
+- Platform Manager 16.0.0 or later. `provider_type = "strimzi"` and the `strimzi` block need Platform Manager 16.1.0 or later.
 - Some Platform Manager versions delete the schema registry of the Instance-Clusters when a Cluster is renamed. The next `terraform apply` configures it again from `axual_instance_cluster`.
 
 ## Required Roles
