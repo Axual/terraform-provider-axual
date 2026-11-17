@@ -99,8 +99,8 @@ type ApplicationAccessGrantAttributes struct {
 }
 
 // The grant searches, relative to the API URL. findSummariesByAttributes exists from Platform
-// Manager 17.0.0. findByAttributes is removed in 2027.4; SearchGrants still needs it, because
-// the new search has no user emails.
+// Manager 17.0.0. findByAttributes is deprecated in 17.0.0 and removed in 2027.4: then remove
+// oldGrantSearchPath and grantSearch, and require Platform Manager 17.0.0 in the compatibility table.
 const (
 	grantSearchPath    = "application_access_grants/search/findSummariesByAttributes"
 	oldGrantSearchPath = "application_access_grants/search/findByAttributes"
