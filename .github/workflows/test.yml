@@ -39,6 +39,10 @@ jobs:
         run: go test -count 1 ./...
         working-directory: axual-webclient
 
+      # From the root, so the tests use the module versions that the provider is built with.
+      - name: Unit tests (axual-webclient, provider versions)
+        run: go test -count 1 axual-webclient/...
+
       - name: Documentation is up to date
         run: |
           go generate
