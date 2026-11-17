@@ -1,5 +1,5 @@
 module axual-webclient
 
-go 1.23.0
+go 1.26.11
 
-require golang.org/x/oauth2 v0.25.0
+require golang.org/x/oauth2 v0.38.0
