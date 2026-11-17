@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
 	"reflect"
 	"strings"
@@ -98,22 +99,22 @@ type ApplicationAccessGrantAttributes struct {
 }
 
 // The grant searches, relative to the API URL. findSummariesByAttributes exists from Platform
-// Manager 17.0.0. findByAttributes is deprecated in 17.0.0 and removed in 2027.4: then remove
-// oldGrantSearchPath and grantSearch, and require Platform Manager 17.0.0 in the compatibility table.
+// Manager 17.0.0. findByAttributes is removed in 2027.4; SearchGrants still needs it, because
+// the new search has no user emails.
 const (
 	grantSearchPath    = "application_access_grants/search/findSummariesByAttributes"
 	oldGrantSearchPath = "application_access_grants/search/findByAttributes"
 )
 
-// grantSearch calls search with grantSearchPath. On a 404 (Platform Manager older than 17.0.0) it
-// calls search with oldGrantSearchPath, now and for every later search of this client.
-// findSummariesByAttributes answers an empty page, not 404, when no grant matches.
+// grantSearch tries grantSearchPath. After a 404 (Platform Manager before 17.0.0) this client uses
+// oldGrantSearchPath. The new search answers an empty page, not 404, when nothing matches.
 func (c *Client) grantSearch(search func(path string) error) error {
 	if !c.oldGrantSearch.Load() {
 		err := search(grantSearchPath)
 		if !errors.Is(err, NotFoundError) {
 			return err
 		}
+		log.Printf("%s answered 404: this run uses %s (Platform Manager before 17.0.0)", grantSearchPath, oldGrantSearchPath)
 		c.oldGrantSearch.Store(true)
 	}
 	return search(oldGrantSearchPath)

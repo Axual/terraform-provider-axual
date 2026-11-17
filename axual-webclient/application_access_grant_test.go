@@ -135,3 +135,23 @@ func TestListApplicationAccessGrantsBefore17(t *testing.T) {
 		t.Errorf("calls = %v, want each search once", calls)
 	}
 }
+
+// A 500 is not an old Platform Manager: no fallback, and the next search tries the new path again.
+func TestGrantSearchNoFallbackOnServerError(t *testing.T) {
+	calls := map[string]int{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls[r.URL.Path]++
+		http.Error(w, "boom", http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+	client := &Client{HTTPClient: srv.Client(), ApiURL: srv.URL}
+
+	for range 2 {
+		if _, err := client.GetApplicationAccessGrantsByAttributes(ApplicationAccessGrantAttributes{ApplicationId: "a1"}); err == nil {
+			t.Fatal("want an error")
+		}
+	}
+	if calls[newSearch] != 2 || calls[oldSearch] != 0 {
+		t.Errorf("calls = %v, want findSummariesByAttributes twice and findByAttributes never", calls)
+	}
+}

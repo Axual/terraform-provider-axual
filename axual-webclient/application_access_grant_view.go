@@ -62,7 +62,7 @@ func (c *Client) SearchGrants(topic, environment, accessType, application string
 	for _, s := range statuses {
 		q.Add("statuses", strings.ToUpper(s))
 	}
-	items, err := c.ListAll("application_access_grants/search/findByAttributes", q)
+	items, err := c.ListAll(oldGrantSearchPath, q)
 	if err != nil {
 		return nil, err
 	}
