@@ -31,6 +31,7 @@ All notable changes to this project will be documented in this file.
 * The `axual_application_access_grants` data source matches `application` by name ignoring case, as Platform Manager does (AXPD-12412)
 * The access guides describe the platform correctly: Rejected, Revoked and Cancelled grants are closed, not final; a new request reopens the same grant (AXPD-12412)
 * A plan that leaves out `configs`, `definition` or `sql_script` of an `axual_application_deployment` that has them stops with `Missing configs` (or `definition`, `sql_script`), unless the application or environment changes. `configs = {}` removes all configs (Platform Manager 16.0.0 or later). Before, the apply removed them and stopped the deployment
+* Built with Go 1.26.11. The Go modules `golang.org/x/crypto`, `golang.org/x/net`, `golang.org/x/oauth2` and `google.golang.org/grpc` are updated to versions without known vulnerabilities
 
 ### Deprecated
 * `axual_application_access_grant_approval` and `axual_application_access_grant_rejection`: use `axual_application_access_grant_decision` (AXPD-12412)
@@ -52,6 +53,7 @@ All notable changes to this project will be documented in this file.
 * An `axual_topic_browse_permissions` whose topic configuration was deleted is removed from the state, and its destroy skips users and groups that were deleted meanwhile. Before, plan and destroy failed
 * An `axual_application_credential` of a Schema Registry that uses OAuth, imported or exported with `terraform query`, now gets `target = "SCHEMA_REGISTRY"` instead of `"KAFKA"`, so destroying it deletes it. A configuration that sets `target = "KAFKA"` for such a credential must change it to `"SCHEMA_REGISTRY"`
 * A `retention_time` above 160704000000 (5 years) on `axual_topic_config` fails at plan. Before, the apply failed, and Platform Manager before 16.1.0 had already set the value on the topic
+* `axual_application_deployment` no longer writes the connector `configs` to the Terraform log. Before, a log at `INFO` level or lower showed the values (all releases with Connector support), and they can hold passwords although `configs` is sensitive. The log now shows the config keys only
 
 ## [3.2.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.2.0) - 2026-10-08
 ### Added

@@ -6,7 +6,7 @@ This guide is for developers who want to contribute to the Terraform Provider fo
 
 - [Terraform](https://www.terraform.io/downloads.html) >= 1.0
   - Recommended: `brew install terraform`
-- [Go](https://golang.org/dl/) >= 1.21
+- [Go](https://golang.org/dl/): the version on the `go` line of `go.mod`. Go 1.21 or newer downloads it by itself, unless `GOTOOLCHAIN=local` is set
   - Recommended: `brew install go`
 - Access to an Axual Platform instance for testing (local deployment or Axual Cloud)
 

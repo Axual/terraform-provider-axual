@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -890,7 +892,7 @@ func createApplicationDeploymentRequestFromData(ctx context.Context, data *Appli
 		ApplicationDeploymentRequest.TargetVersion = data.TargetVersion.ValueString()
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("Application request completed: %q", ApplicationDeploymentRequest))
+	tflog.Info(ctx, createRequestLogMessage(ApplicationDeploymentRequest))
 	return ApplicationDeploymentRequest, nil
 }
 
@@ -919,7 +921,7 @@ func createApplicationUpdateDeploymentRequestFromData(ctx context.Context, plan 
 		ApplicationDeploymentUpdateRequest.TargetVersion = plan.TargetVersion.ValueString()
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("Application update request completed: %+v", ApplicationDeploymentUpdateRequest))
+	tflog.Info(ctx, updateRequestLogMessage(ApplicationDeploymentUpdateRequest))
 	return ApplicationDeploymentUpdateRequest, nil
 }
 
@@ -1448,4 +1450,15 @@ func shouldStopDeployment(deploymentType string, status *webclient.ApplicationDe
 	// a state Axual does not know. Fall back on what the deployment says it is doing, so a running
 	// deployment is still stopped rather than left for the API to refuse the PATCH or DELETE.
 	return isDeploymentRunning(deploymentType, status)
+}
+
+// The log messages of the deployment requests show the config keys and never the values: the values can hold passwords.
+func createRequestLogMessage(r webclient.ApplicationDeploymentCreateRequest) string {
+	return fmt.Sprintf("Application request completed: application %q, environment %q, target %q, target version %q, config keys %q",
+		r.Application, r.Environment, r.TargetId, r.TargetVersion, slices.Sorted(maps.Keys(r.Configs)))
+}
+
+func updateRequestLogMessage(r webclient.ApplicationDeploymentUpdateRequest) string {
+	return fmt.Sprintf("Application update request completed: target %q, target version %q, clear target %t, config keys %q",
+		r.TargetId, r.TargetVersion, r.ClearTarget, slices.Sorted(maps.Keys(r.Configs)))
 }

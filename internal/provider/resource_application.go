@@ -305,7 +305,7 @@ func createApplicationRequestFromData(ctx context.Context, data *ApplicationReso
 		ApplicationRequest.ApplicationClass = data.ApplicationClass.ValueString()
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("Successfully created Application request %q", ApplicationRequest))
+	tflog.Info(ctx, fmt.Sprintf("Successfully created Application request %+v", ApplicationRequest))
 	return ApplicationRequest, nil
 }
 
