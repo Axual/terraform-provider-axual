@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -37,8 +38,19 @@ const (
 // others are SASL.
 var instanceAuthenticationMethods = []string{"MUTUAL_TLS", "SCRAM_SHA_256", "SCRAM_SHA_512", "OAUTH_BEARER", "PLAIN"}
 
+// Platform Manager 15.0.x ignores flinkEnabled and refuses connectEnabled without connectUrls.
+const instanceFlinkAndConnectMajor, instanceFlinkAndConnectMinor = 16, 0
+
+// SupportsInstanceFlink reports whether a Platform Manager version, as GET /info returns it, accepts
+// flink_enabled = true, and connect_enabled = true without connect_urls, on an Instance. A version it
+// cannot read counts as too old.
+func SupportsInstanceFlink(version string) bool {
+	return platformVersionAtLeast(version, instanceFlinkAndConnectMajor, instanceFlinkAndConnectMinor)
+}
+
 var _ resource.Resource = &instanceResource{}
 var _ resource.ResourceWithImportState = &instanceResource{}
+var _ resource.ResourceWithModifyPlan = &instanceResource{}
 
 func NewInstanceResource(provider AxualProvider) resource.Resource {
 	return &instanceResource{
@@ -180,7 +192,7 @@ func (r *instanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				},
 			},
 			"connect_enabled": schema.BoolAttribute{
-				MarkdownDescription: "Whether Connector applications can be deployed on the Instance. Default `false`.",
+				MarkdownDescription: "Whether Connector applications can be deployed on the Instance. Default `false`. `true` without `connect_urls` needs Platform Manager 16.0.0 or later.",
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(false),
@@ -194,13 +206,48 @@ func (r *instanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				},
 			},
 			"flink_enabled": schema.BoolAttribute{
-				MarkdownDescription: "Whether Flink SQL applications can be deployed on the Instance. Default `false`.",
+				MarkdownDescription: "Whether Flink SQL applications can be deployed on the Instance. Default `false`. `true` needs Platform Manager 16.0.0 or later.",
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(false),
 			},
 		},
 	}
+}
+
+// ModifyPlan refuses flink_enabled = true, and connect_enabled = true without connect_urls, on a
+// Platform Manager older than 16.0.0, or when its version cannot be read. It only checks a setting the
+// plan adds.
+func (r *instanceResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() || r.provider.client == nil {
+		return
+	}
+	var plan, state instanceResourceData
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if !req.State.Raw.IsNull() {
+		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	flink := plan.FlinkEnabled.ValueBool() && !state.FlinkEnabled.ValueBool()
+	connect := connectWithoutUrls(plan) && !connectWithoutUrls(state)
+	if !flink && !connect {
+		return
+	}
+	version, err := r.provider.client.GetPlatformVersion()
+	if flink {
+		requirePlatformVersion(&resp.Diagnostics, version, err, path.Root("flink_enabled"), "flink_enabled = true",
+			instanceFlinkAndConnectMajor, instanceFlinkAndConnectMinor, "It ignores flink_enabled, so the apply would fail.")
+	}
+	if connect {
+		requirePlatformVersion(&resp.Diagnostics, version, err, path.Root("connect_enabled"), "connect_enabled = true without connect_urls",
+			instanceFlinkAndConnectMajor, instanceFlinkAndConnectMinor, "It needs the connect_urls of Axual Connect when connect_enabled is true.")
+	}
+}
+
+func connectWithoutUrls(data instanceResourceData) bool {
+	return data.ConnectEnabled.ValueBool() && data.ConnectUrls.IsNull()
 }
 
 func (r *instanceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -250,7 +297,19 @@ func (r *instanceResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
-	instance, err := r.provider.client.UpdateInstance(data.Id.ValueString(), createInstanceRequestFromData(&data, r.provider.client.ApiURL))
+	var state instanceResourceData
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	request := createInstanceRequestFromData(&data, r.provider.client.ApiURL)
+	// Platform Manager 15.0.x makes every Instance-Cluster new when instanceClusters is sent, and loses
+	// settings such as the schema registry OAuth setting, so it is only sent when the Clusters change.
+	if data.Clusters.Equal(state.Clusters) {
+		request.InstanceClusters = nil
+	}
+	instance, err := r.provider.client.UpdateInstance(data.Id.ValueString(), request)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update Instance, got error: %s", err))
 		return

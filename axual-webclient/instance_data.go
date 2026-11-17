@@ -44,12 +44,12 @@ type InstanceClusterLink struct {
 // InstanceRequest is the body of the create POST and the update PATCH. The PATCH only changes a
 // field that is present, and instanceClusters, caCerts, properties and the authentication methods
 // replace the stored value as a whole. Description and connectUrls are always sent, so a removed
-// value is cleared with an explicit null.
+// value is cleared with an explicit null. A nil instanceClusters is left out.
 type InstanceRequest struct {
 	Name                            string                         `json:"name,omitempty"`
 	ShortName                       string                         `json:"shortName,omitempty"`
 	Description                     *string                        `json:"description"`
-	InstanceClusters                []InstanceClusterLink          `json:"instanceClusters"`
+	InstanceClusters                []InstanceClusterLink          `json:"instanceClusters,omitempty"`
 	CaCerts                         []InstanceCertificate          `json:"caCerts"`
 	Properties                      map[string]string              `json:"properties"`
 	EnabledAuthenticationMethods    []InstanceAuthenticationMethod `json:"enabledAuthenticationMethods,omitempty"`

@@ -128,6 +128,11 @@ func TestClusterAndInstanceReadDropsAGoneResource(t *testing.T) {
 	emptyRegistry := func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"url":null,"schemaRegistryType":null,"credentials":{"authenticationType":null}}`))
 	}
+	// Platform Manager 16.1.0 looks up the instance and the cluster of the schema registry itself.
+	instanceNotFound := func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"detail":"Instance not found","status":400}`))
+	}
 	tests := map[string]struct {
 		handler  http.HandlerFunc
 		resource func(AxualProvider) resource.Resource
@@ -137,6 +142,7 @@ func TestClusterAndInstanceReadDropsAGoneResource(t *testing.T) {
 		"instance":                      {pmInstanceGone, func(p AxualProvider) resource.Resource { return &instanceResource{provider: p} }, testInstanceData()},
 		"instance cluster, link gone":   {pmInstanceGone, func(p AxualProvider) resource.Resource { return &instanceClusterResource{provider: p} }, testInstanceClusterData(t)},
 		"instance cluster, no registry": {emptyRegistry, func(p AxualProvider) resource.Resource { return &instanceClusterResource{provider: p} }, testInstanceClusterData(t)},
+		"instance gone (PM 16.1.0)":     {instanceNotFound, func(p AxualProvider) resource.Resource { return &instanceClusterResource{provider: p} }, testInstanceClusterData(t)},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {

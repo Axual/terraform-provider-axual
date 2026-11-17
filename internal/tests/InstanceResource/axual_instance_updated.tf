@@ -11,5 +11,4 @@ resource "axual_instance" "tf_test_instance" {
   environment_mapping           = false
   self_approval                 = false
   certificate_reuse_prevention  = "TENANT"
-  flink_enabled                 = true
 }

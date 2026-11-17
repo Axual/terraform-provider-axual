@@ -144,7 +144,7 @@ func (r *instanceClusterResource) Schema(ctx context.Context, req resource.Schem
 						},
 					},
 					"version": schema.StringAttribute{
-						MarkdownDescription: "The registry version, for information.",
+						MarkdownDescription: "The registry version, for example `3.0`. From Platform Manager 16.1.0, it also sets the API of an `APICURIO` registry: a version that starts with `2` means the Apicurio 2.x API, any other version the 3.x API.",
 						Optional:            true,
 					},
 					"authentication": schema.StringAttribute{

@@ -65,7 +65,16 @@ func TestInstanceResource(t *testing.T) {
 					resource.TestCheckResourceAttr(name, "environment_mapping", "false"),
 					resource.TestCheckResourceAttr(name, "self_approval", "false"),
 					resource.TestCheckResourceAttr(name, "certificate_reuse_prevention", "TENANT"),
+					resource.TestCheckResourceAttr(name, "flink_enabled", "false"),
+				),
+			},
+			{
+				// Platform Manager before 16.0.0 has no flink_enabled; there the plan fails, see the unit tests.
+				SkipFunc: SkipStepWithoutInstanceFlink,
+				Config:   GetClusterProvider() + GetFile("axual_instance_setup.tf", "axual_instance_flink.tf"),
+				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(name, "flink_enabled", "true"),
+					resource.TestCheckResourceAttr(name, "certificate_reuse_prevention", "TENANT"),
 				),
 			},
 			{

@@ -14,7 +14,7 @@
 - With `MUTUAL_TLS` enabled and a Cluster with `ssl_auth_mode = "fullChainCertificate"`, `ca_certificates` must hold the CA that signs application certificates.
 
 ## Platform Manager version
-- Platform Manager 16.0.0 or later.
+- Platform Manager 15.0.9 or later. `flink_enabled = true`, and `connect_enabled = true` without `connect_urls`, need Platform Manager 16.0.0 or later; with an older one, the plan fails.
 - Platform Manager refuses a change of `short_name` while the Instance has environments. Some Platform Manager versions delete the schema registry of the Instance-Clusters when `short_name` changes; the next `terraform apply` configures it again from `axual_instance_cluster`.
 
 ## Required Roles

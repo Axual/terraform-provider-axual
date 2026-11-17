@@ -10,8 +10,8 @@
 - Destroying the resource removes the schema registry from the Instance-Cluster. Platform Manager refuses it while an application has a schema registry credential there.
 
 ## Platform Manager version
-- Platform Manager 16.0.0 or later.
-- Platform Manager 16.0.x uses the Apicurio Registry 2.x API (`/apis/registry/v2`); the next release after 16.0.x uses the 3.x API (`/apis/registry/v3`).
+- Platform Manager 15.0.9 or later.
+- Platform Manager 15.0.x and 16.0.x use the Apicurio Registry 2.x API (`/apis/registry/v2`); Platform Manager 16.1.0 uses the 3.x API (`/apis/registry/v3`).
 - Some Platform Manager versions delete this configuration when the Instance's `short_name` or the Cluster's name changes. Terraform sees that on the next plan and configures it again.
 
 ## Required Roles

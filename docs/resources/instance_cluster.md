@@ -10,8 +10,8 @@ The configuration of one Cluster in one Instance: its schema registry. The Clust
 - Destroying the resource removes the schema registry from the Instance-Cluster. Platform Manager refuses it while an application has a schema registry credential there.
 
 ## Platform Manager version
-- Platform Manager 16.0.0 or later.
-- Platform Manager 16.0.x uses the Apicurio Registry 2.x API (`/apis/registry/v2`); the next release after 16.0.x uses the 3.x API (`/apis/registry/v3`).
+- Platform Manager 15.0.9 or later.
+- Platform Manager 15.0.x and 16.0.x use the Apicurio Registry 2.x API (`/apis/registry/v2`); Platform Manager 16.1.0 uses the 3.x API (`/apis/registry/v3`).
 - Some Platform Manager versions delete this configuration when the Instance's `short_name` or the Cluster's name changes. Terraform sees that on the next plan and configures it again.
 
 ## Required Roles
@@ -50,7 +50,7 @@ Optional:
 - `properties` (Map of String) Extra settings Platform Manager passes to the registry client.
 - `truststore` (String) PEM CA certificates that sign the registry's certificate.
 - `username` (String) Username for `Basic-Auth`. Requires `password`.
-- `version` (String) The registry version, for information.
+- `version` (String) The registry version, for example `3.0`. From Platform Manager 16.1.0, it also sets the API of an `APICURIO` registry: a version that starts with `2` means the Apicurio 2.x API, any other version the 3.x API.
 
 <a id="nestedatt--schema_registry--keycloak"></a>
 ### Nested Schema for `schema_registry.keycloak`

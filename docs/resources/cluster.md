@@ -15,10 +15,10 @@ A Cluster is a Kafka cluster that Platform Manager governs. Add it to an Instanc
 
 ## Prerequisites
 - With `ssl_auth_mode = "fullChainCertificate"`, the brokers must run the Axual principal builder, and an Instance on the Cluster needs `ca_certificates`.
-- Platform Manager connects to the brokers when the Cluster is created. A bootstrap host it cannot reach fails the apply. Some Platform Manager versions do not refuse credentials the brokers reject; they only log a warning, so check that a topic can be created.
+- Platform Manager connects to the brokers when the Cluster is created. A bootstrap host it cannot reach fails the apply. For `apache-kafka`, Platform Manager does not refuse credentials the brokers reject; it only logs a warning, so check that a topic can be created. For `strimzi`, it refuses them.
 
 ## Platform Manager version
-- Platform Manager 16.0.0 or later. `provider_type = "strimzi"` and the `strimzi` block need Platform Manager 16.1.0 or later.
+- Platform Manager 15.0.9 or later. `provider_type = "strimzi"` and the `strimzi` block need Platform Manager 16.1.0 or later; with an older one, the plan fails.
 - Some Platform Manager versions delete the schema registry of the Instance-Clusters when a Cluster is renamed. The next `terraform apply` configures it again from `axual_instance_cluster`.
 
 ## Required Roles

@@ -159,6 +159,25 @@ func SkipWithoutInfiniteRetention(t *testing.T) {
 	}
 }
 
+// SkipStepWithoutInstanceFlink is the SkipFunc of a test step that sets flink_enabled = true on an
+// axual_instance: it skips the step on a Platform Manager before 16.0.0, which does not have it. Test
+// steps only run with TF_ACC set, so it may sign in.
+func SkipStepWithoutInstanceFlink() (bool, error) {
+	client, err := apiClient()
+	if err != nil {
+		return false, fmt.Errorf("signing in to read the Platform Manager version: %w", err)
+	}
+	version, err := client.GetPlatformVersion()
+	if err != nil {
+		return false, fmt.Errorf("reading the Platform Manager version: %w", err)
+	}
+	if !provider.SupportsInstanceFlink(version) {
+		log.Printf("[WARN] Platform Manager %s has no flink_enabled on an Instance: this step is skipped", version)
+		return true, nil
+	}
+	return false, nil
+}
+
 // SkipWithoutKafkaCluster skips a Cluster or Instance test unless test_config.yaml names a Kafka
 // cluster Terraform can register.
 func SkipWithoutKafkaCluster(t *testing.T, config ProviderConfig) {

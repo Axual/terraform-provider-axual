@@ -272,7 +272,8 @@ Before running acceptance tests:
    The fixtures read them as `local.kafka_bootstrap_servers`, `local.kafka_client_certificate_file`,
    `local.kafka_client_private_key_file`, `local.kafka_truststore_file`,
    `local.instance_ca_certificate_file`, `local.schema_registry_url`, `local.schema_registry_username`
-   and `local.schema_registry_password`. The tests need the Tenant Admin role.
+   and `local.schema_registry_password`. The tests need the Tenant Admin role. On Platform Manager
+   before 16.0.0, the Instance test skips its `flink_enabled = true` step.
 
 3. **Verify Test User Permissions:**
 

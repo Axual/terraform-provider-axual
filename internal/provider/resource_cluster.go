@@ -36,8 +36,12 @@ const (
 	clusterPatternPattern = `^\{[^}]+\}([-._]\{[^}]+\})*$`
 )
 
+// Platform Manager knows Strimzi clusters from 16.1.0 on.
+const strimziMajor, strimziMinor = 16, 1
+
 var _ resource.Resource = &clusterResource{}
 var _ resource.ResourceWithImportState = &clusterResource{}
+var _ resource.ResourceWithModifyPlan = &clusterResource{}
 
 func NewClusterResource(provider AxualProvider) resource.Resource {
 	return &clusterResource{
@@ -344,6 +348,37 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 			},
 		},
 	}
+}
+
+// ModifyPlan refuses Strimzi on a Platform Manager older than 16.1.0, which does not know it, or when
+// its version cannot be read. It only checks a plan that starts to use Strimzi.
+func (r *clusterResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() || r.provider.client == nil {
+		return
+	}
+	var plan clusterResourceData
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() || !usesStrimzi(plan) {
+		return
+	}
+	if !req.State.Raw.IsNull() {
+		var state clusterResourceData
+		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+		if resp.Diagnostics.HasError() || usesStrimzi(state) {
+			return
+		}
+	}
+	attribute := path.Root("strimzi")
+	if plan.ProviderType.ValueString() == "strimzi" {
+		attribute = path.Root("provider_type")
+	}
+	version, err := r.provider.client.GetPlatformVersion()
+	requirePlatformVersion(&resp.Diagnostics, version, err, attribute, "Strimzi", strimziMajor, strimziMinor,
+		"It does not know Strimzi clusters: it refuses provider_type = \"strimzi\" and ignores the strimzi block.")
+}
+
+func usesStrimzi(data clusterResourceData) bool {
+	return data.ProviderType.ValueString() == "strimzi" || !data.Strimzi.IsNull()
 }
 
 func (r *clusterResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
