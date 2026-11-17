@@ -4,8 +4,10 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/mapvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -22,8 +24,25 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
+// Platform Manager knows the api and the client endpoints of a schema registry from 16.1.0 on. Older
+// versions ignore them in a request and do not return them.
+const schemaRegistryApiMajor, schemaRegistryApiMinor = 16, 1
+
+// schemaRegistryTypeOfApi is the type each schema registry API belongs to.
+var schemaRegistryTypeOfApi = map[string]string{"APICURIO_V2": "APICURIO", "APICURIO_V3": "APICURIO", "CONFLUENT_V7": "CONFLUENT"}
+
+var schemaRegistryApis = []string{"APICURIO_V2", "APICURIO_V3", "CONFLUENT_V7"}
+
 var _ resource.Resource = &instanceClusterResource{}
 var _ resource.ResourceWithImportState = &instanceClusterResource{}
+var _ resource.ResourceWithModifyPlan = &instanceClusterResource{}
+var _ resource.ResourceWithValidateConfig = &instanceClusterResource{}
+
+// SupportsSchemaRegistryApi reports whether a Platform Manager version, as GET /info returns it, has the
+// api and the client endpoints of a schema registry. A version it cannot read counts as too old.
+func SupportsSchemaRegistryApi(version string) bool {
+	return platformVersionAtLeast(version, schemaRegistryApiMajor, schemaRegistryApiMinor)
+}
 
 func NewInstanceClusterResource(provider AxualProvider) resource.Resource {
 	return &instanceClusterResource{
@@ -43,19 +62,35 @@ type instanceClusterResourceData struct {
 }
 
 type schemaRegistryData struct {
-	Type           types.String `tfsdk:"type"`
-	Url            types.String `tfsdk:"url"`
-	Version        types.String `tfsdk:"version"`
-	Authentication types.String `tfsdk:"authentication"`
-	Username       types.String `tfsdk:"username"`
-	Password       types.String `tfsdk:"password"`
-	Certificate    types.String `tfsdk:"certificate"`
-	PrivateKey     types.String `tfsdk:"private_key"`
-	Truststore     types.String `tfsdk:"truststore"`
-	OauthEnabled   types.Bool   `tfsdk:"oauth_enabled"`
-	Keycloak       types.Object `tfsdk:"keycloak"`
-	Listeners      types.Map    `tfsdk:"listeners"`
-	Properties     types.Map    `tfsdk:"properties"`
+	Type            types.String `tfsdk:"type"`
+	Url             types.String `tfsdk:"url"`
+	Version         types.String `tfsdk:"version"`
+	Authentication  types.String `tfsdk:"authentication"`
+	Username        types.String `tfsdk:"username"`
+	Password        types.String `tfsdk:"password"`
+	Certificate     types.String `tfsdk:"certificate"`
+	PrivateKey      types.String `tfsdk:"private_key"`
+	Truststore      types.String `tfsdk:"truststore"`
+	OauthEnabled    types.Bool   `tfsdk:"oauth_enabled"`
+	Keycloak        types.Object `tfsdk:"keycloak"`
+	Listeners       types.Map    `tfsdk:"listeners"`
+	Properties      types.Map    `tfsdk:"properties"`
+	Api             types.String `tfsdk:"api"`
+	ClientEndpoints types.Map    `tfsdk:"client_endpoints"`
+}
+
+type schemaRegistryClientEndpointData struct {
+	Api    types.String `tfsdk:"api"`
+	Url    types.String `tfsdk:"url"`
+	UsedBy types.String `tfsdk:"used_by"`
+}
+
+func schemaRegistryClientEndpointType() types.ObjectType {
+	return types.ObjectType{AttrTypes: map[string]attr.Type{
+		"api":     types.StringType,
+		"url":     types.StringType,
+		"used_by": types.StringType,
+	}}
 }
 
 type schemaRegistryKeycloakData struct {
@@ -80,19 +115,21 @@ func schemaRegistryKeycloakAttrTypes() map[string]attr.Type {
 
 func schemaRegistryAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"type":           types.StringType,
-		"url":            types.StringType,
-		"version":        types.StringType,
-		"authentication": types.StringType,
-		"username":       types.StringType,
-		"password":       types.StringType,
-		"certificate":    types.StringType,
-		"private_key":    types.StringType,
-		"truststore":     types.StringType,
-		"oauth_enabled":  types.BoolType,
-		"keycloak":       types.ObjectType{AttrTypes: schemaRegistryKeycloakAttrTypes()},
-		"listeners":      types.MapType{ElemType: types.StringType},
-		"properties":     types.MapType{ElemType: types.StringType},
+		"type":             types.StringType,
+		"url":              types.StringType,
+		"version":          types.StringType,
+		"authentication":   types.StringType,
+		"username":         types.StringType,
+		"password":         types.StringType,
+		"certificate":      types.StringType,
+		"private_key":      types.StringType,
+		"truststore":       types.StringType,
+		"oauth_enabled":    types.BoolType,
+		"keycloak":         types.ObjectType{AttrTypes: schemaRegistryKeycloakAttrTypes()},
+		"listeners":        types.MapType{ElemType: types.StringType},
+		"properties":       types.MapType{ElemType: types.StringType},
+		"api":              types.StringType,
+		"client_endpoints": types.MapType{ElemType: schemaRegistryClientEndpointType()},
 	}
 }
 
@@ -207,12 +244,54 @@ func (r *instanceClusterResource) Schema(ctx context.Context, req resource.Schem
 						},
 					},
 					"listeners": schema.MapAttribute{
-						MarkdownDescription: "Registry URLs applications use, per authentication method.",
+						MarkdownDescription: "Registry URLs applications use, by name. From Platform Manager 16.1.0, these are the `client_endpoints`: a new name becomes an endpoint with the registry's `api` for `ALL_APPS`, and an endpoint whose name is left out is removed. Conflicts with `client_endpoints`.",
 						Optional:            true,
 						Computed:            true,
 						ElementType:         types.StringType,
 						PlanModifiers: []planmodifier.Map{
 							mapplanmodifier.UseStateForUnknown(),
+						},
+					},
+					"api": schema.StringAttribute{
+						MarkdownDescription: "The API the registry at `url` speaks: `APICURIO_V2` or `APICURIO_V3` for `APICURIO`, `CONFLUENT_V7` for `CONFLUENT`. Needs Platform Manager 16.1.0 or later. When it is not set, Platform Manager derives it from `type` and `version`, and the provider keeps it until `type` or `version` changes.",
+						Optional:            true,
+						Computed:            true,
+						Validators: []validator.String{
+							stringvalidator.OneOf(schemaRegistryApis...),
+						},
+						PlanModifiers: []planmodifier.String{
+							stringplanmodifier.UseStateForUnknown(),
+						},
+					},
+					"client_endpoints": schema.MapNestedAttribute{
+						MarkdownDescription: "The registry endpoints applications use, by name. Needs Platform Manager 16.1.0 or later. When set, it replaces all endpoints of the Instance-Cluster, and an endpoint keeps its identity in Platform Manager while its name stays the same. Leaving it out keeps the endpoints Platform Manager has, and `{}` removes them all. When it is not set, the endpoints follow `listeners`. Conflicts with `listeners`, which Platform Manager ignores when the endpoints are sent.",
+						Optional:            true,
+						Computed:            true,
+						Validators: []validator.Map{
+							mapvalidator.KeysAre(stringvalidator.LengthBetween(1, 255)),
+							mapvalidator.ConflictsWith(path.MatchRelative().AtParent().AtName("listeners")),
+						},
+						PlanModifiers: []planmodifier.Map{
+							mapplanmodifier.UseStateForUnknown(),
+						},
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"api": schema.StringAttribute{
+									MarkdownDescription: "The API applications use at this endpoint: `APICURIO_V2`, `APICURIO_V3` or `CONFLUENT_V7`.",
+									Required:            true,
+									Validators:          []validator.String{stringvalidator.OneOf(schemaRegistryApis...)},
+								},
+								"url": schema.StringAttribute{
+									MarkdownDescription: "The URL of the endpoint, at most 255 characters.",
+									Required:            true,
+									Validators:          []validator.String{stringvalidator.LengthBetween(1, 255)},
+								},
+								"used_by": schema.StringAttribute{
+									MarkdownDescription: "Which applications use the endpoint: `MANAGED_APPS`, or `ALL_APPS` (managed and self-managed applications; only these endpoints are shown to users).",
+									Required:            true,
+									Validators:          []validator.String{stringvalidator.OneOf("MANAGED_APPS", "ALL_APPS")},
+								},
+							},
 						},
 					},
 					"properties": schema.MapAttribute{
@@ -230,13 +309,93 @@ func (r *instanceClusterResource) Schema(ctx context.Context, req resource.Schem
 	}
 }
 
-func (r *instanceClusterResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+// ValidateConfig refuses an api of another type than type, which Platform Manager refuses too.
+func (r *instanceClusterResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
 	var data instanceClusterResourceData
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() || data.SchemaRegistry.IsNull() || data.SchemaRegistry.IsUnknown() {
+		return
+	}
+	var registry schemaRegistryData
+	resp.Diagnostics.Append(data.SchemaRegistry.As(ctx, &registry, basetypes.ObjectAsOptions{})...)
+	if resp.Diagnostics.HasError() || registry.Api.IsNull() || registry.Api.IsUnknown() || registry.Type.IsUnknown() {
+		return
+	}
+	if want := schemaRegistryTypeOfApi[registry.Api.ValueString()]; want != "" && want != registry.Type.ValueString() {
+		resp.Diagnostics.AddAttributeError(path.Root("schema_registry").AtName("api"), "api does not match type",
+			fmt.Sprintf("api %s is for a %s registry, but type is %s.", registry.Api.ValueString(), want, registry.Type.ValueString()))
+	}
+}
+
+// ModifyPlan plans api, client_endpoints and listeners as unknown when they are not set and Platform
+// Manager derives them again from a change, and refuses api and client_endpoints on a Platform Manager
+// before 16.1.0, which ignores them.
+func (r *instanceClusterResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() {
+		return
+	}
+	var config, plan instanceClusterResourceData
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() || config.SchemaRegistry.IsUnknown() || plan.SchemaRegistry.IsUnknown() {
+		return
+	}
+	var configured, planned schemaRegistryData
+	resp.Diagnostics.Append(config.SchemaRegistry.As(ctx, &configured, basetypes.ObjectAsOptions{})...)
+	resp.Diagnostics.Append(plan.SchemaRegistry.As(ctx, &planned, basetypes.ObjectAsOptions{})...)
+	var current *schemaRegistryData
+	if !req.State.Raw.IsNull() {
+		var state instanceClusterResourceData
+		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+		current = &schemaRegistryData{}
+		resp.Diagnostics.Append(state.SchemaRegistry.As(ctx, current, basetypes.ObjectAsOptions{})...)
+	}
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	r.write(ctx, &data, &resp.Diagnostics, "CREATE request error for instance cluster resource")
+
+	if current != nil {
+		changed := false
+		if configured.Api.IsNull() && (!planned.Type.Equal(current.Type) || !planned.Version.Equal(current.Version)) {
+			planned.Api, changed = types.StringUnknown(), true
+		}
+		if configured.ClientEndpoints.IsNull() && !planned.Listeners.Equal(current.Listeners) {
+			planned.ClientEndpoints, changed = types.MapUnknown(schemaRegistryClientEndpointType()), true
+		}
+		if configured.Listeners.IsNull() && !planned.ClientEndpoints.Equal(current.ClientEndpoints) {
+			planned.Listeners, changed = types.MapUnknown(types.StringType), true
+		}
+		if changed {
+			object, d := types.ObjectValueFrom(ctx, schemaRegistryAttrTypes(), planned)
+			resp.Diagnostics.Append(d...)
+			resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("schema_registry"), object)...)
+		}
+	}
+
+	newApi := !configured.Api.IsNull() && (current == nil || !planned.Api.Equal(current.Api))
+	newEndpoints := !configured.ClientEndpoints.IsNull() && (current == nil || !planned.ClientEndpoints.Equal(current.ClientEndpoints))
+	if (!newApi && !newEndpoints) || r.provider.client == nil {
+		return
+	}
+	version, err := r.provider.client.GetPlatformVersion()
+	if newApi {
+		requirePlatformVersion(&resp.Diagnostics, version, err, path.Root("schema_registry").AtName("api"), "api",
+			schemaRegistryApiMajor, schemaRegistryApiMinor, "It ignores api, so the apply would fail.")
+	}
+	if newEndpoints {
+		requirePlatformVersion(&resp.Diagnostics, version, err, path.Root("schema_registry").AtName("client_endpoints"), "client_endpoints",
+			schemaRegistryApiMajor, schemaRegistryApiMinor, "It ignores client_endpoints, so the apply would fail.")
+	}
+}
+
+func (r *instanceClusterResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data, config instanceClusterResourceData
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	r.write(ctx, &data, &config, &resp.Diagnostics, "CREATE request error for instance cluster resource")
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -268,26 +427,39 @@ func (r *instanceClusterResource) Read(ctx context.Context, req resource.ReadReq
 }
 
 func (r *instanceClusterResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data instanceClusterResourceData
+	var data, config instanceClusterResourceData
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	r.write(ctx, &data, &resp.Diagnostics, "Unable to update Instance-Cluster schema registry")
+	r.write(ctx, &data, &config, &resp.Diagnostics, "Unable to update Instance-Cluster schema registry")
 	if resp.Diagnostics.HasError() {
 		return
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-// write posts the whole schema registry (the POST creates or replaces it) and reads it back.
-func (r *instanceClusterResource) write(ctx context.Context, data *instanceClusterResourceData, diags *diag.Diagnostics, errorSummary string) {
-	registry, d := createSchemaRegistryRequestFromData(ctx, data)
+// write posts the whole schema registry (the POST creates or replaces it) and reads it back. The
+// client endpoints keep their ids: an endpoint with the name of an existing one is sent with its id,
+// so Platform Manager updates it in place.
+func (r *instanceClusterResource) write(ctx context.Context, data, config *instanceClusterResourceData, diags *diag.Diagnostics, errorSummary string) {
+	registry, d := createSchemaRegistryRequestFromData(ctx, data, config)
 	diags.Append(d...)
 	if diags.HasError() {
 		return
 	}
 	instance, cluster := data.Instance.ValueString(), data.Cluster.ValueString()
+	if registry.ClientEndpoints != nil {
+		existing, err := r.provider.client.GetInstanceClusterSchemaRegistry(instance, cluster)
+		if err != nil && !isGone(err) {
+			diags.AddError("Client Error", fmt.Sprintf("Unable to read the client endpoints of the Instance-Cluster schema registry, got error: %s", err))
+			return
+		}
+		if err == nil {
+			setClientEndpointIds(*registry.ClientEndpoints, existing)
+		}
+	}
 	if err := r.provider.client.SetInstanceClusterSchemaRegistry(instance, cluster, registry); err != nil {
 		diags.AddError(errorSummary, fmt.Sprintf("Error message: %s", err.Error()))
 		return
@@ -329,10 +501,14 @@ func (r *instanceClusterResource) ImportState(ctx context.Context, req resource.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cluster"), parts[1])...)
 }
 
-func createSchemaRegistryRequestFromData(ctx context.Context, data *instanceClusterResourceData) (webclient.InstanceClusterSchemaRegistry, diag.Diagnostics) {
+// createSchemaRegistryRequestFromData builds the POST body from the plan. api is sent when it is known:
+// set in the configuration, or kept from the state. client_endpoints is sent only when the
+// configuration sets it, and listeners otherwise, so an older Platform Manager gets nothing new.
+func createSchemaRegistryRequestFromData(ctx context.Context, data, config *instanceClusterResourceData) (webclient.InstanceClusterSchemaRegistry, diag.Diagnostics) {
 	var diags diag.Diagnostics
-	var registry schemaRegistryData
+	var registry, configured schemaRegistryData
 	diags.Append(data.SchemaRegistry.As(ctx, &registry, basetypes.ObjectAsOptions{})...)
+	diags.Append(config.SchemaRegistry.As(ctx, &configured, basetypes.ObjectAsOptions{})...)
 
 	request := webclient.InstanceClusterSchemaRegistry{
 		Url:                   registry.Url.ValueString(),
@@ -346,8 +522,15 @@ func createSchemaRegistryRequestFromData(ctx context.Context, data *instanceClus
 			PrivateKey:         pemToAPI(registry.PrivateKey.ValueString()),
 			Truststore:         pemToAPI(registry.Truststore.ValueString()),
 		},
-		Listeners:  stringMapFromData(registry.Listeners),
+		Api:        stringPointerOrNil(registry.Api),
 		Properties: stringMapFromData(registry.Properties),
+	}
+	if configured.ClientEndpoints.IsNull() {
+		request.Listeners = stringMapFromData(registry.Listeners)
+	} else {
+		endpoints, d := clientEndpointsFromData(ctx, registry.ClientEndpoints)
+		diags.Append(d...)
+		request.ClientEndpoints = &endpoints
 	}
 	if registry.Type.ValueString() == "APICURIO" {
 		request.Authentications = &webclient.SchemaRegistryAuthentications{Basic: true, OAuth: registry.OauthEnabled.ValueBool()}
@@ -365,6 +548,52 @@ func createSchemaRegistryRequestFromData(ctx context.Context, data *instanceClus
 		}
 	}
 	return request, diags
+}
+
+// clientEndpointsFromData returns the endpoints of the plan, sorted by name.
+func clientEndpointsFromData(ctx context.Context, value types.Map) ([]webclient.SchemaRegistryClientEndpoint, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	endpoints := []webclient.SchemaRegistryClientEndpoint{}
+	var byName map[string]schemaRegistryClientEndpointData
+	diags.Append(value.ElementsAs(ctx, &byName, false)...)
+	for name, endpoint := range byName {
+		endpoints = append(endpoints, webclient.SchemaRegistryClientEndpoint{
+			Name: name, Api: endpoint.Api.ValueString(), Url: endpoint.Url.ValueString(), UsedBy: endpoint.UsedBy.ValueString(),
+		})
+	}
+	sort.Slice(endpoints, func(i, j int) bool { return endpoints[i].Name < endpoints[j].Name })
+	return endpoints, diags
+}
+
+// setClientEndpointIds gives each endpoint the id of the existing endpoint with the same name.
+func setClientEndpointIds(endpoints []webclient.SchemaRegistryClientEndpoint, existing *webclient.InstanceClusterSchemaRegistry) {
+	if existing == nil || existing.ClientEndpoints == nil {
+		return
+	}
+	ids := map[string]string{}
+	for _, endpoint := range *existing.ClientEndpoints {
+		ids[endpoint.Name] = endpoint.Id
+	}
+	for i := range endpoints {
+		endpoints[i].Id = ids[endpoints[i].Name]
+	}
+}
+
+// clientEndpointsToData maps the answer's endpoints to state: null when Platform Manager does not
+// return them (before 16.1.0).
+func clientEndpointsToData(endpoints *[]webclient.SchemaRegistryClientEndpoint) types.Map {
+	if endpoints == nil {
+		return types.MapNull(schemaRegistryClientEndpointType())
+	}
+	elements := map[string]attr.Value{}
+	for _, endpoint := range *endpoints {
+		elements[endpoint.Name] = types.ObjectValueMust(schemaRegistryClientEndpointType().AttrTypes, map[string]attr.Value{
+			"api":     types.StringValue(endpoint.Api),
+			"url":     types.StringValue(endpoint.Url),
+			"used_by": types.StringValue(endpoint.UsedBy),
+		})
+	}
+	return types.MapValueMust(schemaRegistryClientEndpointType(), elements)
 }
 
 // mapSchemaRegistryResponseToData writes the API's view into state. The password, private key and
@@ -401,6 +630,11 @@ func mapSchemaRegistryResponseToData(ctx context.Context, data *instanceClusterR
 	registry.OauthEnabled = types.BoolValue(answer.Authentications != nil && answer.Authentications.OAuth)
 	registry.Listeners = stringMapToData(answer.Listeners)
 	registry.Properties = stringMapToData(answer.Properties)
+	registry.Api = types.StringNull()
+	if answer.Api != nil {
+		registry.Api = stringOrNull(*answer.Api)
+	}
+	registry.ClientEndpoints = clientEndpointsToData(answer.ClientEndpoints)
 
 	if answer.KeycloakDetails == nil || answer.KeycloakDetails.Url == "" {
 		registry.Keycloak = types.ObjectNull(schemaRegistryKeycloakAttrTypes())

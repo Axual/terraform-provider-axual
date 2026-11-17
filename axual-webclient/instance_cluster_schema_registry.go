@@ -33,17 +33,31 @@ type SchemaRegistryAuthentications struct {
 	OAuth bool `json:"oAuth"`
 }
 
+// SchemaRegistryClientEndpoint is a schema registry URL that applications use (Platform Manager
+// 16.1.0). An id updates that existing endpoint in place; without one, a new endpoint is made.
+type SchemaRegistryClientEndpoint struct {
+	Id     string `json:"id,omitempty"`
+	Name   string `json:"name"`
+	Api    string `json:"api"`
+	Url    string `json:"url"`
+	UsedBy string `json:"usedBy"`
+}
+
 // InstanceClusterSchemaRegistry is the schema registry of one cluster of an Instance, in both the
-// POST (create or replace) and the GET.
+// POST (create or replace) and the GET. Api and ClientEndpoints exist from Platform Manager 16.1.0 on:
+// older versions ignore them and do not return them. When ClientEndpoints is sent, Platform Manager
+// replaces all endpoints with it and ignores Listeners.
 type InstanceClusterSchemaRegistry struct {
-	Url                   string                         `json:"url"`
-	SchemaRegistryType    string                         `json:"schemaRegistryType"`
-	SchemaRegistryVersion *string                        `json:"schemaRegistryVersion"`
-	Credentials           *SchemaRegistryCredentials     `json:"credentials"`
-	KeycloakDetails       *SchemaRegistryKeycloakDetails `json:"keycloakDetails"`
-	Authentications       *SchemaRegistryAuthentications `json:"authentications,omitempty"`
-	Listeners             map[string]string              `json:"listeners"`
-	Properties            map[string]string              `json:"properties"`
+	Url                   string                          `json:"url"`
+	SchemaRegistryType    string                          `json:"schemaRegistryType"`
+	SchemaRegistryVersion *string                         `json:"schemaRegistryVersion"`
+	Api                   *string                         `json:"api,omitempty"`
+	Credentials           *SchemaRegistryCredentials      `json:"credentials"`
+	KeycloakDetails       *SchemaRegistryKeycloakDetails  `json:"keycloakDetails"`
+	Authentications       *SchemaRegistryAuthentications  `json:"authentications,omitempty"`
+	Listeners             map[string]string               `json:"listeners"`
+	ClientEndpoints       *[]SchemaRegistryClientEndpoint `json:"clientEndpoints,omitempty"`
+	Properties            map[string]string               `json:"properties"`
 }
 
 func (c *Client) SetInstanceClusterSchemaRegistry(instanceId string, clusterId string, req InstanceClusterSchemaRegistry) error {

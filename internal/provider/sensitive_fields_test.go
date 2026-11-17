@@ -26,6 +26,7 @@ func TestSensitiveFields_onlyRealSecretsAreSensitive(t *testing.T) {
 			"schema_registry.username": false, "schema_registry.password": true, "schema_registry.certificate": false,
 			"schema_registry.private_key": true, "schema_registry.truststore": false,
 			"schema_registry.keycloak.admin_username": false, "schema_registry.keycloak.admin_password": true,
+			"schema_registry.api": false, "schema_registry.client_endpoints": false, "schema_registry.listeners": false,
 		}},
 	}
 	for name, test := range tests {

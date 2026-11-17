@@ -8,9 +8,13 @@ The configuration of one Cluster in one Instance: its schema registry. The Clust
 - The password, private key and Keycloak admin password are stored in Vault. Platform Manager never returns them, so they are kept as written in the configuration and cannot be imported.
 - Platform Manager does not contact the registry to check the URL or credentials. A wrong value shows up when a topic with a schema is configured.
 - Destroying the resource removes the schema registry from the Instance-Cluster. Platform Manager refuses it while an application has a schema registry credential there.
+- `client_endpoints` (Platform Manager 16.1.0 or later) are the registry URLs that applications use, by name. `used_by = "ALL_APPS"` endpoints are also shown to users and used by self-managed applications; `MANAGED_APPS` endpoints only by managed applications. Set either `client_endpoints` or `listeners`, not both: when the endpoints are sent, Platform Manager ignores `listeners`. With `listeners`, each name becomes an `ALL_APPS` endpoint with the registry's `api`.
+- An endpoint keeps its identity in Platform Manager while its name stays the same: a changed `url`, `api` or `used_by` changes it in place. Renaming an endpoint removes it and adds a new one.
+- Removing `client_endpoints` from the configuration keeps the endpoints in Platform Manager, because the attribute is also computed. To remove them all, set `client_endpoints = {}`. While the configuration sets neither `client_endpoints` nor `listeners`, endpoints added outside Terraform, for example in the Self-Service UI, are kept too.
+- `api` (Platform Manager 16.1.0 or later) is the API Platform Manager itself uses at `url`. When it is not set, Platform Manager derives it from `type` and `version`: `CONFLUENT_V7` for `CONFLUENT`, `APICURIO_V2` for an Apicurio `version` that starts with `2`, and `APICURIO_V3` otherwise.
 
 ## Platform Manager version
-- Platform Manager 15.0.9 or later.
+- Platform Manager 15.0.9 or later. `api` and `client_endpoints` need Platform Manager 16.1.0 or later; with an older one, the plan fails. Leave them out there: they stay empty, and the provider sends nothing new.
 - Platform Manager 15.0.x and 16.0.x use the Apicurio Registry 2.x API (`/apis/registry/v2`); Platform Manager 16.1.0 uses the 3.x API (`/apis/registry/v3`).
 - Some Platform Manager versions delete this configuration when the Instance's `short_name` or the Cluster's name changes. Terraform sees that on the next plan and configures it again.
 
@@ -41,9 +45,11 @@ Required:
 
 Optional:
 
+- `api` (String) The API the registry at `url` speaks: `APICURIO_V2` or `APICURIO_V3` for `APICURIO`, `CONFLUENT_V7` for `CONFLUENT`. Needs Platform Manager 16.1.0 or later. When it is not set, Platform Manager derives it from `type` and `version`, and the provider keeps it until `type` or `version` changes.
 - `certificate` (String) PEM client certificate for `MTLS`. Requires `private_key`.
+- `client_endpoints` (Attributes Map) The registry endpoints applications use, by name. Needs Platform Manager 16.1.0 or later. When set, it replaces all endpoints of the Instance-Cluster, and an endpoint keeps its identity in Platform Manager while its name stays the same. Leaving it out keeps the endpoints Platform Manager has, and `{}` removes them all. When it is not set, the endpoints follow `listeners`. Conflicts with `listeners`, which Platform Manager ignores when the endpoints are sent. (see [below for nested schema](#nestedatt--schema_registry--client_endpoints))
 - `keycloak` (Attributes) `APICURIO` only: the Keycloak behind the registry, where Platform Manager creates the clients of applications that use OAuth. (see [below for nested schema](#nestedatt--schema_registry--keycloak))
-- `listeners` (Map of String) Registry URLs applications use, per authentication method.
+- `listeners` (Map of String) Registry URLs applications use, by name. From Platform Manager 16.1.0, these are the `client_endpoints`: a new name becomes an endpoint with the registry's `api` for `ALL_APPS`, and an endpoint whose name is left out is removed. Conflicts with `client_endpoints`.
 - `oauth_enabled` (Boolean) `APICURIO` only: whether applications may also sign in with OAuth. Needs `keycloak`. Basic authentication is always enabled. Default `false`.
 - `password` (String, Sensitive) Password for `Basic-Auth`. Platform Manager never returns it, so it is not read back and cannot be imported. This field is Sensitive.
 - `private_key` (String, Sensitive) PEM private key of `certificate`. Platform Manager never returns it. This field is Sensitive.
@@ -51,6 +57,16 @@ Optional:
 - `truststore` (String) PEM CA certificates that sign the registry's certificate.
 - `username` (String) Username for `Basic-Auth`. Requires `password`.
 - `version` (String) The registry version, for example `3.0`. From Platform Manager 16.1.0, it also sets the API of an `APICURIO` registry: a version that starts with `2` means the Apicurio 2.x API, any other version the 3.x API.
+
+<a id="nestedatt--schema_registry--client_endpoints"></a>
+### Nested Schema for `schema_registry.client_endpoints`
+
+Required:
+
+- `api` (String) The API applications use at this endpoint: `APICURIO_V2`, `APICURIO_V3` or `CONFLUENT_V7`.
+- `url` (String) The URL of the endpoint, at most 255 characters.
+- `used_by` (String) Which applications use the endpoint: `MANAGED_APPS`, or `ALL_APPS` (managed and self-managed applications; only these endpoints are shown to users).
+
 
 <a id="nestedatt--schema_registry--keycloak"></a>
 ### Nested Schema for `schema_registry.keycloak`
@@ -96,6 +112,27 @@ resource "axual_instance_cluster" "production" {
     authentication = "Basic-Auth"
     username       = "platform-manager"
     password       = "YOUR_PASSWORD" # replace with the registry password
+  }
+}
+```
+
+Client endpoints for applications (Platform Manager 16.1.0 or later): an in-cluster URL for managed applications, and a public URL that self-managed applications use too:
+
+```hcl
+resource "axual_instance_cluster" "production" {
+  instance = axual_instance.production.id
+  cluster  = axual_cluster.production.id
+  schema_registry = {
+    type           = "APICURIO"
+    url            = "http://apicurio.kafka.svc:8080/apis/registry/v3"
+    api            = "APICURIO_V3"
+    authentication = "Basic-Auth"
+    username       = "platform-manager"
+    password       = "YOUR_PASSWORD" # replace with the registry password
+    client_endpoints = {
+      in-cluster = { api = "APICURIO_V3", url = "http://apicurio.kafka.svc:8080/apis/registry/v3", used_by = "MANAGED_APPS" }
+      public     = { api = "APICURIO_V3", url = "https://apicurio.example.com/apis/registry/v3", used_by = "ALL_APPS" }
+    }
   }
 }
 ```

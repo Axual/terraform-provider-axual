@@ -160,9 +160,21 @@ func SkipWithoutInfiniteRetention(t *testing.T) {
 }
 
 // SkipStepWithoutInstanceFlink is the SkipFunc of a test step that sets flink_enabled = true on an
-// axual_instance: it skips the step on a Platform Manager before 16.0.0, which does not have it. Test
-// steps only run with TF_ACC set, so it may sign in.
+// axual_instance: it skips the step on a Platform Manager before 16.0.0, which does not have it.
 func SkipStepWithoutInstanceFlink() (bool, error) {
+	return skipStepUnless(provider.SupportsInstanceFlink, "flink_enabled on an Instance")
+}
+
+// SkipStepWithoutSchemaRegistryApi is the SkipFunc of a test step that sets api or client_endpoints on
+// an axual_instance_cluster: it skips the step on a Platform Manager before 16.1.0, which does not have
+// them.
+func SkipStepWithoutSchemaRegistryApi() (bool, error) {
+	return skipStepUnless(provider.SupportsSchemaRegistryApi, "api and client endpoints of a schema registry")
+}
+
+// skipStepUnless skips a test step when the Platform Manager version does not support a feature. Test
+// steps only run with TF_ACC set, so it may sign in.
+func skipStepUnless(supports func(version string) bool, feature string) (bool, error) {
 	client, err := apiClient()
 	if err != nil {
 		return false, fmt.Errorf("signing in to read the Platform Manager version: %w", err)
@@ -171,8 +183,8 @@ func SkipStepWithoutInstanceFlink() (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("reading the Platform Manager version: %w", err)
 	}
-	if !provider.SupportsInstanceFlink(version) {
-		log.Printf("[WARN] Platform Manager %s has no flink_enabled on an Instance: this step is skipped", version)
+	if !supports(version) {
+		log.Printf("[WARN] Platform Manager %s has no %s: this step is skipped", version, feature)
 		return true, nil
 	}
 	return false, nil

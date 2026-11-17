@@ -22,6 +22,7 @@ All notable changes to this project will be documented in this file.
 * `axual_cluster` data source: look up a Cluster by name (AXPD-10169)
 * `axual_instance`: manage an Instance, its Clusters, authentication methods, CA certificates and settings such as `granular_browse_permission`. Also a list resource and import by `name:` (AXPD-9322)
 * `axual_instance_cluster`: the schema registry of a Cluster in an Instance, Apicurio or Confluent (AXPD-10170)
+* `api` and `client_endpoints` on `axual_instance_cluster`: the API of the registry, and the registry URLs applications use, with `used_by` `MANAGED_APPS` or `ALL_APPS`. Needs Platform Manager 16.1.0 or later; with an older one, the plan fails when they are set (AXPD-10170)
 
 ### Changed
 * **Breaking:** `owners` is required on `axual_flink_cluster`, and a changed `name` now replaces the Flink Cluster instead of renaming it, because Platform Manager does not allow renaming. Add `owners`, and `authorized_groups` with the Group of every application that deploys to the Flink Cluster, before you upgrade: an `axual_application_deployment` of a `FLINK_SQL` application is refused with `403 Forbidden` when its application owner Group is not authorized on the Flink Cluster

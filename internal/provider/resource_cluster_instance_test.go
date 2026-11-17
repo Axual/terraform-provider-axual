@@ -65,19 +65,21 @@ func testInstanceData() *instanceResourceData {
 func testSchemaRegistry(t *testing.T, registryType string, password string) types.Object {
 	t.Helper()
 	object, diags := types.ObjectValueFrom(context.Background(), schemaRegistryAttrTypes(), schemaRegistryData{
-		Type:           types.StringValue(registryType),
-		Url:            types.StringValue("http://registry/apis/registry/v3"),
-		Version:        types.StringNull(),
-		Authentication: types.StringValue("Basic-Auth"),
-		Username:       types.StringValue("user"),
-		Password:       types.StringValue(password),
-		Certificate:    types.StringNull(),
-		PrivateKey:     types.StringNull(),
-		Truststore:     types.StringNull(),
-		OauthEnabled:   types.BoolValue(false),
-		Keycloak:       types.ObjectNull(schemaRegistryKeycloakAttrTypes()),
-		Listeners:      types.MapNull(types.StringType),
-		Properties:     types.MapNull(types.StringType),
+		Type:            types.StringValue(registryType),
+		Url:             types.StringValue("http://registry/apis/registry/v3"),
+		Version:         types.StringNull(),
+		Authentication:  types.StringValue("Basic-Auth"),
+		Username:        types.StringValue("user"),
+		Password:        types.StringValue(password),
+		Certificate:     types.StringNull(),
+		PrivateKey:      types.StringNull(),
+		Truststore:      types.StringNull(),
+		OauthEnabled:    types.BoolValue(false),
+		Keycloak:        types.ObjectNull(schemaRegistryKeycloakAttrTypes()),
+		Listeners:       types.MapNull(types.StringType),
+		Properties:      types.MapNull(types.StringType),
+		Api:             types.StringNull(),
+		ClientEndpoints: types.MapNull(schemaRegistryClientEndpointType()),
 	})
 	if diags.HasError() {
 		t.Fatalf("schema registry: %v", diags)
@@ -242,7 +244,7 @@ func TestPEMValuesAreSentBase64AndReadBackAsPEM(t *testing.T) {
 	registry.Certificate, registry.PrivateKey, registry.Truststore = types.StringValue(pem), types.StringValue(pem), types.StringValue(pem)
 	data.SchemaRegistry, d = types.ObjectValueFrom(ctx, schemaRegistryAttrTypes(), registry)
 	diags.Append(d...)
-	srRequest, d := createSchemaRegistryRequestFromData(ctx, data)
+	srRequest, d := createSchemaRegistryRequestFromData(ctx, data, data)
 	diags.Append(d...)
 	if srRequest.Credentials.Certificate != encoded || srRequest.Credentials.PrivateKey != encoded || srRequest.Credentials.Truststore != encoded {
 		t.Errorf("schema registry credentials = %+v, expected base64", srRequest.Credentials)
@@ -306,7 +308,7 @@ func TestSchemaRegistryRequest(t *testing.T) {
 	for registryType, expectAuthentications := range map[string]bool{"APICURIO": true, "CONFLUENT": false} {
 		data := testInstanceClusterData(t)
 		data.SchemaRegistry = testSchemaRegistry(t, registryType, "secret")
-		request, diags := createSchemaRegistryRequestFromData(context.Background(), data)
+		request, diags := createSchemaRegistryRequestFromData(context.Background(), data, data)
 		if diags.HasError() {
 			t.Fatalf("request: %v", diags)
 		}
@@ -340,7 +342,7 @@ func TestInstanceClusterCreateKeepsThePassword(t *testing.T) {
 	r := &instanceClusterResource{provider: AxualProvider{client: client}}
 	data := testInstanceClusterData(t)
 	var diags = &resource.CreateResponse{}
-	r.write(context.Background(), data, &diags.Diagnostics, "create")
+	r.write(context.Background(), data, data, &diags.Diagnostics, "create")
 	var registry schemaRegistryData
 	diags.Diagnostics.Append(data.SchemaRegistry.As(context.Background(), &registry, basetypes.ObjectAsOptions{})...)
 	if diags.Diagnostics.HasError() {
