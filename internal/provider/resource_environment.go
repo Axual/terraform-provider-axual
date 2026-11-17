@@ -204,7 +204,7 @@ func (r *environmentResource) Create(ctx context.Context, req resource.CreateReq
 	}
 	environmentRequest.Settings = settings
 
-	tflog.Info(ctx, fmt.Sprintf("Create environment request %q", environmentRequest))
+	tflog.Info(ctx, fmt.Sprintf("Create environment request %+v", environmentRequest))
 	environment, err := r.provider.client.CreateEnvironment(environmentRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("CREATE request error for environment resource", fmt.Sprintf("Error message: %s", err.Error()))
@@ -264,7 +264,7 @@ func (r *environmentResource) Update(ctx context.Context, req resource.UpdateReq
 	environmentRequest.Properties = processProperties(ctx, req, data)
 	environmentRequest.Settings = processSettings(ctx, req, data)
 
-	tflog.Info(ctx, fmt.Sprintf("Update environment request %q", environmentRequest))
+	tflog.Info(ctx, fmt.Sprintf("Update environment request %+v", environmentRequest))
 	environment, err := r.provider.client.UpdateEnvironment(data.Id.ValueString(), environmentRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("UPDATE request error for environment resource", fmt.Sprintf("Error message: %s", err.Error()))
