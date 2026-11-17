@@ -176,6 +176,10 @@ in the Terraform state only.
 - **Deployment states**: `terraform query` lists every deployment, but `-generate-config-out` writes
   only those that are `Running` or `Stopped`; the others are skipped with a warning. A resource that
   cannot be read is also skipped with a warning, so one broken resource does not stop the export.
+- On an Instance with connector logging on, Platform Manager creates a topic `connector-logging-<application short name>`
+  and a topic configuration for it by itself when a Connector is deployed, and removes the topic configuration when the
+  deployment is deleted. A list can return them, for example topic configurations by `environment` or topics by `owners`.
+  Do not manage them in your configuration.
 - You only see what your user or service account may see in Self-Service.
 
 ## Filters

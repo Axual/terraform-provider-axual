@@ -1,6 +1,7 @@
 package ListResources
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -33,6 +34,13 @@ list "axual_topic_config" "topic_config" {
   provider         = axual
   include_resource = true
   config { environment = "tfqueryenv" }
+}
+list "axual_topic_config" "topic_config_by_topic" {
+  provider = axual
+  config {
+    topic       = "tf-query-topic"
+    environment = "tfqueryenv"
+  }
 }
 list "axual_application" "apps" {
   provider         = axual
@@ -122,6 +130,21 @@ list "axual_topic" "owned" {
 }
 `
 
+// expectDisplayNamesEndWith fails when a result of the list has a display name without the suffix.
+type expectDisplayNamesEndWith struct {
+	address string
+	suffix  string
+}
+
+func (e expectDisplayNamesEndWith) CheckQuery(_ context.Context, req querycheck.CheckQueryRequest, resp *querycheck.CheckQueryResponse) {
+	for _, result := range req.Query {
+		if strings.TrimPrefix(result.Address, "list.") == e.address && !strings.HasSuffix(result.DisplayName, e.suffix) {
+			resp.Error = fmt.Errorf("%s - result %q does not end with %q", e.address, result.DisplayName, e.suffix)
+			return
+		}
+	}
+}
+
 func TestListResources(t *testing.T) {
 	config, err := LoadProviderConfig()
 	if err != nil {
@@ -146,8 +169,11 @@ func TestListResources(t *testing.T) {
 				QueryResultChecks: []querycheck.QueryResultCheck{
 					querycheck.ExpectLength("axual_environment.env", 1),
 					querycheck.ExpectLength("axual_topic.topic", 1),
-					// A connector deployment on an instance with connector logging on adds a topic config of its own.
+					// Connector logging, when on, adds a topic config for its logging topic.
 					querycheck.ExpectLengthAtLeast("axual_topic_config.topic_config", 1),
+					// A topic config display name is "<topic> on <environment short name>".
+					expectDisplayNamesEndWith{address: "axual_topic_config.topic_config", suffix: " on tfqueryenv"},
+					querycheck.ExpectLength("axual_topic_config.topic_config_by_topic", 1),
 					querycheck.ExpectLengthAtLeast("axual_application.apps", 2),
 					// The display name of an application is its name.
 					querycheck.ExpectResourceKnownValues("axual_application.apps",
@@ -177,10 +203,7 @@ func TestListResources(t *testing.T) {
 					querycheck.ExpectLength("axual_application_deployment_state.deployment_state", 1),
 					querycheck.ExpectLength("axual_schema_version.schema", 1),
 
-					// The topic config is selected by its display name, the others are one result each: select them by identity.
-					querycheck.ExpectResourceDisplayName("axual_topic_config.topic_config",
-						queryfilter.ByDisplayName(knownvalue.StringExact("tf-query-topic on tfqueryenv")),
-						knownvalue.StringExact("tf-query-topic on tfqueryenv")),
+					// One result, so select it by identity and check its display name.
 					querycheck.ExpectResourceDisplayName("axual_application_deployment.deployment",
 						queryfilter.ByResourceIdentity(map[string]knownvalue.Check{"id": knownvalue.NotNull()}),
 						knownvalue.StringExact("tfqueryconnector on tfqueryenv")),
