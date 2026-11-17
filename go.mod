@@ -1,6 +1,6 @@
 module axual.com/terraform-provider-axual
 
-go 1.25.8
+go 1.26.0
 
 require (
 	axual-webclient v0.0.0
@@ -11,8 +11,8 @@ require (
 	github.com/hashicorp/terraform-plugin-go v0.31.0
 	github.com/hashicorp/terraform-plugin-log v0.11.0
 	github.com/hashicorp/terraform-plugin-testing v1.16.0
-	golang.org/x/oauth2 v0.34.0
-	golang.org/x/sync v0.20.0
+	golang.org/x/oauth2 v0.38.0
+	golang.org/x/sync v0.25.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
