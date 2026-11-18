@@ -240,13 +240,13 @@ func (r *instanceClusterResource) Schema(ctx context.Context, req resource.Schem
 						Validators:          []validator.String{notEmpty},
 					},
 					"oauth_enabled": schema.BoolAttribute{
-						MarkdownDescription: "`APICURIO` only: whether applications may also sign in with OAuth. Platform Manager creates their OAuth clients in the `keycloak` of this or another Cluster of the Instance. An application gets its OAuth credential in the Self-Service UI: `axual_application_credential` makes Basic-Auth credentials only. Basic authentication is always enabled. Default `false`.",
+						MarkdownDescription: "`APICURIO` only: whether applications may also sign in with OAuth. Basic authentication is always enabled. Like a Basic-Auth credential, an OAuth credential needs `keycloak` on this or another Cluster of the Instance. An application gets its OAuth credential in the Self-Service UI: `axual_application_credential` makes Basic-Auth credentials only. Default `false`.",
 						Optional:            true,
 						Computed:            true,
 						Default:             booldefault.StaticBool(false),
 					},
 					"keycloak": schema.SingleNestedAttribute{
-						MarkdownDescription: "`APICURIO` only: the Keycloak behind the registry, where Platform Manager creates the clients of applications that use OAuth. Leaving it out removes the stored Keycloak details and admin password.",
+						MarkdownDescription: "`APICURIO` only, and not with `No-Auth`: the Keycloak behind the registry. Platform Manager creates the client of every schema registry credential of an application there, Basic-Auth and OAuth, so at least one Cluster of the Instance needs it. Leaving it out removes the stored Keycloak details and admin password.",
 						Optional:            true,
 						Attributes: map[string]schema.Attribute{
 							"url":             schema.StringAttribute{Required: true, Validators: []validator.String{notEmpty}, MarkdownDescription: "Keycloak base URL."},
