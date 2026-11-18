@@ -145,36 +145,40 @@ func TestConnectUrlsRefuseAComma(t *testing.T) {
 }
 
 // An Instance PATCH or DELETE that loses the optimistic lock to a parallel schema registry write
-// (Platform Manager 16.1.0) is retried.
+// (Platform Manager 16.1.0) is retried, with the lock error of Spring and of JPA.
 func TestInstanceUpdateAndDeleteRetryALostLock(t *testing.T) {
 	t.Cleanup(shorten(&instanceWriteDelay))
 	ctx := context.Background()
-	calls := map[string]int{}
-	client := fakePM(t, func(w http.ResponseWriter, r *http.Request) {
-		calls[r.Method]++
-		if calls[r.Method] == 1 {
-			w.WriteHeader(http.StatusForbidden)
-			_, _ = w.Write([]byte(lockLost))
-			return
-		}
-		if r.Method == http.MethodDelete {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-		_, _ = w.Write([]byte(`{"uid":"i1","name":"Instance","shortName":"inst","instanceClusters":[{"cluster":{"uid":"c1"}}]}`))
-	})
-	r := &instanceResource{provider: AxualProvider{client: client}}
-	plan := testInstanceData()
-	plan.Description = types.StringValue("changed")
-	planned := stateFor(t, r, plan)
-	state := stateFor(t, r, testInstanceData())
-	resp := resource.UpdateResponse{State: state}
-	r.Update(ctx, resource.UpdateRequest{Plan: tfsdk.Plan{Schema: planned.Schema, Raw: planned.Raw}, State: state}, &resp)
-	if resp.Diagnostics.HasError() || calls[http.MethodPatch] != 2 {
-		t.Errorf("update = %v after %d PATCHes, expected success after 2", resp.Diagnostics, calls[http.MethodPatch])
-	}
-	if del := deleteResource(t, r, testInstanceData()); del.Diagnostics.HasError() || calls[http.MethodDelete] != 2 {
-		t.Errorf("delete = %v after %d DELETEs, expected success after 2", del.Diagnostics, calls[http.MethodDelete])
+	for name, lockError := range map[string]string{"Spring": lockLost, "JPA": lockLostJPA} {
+		t.Run(name, func(t *testing.T) {
+			calls := map[string]int{}
+			client := fakePM(t, func(w http.ResponseWriter, r *http.Request) {
+				calls[r.Method]++
+				if calls[r.Method] == 1 {
+					w.WriteHeader(http.StatusForbidden)
+					_, _ = w.Write([]byte(lockError))
+					return
+				}
+				if r.Method == http.MethodDelete {
+					w.WriteHeader(http.StatusNoContent)
+					return
+				}
+				_, _ = w.Write([]byte(`{"uid":"i1","name":"Instance","shortName":"inst","instanceClusters":[{"cluster":{"uid":"c1"}}]}`))
+			})
+			r := &instanceResource{provider: AxualProvider{client: client}}
+			plan := testInstanceData()
+			plan.Description = types.StringValue("changed")
+			planned := stateFor(t, r, plan)
+			state := stateFor(t, r, testInstanceData())
+			resp := resource.UpdateResponse{State: state}
+			r.Update(ctx, resource.UpdateRequest{Plan: tfsdk.Plan{Schema: planned.Schema, Raw: planned.Raw}, State: state}, &resp)
+			if resp.Diagnostics.HasError() || calls[http.MethodPatch] != 2 {
+				t.Errorf("update = %v after %d PATCHes, expected success after 2", resp.Diagnostics, calls[http.MethodPatch])
+			}
+			if del := deleteResource(t, r, testInstanceData()); del.Diagnostics.HasError() || calls[http.MethodDelete] != 2 {
+				t.Errorf("delete = %v after %d DELETEs, expected success after 2", del.Diagnostics, calls[http.MethodDelete])
+			}
+		})
 	}
 }
 

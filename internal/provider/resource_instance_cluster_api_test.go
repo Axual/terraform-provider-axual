@@ -304,6 +304,9 @@ func TestInstanceClusterConfigRefusesApiOfAnotherType(t *testing.T) {
 // Instance won the optimistic lock.
 const lockLost = `Request processing failed: org.springframework.orm.ObjectOptimisticLockingFailureException: Row was already updated or deleted by another transaction for entity [io.axual.governance.systemmanagement.Instance with id 'i1']`
 
+// lockLostJPA is the same error from the Instance update, which calls the JPA EntityManager directly.
+const lockLostJPA = "Request processing failed: jakarta.persistence.OptimisticLockException: Unexpected row count (expected row count 1 but was 0) [update `instance` set `description`=?,`opt_lock`=? where `id`=? and `opt_lock`=?] for entity [io.axual.governance.systemmanagement.Instance with id 'i1']"
+
 // A schema registry write that loses the optimistic lock is retried, and the endpoint ids are looked up
 // again before every attempt.
 func TestInstanceClusterWriteRetriesALostLock(t *testing.T) {
