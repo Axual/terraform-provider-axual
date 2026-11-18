@@ -12,6 +12,7 @@ import (
 const (
 	decision = "axual_application_access_grant_decision.tf-test-decision"
 	grant    = "axual_application_access_grant.tf-test-grant"
+	grants   = "data.axual_application_access_grants.tf-test-grants"
 )
 
 func config(files ...string) string {
@@ -63,13 +64,19 @@ func TestApplicationAccessGrantDecision(t *testing.T) {
 				Config: config("grant.tf", "decision_denied.tf"),
 				Check:  resource.TestCheckResourceAttr(decision, "current_status", "Revoked"),
 			},
-			// 5. The application team sees the decision.
+			// 5. The application team sees the decision. decided_by of the grant comes from
+			//    GET /application_access_grants/{id}, decided_by of the grants data source from the
+			//    grant search (processedBy), so they are the same only when the search has the email.
 			{
-				Config: config("grant.tf", "decision_denied.tf"),
+				Config: config("grant.tf", "decision_denied.tf", "grants_data_source.tf"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(grant, "status", "Revoked"),
 					resource.TestCheckResourceAttr(grant, "decision_reason", "Not allowed, see INC-1234"),
 					resource.TestCheckResourceAttrSet(grant, "decided_at"),
+					resource.TestCheckResourceAttrSet(grant, "decided_by"),
+					resource.TestCheckResourceAttr(grants, "grants.#", "1"),
+					resource.TestCheckResourceAttrPair(grants, "grants.0.id", grant, "id"),
+					resource.TestCheckResourceAttrPair(grants, "grants.0.decided_by", grant, "decided_by"),
 				),
 			},
 			// 6. The application team asks again; DENIED rejects the new request at the next apply.
