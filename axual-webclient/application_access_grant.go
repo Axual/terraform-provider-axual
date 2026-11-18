@@ -2,7 +2,9 @@ package webclient
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
 	"net/url"
 	"reflect"
 	"strings"
@@ -96,8 +98,29 @@ type ApplicationAccessGrantAttributes struct {
 	Size          int    `json:"size"`
 }
 
+// The grant searches, relative to the API URL. findSummariesByAttributes exists from Platform
+// Manager 17.0.0. findByAttributes is deprecated in 17.0.0 and removed in 2027.4: then remove
+// oldGrantSearchPath and grantSearch, and require Platform Manager 17.0.0 in the compatibility table.
+const (
+	grantSearchPath    = "application_access_grants/search/findSummariesByAttributes"
+	oldGrantSearchPath = "application_access_grants/search/findByAttributes"
+)
+
+// grantSearch tries grantSearchPath. After a 404 (Platform Manager before 17.0.0) this client uses
+// oldGrantSearchPath. The new search answers an empty page, not 404, when nothing matches.
+func (c *Client) grantSearch(search func(path string) error) error {
+	if !c.oldGrantSearch.Load() {
+		err := search(grantSearchPath)
+		if !errors.Is(err, NotFoundError) {
+			return err
+		}
+		log.Printf("%s answered 404: this run uses %s (Platform Manager before 17.0.0)", grantSearchPath, oldGrantSearchPath)
+		c.oldGrantSearch.Store(true)
+	}
+	return search(oldGrantSearchPath)
+}
+
 func (c *Client) GetApplicationAccessGrantsByAttributes(data ApplicationAccessGrantAttributes) (*GetApplicationAccessGrantsByAttributeResponse, error) {
-	o := GetApplicationAccessGrantsByAttributeResponse{}
 	headers := map[string]string{
 		"Content-Type": "application/json",
 		"Accept":       "application/hal+json",
@@ -117,11 +140,28 @@ func (c *Client) GetApplicationAccessGrantsByAttributes(data ApplicationAccessGr
 		}
 	}
 
-	endpoint := fmt.Sprintf("%s/application_access_grants/search/findByAttributes?%s", c.ApiURL, values.Encode())
-
-	err := c.RequestAndMap("GET", endpoint, nil, headers, &o)
+	var o GetApplicationAccessGrantsByAttributeResponse
+	err := c.grantSearch(func(path string) error {
+		o = GetApplicationAccessGrantsByAttributeResponse{}
+		return c.RequestAndMap("GET", fmt.Sprintf("%s/%s?%s", c.ApiURL, path, values.Encode()), nil, headers, &o)
+	})
 	if err != nil {
 		return nil, err
 	}
+	for i := range o.Embedded.ApplicationAccessGrantResponses {
+		o.Embedded.ApplicationAccessGrantResponses[i].useEmbedded()
+	}
 	return &o, nil
+}
+
+// ListApplicationAccessGrants returns every grant that matches params, from all pages. See ListAll.
+// ListItem.Embedded reads both the findSummariesByAttributes and the findByAttributes answer.
+func (c *Client) ListApplicationAccessGrants(params url.Values) ([]ListItem, error) {
+	var items []ListItem
+	err := c.grantSearch(func(path string) error {
+		var err error
+		items, err = c.ListAll(path, params)
+		return err
+	})
+	return items, err
 }

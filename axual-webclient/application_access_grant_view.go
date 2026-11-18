@@ -7,9 +7,10 @@ import (
 )
 
 // GrantView is one application access grant with the fields the decision resource, the grant
-// resource and the grants data source need. GET /application_access_grants/{id} and the grant
-// search name several fields differently (requested_at against requestedAt, processedBy against
-// processedByUser.email); grantViewFromItem reads both.
+// resource and the grants data source need. GET /application_access_grants/{id}, findSummariesByAttributes
+// and findByAttributes (before Platform Manager 17.0.0) name several fields differently (requested_at
+// against requestedAt, processedBy against processedByUser.emailAddress.email, plain application
+// against _embedded); grantViewFromItem reads all three.
 type GrantView struct {
 	Uid             string
 	Status          string
@@ -62,7 +63,12 @@ func (c *Client) SearchGrants(topic, environment, accessType, application string
 	for _, s := range statuses {
 		q.Add("statuses", strings.ToUpper(s))
 	}
-	items, err := c.ListAll("application_access_grants/search/findByAttributes", q)
+	var items []ListItem
+	err := c.grantSearch(func(path string) error {
+		var err error
+		items, err = c.ListAll(path, q)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"sync/atomic"
 )
 
 // Client represents an HTTP client configured to communicate with the API.
@@ -18,6 +19,8 @@ type Client struct {
 
 	grantActionsOnce sync.Once
 	grantActions     chan struct{}
+
+	oldGrantSearch atomic.Bool // set by grantSearch after a 404
 }
 
 // maxGrantActions is how many approves, rejects, revokes and cancels the client sends at the same time,
