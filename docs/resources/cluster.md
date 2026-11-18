@@ -11,6 +11,7 @@ A Cluster is a Kafka cluster that Platform Manager governs. Add it to an Instanc
 - `shared` and `provider_type` cannot change: changing either one replaces the Cluster.
 - A Tenant Admin keeps the default `shared = false`. Only a Super Admin can change or delete a shared Cluster.
 - Platform Manager refuses a change of `topic_pattern`, `group_pattern` or `transactional_pattern` once topics exist on the Cluster.
+- Leaving out a pattern, `kafka_listeners`, `bootstrap_urls_by_authentication` or `broker.security_protocol` keeps what the Cluster has. `kafka_listeners = {}` and `bootstrap_urls_by_authentication = {}` remove them.
 - A Cluster can only be deleted when no Instance uses it.
 
 ## Prerequisites

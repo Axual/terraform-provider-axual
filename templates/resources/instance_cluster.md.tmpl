@@ -7,6 +7,7 @@
 - `certificate`, `private_key` and `truststore` take PEM. Platform Manager keeps them base64-encoded, the way the Self-Service UI sends them, so the provider does the encoding. An already base64-encoded value is also accepted.
 - The password, private key and Keycloak admin password are stored in Vault. Platform Manager never returns them, so they are kept as written in the configuration and cannot be imported.
 - Platform Manager does not contact the registry to check the URL or credentials. A wrong value shows up when a topic with a schema is configured.
+- Leaving out `listeners` or `properties` keeps what the schema registry has. `listeners = {}` and `properties = {}` remove them.
 - Creating the resource fails when the Instance-Cluster already has a schema registry, for example one set up in the Self-Service UI. Import it instead.
 - Destroying the resource removes the schema registry from the Instance-Cluster. Platform Manager refuses it while an application has a schema registry credential there.
 - `client_endpoints` (Platform Manager 16.1.0 or later) are the registry URLs that applications use, by name. `used_by = "ALL_APPS"` endpoints are also shown to users and used by self-managed applications; `MANAGED_APPS` endpoints only by managed applications. Set either `client_endpoints` or `listeners`, not both: when the endpoints are sent, Platform Manager ignores `listeners`. With `listeners`, each name becomes an `ALL_APPS` endpoint with the registry's `api`.
@@ -104,4 +105,4 @@ terraform import axual_instance_cluster.<LOCAL NAME> <INSTANCE UID>/<CLUSTER UID
 terraform import axual_instance_cluster.production 9b4b1e3a1e2f4b5f8a1c0d2e3f4a5b6c/3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c
 ```
 
-After importing, add the `password` or `private_key` to your configuration: Platform Manager does not return it.
+After importing, add `password`, `private_key` and `keycloak.admin_password`, where they apply, to your configuration: Platform Manager does not return them, and the next apply sends what the configuration has.

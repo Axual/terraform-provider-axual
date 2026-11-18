@@ -7,6 +7,7 @@ An Instance is a group of one or more Clusters that get the same topics and ACLs
 - Removing a Cluster from `clusters` also removes its schema registry configuration. Platform Manager refuses it while a Kafka Connect or Flink cluster is registered on that Instance-Cluster.
 - `granular_browse_permission` turns on per-topic browse permissions; manage them with `axual_topic_browse_permissions`.
 - `authentication_methods` must be methods the tenant supports. Platform Manager enables `MUTUAL_TLS` when it is not set, and refuses removing a method that is in use.
+- Leaving out `ca_certificates`, `authentication_methods` or `properties` keeps what the Instance has. `properties = {}` removes all properties. `ca_certificates = []` removes all CA certificates; Platform Manager refuses that while `MUTUAL_TLS` is enabled and a Cluster has `ssl_auth_mode = "fullChainCertificate"`.
 - An Instance can only be deleted when no environment, Kafka Connect cluster, Flink cluster or connector deployment uses it.
 - The `axual_instance` data source looks up an existing Instance.
 
@@ -16,6 +17,7 @@ An Instance is a group of one or more Clusters that get the same topics and ACLs
 ## Platform Manager version
 - Platform Manager 15.0.9 or later. `flink_enabled = true`, and `connect_enabled = true` without `connect_urls`, need Platform Manager 16.0.0 or later; with an older one, the plan fails.
 - Platform Manager refuses a change of `short_name` while the Instance has environments. Some Platform Manager versions delete the schema registry of the Instance-Clusters when `short_name` changes; the next `terraform apply` configures it again from `axual_instance_cluster`.
+- On Platform Manager 15.0.x, adding or removing a Cluster resets `oauth_enabled` of the schema registry of the other Clusters of the Instance. The next `terraform apply` sets it again from `axual_instance_cluster`.
 
 ## Required Roles
 - TENANT_ADMIN
