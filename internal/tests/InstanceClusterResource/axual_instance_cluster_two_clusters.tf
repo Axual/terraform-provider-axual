@@ -1,6 +1,6 @@
 resource "axual_cluster" "tf_test_ic2_cluster" {
-  for_each      = toset(["a", "b"])
-  name          = "tf-test-ic2-cluster-${each.key}"
+  count         = 2
+  name          = "tf-test-ic2-cluster-${count.index}"
   provider_type = "apache-kafka"
   broker = {
     bootstrap_servers = local.kafka_bootstrap_servers
@@ -17,15 +17,15 @@ resource "axual_cluster" "tf_test_ic2_cluster" {
 resource "axual_instance" "tf_test_ic2_instance" {
   name            = "tf-test-ic2-instance"
   short_name      = "tftestic2"
-  clusters        = [for c in axual_cluster.tf_test_ic2_cluster : c.id]
+  clusters        = axual_cluster.tf_test_ic2_cluster[*].id
   ca_certificates = [file(local.instance_ca_certificate_file)]
 }
 
 # One schema registry per Cluster, written in parallel on the same Instance.
 resource "axual_instance_cluster" "tf_test_ic2" {
-  for_each = axual_cluster.tf_test_ic2_cluster
+  count    = 2
   instance = axual_instance.tf_test_ic2_instance.id
-  cluster  = each.value.id
+  cluster  = axual_cluster.tf_test_ic2_cluster[count.index].id
   schema_registry = {
     type           = "APICURIO"
     url            = local.schema_registry_url

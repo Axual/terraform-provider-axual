@@ -21,8 +21,8 @@ func TestInstanceClusterResourceTwoClusters(t *testing.T) {
 	files := GetClusterProvider() + GetFile("axual_instance_cluster_two_clusters.tf")
 	check := func(step string) resource.TestCheckFunc {
 		return resource.ComposeTestCheckFunc(
-			resource.TestCheckResourceAttr(`axual_instance_cluster.tf_test_ic2["a"]`, "schema_registry.properties.tf.test.step", step),
-			resource.TestCheckResourceAttr(`axual_instance_cluster.tf_test_ic2["b"]`, "schema_registry.properties.tf.test.step", step),
+			resource.TestCheckResourceAttr("axual_instance_cluster.tf_test_ic2.0", "schema_registry.properties.tf.test.step", step),
+			resource.TestCheckResourceAttr("axual_instance_cluster.tf_test_ic2.1", "schema_registry.properties.tf.test.step", step),
 		)
 	}
 	resource.Test(t, resource.TestCase{
