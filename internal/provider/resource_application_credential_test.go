@@ -2,7 +2,16 @@ package provider
 
 import (
 	webclient "axual-webclient"
+	"context"
+	"net/http"
+	"strings"
 	"testing"
+
+	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
 func TestDeriveTargetFromTypes(t *testing.T) {
@@ -24,5 +33,87 @@ func TestDeriveTargetFromTypes(t *testing.T) {
 		if got := deriveTargetFromTypes(authTypes); got != test.target {
 			t.Errorf("%s: deriveTargetFromTypes = %s, expected %s", name, got, test.target)
 		}
+	}
+}
+
+// A Schema Registry credential generated again outside Terraform keeps its username and gets a new ID.
+// A refresh follows it through the framework's own identity check, and warns once.
+func TestApplicationCredentialRefreshFollowsAReplacedCredential(t *testing.T) {
+	ctx := context.Background()
+	for name, tc := range map[string]struct {
+		storedID, password string
+		wantWarning        string // a part of the warning; empty for no warning
+	}{
+		"same credential":             {"cred-new", "secret", ""},
+		"replaced, made by Terraform": {"cred-old", "secret", "does not work any more"},
+		"replaced, imported":          {"cred-old", "", "follows the new credential"},
+		"state without an ID":         {"", "secret", ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			client := fakePM(t, func(w http.ResponseWriter, r *http.Request) {
+				_, _ = w.Write([]byte(`[{"id":"cred-new","username":"appenv","application":{"id":"app"},"environment":{"id":"env"},
+					"types":[{"type":"SCHEMA_REGISTRY_BASIC_AUTH"}],"description":"d","metadata":{"clusters":"c"}}]`))
+			})
+			server := providerserver.NewProtocol6(&AxualProvider{client: client})()
+			r := withIdentity(NewApplicationCredentialResource(AxualProvider{client: client}), "id")
+			var schemaResp resource.SchemaResponse
+			r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+			var identityResp resource.IdentitySchemaResponse
+			r.(resource.ResourceWithIdentity).IdentitySchema(ctx, resource.IdentitySchemaRequest{}, &identityResp)
+			stateType := schemaResp.Schema.Type().TerraformType(ctx)
+			identityType := identityResp.IdentitySchema.Type().TerraformType(ctx)
+
+			state := stateFor(t, r, applicationCredentialResourceData{
+				Id: types.StringValue(tc.storedID), ApplicationId: types.StringValue("app"), EnvironmentId: types.StringValue("env"),
+				Target: types.StringValue("SCHEMA_REGISTRY"), UserName: types.StringValue("appenv"), Password: types.StringValue(tc.password),
+				Clusters: types.StringValue("c"), Description: types.StringValue("d"), AuthProvider: types.StringValue("apicurio"),
+			})
+			currentState, err := tfprotov6.NewDynamicValue(stateType, state.Raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req := &tfprotov6.ReadResourceRequest{TypeName: "axual_application_credential", CurrentState: &currentState}
+			if tc.storedID != "" {
+				identity, err := tfprotov6.NewDynamicValue(identityType, tftypes.NewValue(identityType, map[string]tftypes.Value{
+					"id": tftypes.NewValue(tftypes.String, tc.storedID)}))
+				if err != nil {
+					t.Fatal(err)
+				}
+				req.CurrentIdentity = &tfprotov6.ResourceIdentityData{IdentityData: &identity}
+			}
+
+			resp, err := server.ReadResource(ctx, req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var warnings []string
+			for _, d := range resp.Diagnostics {
+				if d.Severity == tfprotov6.DiagnosticSeverityError {
+					t.Fatalf("error: %s: %s", d.Summary, d.Detail)
+				}
+				warnings = append(warnings, d.Detail)
+			}
+			if tc.wantWarning == "" && len(warnings) > 0 || tc.wantWarning != "" && (len(warnings) != 1 || !strings.Contains(warnings[0], tc.wantWarning)) {
+				t.Errorf("warnings = %q, expected one with %q", warnings, tc.wantWarning)
+			}
+			if tc.password == "" && len(warnings) == 1 && strings.Contains(warnings[0], "password") {
+				t.Errorf("a credential without a password in the state must not get the password advice: %q", warnings[0])
+			}
+			newState, err := resp.NewState.Unmarshal(stateType)
+			if err != nil {
+				t.Fatal(err)
+			}
+			newIdentity, err := resp.NewIdentity.IdentityData.Unmarshal(identityType)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for what, value := range map[string]tftypes.Value{"state": newState, "identity": newIdentity} {
+				var attributes map[string]tftypes.Value
+				var id string
+				if err := value.As(&attributes); err != nil || attributes["id"].As(&id) != nil || id != "cred-new" {
+					t.Errorf("%s id = %q, expected cred-new", what, id)
+				}
+			}
+		})
 	}
 }
