@@ -16,6 +16,7 @@ An Instance is a group of one or more Clusters that get the same topics and ACLs
 
 ## Platform Manager version
 - Platform Manager 15.0.9 or later. `flink_enabled = true`, and `connect_enabled = true` without `connect_urls`, need Platform Manager 16.0.0 or later; with an older one, the plan fails.
+- Newer Platform Manager versions switch Connect and Flink on for the whole tenant, with the tenant settings `connectRuntimeEnabled` and `flinkRuntimeEnabled`, which this provider does not manage. There `connect_enabled` and `flink_enabled` change nothing: the value is kept only in the Terraform state, and `true` gives a warning.
 - Platform Manager refuses a change of `short_name` while the Instance has environments. Some Platform Manager versions delete the schema registry of the Instance-Clusters when `short_name` changes; the next `terraform apply` configures it again from `axual_instance_cluster`.
 - On Platform Manager 15.0.x, adding or removing a Cluster resets `oauth_enabled` of the schema registry of the other Clusters of the Instance. The next `terraform apply` sets it again from `axual_instance_cluster`.
 
@@ -36,11 +37,11 @@ An Instance is a group of one or more Clusters that get the same topics and ACLs
 - `authentication_methods` (Set of String) How applications may authenticate: `MUTUAL_TLS`, `SCRAM_SHA_256`, `SCRAM_SHA_512`, `OAUTH_BEARER` or `PLAIN`. Each must be enabled for the tenant. Platform Manager enables `MUTUAL_TLS` when it is not set, and refuses removing a method that is in use.
 - `ca_certificates` (Set of String) PEM CA certificates that sign application certificates. Required when `MUTUAL_TLS` is enabled and a Cluster has `ssl_auth_mode` `fullChainCertificate`. Platform Manager removes them when `MUTUAL_TLS` is not enabled, so the plan refuses them when `authentication_methods` is set without it.
 - `certificate_reuse_prevention` (String) Whether one certificate may be used by more than one application principal: `NONE`, `INSTANCE` (not twice in the Instance) or `TENANT` (not twice in the tenant). Default `NONE`.
-- `connect_enabled` (Boolean) Whether Connector applications can be deployed on the Instance. Default `false`. `true` without `connect_urls` needs Platform Manager 16.0.0 or later.
-- `connect_urls` (List of String) URLs of the Axual Connect REST API, for the legacy Axual Connect. Platform Manager calls each one when `connect_enabled` is `true`.
+- `connect_enabled` (Boolean) Whether Connector applications can be deployed on the Instance. Default `false`. `true` without `connect_urls` needs Platform Manager 16.0.0 or later. Newer versions have no such switch on an Instance: see the Platform Manager version notes.
+- `connect_urls` (List of String) URLs of the Axual Connect REST API, for the legacy Axual Connect. Platform Manager calls each one when `connect_enabled` is `true`. Versions with Connect per tenant call them when they are set or changed, and refuse them while Connect is off for the tenant.
 - `description` (String) A short description of the Instance. Must be at most 200 characters.
 - `environment_mapping` (Boolean) Whether environments can be mapped to the Instance. Default `true`.
-- `flink_enabled` (Boolean) Whether Flink SQL applications can be deployed on the Instance. Default `false`. `true` needs Platform Manager 16.0.0 or later.
+- `flink_enabled` (Boolean) Whether Flink SQL applications can be deployed on the Instance. Default `false`. `true` needs Platform Manager 16.0.0 or later. Newer versions have no such switch on an Instance: see the Platform Manager version notes.
 - `granular_browse_permission` (Boolean) Whether topic browsing is allowed per user and group (granular stream browse permissions). Default `false`.
 - `properties` (Map of String) Defaults for topics on the Instance, for example `replication.factor`.
 - `self_approval` (Boolean) Whether the owner of a topic and an application may approve their own access request. Default `true`.

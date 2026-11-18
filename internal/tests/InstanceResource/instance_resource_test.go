@@ -70,6 +70,7 @@ func TestInstanceResource(t *testing.T) {
 			},
 			{
 				// Platform Manager before 16.0.0 has no flink_enabled; there the plan fails, see the unit tests.
+				// Versions with Flink per tenant keep the value only in state, so there this step proves nothing.
 				SkipFunc: SkipStepWithoutInstanceFlink,
 				Config:   GetClusterProvider() + GetFile("axual_instance_setup.tf", "axual_instance_flink.tf"),
 				Check: resource.ComposeTestCheckFunc(

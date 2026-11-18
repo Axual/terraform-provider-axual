@@ -11,7 +11,9 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
@@ -397,5 +399,105 @@ func TestMTLSIsSentAsTheUISpellsItAndReadInAnyCase(t *testing.T) {
 		if diags.HasError() || sr.Authentication.ValueString() != want {
 			t.Errorf("stored authentication %q read as %q, expected %q (%v)", stored, sr.Authentication.ValueString(), want, diags)
 		}
+	}
+}
+
+// connectEnabled and flinkEnabled follow the answer when Platform Manager returns them. When it does not,
+// the value of the plan or state is kept, and false when that is null or unknown. Only a kept true warns.
+func TestInstanceRuntimeSwitchFromTheAnswer(t *testing.T) {
+	yes, no := true, false
+	for name, tc := range map[string]struct {
+		answer      *bool
+		current     types.Bool
+		want        bool
+		wantWarning bool
+	}{
+		"answer true":         {&yes, types.BoolValue(false), true, false},
+		"answer false":        {&no, types.BoolValue(true), false, false},
+		"missing, plan true":  {nil, types.BoolValue(true), true, true},
+		"missing, plan false": {nil, types.BoolValue(false), false, false},
+		"missing, plan null":  {nil, types.BoolNull(), false, false},
+		"missing, not known":  {nil, types.BoolUnknown(), false, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			data := testInstanceData()
+			data.ConnectEnabled, data.FlinkEnabled = tc.current, tc.current
+			answer := &webclient.InstanceResponse{Uid: "i1", ConnectEnabled: tc.answer, FlinkEnabled: tc.answer}
+			var diags diag.Diagnostics
+			warnRuntimeSwitchesWithoutEffect(&diags, data, answer)
+			mapInstanceResponseToData(data, answer)
+			for attribute, value := range map[string]types.Bool{"connect_enabled": data.ConnectEnabled, "flink_enabled": data.FlinkEnabled} {
+				if value.IsNull() || value.IsUnknown() || value.ValueBool() != tc.want {
+					t.Errorf("%s = %v, expected %v", attribute, value, tc.want)
+				}
+			}
+			wantWarnings := 0
+			if tc.wantWarning {
+				wantWarnings = 2
+			}
+			if diags.WarningsCount() != wantWarnings || diags.HasError() {
+				t.Errorf("diagnostics = %v, expected %d warnings", diags, wantWarnings)
+			}
+		})
+	}
+}
+
+// The answers of each Platform Manager line, through Create, Update and Read (an import reads with
+// both values null). 15.0.x returns connectEnabled only; versions with Connect and Flink per tenant
+// return neither, and then only a configured true warns.
+func TestInstanceRuntimeSwitchesOnEachPlatformManager(t *testing.T) {
+	ctx := context.Background()
+	for name, tc := range map[string]struct {
+		answer                             string
+		connect, flink                     bool // the plan
+		wantConnect, wantFlink             bool // the state after Create and Update
+		wantImportConnect, wantImportFlink bool // the state after an import
+		wantWarnings                       int  // each of Create and Update
+	}{
+		"16.0.x":                    {`"connectEnabled":true,"flinkEnabled":true`, true, true, true, true, true, true, 0},
+		"15.0.x":                    {`"connectEnabled":true`, true, false, true, false, true, false, 0},
+		"per tenant, both true":     {``, true, true, true, true, false, false, 2},
+		"per tenant, flink true":    {``, false, true, false, true, false, false, 1},
+		"per tenant, left at false": {``, false, false, false, false, false, false, 0},
+	} {
+		t.Run(name, func(t *testing.T) {
+			body := `{"uid":"i1","name":"Instance","shortName":"inst","instanceClusters":[{"cluster":{"uid":"c1"}}]}`
+			if tc.answer != "" {
+				body = strings.Replace(body, `{`, `{`+tc.answer+`,`, 1)
+			}
+			client := fakePM(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodPost {
+					w.WriteHeader(http.StatusCreated)
+				}
+				_, _ = w.Write([]byte(body))
+			})
+			r := &instanceResource{provider: AxualProvider{client: client}}
+			plan := testInstanceData()
+			plan.ConnectEnabled, plan.FlinkEnabled = types.BoolValue(tc.connect), types.BoolValue(tc.flink)
+			planned := stateFor(t, r, plan)
+			check := func(step string, state tfsdk.State, diags diag.Diagnostics, wantConnect, wantFlink bool, wantWarnings int) {
+				t.Helper()
+				var got instanceResourceData
+				diags.Append(state.Get(ctx, &got)...)
+				if diags.HasError() || diags.WarningsCount() != wantWarnings ||
+					got.ConnectEnabled.ValueBool() != wantConnect || got.FlinkEnabled.ValueBool() != wantFlink {
+					t.Errorf("%s: connect_enabled = %v, flink_enabled = %v, %d warnings %v; expected %v, %v, %d warnings",
+						step, got.ConnectEnabled, got.FlinkEnabled, diags.WarningsCount(), diags, wantConnect, wantFlink, wantWarnings)
+				}
+			}
+
+			created := resource.CreateResponse{State: emptyState(t, r)}
+			r.Create(ctx, resource.CreateRequest{Plan: tfsdk.Plan{Schema: planned.Schema, Raw: planned.Raw}}, &created)
+			check("create", created.State, created.Diagnostics, tc.wantConnect, tc.wantFlink, tc.wantWarnings)
+
+			updated := resource.UpdateResponse{State: planned}
+			r.Update(ctx, resource.UpdateRequest{Plan: tfsdk.Plan{Schema: planned.Schema, Raw: planned.Raw}, State: planned}, &updated)
+			check("update", updated.State, updated.Diagnostics, tc.wantConnect, tc.wantFlink, tc.wantWarnings)
+
+			imported := stateFor(t, r, testInstanceData())
+			read := resource.ReadResponse{State: imported}
+			r.Read(ctx, resource.ReadRequest{State: imported}, &read)
+			check("import", read.State, read.Diagnostics, tc.wantImportConnect, tc.wantImportFlink, 0)
+		})
 	}
 }

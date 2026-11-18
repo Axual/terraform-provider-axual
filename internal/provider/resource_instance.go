@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -204,13 +205,13 @@ func (r *instanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				},
 			},
 			"connect_enabled": schema.BoolAttribute{
-				MarkdownDescription: "Whether Connector applications can be deployed on the Instance. Default `false`. `true` without `connect_urls` needs Platform Manager 16.0.0 or later.",
+				MarkdownDescription: "Whether Connector applications can be deployed on the Instance. Default `false`. `true` without `connect_urls` needs Platform Manager 16.0.0 or later. Newer versions have no such switch on an Instance: see the Platform Manager version notes.",
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(false),
 			},
 			"connect_urls": schema.ListAttribute{
-				MarkdownDescription: "URLs of the Axual Connect REST API, for the legacy Axual Connect. Platform Manager calls each one when `connect_enabled` is `true`.",
+				MarkdownDescription: "URLs of the Axual Connect REST API, for the legacy Axual Connect. Platform Manager calls each one when `connect_enabled` is `true`. Versions with Connect per tenant call them when they are set or changed, and refuse them while Connect is off for the tenant.",
 				Optional:            true,
 				ElementType:         types.StringType,
 				Validators: []validator.List{
@@ -220,7 +221,7 @@ func (r *instanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				},
 			},
 			"flink_enabled": schema.BoolAttribute{
-				MarkdownDescription: "Whether Flink SQL applications can be deployed on the Instance. Default `false`. `true` needs Platform Manager 16.0.0 or later.",
+				MarkdownDescription: "Whether Flink SQL applications can be deployed on the Instance. Default `false`. `true` needs Platform Manager 16.0.0 or later. Newer versions have no such switch on an Instance: see the Platform Manager version notes.",
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(false),
@@ -308,6 +309,7 @@ func (r *instanceResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
+	warnRuntimeSwitchesWithoutEffect(&resp.Diagnostics, &data, instance)
 	mapInstanceResponseToData(&data, instance)
 	tflog.Info(ctx, "created Instance")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -365,6 +367,7 @@ func (r *instanceResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
+	warnRuntimeSwitchesWithoutEffect(&resp.Diagnostics, &data, instance)
 	mapInstanceResponseToData(&data, instance)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -447,6 +450,34 @@ func createInstanceRequestFromData(data *instanceResourceData, apiURL string) we
 	}
 }
 
+// switchFromAnswer returns connectEnabled or flinkEnabled from the answer. When Platform Manager does not
+// return it, the value of the plan or state is kept, and false when that is null or unknown.
+func switchFromAnswer(answer *bool, current types.Bool) types.Bool {
+	if answer != nil {
+		return types.BoolValue(*answer)
+	}
+	return types.BoolValue(current.ValueBool())
+}
+
+// warnRuntimeSwitchesWithoutEffect warns when connect_enabled or flink_enabled is true but Platform Manager
+// did not return it. Versions with Connect and Flink per tenant have no such switch on an Instance.
+func warnRuntimeSwitchesWithoutEffect(diags *diag.Diagnostics, data *instanceResourceData, instance *webclient.InstanceResponse) {
+	for _, s := range []struct {
+		answer               *bool
+		value                types.Bool
+		attribute, name, key string
+	}{
+		{instance.ConnectEnabled, data.ConnectEnabled, "connect_enabled", "Connect", "connectRuntimeEnabled"},
+		{instance.FlinkEnabled, data.FlinkEnabled, "flink_enabled", "Flink", "flinkRuntimeEnabled"},
+	} {
+		if s.answer == nil && s.value.ValueBool() {
+			diags.AddAttributeWarning(path.Root(s.attribute), s.attribute+" has no effect on this Platform Manager",
+				fmt.Sprintf("This Platform Manager has no %[1]s switch on an Instance. %[1]s is switched on for the whole tenant: "+
+					"a Tenant Admin sets the tenant setting %[2]s. The value true is kept only in the Terraform state.", s.name, s.key))
+		}
+	}
+}
+
 func mapInstanceResponseToData(data *instanceResourceData, instance *webclient.InstanceResponse) {
 	data.Id = types.StringValue(instance.Uid)
 	data.Name = types.StringValue(instance.Name)
@@ -476,8 +507,8 @@ func mapInstanceResponseToData(data *instanceResourceData, instance *webclient.I
 	data.TopicOwnerBrowsePermission = types.BoolValue(instance.TopicOwnerBrowsePermission)
 	data.EnvironmentMapping = types.BoolValue(instance.EnvironmentMapping)
 	data.SelfApproval = types.BoolValue(instance.SelfApproval)
-	data.ConnectEnabled = types.BoolValue(instance.ConnectEnabled)
-	data.FlinkEnabled = types.BoolValue(instance.FlinkEnabled)
+	data.ConnectEnabled = switchFromAnswer(instance.ConnectEnabled, data.ConnectEnabled)
+	data.FlinkEnabled = switchFromAnswer(instance.FlinkEnabled, data.FlinkEnabled)
 	// The answer is a display name such as "None", while a request takes "NONE".
 	data.CertificateReusePrevention = types.StringValue(strings.ToUpper(instance.CertificateReusePreventionLevel))
 

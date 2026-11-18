@@ -1,5 +1,8 @@
 package webclient
 
+// InstanceResponse is an Instance as Platform Manager returns it. ConnectEnabled and FlinkEnabled are nil
+// when it does not return them: 15.0.x has no flinkEnabled, and versions with Connect and Flink per tenant
+// have neither.
 type InstanceResponse struct {
 	Name                            string                         `json:"name"`
 	ShortName                       string                         `json:"shortName"`
@@ -9,8 +12,8 @@ type InstanceResponse struct {
 	InstanceClusters                []InstanceClusterResponse      `json:"instanceClusters"`
 	CaCerts                         []InstanceCertificate          `json:"caCerts"`
 	EnabledAuthenticationMethods    []InstanceAuthenticationMethod `json:"enabledAuthenticationMethods"`
-	ConnectEnabled                  bool                           `json:"connectEnabled"`
-	FlinkEnabled                    bool                           `json:"flinkEnabled"`
+	ConnectEnabled                  *bool                          `json:"connectEnabled"`
+	FlinkEnabled                    *bool                          `json:"flinkEnabled"`
 	ConnectUrls                     string                         `json:"connectUrls"`
 	GranularBrowsePermission        bool                           `json:"granularBrowsePermission"`
 	TopicOwnerBrowsePermission      bool                           `json:"topicOwnerBrowsePermission"`
