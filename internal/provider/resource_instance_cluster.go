@@ -240,7 +240,7 @@ func (r *instanceClusterResource) Schema(ctx context.Context, req resource.Schem
 						Validators:          []validator.String{notEmpty},
 					},
 					"oauth_enabled": schema.BoolAttribute{
-						MarkdownDescription: "`APICURIO` only: whether applications may also sign in with OAuth. Platform Manager creates their OAuth clients in the `keycloak` of this or another Cluster of the Instance. Basic authentication is always enabled. Default `false`.",
+						MarkdownDescription: "`APICURIO` only: whether applications may also sign in with OAuth. Platform Manager creates their OAuth clients in the `keycloak` of this or another Cluster of the Instance. An application gets its OAuth credential in the Self-Service UI: `axual_application_credential` makes Basic-Auth credentials only. Basic authentication is always enabled. Default `false`.",
 						Optional:            true,
 						Computed:            true,
 						Default:             booldefault.StaticBool(false),
@@ -252,7 +252,7 @@ func (r *instanceClusterResource) Schema(ctx context.Context, req resource.Schem
 							"url":             schema.StringAttribute{Required: true, Validators: []validator.String{notEmpty}, MarkdownDescription: "Keycloak base URL."},
 							"master_realm":    schema.StringAttribute{Required: true, MarkdownDescription: "The realm the admin user signs in to, usually `master`."},
 							"admin_username":  schema.StringAttribute{Required: true, MarkdownDescription: "Keycloak admin username."},
-							"admin_password":  schema.StringAttribute{Required: true, Sensitive: true, MarkdownDescription: "Keycloak admin password. Platform Manager never returns it. This field is Sensitive."},
+							"admin_password":  schema.StringAttribute{Required: true, Sensitive: true, MarkdownDescription: "Keycloak admin password. Platform Manager never returns it, and signs in to Keycloak with it on every save of the registry, so a wrong one fails the apply. This field is Sensitive."},
 							"admin_client_id": schema.StringAttribute{Required: true, MarkdownDescription: "The client the admin user signs in with, usually `admin-cli`."},
 							"apicurio_realm":  schema.StringAttribute{Required: true, MarkdownDescription: "The realm of the Apicurio clients."},
 						},

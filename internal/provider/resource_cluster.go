@@ -44,6 +44,11 @@ const strimziMajor, strimziMinor = 16, 1
 var _ resource.Resource = &clusterResource{}
 var _ resource.ResourceWithImportState = &clusterResource{}
 var _ resource.ResourceWithModifyPlan = &clusterResource{}
+var _ resource.ResourceWithValidateConfig = &clusterResource{}
+
+// strimziClusterNamePattern is the rule of the runtime provisioner for a Strimzi cluster name: a Kubernetes
+// object name (DNS-1123 subdomain) that is also a label value, so at most 63 characters.
+var strimziClusterNamePattern = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`)
 
 func NewClusterResource(provider AxualProvider) resource.Resource {
 	return &clusterResource{
@@ -254,12 +259,16 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 				},
 			},
 			"strimzi": schema.SingleNestedAttribute{
-				MarkdownDescription: "The Strimzi Kafka cluster behind the Cluster. Required when `provider_type` is `strimzi` (Platform Manager 16.1.0 or later).",
+				MarkdownDescription: "The Strimzi Kafka cluster behind the Cluster. Required when `provider_type` is `strimzi` (Platform Manager 16.1.0 or later), and refused for `apache-kafka`.",
 				Optional:            true,
 				Attributes: map[string]schema.Attribute{
 					"cluster_name": schema.StringAttribute{
-						MarkdownDescription: "The `strimzi.io/cluster` name of the Kafka cluster.",
+						MarkdownDescription: "The `strimzi.io/cluster` name of the Kafka cluster: at most 63 lower-case letters, digits, `-` and `.`, and each part between dots starts and ends with a letter or digit.",
 						Required:            true,
+						Validators: []validator.String{
+							stringvalidator.LengthAtMost(63),
+							stringvalidator.RegexMatches(strimziClusterNamePattern, "must be the name of a Strimzi Kafka cluster: lower-case letters, digits, '-' and '.', and each part between dots starts and ends with a letter or digit"),
+						},
 					},
 					"namespace": schema.StringAttribute{
 						MarkdownDescription: "The Kubernetes namespace of the Kafka cluster.",
@@ -342,7 +351,7 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 				},
 			},
 			"ssl_auth_mode": schema.StringAttribute{
-				MarkdownDescription: "How the brokers name an SSL client: `certificate` (the subject) or `fullChainCertificate` (the subjects of the whole chain, from the Axual principal builder). With `fullChainCertificate`, an Instance on this Cluster needs `ca_certificates`.",
+				MarkdownDescription: "How the brokers name an SSL client: `certificate` (the subject) or `fullChainCertificate` (the subjects of the whole chain, from the Axual principal builder). With `fullChainCertificate`, an Instance on this Cluster needs `ca_certificates`. A `strimzi` Cluster cannot use `fullChainCertificate`.",
 				Optional:            true,
 				Validators: []validator.String{
 					stringvalidator.OneOf("certificate", "fullChainCertificate"),
@@ -360,6 +369,29 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Default:             booldefault.StaticBool(false),
 			},
 		},
+	}
+}
+
+// ValidateConfig refuses the Strimzi settings Platform Manager refuses at apply, and a strimzi block on an
+// apache-kafka Cluster, which Platform Manager stores without using it.
+func (r *clusterResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var data clusterResourceData
+	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() || data.ProviderType.IsUnknown() || data.Strimzi.IsUnknown() {
+		return
+	}
+	strimzi := data.ProviderType.ValueString() == "strimzi"
+	if strimzi && data.Strimzi.IsNull() {
+		resp.Diagnostics.AddAttributeError(path.Root("strimzi"), "strimzi is required",
+			`provider_type = "strimzi" needs the strimzi block, with the cluster_name and namespace of the Kafka cluster.`)
+	}
+	if !strimzi && !data.ProviderType.IsNull() && !data.Strimzi.IsNull() {
+		resp.Diagnostics.AddAttributeError(path.Root("strimzi"), "strimzi needs provider_type strimzi",
+			`Platform Manager stores the strimzi block of an apache-kafka Cluster without using it. Set provider_type = "strimzi", or remove the block.`)
+	}
+	if strimzi && data.SslAuthMode.ValueString() == "fullChainCertificate" {
+		resp.Diagnostics.AddAttributeError(path.Root("ssl_auth_mode"), "fullChainCertificate is not possible with Strimzi",
+			`Platform Manager refuses it, because a Strimzi KafkaUser name cannot hold a certificate chain. Use ssl_auth_mode = "certificate".`)
 	}
 }
 

@@ -105,4 +105,4 @@ terraform import axual_instance_cluster.<LOCAL NAME> <INSTANCE UID>/<CLUSTER UID
 terraform import axual_instance_cluster.production 9b4b1e3a1e2f4b5f8a1c0d2e3f4a5b6c/3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c
 ```
 
-After importing, add `password`, `private_key` and `keycloak.admin_password`, where they apply, to your configuration: Platform Manager does not return them, and the next apply sends what the configuration has.
+After importing, add `password`, `private_key` and `keycloak.admin_password`, where they apply, to your configuration: Platform Manager does not return them, and the next apply sends what the configuration has. Platform Manager signs in to Keycloak with the admin password on every save, so a wrong or empty one fails the apply and the stored one stays. It does not check `password` or `private_key` against the registry, so a wrong one is stored.

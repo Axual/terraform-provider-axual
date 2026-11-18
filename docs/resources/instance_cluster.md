@@ -52,7 +52,7 @@ Optional:
 - `client_endpoints` (Attributes Map) The registry endpoints applications use, by name. Needs Platform Manager 16.1.0 or later. When set, it replaces all endpoints of the Instance-Cluster, and an endpoint keeps its identity in Platform Manager while its name stays the same. Leaving it out keeps the endpoints Platform Manager has, and `{}` removes them all. When it is not set, the endpoints follow `listeners`. Conflicts with `listeners`, which Platform Manager ignores when the endpoints are sent. (see [below for nested schema](#nestedatt--schema_registry--client_endpoints))
 - `keycloak` (Attributes) `APICURIO` only: the Keycloak behind the registry, where Platform Manager creates the clients of applications that use OAuth. Leaving it out removes the stored Keycloak details and admin password. (see [below for nested schema](#nestedatt--schema_registry--keycloak))
 - `listeners` (Map of String) Registry URLs applications use, by name. From Platform Manager 16.1.0, these are the `client_endpoints`: a new name becomes an endpoint with the registry's `api` for `ALL_APPS`, and an endpoint whose name is left out is removed. Conflicts with `client_endpoints`.
-- `oauth_enabled` (Boolean) `APICURIO` only: whether applications may also sign in with OAuth. Platform Manager creates their OAuth clients in the `keycloak` of this or another Cluster of the Instance. Basic authentication is always enabled. Default `false`.
+- `oauth_enabled` (Boolean) `APICURIO` only: whether applications may also sign in with OAuth. Platform Manager creates their OAuth clients in the `keycloak` of this or another Cluster of the Instance. An application gets its OAuth credential in the Self-Service UI: `axual_application_credential` makes Basic-Auth credentials only. Basic authentication is always enabled. Default `false`.
 - `password` (String, Sensitive) Password for `Basic-Auth`. Platform Manager never returns it, so it is not read back and cannot be imported. This field is Sensitive.
 - `private_key` (String, Sensitive) PEM private key of `certificate`. Platform Manager never returns it. This field is Sensitive.
 - `properties` (Map of String) Extra settings Platform Manager passes to the registry client.
@@ -76,7 +76,7 @@ Required:
 Required:
 
 - `admin_client_id` (String) The client the admin user signs in with, usually `admin-cli`.
-- `admin_password` (String, Sensitive) Keycloak admin password. Platform Manager never returns it. This field is Sensitive.
+- `admin_password` (String, Sensitive) Keycloak admin password. Platform Manager never returns it, and signs in to Keycloak with it on every save of the registry, so a wrong one fails the apply. This field is Sensitive.
 - `admin_username` (String) Keycloak admin username.
 - `apicurio_realm` (String) The realm of the Apicurio clients.
 - `master_realm` (String) The realm the admin user signs in to, usually `master`.
@@ -162,4 +162,4 @@ terraform import axual_instance_cluster.<LOCAL NAME> <INSTANCE UID>/<CLUSTER UID
 terraform import axual_instance_cluster.production 9b4b1e3a1e2f4b5f8a1c0d2e3f4a5b6c/3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c
 ```
 
-After importing, add `password`, `private_key` and `keycloak.admin_password`, where they apply, to your configuration: Platform Manager does not return them, and the next apply sends what the configuration has.
+After importing, add `password`, `private_key` and `keycloak.admin_password`, where they apply, to your configuration: Platform Manager does not return them, and the next apply sends what the configuration has. Platform Manager signs in to Keycloak with the admin password on every save, so a wrong or empty one fails the apply and the stored one stays. It does not check `password` or `private_key` against the registry, so a wrong one is stored.

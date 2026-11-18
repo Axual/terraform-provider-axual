@@ -45,8 +45,8 @@ A Cluster is a Kafka cluster that Platform Manager governs. Add it to an Instanc
 - `location` (String) Where the Cluster runs, for example `Amsterdam`. Must be at most 50 characters.
 - `oauth_principals_prefix` (String) Prefix of OAuth principals on the Cluster. Platform Manager refuses a change while OAuth principals exist.
 - `shared` (Boolean) Whether the Cluster is shared by all tenants. A shared Cluster can only be changed and deleted by a Super Admin, so a Tenant Admin keeps the default `false`. Changing it creates a new Cluster.
-- `ssl_auth_mode` (String) How the brokers name an SSL client: `certificate` (the subject) or `fullChainCertificate` (the subjects of the whole chain, from the Axual principal builder). With `fullChainCertificate`, an Instance on this Cluster needs `ca_certificates`.
-- `strimzi` (Attributes) The Strimzi Kafka cluster behind the Cluster. Required when `provider_type` is `strimzi` (Platform Manager 16.1.0 or later). (see [below for nested schema](#nestedatt--strimzi))
+- `ssl_auth_mode` (String) How the brokers name an SSL client: `certificate` (the subject) or `fullChainCertificate` (the subjects of the whole chain, from the Axual principal builder). With `fullChainCertificate`, an Instance on this Cluster needs `ca_certificates`. A `strimzi` Cluster cannot use `fullChainCertificate`.
+- `strimzi` (Attributes) The Strimzi Kafka cluster behind the Cluster. Required when `provider_type` is `strimzi` (Platform Manager 16.1.0 or later), and refused for `apache-kafka`. (see [below for nested schema](#nestedatt--strimzi))
 - `topic_pattern` (String) How a topic name is made on the Cluster, for example `{tenant}-{instance}-{environment}-{topic}`. Platform Manager refuses a change once topics exist. A Cluster can only serve several environments of one Instance when the pattern contains `{environment}`.
 - `transactional_pattern` (String) How a transactional id is made on the Cluster, for example `{tenant}-{instance}-{environment}-{transactional.id}`.
 
@@ -78,7 +78,7 @@ Optional:
 
 Required:
 
-- `cluster_name` (String) The `strimzi.io/cluster` name of the Kafka cluster.
+- `cluster_name` (String) The `strimzi.io/cluster` name of the Kafka cluster: at most 63 lower-case letters, digits, `-` and `.`, and each part between dots starts and ends with a letter or digit.
 - `namespace` (String) The Kubernetes namespace of the Kafka cluster.
 
 Optional:

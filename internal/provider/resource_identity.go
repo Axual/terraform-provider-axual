@@ -14,6 +14,7 @@ import (
 var _ resource.ResourceWithImportState = &identityResource{}
 var _ resource.ResourceWithIdentity = &identityResource{}
 var _ resource.ResourceWithModifyPlan = &identityResource{}
+var _ resource.ResourceWithValidateConfig = &identityResource{}
 
 // identityResource adds a one-attribute identity (the import ID) to a resource, which `terraform
 // query` needs. It copies the identity from state after Create, Read, Update and ImportState.
@@ -75,6 +76,12 @@ func (w *identityResource) ImportState(ctx context.Context, req resource.ImportS
 func (w *identityResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	if r, ok := w.Resource.(resource.ResourceWithModifyPlan); ok {
 		r.ModifyPlan(ctx, req, resp)
+	}
+}
+
+func (w *identityResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	if r, ok := w.Resource.(resource.ResourceWithValidateConfig); ok {
+		r.ValidateConfig(ctx, req, resp)
 	}
 }
 

@@ -177,3 +177,58 @@ func TestInstanceUpdateAndDeleteRetryALostLock(t *testing.T) {
 		t.Errorf("delete = %v after %d DELETEs, expected success after 2", del.Diagnostics, calls[http.MethodDelete])
 	}
 }
+
+// The Strimzi settings Platform Manager 16.1.0 refuses at apply, and a strimzi block on an apache-kafka
+// Cluster, are refused at plan time. The checks run through the identity wrapper too.
+func TestClusterValidateConfigStrimzi(t *testing.T) {
+	ctx := context.Background()
+	for name, tc := range map[string]struct {
+		providerType types.String
+		strimzi      bool
+		sslAuthMode  string
+		wantErrors   int
+	}{
+		"strimzi without the block":   {types.StringValue("strimzi"), false, "", 1},
+		"block on apache-kafka":       {types.StringValue("apache-kafka"), true, "", 1},
+		"strimzi with fullChain":      {types.StringValue("strimzi"), true, "fullChainCertificate", 1},
+		"strimzi":                     {types.StringValue("strimzi"), true, "certificate", 0},
+		"apache-kafka with fullChain": {types.StringValue("apache-kafka"), false, "fullChainCertificate", 0},
+		"provider_type not known yet": {types.StringUnknown(), true, "", 0},
+	} {
+		t.Run(name, func(t *testing.T) {
+			data := clusterWithStrimzi(t, "apache-kafka", tc.strimzi)
+			data.ProviderType = tc.providerType
+			data.SslAuthMode = types.StringNull()
+			if tc.sslAuthMode != "" {
+				data.SslAuthMode = types.StringValue(tc.sslAuthMode)
+			}
+			r := withIdentity(&clusterResource{}, "id")
+			config := stateFor(t, r, data)
+			resp := resource.ValidateConfigResponse{}
+			r.(resource.ResourceWithValidateConfig).ValidateConfig(ctx, resource.ValidateConfigRequest{Config: tfsdk.Config{Schema: config.Schema, Raw: config.Raw}}, &resp)
+			if resp.Diagnostics.ErrorsCount() != tc.wantErrors {
+				t.Errorf("errors = %d, expected %d: %v", resp.Diagnostics.ErrorsCount(), tc.wantErrors, resp.Diagnostics)
+			}
+		})
+	}
+}
+
+// The rule of the runtime provisioner: a Kubernetes object name that is also a label value.
+func TestStrimziClusterName(t *testing.T) {
+	ctx := context.Background()
+	schemaResp := resource.SchemaResponse{}
+	(&clusterResource{}).Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	name := attributeAt(t, schemaResp.Schema.Attributes, "strimzi.cluster_name").(schema.StringAttribute)
+	for value, wantError := range map[string]bool{
+		"alpha": false, "my-kafka.cluster1": false, strings.Repeat("a", 63): false,
+		"Bad_Name": true, "a..b": true, "a.-b": true, "-a": true, "a-": true, "": true, strings.Repeat("a", 64): true,
+	} {
+		resp := validator.StringResponse{}
+		for _, v := range name.Validators {
+			v.ValidateString(ctx, validator.StringRequest{Path: path.Root("cluster_name"), ConfigValue: types.StringValue(value)}, &resp)
+		}
+		if resp.Diagnostics.HasError() != wantError {
+			t.Errorf("%q: error = %v, expected %v", value, resp.Diagnostics.HasError(), wantError)
+		}
+	}
+}
