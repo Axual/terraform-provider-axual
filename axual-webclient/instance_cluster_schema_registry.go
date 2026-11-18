@@ -43,10 +43,8 @@ type SchemaRegistryClientEndpoint struct {
 	UsedBy string `json:"usedBy"`
 }
 
-// InstanceClusterSchemaRegistry is the schema registry of one cluster of an Instance, in both the
-// POST (create or replace) and the GET. Api and ClientEndpoints exist from Platform Manager 16.1.0 on:
-// older versions ignore them and do not return them. When ClientEndpoints is sent, Platform Manager
-// replaces all endpoints with it and ignores Listeners.
+// InstanceClusterSchemaRegistry is the POST (create or replace) and GET body. Api and ClientEndpoints
+// need Platform Manager 16.1.0; when ClientEndpoints is sent, Listeners is ignored.
 type InstanceClusterSchemaRegistry struct {
 	Url                   string                          `json:"url"`
 	SchemaRegistryType    string                          `json:"schemaRegistryType"`

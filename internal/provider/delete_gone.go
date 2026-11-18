@@ -14,8 +14,8 @@ var goneAnswers = []string{
 	"converted to null",                 // environment, schema version, deployment status
 	"No Group found",                    // group delete
 	"No application found",              // credential of a deleted application
-	"Instance not found",                // schema registry of a deleted instance (16.1.0)
-	"Cluster not found",                 // schema registry of a deleted cluster (16.1.0)
+	"Instance not found",                // schema registry (16.1.0) and Flink cluster of a deleted instance
+	"Cluster not found",                 // the same for a deleted cluster
 }
 
 // isGone reports a 404, or the 400 that Platform Manager answers for some deleted resources.

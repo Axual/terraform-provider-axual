@@ -64,9 +64,7 @@ type ProviderConfig struct {
 	ConnectClusterMtlsName   string `yaml:"connectClusterMtlsName"`
 	ConnectClusterSaslId     string `yaml:"connectClusterSaslId"`
 	ConnectClusterSaslName   string `yaml:"connectClusterSaslName"`
-	// A Kafka cluster the Cluster, Instance and Instance-Cluster tests register with Terraform: its
-	// bootstrap servers and PEM files of a client certificate that is a superuser there. Several test
-	// clusters point at the same Kafka cluster; Platform Manager only checks it can connect.
+	// The Kafka cluster and schema registry the Cluster and Instance tests use (see DEVELOPERS.md).
 	KafkaBootstrapServers      string `yaml:"kafkaBootstrapServers"`
 	KafkaClientCertificateFile string `yaml:"kafkaClientCertificateFile"`
 	KafkaClientPrivateKeyFile  string `yaml:"kafkaClientPrivateKeyFile"`

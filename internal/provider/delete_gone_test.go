@@ -30,6 +30,8 @@ func TestIsGone(t *testing.T) {
 		"group gone (400)":         {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"No Group found"}`}, true},
 		"application gone (400)":   {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"No application found"}`}, true},
 		"flink cluster gone (400)": {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"Flink Cluster with ID f1 not found"}`}, true},
+		"instance gone (400)":      {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"Instance not found"}`}, true},
+		"cluster gone (400)":       {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"Cluster not found"}`}, true},
 		"other 400":                {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"Invalid action"}`}, false},
 		"500":                      {&webclient.HTTPError{StatusCode: 500}, false},
 		"no error":                 {nil, false},
