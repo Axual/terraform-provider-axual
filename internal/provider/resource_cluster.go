@@ -151,6 +151,7 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Validators: []validator.String{
 					stringvalidator.LengthAtMost(clusterDescriptionMaxLength),
 					noSurroundingWhitespace,
+					notEmpty,
 				},
 			},
 			"location": schema.StringAttribute{
@@ -159,6 +160,7 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Validators: []validator.String{
 					stringvalidator.LengthAtMost(clusterLocationMaxLength),
 					noSurroundingWhitespace,
+					notEmpty,
 				},
 			},
 			"shared": schema.BoolAttribute{
@@ -211,6 +213,7 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 						Optional:            true,
 						Validators: []validator.String{
 							stringvalidator.AlsoRequires(path.MatchRelative().AtParent().AtName("private_key")),
+							notEmpty,
 						},
 					},
 					"private_key": schema.StringAttribute{
@@ -226,6 +229,7 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 						Optional:            true,
 						Validators: []validator.String{
 							stringvalidator.AlsoRequires(path.MatchRelative().AtParent().AtName("password")),
+							notEmpty,
 						},
 					},
 					"password": schema.StringAttribute{
@@ -239,6 +243,7 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 					"truststore": schema.StringAttribute{
 						MarkdownDescription: "PEM CA certificates that sign the broker certificates.",
 						Optional:            true,
+						Validators:          []validator.String{notEmpty},
 					},
 					"ca_validation": schema.BoolAttribute{
 						MarkdownDescription: "Whether Platform Manager checks that `truststore` holds a valid CA. Default `true`.",
@@ -263,12 +268,14 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 					"provisioner_url": schema.StringAttribute{
 						MarkdownDescription: "The Strimzi provisioner URL for this Cluster, when it differs from the one Platform Manager is configured with.",
 						Optional:            true,
+						Validators:          []validator.String{notEmpty},
 					},
 					"provisioner_username": schema.StringAttribute{
 						MarkdownDescription: "Username for the Strimzi provisioner. Requires `provisioner_password`.",
 						Optional:            true,
 						Validators: []validator.String{
 							stringvalidator.AlsoRequires(path.MatchRelative().AtParent().AtName("provisioner_password")),
+							notEmpty,
 						},
 					},
 					"provisioner_password": schema.StringAttribute{
@@ -311,6 +318,7 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 			"kafka_version": schema.StringAttribute{
 				MarkdownDescription: "The Kafka version of the Cluster, for information.",
 				Optional:            true,
+				Validators:          []validator.String{notEmpty},
 			},
 			"bootstrap_urls_by_authentication": schema.MapAttribute{
 				MarkdownDescription: "The bootstrap servers applications use, per authentication method: `MUTUAL_TLS` and `SCRAM_SHA_512`.",
@@ -343,6 +351,7 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 			"oauth_principals_prefix": schema.StringAttribute{
 				MarkdownDescription: "Prefix of OAuth principals on the Cluster. Platform Manager refuses a change while OAuth principals exist.",
 				Optional:            true,
+				Validators:          []validator.String{notEmpty},
 			},
 			"billing_cloud_enabled": schema.BoolAttribute{
 				MarkdownDescription: "Whether usage of the Cluster is billed as cloud usage. Default `false`.",

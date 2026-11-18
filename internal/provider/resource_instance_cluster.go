@@ -193,6 +193,7 @@ func (r *instanceClusterResource) Schema(ctx context.Context, req resource.Schem
 					"version": schema.StringAttribute{
 						MarkdownDescription: "The registry version, for example `3.0`. From Platform Manager 16.1.0, it also sets the API of an `APICURIO` registry: a version that starts with `2` means the Apicurio 2.x API, any other version the 3.x API.",
 						Optional:            true,
+						Validators:          []validator.String{notEmpty},
 					},
 					"authentication": schema.StringAttribute{
 						MarkdownDescription: "How Platform Manager signs in to the registry: `Basic-Auth`, `MTLS` or `No-Auth`. `MTLS` is stored as `mTLS`, the spelling of the Self-Service UI.",
@@ -206,6 +207,7 @@ func (r *instanceClusterResource) Schema(ctx context.Context, req resource.Schem
 						Optional:            true,
 						Validators: []validator.String{
 							stringvalidator.AlsoRequires(path.MatchRelative().AtParent().AtName("password")),
+							notEmpty,
 						},
 					},
 					"password": schema.StringAttribute{
@@ -221,6 +223,7 @@ func (r *instanceClusterResource) Schema(ctx context.Context, req resource.Schem
 						Optional:            true,
 						Validators: []validator.String{
 							stringvalidator.AlsoRequires(path.MatchRelative().AtParent().AtName("private_key")),
+							notEmpty,
 						},
 					},
 					"private_key": schema.StringAttribute{
@@ -234,18 +237,19 @@ func (r *instanceClusterResource) Schema(ctx context.Context, req resource.Schem
 					"truststore": schema.StringAttribute{
 						MarkdownDescription: "PEM CA certificates that sign the registry's certificate.",
 						Optional:            true,
+						Validators:          []validator.String{notEmpty},
 					},
 					"oauth_enabled": schema.BoolAttribute{
-						MarkdownDescription: "`APICURIO` only: whether applications may also sign in with OAuth. Needs `keycloak`. Basic authentication is always enabled. Default `false`.",
+						MarkdownDescription: "`APICURIO` only: whether applications may also sign in with OAuth. Platform Manager creates their OAuth clients in the `keycloak` of this or another Cluster of the Instance. Basic authentication is always enabled. Default `false`.",
 						Optional:            true,
 						Computed:            true,
 						Default:             booldefault.StaticBool(false),
 					},
 					"keycloak": schema.SingleNestedAttribute{
-						MarkdownDescription: "`APICURIO` only: the Keycloak behind the registry, where Platform Manager creates the clients of applications that use OAuth.",
+						MarkdownDescription: "`APICURIO` only: the Keycloak behind the registry, where Platform Manager creates the clients of applications that use OAuth. Leaving it out removes the stored Keycloak details and admin password.",
 						Optional:            true,
 						Attributes: map[string]schema.Attribute{
-							"url":             schema.StringAttribute{Required: true, MarkdownDescription: "Keycloak base URL."},
+							"url":             schema.StringAttribute{Required: true, Validators: []validator.String{notEmpty}, MarkdownDescription: "Keycloak base URL."},
 							"master_realm":    schema.StringAttribute{Required: true, MarkdownDescription: "The realm the admin user signs in to, usually `master`."},
 							"admin_username":  schema.StringAttribute{Required: true, MarkdownDescription: "Keycloak admin username."},
 							"admin_password":  schema.StringAttribute{Required: true, Sensitive: true, MarkdownDescription: "Keycloak admin password. Platform Manager never returns it. This field is Sensitive."},
@@ -319,7 +323,8 @@ func (r *instanceClusterResource) Schema(ctx context.Context, req resource.Schem
 	}
 }
 
-// ValidateConfig refuses an api of another type than type, which Platform Manager refuses too.
+// ValidateConfig refuses OAuth on a registry that is not APICURIO, which Platform Manager reads back as false,
+// and an api of another type than type, which Platform Manager refuses.
 func (r *instanceClusterResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
 	var data instanceClusterResourceData
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
@@ -328,7 +333,14 @@ func (r *instanceClusterResource) ValidateConfig(ctx context.Context, req resour
 	}
 	var registry schemaRegistryData
 	resp.Diagnostics.Append(data.SchemaRegistry.As(ctx, &registry, basetypes.ObjectAsOptions{})...)
-	if resp.Diagnostics.HasError() || registry.Api.IsNull() || registry.Api.IsUnknown() || registry.Type.IsUnknown() {
+	if resp.Diagnostics.HasError() || registry.Type.IsUnknown() {
+		return
+	}
+	if registry.OauthEnabled.ValueBool() && registry.Type.ValueString() != "APICURIO" {
+		resp.Diagnostics.AddAttributeError(path.Root("schema_registry").AtName("oauth_enabled"), "oauth_enabled needs type APICURIO",
+			"Platform Manager supports OAuth only for an APICURIO schema registry, and reads it back as false for "+registry.Type.ValueString()+".")
+	}
+	if registry.Api.IsNull() || registry.Api.IsUnknown() {
 		return
 	}
 	if want := schemaRegistryTypeOfApi[registry.Api.ValueString()]; want != "" && want != registry.Type.ValueString() {

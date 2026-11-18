@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
@@ -47,6 +48,13 @@ const instanceFlinkAndConnectMajor, instanceFlinkAndConnectMinor = 16, 0
 func SupportsInstanceFlink(version string) bool {
 	return platformVersionAtLeast(version, instanceFlinkAndConnectMajor, instanceFlinkAndConnectMinor)
 }
+
+// Platform Manager 16.1.0 saves the Instance on every schema registry change, so a parallel Instance
+// change can lose the optimistic lock (403). It is retried. Variables so the unit tests can shorten them.
+var (
+	instanceWriteAttempts = 10
+	instanceWriteDelay    = time.Second
+)
 
 var _ resource.Resource = &instanceResource{}
 var _ resource.ResourceWithImportState = &instanceResource{}
@@ -119,6 +127,7 @@ func (r *instanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				Validators: []validator.String{
 					stringvalidator.LengthAtMost(instanceDescriptionMaxLength),
 					noSurroundingWhitespace,
+					notEmpty,
 				},
 			},
 			"clusters": schema.SetAttribute{
@@ -143,10 +152,11 @@ func (r *instanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				},
 			},
 			"ca_certificates": schema.SetAttribute{
-				MarkdownDescription: "PEM CA certificates that sign application certificates. Required when `MUTUAL_TLS` is enabled and a Cluster has `ssl_auth_mode` `fullChainCertificate`.",
+				MarkdownDescription: "PEM CA certificates that sign application certificates. Required when `MUTUAL_TLS` is enabled and a Cluster has `ssl_auth_mode` `fullChainCertificate`. Platform Manager removes them when `MUTUAL_TLS` is not enabled, so the plan refuses them when `authentication_methods` is set without it.",
 				Optional:            true,
 				Computed:            true,
 				ElementType:         types.StringType,
+				Validators:          []validator.Set{caCertificatesNeedMutualTLS{}},
 				PlanModifiers: []planmodifier.Set{
 					setplanmodifier.UseStateForUnknown(),
 				},
@@ -205,7 +215,8 @@ func (r *instanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				ElementType:         types.StringType,
 				Validators: []validator.List{
 					listvalidator.SizeAtLeast(1),
-					listvalidator.ValueStringsAre(noSurroundingWhitespace),
+					listvalidator.ValueStringsAre(noSurroundingWhitespace, notEmpty,
+						stringvalidator.RegexMatches(regexp.MustCompile(`^[^,]*$`), "must not contain a comma: Platform Manager stores the URLs as one comma-separated text")),
 				},
 			},
 			"flink_enabled": schema.BoolAttribute{
@@ -247,6 +258,37 @@ func (r *instanceResource) ModifyPlan(ctx context.Context, req resource.ModifyPl
 		requirePlatformVersion(&resp.Diagnostics, version, err, path.Root("connect_enabled"), "connect_enabled = true without connect_urls",
 			instanceFlinkAndConnectMajor, instanceFlinkAndConnectMinor, "It needs the connect_urls of Axual Connect when connect_enabled is true.")
 	}
+}
+
+// caCertificatesNeedMutualTLS refuses CA certificates when the configured authentication_methods has no
+// MUTUAL_TLS: Platform Manager then removes them. When authentication_methods is left out, the methods
+// are not known here, so nothing is checked.
+type caCertificatesNeedMutualTLS struct{}
+
+func (v caCertificatesNeedMutualTLS) Description(_ context.Context) string {
+	return "needs MUTUAL_TLS in authentication_methods"
+}
+
+func (v caCertificatesNeedMutualTLS) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v caCertificatesNeedMutualTLS) ValidateSet(ctx context.Context, req validator.SetRequest, resp *validator.SetResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() || len(req.ConfigValue.Elements()) == 0 {
+		return
+	}
+	var methods types.Set
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("authentication_methods"), &methods)...)
+	if resp.Diagnostics.HasError() || methods.IsNull() || methods.IsUnknown() {
+		return
+	}
+	for _, element := range methods.Elements() {
+		if method, ok := element.(types.String); !ok || method.IsUnknown() || method.ValueString() == "MUTUAL_TLS" {
+			return
+		}
+	}
+	resp.Diagnostics.AddAttributeError(req.Path, "ca_certificates need MUTUAL_TLS",
+		"Platform Manager removes the CA certificates of an Instance without MUTUAL_TLS in authentication_methods, so the apply would fail. Add MUTUAL_TLS, or leave out ca_certificates.")
 }
 
 func connectWithoutUrls(data instanceResourceData) bool {
@@ -312,7 +354,12 @@ func (r *instanceResource) Update(ctx context.Context, req resource.UpdateReques
 	if data.Clusters.Equal(state.Clusters) {
 		request.InstanceClusters = nil
 	}
-	instance, err := r.provider.client.UpdateInstance(data.Id.ValueString(), request)
+	var instance *webclient.InstanceResponse
+	err := RetryIfJittered(ctx, instanceWriteAttempts, instanceWriteDelay, isConflict, func() error {
+		var err error
+		instance, err = r.provider.client.UpdateInstance(data.Id.ValueString(), request)
+		return err
+	})
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update Instance, got error: %s", err))
 		return
@@ -329,7 +376,9 @@ func (r *instanceResource) Delete(ctx context.Context, req resource.DeleteReques
 		return
 	}
 
-	err := ignoreGone(r.provider.client.DeleteInstance(data.Id.ValueString()))
+	err := ignoreGone(RetryIfJittered(ctx, instanceWriteAttempts, instanceWriteDelay, isConflict, func() error {
+		return r.provider.client.DeleteInstance(data.Id.ValueString())
+	}))
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete Instance, got error: %s", err))
 	}

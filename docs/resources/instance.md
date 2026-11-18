@@ -34,7 +34,7 @@ An Instance is a group of one or more Clusters that get the same topics and ACLs
 ### Optional
 
 - `authentication_methods` (Set of String) How applications may authenticate: `MUTUAL_TLS`, `SCRAM_SHA_256`, `SCRAM_SHA_512`, `OAUTH_BEARER` or `PLAIN`. Each must be enabled for the tenant. Platform Manager enables `MUTUAL_TLS` when it is not set, and refuses removing a method that is in use.
-- `ca_certificates` (Set of String) PEM CA certificates that sign application certificates. Required when `MUTUAL_TLS` is enabled and a Cluster has `ssl_auth_mode` `fullChainCertificate`.
+- `ca_certificates` (Set of String) PEM CA certificates that sign application certificates. Required when `MUTUAL_TLS` is enabled and a Cluster has `ssl_auth_mode` `fullChainCertificate`. Platform Manager removes them when `MUTUAL_TLS` is not enabled, so the plan refuses them when `authentication_methods` is set without it.
 - `certificate_reuse_prevention` (String) Whether one certificate may be used by more than one application principal: `NONE`, `INSTANCE` (not twice in the Instance) or `TENANT` (not twice in the tenant). Default `NONE`.
 - `connect_enabled` (Boolean) Whether Connector applications can be deployed on the Instance. Default `false`. `true` without `connect_urls` needs Platform Manager 16.0.0 or later.
 - `connect_urls` (List of String) URLs of the Axual Connect REST API, for the legacy Axual Connect. Platform Manager calls each one when `connect_enabled` is `true`.

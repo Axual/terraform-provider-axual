@@ -38,6 +38,26 @@ func (v surroundingWhitespaceValidator) ValidateString(ctx context.Context, req 
 	}
 }
 
+// notEmpty refuses "": Platform Manager stores it, or the provider leaves it out of the request, and the
+// value is then read back as null, so the apply fails.
+var notEmpty validator.String = notEmptyValidator{}
+
+type notEmptyValidator struct{}
+
+func (v notEmptyValidator) Description(_ context.Context) string {
+	return "must not be empty: leave it out instead"
+}
+
+func (v notEmptyValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v notEmptyValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if !req.ConfigValue.IsNull() && !req.ConfigValue.IsUnknown() && req.ConfigValue.ValueString() == "" {
+		resp.Diagnostics.AddAttributeError(req.Path, "Empty value", "The value "+v.Description(ctx)+".")
+	}
+}
+
 // mtlsToAPI sends MTLS as "mTLS", the spelling the Self-Service UI writes and compares with. Platform
 // Manager ignores the case.
 func mtlsToAPI(value string) string {
