@@ -405,6 +405,19 @@ func (r *instanceClusterResource) Create(ctx context.Context, req resource.Creat
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	// The POST creates or replaces, so a create must not overwrite a schema registry made elsewhere.
+	instance, cluster := data.Instance.ValueString(), data.Cluster.ValueString()
+	existing, err := r.provider.client.GetInstanceClusterSchemaRegistry(instance, cluster)
+	if err != nil && !isGone(err) {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read Instance-Cluster schema registry, got error: %s", err))
+		return
+	}
+	if err == nil && existing.Url != "" {
+		resp.Diagnostics.AddError("Schema registry already configured",
+			fmt.Sprintf("Instance-Cluster %s/%s already has a schema registry (%s). Import it to manage it with Terraform: terraform import <address> %s/%s",
+				instance, cluster, existing.Url, instance, cluster))
+		return
+	}
 	r.write(ctx, &data, &config, &resp.Diagnostics, "CREATE request error for instance cluster resource")
 	if resp.Diagnostics.HasError() {
 		return

@@ -378,3 +378,53 @@ func TestRetryIfJitteredWaitsAroundTheDelay(t *testing.T) {
 		t.Errorf("%d calls in %v, expected 3 calls after two waits of 10 to 30 ms", calls, elapsed)
 	}
 }
+
+// The POST creates or replaces, so a create refuses an Instance-Cluster that already has a schema
+// registry, and tells the user to import it.
+func TestInstanceClusterCreateRefusesAnExistingRegistry(t *testing.T) {
+	for name, tc := range map[string]struct {
+		firstGet  func(w http.ResponseWriter)
+		wantPost  bool
+		wantError string
+	}{
+		"registry exists": {func(w http.ResponseWriter) {
+			_, _ = w.Write([]byte(`{"url":"https://ui-made.example.com","schemaRegistryType":"APICURIO","credentials":{"authenticationType":"No-Auth"}}`))
+		}, false, "already has a schema registry (https://ui-made.example.com)"},
+		"no registry": {func(w http.ResponseWriter) {
+			_, _ = w.Write([]byte(`{"url":null,"schemaRegistryType":null,"credentials":{"authenticationType":null},"clientEndpoints":[]}`))
+		}, true, ""},
+		"read fails": {func(w http.ResponseWriter) { w.WriteHeader(http.StatusInternalServerError) }, false, "Unable to read"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			gets, posted := 0, false
+			client := fakePM(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodPost {
+					posted = true
+					w.WriteHeader(http.StatusNoContent)
+					return
+				}
+				gets++
+				if gets == 1 {
+					tc.firstGet(w)
+					return
+				}
+				_, _ = w.Write([]byte(`{"url":"http://registry/apis/registry/v3","schemaRegistryType":"APICURIO",
+					"credentials":{"authenticationType":"Basic-Auth","username":"user","password":""},"listeners":{},"properties":{}}`))
+			})
+			r := &instanceClusterResource{provider: AxualProvider{client: client}}
+			planned := stateFor(t, r, testInstanceClusterData(t))
+			resp := resource.CreateResponse{State: emptyState(t, r)}
+			r.Create(context.Background(), resource.CreateRequest{
+				Plan:   tfsdk.Plan{Schema: planned.Schema, Raw: planned.Raw},
+				Config: tfsdk.Config{Schema: planned.Schema, Raw: planned.Raw},
+			}, &resp)
+			gotError := ""
+			for _, d := range resp.Diagnostics.Errors() {
+				gotError += d.Summary() + ": " + d.Detail()
+			}
+			if posted != tc.wantPost || (tc.wantError == "") != (gotError == "") || !strings.Contains(gotError, tc.wantError) {
+				t.Errorf("POST sent = %v, error = %q; expected POST %v and an error with %q", posted, gotError, tc.wantPost, tc.wantError)
+			}
+		})
+	}
+}
