@@ -47,6 +47,45 @@ func TestInstanceClusterConfigRefusesOAuthWithoutApicurio(t *testing.T) {
 	}
 }
 
+// Platform Manager refuses keycloak for a CONFLUENT registry and with No-Auth, with the same rule on
+// 15.0.9, 16.0.3 and 16.1.0.
+func TestInstanceClusterConfigRefusesKeycloakWithoutApicurioAuthentication(t *testing.T) {
+	ctx := context.Background()
+	keycloak := types.ObjectValueMust(schemaRegistryKeycloakAttrTypes(), map[string]attr.Value{
+		"url": types.StringValue("https://keycloak"), "master_realm": types.StringValue("master"),
+		"admin_username": types.StringValue("admin"), "admin_password": types.StringValue("secret"),
+		"admin_client_id": types.StringValue("admin-cli"), "apicurio_realm": types.StringValue("apicurio"),
+	})
+	for name, tc := range map[string]struct {
+		registryType   string
+		authentication types.String
+		keycloak       types.Object
+		wantError      bool
+	}{
+		"CONFLUENT with keycloak":      {"CONFLUENT", types.StringValue("Basic-Auth"), keycloak, true},
+		"No-Auth with keycloak":        {"APICURIO", types.StringValue("No-Auth"), keycloak, true},
+		"Basic-Auth with keycloak":     {"APICURIO", types.StringValue("Basic-Auth"), keycloak, false},
+		"No-Auth without keycloak":     {"APICURIO", types.StringValue("No-Auth"), types.ObjectNull(schemaRegistryKeycloakAttrTypes()), false},
+		"keycloak not known yet":       {"CONFLUENT", types.StringValue("No-Auth"), types.ObjectUnknown(schemaRegistryKeycloakAttrTypes()), false},
+		"authentication not known yet": {"APICURIO", types.StringUnknown(), keycloak, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			data := registryWith(t, tc.registryType, "", "", nil, nil)
+			var registry schemaRegistryData
+			_ = data.SchemaRegistry.As(ctx, &registry, basetypes.ObjectAsOptions{})
+			registry.Authentication, registry.Keycloak = tc.authentication, tc.keycloak
+			data.SchemaRegistry, _ = types.ObjectValueFrom(ctx, schemaRegistryAttrTypes(), registry)
+			r := &instanceClusterResource{}
+			config := stateFor(t, r, data)
+			resp := resource.ValidateConfigResponse{}
+			r.ValidateConfig(ctx, resource.ValidateConfigRequest{Config: tfsdk.Config{Schema: config.Schema, Raw: config.Raw}}, &resp)
+			if resp.Diagnostics.HasError() != tc.wantError {
+				t.Errorf("error = %v, expected %v: %v", resp.Diagnostics.HasError(), tc.wantError, resp.Diagnostics)
+			}
+		})
+	}
+}
+
 // Platform Manager removes the CA certificates of an Instance without MUTUAL_TLS. The plan refuses that
 // only when authentication_methods is set; left out, the methods are not known.
 func TestInstanceCaCertificatesNeedMutualTLS(t *testing.T) {

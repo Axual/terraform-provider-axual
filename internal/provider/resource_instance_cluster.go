@@ -340,6 +340,11 @@ func (r *instanceClusterResource) ValidateConfig(ctx context.Context, req resour
 		resp.Diagnostics.AddAttributeError(path.Root("schema_registry").AtName("oauth_enabled"), "oauth_enabled needs type APICURIO",
 			"Platform Manager supports OAuth only for an APICURIO schema registry, and reads it back as false for "+registry.Type.ValueString()+".")
 	}
+	if !registry.Keycloak.IsNull() && !registry.Keycloak.IsUnknown() &&
+		(registry.Type.ValueString() != "APICURIO" || registry.Authentication.ValueString() == "No-Auth") {
+		resp.Diagnostics.AddAttributeError(path.Root("schema_registry").AtName("keycloak"), "keycloak needs type APICURIO with authentication",
+			`Platform Manager refuses keycloak for a CONFLUENT registry and with authentication "No-Auth": "Keycloak details can only be provided for APICURIO schema registry with enabled authentication".`)
+	}
 	if registry.Api.IsNull() || registry.Api.IsUnknown() {
 		return
 	}
