@@ -150,6 +150,7 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Optional:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthAtMost(clusterDescriptionMaxLength),
+					noSurroundingWhitespace,
 				},
 			},
 			"location": schema.StringAttribute{
@@ -157,6 +158,7 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Optional:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthAtMost(clusterLocationMaxLength),
+					noSurroundingWhitespace,
 				},
 			},
 			"shared": schema.BoolAttribute{

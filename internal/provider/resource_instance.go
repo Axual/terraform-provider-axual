@@ -102,6 +102,7 @@ func (r *instanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(instanceNameMinLength, instanceNameMaxLength),
 					stringvalidator.RegexMatches(regexp.MustCompile(`^[a-zA-Z0-9._\- ]+$`), "can only contain letters, digits, spaces, '.', '-' and '_'"),
+					noSurroundingWhitespace,
 				},
 			},
 			"short_name": schema.StringAttribute{
@@ -117,6 +118,7 @@ func (r *instanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				Optional:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthAtMost(instanceDescriptionMaxLength),
+					noSurroundingWhitespace,
 				},
 			},
 			"clusters": schema.SetAttribute{
@@ -203,6 +205,7 @@ func (r *instanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				ElementType:         types.StringType,
 				Validators: []validator.List{
 					listvalidator.SizeAtLeast(1),
+					listvalidator.ValueStringsAre(noSurroundingWhitespace),
 				},
 			},
 			"flink_enabled": schema.BoolAttribute{

@@ -1,12 +1,42 @@
 package provider
 
 import (
+	"context"
 	"encoding/base64"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
+
+// noSurroundingWhitespace refuses a value that starts or ends with white space. Platform Manager removes
+// a space, a tab, a line break or another control character there (Java's String.trim), so the stored
+// value differs from the configuration and the apply fails.
+var noSurroundingWhitespace validator.String = surroundingWhitespaceValidator{}
+
+type surroundingWhitespaceValidator struct{}
+
+func (v surroundingWhitespaceValidator) Description(_ context.Context) string {
+	return "must not start or end with a space, a tab, a line break or other white space"
+}
+
+func (v surroundingWhitespaceValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v surroundingWhitespaceValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	value := req.ConfigValue.ValueString()
+	javaTrimmed := strings.TrimFunc(value, func(r rune) bool { return r <= ' ' })
+	if value != javaTrimmed || value != strings.TrimSpace(value) {
+		resp.Diagnostics.AddAttributeError(req.Path, "Value starts or ends with white space",
+			"The value "+v.Description(ctx)+": it is removed when the value is stored, and the apply would then fail. "+
+				"For a heredoc, which ends with a line break, use trimspace().")
+	}
+}
 
 // mtlsToAPI sends MTLS as "mTLS", the spelling the Self-Service UI writes and compares with. Platform
 // Manager ignores the case.
