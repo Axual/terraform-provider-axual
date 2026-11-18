@@ -39,7 +39,7 @@ The configuration of one Cluster in one Instance: its schema registry. The Clust
 
 Required:
 
-- `authentication` (String) How Platform Manager signs in to the registry: `Basic-Auth`, `MTLS` or `No-Auth`.
+- `authentication` (String) How Platform Manager signs in to the registry: `Basic-Auth`, `MTLS` or `No-Auth`. `MTLS` is stored as `mTLS`, the spelling of the Self-Service UI.
 - `type` (String) `APICURIO` or `CONFLUENT`.
 - `url` (String) Base URL of the registry API Platform Manager uses, for example `https://apicurio.example.com/apis/registry/v3`.
 

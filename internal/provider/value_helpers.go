@@ -8,6 +8,26 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
+// mtlsToAPI sends MTLS as "mTLS", the spelling the Self-Service UI writes and compares with. Platform
+// Manager ignores the case.
+func mtlsToAPI(value string) string {
+	if strings.EqualFold(value, "MTLS") {
+		return "mTLS"
+	}
+	return value
+}
+
+// spellingOf returns the value of known that equals value ignoring case, as Platform Manager compares
+// them, or value when none does.
+func spellingOf(value string, known []string) string {
+	for _, k := range known {
+		if strings.EqualFold(k, value) {
+			return k
+		}
+	}
+	return value
+}
+
 // putIfSet adds value to m under key, unless it is null, unknown or "".
 func putIfSet(m map[string]string, key string, value types.String) {
 	if value.IsNull() || value.IsUnknown() || value.ValueString() == "" {

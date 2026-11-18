@@ -352,3 +352,50 @@ func TestInstanceClusterCreateKeepsThePassword(t *testing.T) {
 		t.Errorf("password = %q, id = %q", registry.Password.ValueString(), data.Id.ValueString())
 	}
 }
+
+// The Self-Service UI writes and compares MTLS as "mTLS"; Platform Manager ignores the case. The
+// provider sends "mTLS" and reads any case back as the "MTLS" of the configuration, also the "MTLS"
+// that earlier builds stored.
+func TestMTLSIsSentAsTheUISpellsItAndReadInAnyCase(t *testing.T) {
+	ctx := context.Background()
+	for value, want := range map[string]string{"MTLS": "mTLS", "mtls": "mTLS", "SASL/PLAIN": "SASL/PLAIN", "Basic-Auth": "Basic-Auth", "No-Auth": "No-Auth"} {
+		if got := mtlsToAPI(value); got != want {
+			t.Errorf("mtlsToAPI(%q) = %q, expected %q", value, got, want)
+		}
+	}
+
+	request, diags := createClusterRequestFromData(ctx, testClusterData(t), true)
+	if diags.HasError() || request.ProviderInfo[webclient.ProviderInfoBrokerProtocol] != "mTLS" {
+		t.Errorf("broker protocol sent = %q, expected mTLS (%v)", request.ProviderInfo[webclient.ProviderInfoBrokerProtocol], diags)
+	}
+	for stored, want := range map[string]string{"mTLS": "MTLS", "MTLS": "MTLS", "sasl/scram-sha-512": "SASL/SCRAM-SHA-512"} {
+		data := testClusterData(t)
+		answer := webclient.ClusterResponse{Uid: "c1", Name: "c", AuthenticationInfo: map[string]string{webclient.ProviderInfoBrokerProtocol: stored}}
+		diags := mapClusterResponseToData(ctx, data, &answer)
+		var broker clusterBrokerData
+		diags.Append(data.Broker.As(ctx, &broker, basetypes.ObjectAsOptions{})...)
+		if diags.HasError() || broker.Protocol.ValueString() != want {
+			t.Errorf("stored protocol %q read as %q, expected %q (%v)", stored, broker.Protocol.ValueString(), want, diags)
+		}
+	}
+
+	registry := testInstanceClusterData(t)
+	var sr schemaRegistryData
+	diags = registry.SchemaRegistry.As(ctx, &sr, basetypes.ObjectAsOptions{})
+	sr.Authentication = types.StringValue("MTLS")
+	registry.SchemaRegistry, _ = types.ObjectValueFrom(ctx, schemaRegistryAttrTypes(), sr)
+	srRequest, d := createSchemaRegistryRequestFromData(ctx, registry, registry)
+	diags.Append(d...)
+	if diags.HasError() || srRequest.Credentials.AuthenticationType != "mTLS" {
+		t.Errorf("schema registry authentication sent = %q, expected mTLS (%v)", srRequest.Credentials.AuthenticationType, diags)
+	}
+	for stored, want := range map[string]string{"mTLS": "MTLS", "MTLS": "MTLS", "Basic-Auth": "Basic-Auth", "basic-auth": "Basic-Auth", "No-Auth": "No-Auth"} {
+		answer := webclient.InstanceClusterSchemaRegistry{Url: "http://r", SchemaRegistryType: "APICURIO",
+			Credentials: &webclient.SchemaRegistryCredentials{AuthenticationType: stored}}
+		diags := mapSchemaRegistryResponseToData(ctx, registry, &answer)
+		diags.Append(registry.SchemaRegistry.As(ctx, &sr, basetypes.ObjectAsOptions{})...)
+		if diags.HasError() || sr.Authentication.ValueString() != want {
+			t.Errorf("stored authentication %q read as %q, expected %q (%v)", stored, sr.Authentication.ValueString(), want, diags)
+		}
+	}
+}

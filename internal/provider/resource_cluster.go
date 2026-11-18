@@ -36,6 +36,8 @@ const (
 	clusterPatternPattern = `^\{[^}]+\}([-._]\{[^}]+\})*$`
 )
 
+var brokerProtocols = []string{"MTLS", "SASL/PLAIN", "SASL/SCRAM-SHA-256", "SASL/SCRAM-SHA-512"}
+
 // Platform Manager knows Strimzi clusters from 16.1.0 on.
 const strimziMajor, strimziMinor = 16, 1
 
@@ -185,10 +187,10 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 						Required:            true,
 					},
 					"protocol": schema.StringAttribute{
-						MarkdownDescription: "How Platform Manager authenticates: `MTLS`, `SASL/PLAIN`, `SASL/SCRAM-SHA-256` or `SASL/SCRAM-SHA-512`.",
+						MarkdownDescription: "How Platform Manager authenticates: `MTLS`, `SASL/PLAIN`, `SASL/SCRAM-SHA-256` or `SASL/SCRAM-SHA-512`. `MTLS` is stored as `mTLS`, the spelling of the Self-Service UI.",
 						Required:            true,
 						Validators: []validator.String{
-							stringvalidator.OneOf("MTLS", "SASL/PLAIN", "SASL/SCRAM-SHA-256", "SASL/SCRAM-SHA-512"),
+							stringvalidator.OneOf(brokerProtocols...),
 						},
 					},
 					"security_protocol": schema.StringAttribute{
@@ -494,7 +496,7 @@ func createClusterRequestFromData(ctx context.Context, data *clusterResourceData
 	providerInfo := map[string]string{
 		webclient.ProviderInfoProviderType:     data.ProviderType.ValueString(),
 		webclient.ProviderInfoBootstrapServers: broker.BootstrapServers.ValueString(),
-		webclient.ProviderInfoBrokerProtocol:   broker.Protocol.ValueString(),
+		webclient.ProviderInfoBrokerProtocol:   mtlsToAPI(broker.Protocol.ValueString()),
 	}
 	putIfSet(providerInfo, webclient.ProviderInfoBrokerSecurity, broker.SecurityProtocol)
 	putPEMIfSet(providerInfo, webclient.ProviderInfoBrokerCertificate, broker.Certificate)
@@ -571,7 +573,7 @@ func mapClusterResponseToData(ctx context.Context, data *clusterResourceData, cl
 			diags.Append(data.Broker.As(ctx, &broker, basetypes.ObjectAsOptions{})...)
 		}
 		broker.BootstrapServers = types.StringValue(info[webclient.ProviderInfoBootstrapServers])
-		broker.Protocol = types.StringValue(info[webclient.ProviderInfoBrokerProtocol])
+		broker.Protocol = types.StringValue(spellingOf(info[webclient.ProviderInfoBrokerProtocol], brokerProtocols))
 		broker.SecurityProtocol = stringOrNull(info[webclient.ProviderInfoBrokerSecurity])
 		broker.Certificate = stringOrNull(pemFromAPI(info[webclient.ProviderInfoBrokerCertificate], broker.Certificate))
 		broker.Username = stringOrNull(info[webclient.ProviderInfoBrokerUsername])

@@ -59,7 +59,7 @@ A Cluster is a Kafka cluster that Platform Manager governs. Add it to an Instanc
 Required:
 
 - `bootstrap_servers` (String) Bootstrap servers Platform Manager connects to, for example `kafka-0.example.com:9093`.
-- `protocol` (String) How Platform Manager authenticates: `MTLS`, `SASL/PLAIN`, `SASL/SCRAM-SHA-256` or `SASL/SCRAM-SHA-512`.
+- `protocol` (String) How Platform Manager authenticates: `MTLS`, `SASL/PLAIN`, `SASL/SCRAM-SHA-256` or `SASL/SCRAM-SHA-512`. `MTLS` is stored as `mTLS`, the spelling of the Self-Service UI.
 
 Optional:
 

@@ -34,6 +34,8 @@ var schemaRegistryTypeOfApi = map[string]string{"APICURIO_V2": "APICURIO", "APIC
 
 var schemaRegistryApis = []string{"APICURIO_V2", "APICURIO_V3", "CONFLUENT_V7"}
 
+var schemaRegistryAuthentications = []string{"Basic-Auth", "MTLS", "No-Auth"}
+
 // Platform Manager 16.1.0 saves the whole Instance on every schema registry change, so parallel changes on
 // one Instance can lose its optimistic lock (403). They are retried. Variables so the unit tests can shorten them.
 var (
@@ -193,10 +195,10 @@ func (r *instanceClusterResource) Schema(ctx context.Context, req resource.Schem
 						Optional:            true,
 					},
 					"authentication": schema.StringAttribute{
-						MarkdownDescription: "How Platform Manager signs in to the registry: `Basic-Auth`, `MTLS` or `No-Auth`.",
+						MarkdownDescription: "How Platform Manager signs in to the registry: `Basic-Auth`, `MTLS` or `No-Auth`. `MTLS` is stored as `mTLS`, the spelling of the Self-Service UI.",
 						Required:            true,
 						Validators: []validator.String{
-							stringvalidator.OneOf("Basic-Auth", "MTLS", "No-Auth"),
+							stringvalidator.OneOf(schemaRegistryAuthentications...),
 						},
 					},
 					"username": schema.StringAttribute{
@@ -527,7 +529,7 @@ func createSchemaRegistryRequestFromData(ctx context.Context, data, config *inst
 		SchemaRegistryType:    registry.Type.ValueString(),
 		SchemaRegistryVersion: stringPointerOrNil(registry.Version),
 		Credentials: &webclient.SchemaRegistryCredentials{
-			AuthenticationType: registry.Authentication.ValueString(),
+			AuthenticationType: mtlsToAPI(registry.Authentication.ValueString()),
 			Username:           registry.Username.ValueString(),
 			Password:           registry.Password.ValueString(),
 			Certificate:        pemToAPI(registry.Certificate.ValueString()),
@@ -629,7 +631,7 @@ func mapSchemaRegistryResponseToData(ctx context.Context, data *instanceClusterR
 	if answer.Credentials != nil {
 		credentials = *answer.Credentials
 	}
-	registry.Authentication = stringOrNull(credentials.AuthenticationType)
+	registry.Authentication = stringOrNull(spellingOf(credentials.AuthenticationType, schemaRegistryAuthentications))
 	registry.Username = stringOrNull(credentials.Username)
 	registry.Certificate = stringOrNull(pemFromAPI(credentials.Certificate, registry.Certificate))
 	registry.Truststore = stringOrNull(pemFromAPI(credentials.Truststore, registry.Truststore))
