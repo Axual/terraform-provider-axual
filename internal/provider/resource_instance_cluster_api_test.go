@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -296,5 +297,84 @@ func TestInstanceClusterConfigRefusesApiOfAnotherType(t *testing.T) {
 				t.Errorf("error = %v, expected %v: %v", resp.Diagnostics.HasError(), tc.wantError, resp.Diagnostics)
 			}
 		})
+	}
+}
+
+// lockLost is the answer of Platform Manager 16.1.0 when a parallel schema registry change on the same
+// Instance won the optimistic lock.
+const lockLost = `Request processing failed: org.springframework.orm.ObjectOptimisticLockingFailureException: Row was already updated or deleted by another transaction for entity [io.axual.governance.systemmanagement.Instance with id 'i1']`
+
+// A schema registry write that loses the optimistic lock is retried, and the endpoint ids are looked up
+// again before every attempt.
+func TestInstanceClusterWriteRetriesALostLock(t *testing.T) {
+	t.Cleanup(shorten(&schemaRegistryWriteDelay))
+	for name, tc := range map[string]struct {
+		postAnswers         []int // status of each POST; the rest answer 204
+		body                string
+		wantPosts, wantGets int
+		wantError           bool
+	}{
+		"lock lost twice":   {[]int{403, 403}, lockLost, 3, 4, false},
+		"other 403":         {[]int{403}, `{"detail":"Access is denied"}`, 1, 1, true},
+		"lock lost always":  {[]int{403, 403, 403, 403, 403, 403, 403, 403, 403, 403}, lockLost, 10, 10, true},
+		"no lock (old PMs)": {nil, "", 1, 2, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			posts, gets := 0, 0
+			client := fakePM(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodPost {
+					posts++
+					if posts <= len(tc.postAnswers) {
+						w.WriteHeader(tc.postAnswers[posts-1])
+						_, _ = w.Write([]byte(tc.body))
+						return
+					}
+					w.WriteHeader(http.StatusNoContent)
+					return
+				}
+				gets++
+				_, _ = w.Write([]byte(`{"url":"http://registry/apis/registry/v3","schemaRegistryType":"APICURIO","api":"APICURIO_V3",
+					"credentials":{"authenticationType":"No-Auth"},"listeners":{"a":"http://a"},
+					"clientEndpoints":[{"id":"id-a","name":"a","api":"APICURIO_V3","url":"http://a","usedBy":"ALL_APPS"}],"properties":{}}`))
+			})
+			r := &instanceClusterResource{provider: AxualProvider{client: client}}
+			data := registryWith(t, "APICURIO", "", "", nil, map[string]string{"a": "APICURIO_V3 http://a ALL_APPS"})
+			resp := resource.CreateResponse{}
+			r.write(context.Background(), data, data, &resp.Diagnostics, "create")
+			if resp.Diagnostics.HasError() != tc.wantError || posts != tc.wantPosts || gets != tc.wantGets {
+				t.Errorf("error = %v, POSTs = %d, GETs = %d; expected error %v, %d POSTs, %d GETs. Diagnostics: %v",
+					resp.Diagnostics.HasError(), posts, gets, tc.wantError, tc.wantPosts, tc.wantGets, resp.Diagnostics)
+			}
+		})
+	}
+}
+
+func TestInstanceClusterDeleteRetriesALostLock(t *testing.T) {
+	t.Cleanup(shorten(&schemaRegistryWriteDelay))
+	deletes := 0
+	client := fakePM(t, func(w http.ResponseWriter, r *http.Request) {
+		deletes++
+		if deletes == 1 {
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte(lockLost))
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+	if resp := deleteResource(t, &instanceClusterResource{provider: AxualProvider{client: client}}, testInstanceClusterData(t)); resp.Diagnostics.HasError() || deletes != 2 {
+		t.Errorf("delete = %v after %d calls, expected success after 2", resp.Diagnostics, deletes)
+	}
+}
+
+func TestRetryIfJitteredWaitsAroundTheDelay(t *testing.T) {
+	start := time.Now()
+	calls := 0
+	_ = RetryIfJittered(context.Background(), 3, 20*time.Millisecond, func(error) bool { return true }, func() error {
+		calls++
+		return io.EOF
+	})
+	// Two waits, each between 10 and 30 ms.
+	if elapsed := time.Since(start); calls != 3 || elapsed < 20*time.Millisecond || elapsed > 500*time.Millisecond {
+		t.Errorf("%d calls in %v, expected 3 calls after two waits of 10 to 30 ms", calls, elapsed)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/mapvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -32,6 +33,13 @@ const schemaRegistryApiMajor, schemaRegistryApiMinor = 16, 1
 var schemaRegistryTypeOfApi = map[string]string{"APICURIO_V2": "APICURIO", "APICURIO_V3": "APICURIO", "CONFLUENT_V7": "CONFLUENT"}
 
 var schemaRegistryApis = []string{"APICURIO_V2", "APICURIO_V3", "CONFLUENT_V7"}
+
+// Platform Manager 16.1.0 saves the whole Instance on every schema registry change, so parallel changes on
+// one Instance can lose its optimistic lock (403). They are retried. Variables so the unit tests can shorten them.
+var (
+	schemaRegistryWriteAttempts = 10
+	schemaRegistryWriteDelay    = time.Second
+)
 
 var _ resource.Resource = &instanceClusterResource{}
 var _ resource.ResourceWithImportState = &instanceClusterResource{}
@@ -450,17 +458,19 @@ func (r *instanceClusterResource) write(ctx context.Context, data, config *insta
 		return
 	}
 	instance, cluster := data.Instance.ValueString(), data.Cluster.ValueString()
-	if registry.ClientEndpoints != nil {
-		existing, err := r.provider.client.GetInstanceClusterSchemaRegistry(instance, cluster)
-		if err != nil && !isGone(err) {
-			diags.AddError("Client Error", fmt.Sprintf("Unable to read the client endpoints of the Instance-Cluster schema registry, got error: %s", err))
-			return
+	err := RetryIfJittered(ctx, schemaRegistryWriteAttempts, schemaRegistryWriteDelay, isConflict, func() error {
+		if registry.ClientEndpoints != nil {
+			existing, err := r.provider.client.GetInstanceClusterSchemaRegistry(instance, cluster)
+			if err != nil && !isGone(err) {
+				return fmt.Errorf("reading the client endpoints: %w", err)
+			}
+			if err == nil {
+				setClientEndpointIds(*registry.ClientEndpoints, existing)
+			}
 		}
-		if err == nil {
-			setClientEndpointIds(*registry.ClientEndpoints, existing)
-		}
-	}
-	if err := r.provider.client.SetInstanceClusterSchemaRegistry(instance, cluster, registry); err != nil {
+		return r.provider.client.SetInstanceClusterSchemaRegistry(instance, cluster, registry)
+	})
+	if err != nil {
 		diags.AddError(errorSummary, fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}
@@ -480,7 +490,9 @@ func (r *instanceClusterResource) Delete(ctx context.Context, req resource.Delet
 		return
 	}
 
-	err := ignoreGone(r.provider.client.DeleteInstanceClusterSchemaRegistry(data.Instance.ValueString(), data.Cluster.ValueString()))
+	err := ignoreGone(RetryIfJittered(ctx, schemaRegistryWriteAttempts, schemaRegistryWriteDelay, isConflict, func() error {
+		return r.provider.client.DeleteInstanceClusterSchemaRegistry(data.Instance.ValueString(), data.Cluster.ValueString())
+	}))
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete Instance-Cluster schema registry, got error: %s", err))
 	}
