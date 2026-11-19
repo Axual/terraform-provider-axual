@@ -618,3 +618,25 @@ func nameTaken(detail string) http.HandlerFunc {
 		_, _ = w.Write([]byte(`{"detail":"` + detail + `"}`))
 	}
 }
+
+// findByName of Platform Manager matches with LIKE, so "_" matches any character and two Instances can
+// match. The name import uses the list search and keeps only the exact name.
+func TestInstanceImportByNameWithAnUnderscore(t *testing.T) {
+	var paths []string
+	client := fakePM(t, func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		_, _ = w.Write([]byte(`{"_embedded":{"instances":[{"uid":"i-underscore","name":"tf-test-r8w_a"},{"uid":"i-x","name":"tf-test-r8wxa"}]},"page":{"totalPages":1}}`))
+	})
+	for name, want := range map[string]string{"tf-test-r8w_a": "i-underscore", "tf-test-r8wxa": "i-x"} {
+		id, err := findInstanceIDByName(client, name)
+		if err != nil || id != want {
+			t.Errorf("%s: id = %q, err = %v; expected %q", name, id, err, want)
+		}
+	}
+	if _, err := findInstanceIDByName(client, "TF-TEST-R8WXA"); err == nil {
+		t.Error("a name in another case must not match: the import matches exactly")
+	}
+	if len(paths) == 0 || paths[0] != "/instances/search/findByAttributes" {
+		t.Errorf("paths = %v, expected the list search", paths)
+	}
+}

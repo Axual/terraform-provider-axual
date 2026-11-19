@@ -410,11 +410,17 @@ func (r *instanceResource) ImportState(ctx context.Context, req resource.ImportS
 
 func findInstanceIDByName(client *webclient.Client, name string) (string, error) {
 	return onlyExactMatch("instance", name, func() ([]keyedID, error) {
-		instance, err := client.GetInstanceByName(name)
+		// Not findByName: it matches with LIKE, so with "_" or "%" in the name it can find two Instances
+		// and fail. The list search finds every Instance whose name contains name, to filter here.
+		found, err := findInstances(context.Background(), client, map[string]string{"name": name})
 		if err != nil {
 			return nil, err
 		}
-		return []keyedID{{key: instance.Name, id: instance.Uid}}, nil
+		keyed := make([]keyedID, 0, len(found))
+		for _, instance := range found {
+			keyed = append(keyed, keyedID{key: instance.displayName, id: instance.id})
+		}
+		return keyed, nil
 	})
 }
 
