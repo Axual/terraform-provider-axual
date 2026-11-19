@@ -30,11 +30,15 @@ func RetryIf(ctx context.Context, attempts int, delay time.Duration, retryable f
 }
 
 // RetryIfJittered is RetryIf with a random delay between delay/2 and 3*delay/2, so requests that failed
-// together do not retry together.
+// together do not retry together. A delay of 0 or less does not wait.
 func RetryIfJittered(ctx context.Context, attempts int, delay time.Duration, retryable func(error) bool, fn func() error) error {
 	err := fn()
 	for i := 1; i < attempts && err != nil && retryable(err); i++ {
-		if waitErr := sleepCtx(ctx, delay/2+rand.N(delay)); waitErr != nil {
+		wait := time.Duration(0)
+		if delay > 0 {
+			wait = delay/2 + rand.N(delay)
+		}
+		if waitErr := sleepCtx(ctx, wait); waitErr != nil {
 			return waitErr
 		}
 		err = fn()

@@ -370,6 +370,20 @@ func TestInstanceClusterDeleteRetriesALostLock(t *testing.T) {
 	}
 }
 
+// A delay of 0 or less retries without waiting, instead of a panic in rand.N.
+func TestRetryIfJitteredWithoutADelay(t *testing.T) {
+	for _, delay := range []time.Duration{0, -time.Second} {
+		calls := 0
+		_ = RetryIfJittered(context.Background(), 3, delay, func(error) bool { return true }, func() error {
+			calls++
+			return io.EOF
+		})
+		if calls != 3 {
+			t.Errorf("delay %v: %d calls, expected 3", delay, calls)
+		}
+	}
+}
+
 func TestRetryIfJitteredWaitsAroundTheDelay(t *testing.T) {
 	start := time.Now()
 	calls := 0
