@@ -141,7 +141,8 @@ func TestEmptyStringsAreRefused(t *testing.T) {
 			"broker.certificate", "broker.username", "broker.truststore", "strimzi.provisioner_url", "strimzi.provisioner_username"}},
 		"instance": {&instanceResource{}, []string{"description", "connect_urls"}},
 		"instance cluster": {&instanceClusterResource{}, []string{"schema_registry.version", "schema_registry.username",
-			"schema_registry.certificate", "schema_registry.truststore", "schema_registry.keycloak.url"}},
+			"schema_registry.password", "schema_registry.certificate", "schema_registry.private_key", "schema_registry.truststore",
+			"schema_registry.keycloak.url"}},
 	} {
 		schemaResp := resource.SchemaResponse{}
 		test.resource.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
@@ -273,5 +274,41 @@ func TestStrimziClusterName(t *testing.T) {
 		if resp.Diagnostics.HasError() != wantError {
 			t.Errorf("%q: error = %v, expected %v", value, resp.Diagnostics.HasError(), wantError)
 		}
+	}
+}
+
+// Platform Manager refuses Basic-Auth without a username and password, and MTLS without a certificate
+// and private key, so the plan does too.
+func TestInstanceClusterConfigNeedsTheCredentialsOfTheAuthentication(t *testing.T) {
+	ctx := context.Background()
+	set, null := types.StringValue("x"), types.StringNull()
+	for name, tc := range map[string]struct {
+		authentication                              types.String
+		username, password, certificate, privateKey types.String
+		wantErrors                                  int
+	}{
+		"Basic-Auth complete":            {types.StringValue("Basic-Auth"), set, set, null, null, 0},
+		"Basic-Auth without credentials": {types.StringValue("Basic-Auth"), null, null, null, null, 2},
+		"MTLS complete":                  {types.StringValue("MTLS"), null, null, set, set, 0},
+		"MTLS without a key":             {types.StringValue("MTLS"), null, null, set, null, 1},
+		"No-Auth":                        {types.StringValue("No-Auth"), null, null, null, null, 0},
+		"password not known yet":         {types.StringValue("Basic-Auth"), set, types.StringUnknown(), null, null, 0},
+		"authentication not known yet":   {types.StringUnknown(), null, null, null, null, 0},
+	} {
+		t.Run(name, func(t *testing.T) {
+			data := registryWith(t, "APICURIO", "", "", nil, nil)
+			var registry schemaRegistryData
+			_ = data.SchemaRegistry.As(ctx, &registry, basetypes.ObjectAsOptions{})
+			registry.Authentication, registry.Username, registry.Password = tc.authentication, tc.username, tc.password
+			registry.Certificate, registry.PrivateKey = tc.certificate, tc.privateKey
+			data.SchemaRegistry, _ = types.ObjectValueFrom(ctx, schemaRegistryAttrTypes(), registry)
+			r := &instanceClusterResource{}
+			config := stateFor(t, r, data)
+			resp := resource.ValidateConfigResponse{}
+			r.ValidateConfig(ctx, resource.ValidateConfigRequest{Config: tfsdk.Config{Schema: config.Schema, Raw: config.Raw}}, &resp)
+			if resp.Diagnostics.ErrorsCount() != tc.wantErrors {
+				t.Errorf("errors = %d, expected %d: %v", resp.Diagnostics.ErrorsCount(), tc.wantErrors, resp.Diagnostics)
+			}
+		})
 	}
 }

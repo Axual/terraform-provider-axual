@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -36,6 +37,9 @@ var schemaRegistryTypeOfApi = map[string]string{"APICURIO_V2": "APICURIO", "APIC
 var schemaRegistryApis = []string{"APICURIO_V2", "APICURIO_V3", "CONFLUENT_V7"}
 
 var schemaRegistryAuthentications = []string{"Basic-Auth", "MTLS", "No-Auth"}
+
+// credentialsOf names the attributes that Platform Manager needs for an authentication.
+var credentialsOf = map[string][]string{"Basic-Auth": {"username", "password"}, "MTLS": {"certificate", "private_key"}}
 
 // Platform Manager 16.1.0 saves the whole Instance on every schema registry change, so parallel changes on
 // one Instance can lose its optimistic lock (403). They are retried. Variables so the unit tests can shorten them.
@@ -217,6 +221,7 @@ func (r *instanceClusterResource) Schema(ctx context.Context, req resource.Schem
 						Sensitive:           true,
 						Validators: []validator.String{
 							stringvalidator.AlsoRequires(path.MatchRelative().AtParent().AtName("username")),
+							notEmpty,
 						},
 					},
 					"certificate": schema.StringAttribute{
@@ -233,6 +238,7 @@ func (r *instanceClusterResource) Schema(ctx context.Context, req resource.Schem
 						Sensitive:           true,
 						Validators: []validator.String{
 							stringvalidator.AlsoRequires(path.MatchRelative().AtParent().AtName("certificate")),
+							notEmpty,
 						},
 					},
 					"truststore": schema.StringAttribute{
@@ -334,7 +340,19 @@ func (r *instanceClusterResource) ValidateConfig(ctx context.Context, req resour
 	}
 	var registry schemaRegistryData
 	resp.Diagnostics.Append(data.SchemaRegistry.As(ctx, &registry, basetypes.ObjectAsOptions{})...)
-	if resp.Diagnostics.HasError() || registry.Type.IsUnknown() {
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	// Platform Manager refuses Basic-Auth without a username and password, and MTLS without a certificate
+	// and private key, on every save.
+	for name, value := range map[string]types.String{"username": registry.Username, "password": registry.Password,
+		"certificate": registry.Certificate, "private_key": registry.PrivateKey} {
+		if value.IsNull() && slices.Contains(credentialsOf[registry.Authentication.ValueString()], name) {
+			resp.Diagnostics.AddAttributeError(path.Root("schema_registry").AtName(name), name+" is required",
+				fmt.Sprintf("authentication %q needs %s.", registry.Authentication.ValueString(), strings.Join(credentialsOf[registry.Authentication.ValueString()], " and ")))
+		}
+	}
+	if registry.Type.IsUnknown() {
 		return
 	}
 	if registry.OauthEnabled.ValueBool() && registry.Type.ValueString() != "APICURIO" {
