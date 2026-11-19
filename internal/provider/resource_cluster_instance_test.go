@@ -501,3 +501,33 @@ func TestInstanceRuntimeSwitchesOnEachPlatformManager(t *testing.T) {
 		})
 	}
 }
+
+// A refresh warns too, so a configured true that does nothing shows on every plan after an upgrade of
+// Platform Manager, not only on the next create or update.
+func TestInstanceRefreshWarnsAboutRuntimeSwitchesWithoutEffect(t *testing.T) {
+	ctx := context.Background()
+	for name, tc := range map[string]struct {
+		answer       string
+		state        bool
+		wantWarnings int
+	}{
+		"per tenant, true in the state":  {``, true, 2},
+		"per tenant, false in the state": {``, false, 0},
+		"16.0.x, true in the state":      {`"connectEnabled":true,"flinkEnabled":true,`, true, 0},
+	} {
+		t.Run(name, func(t *testing.T) {
+			client := fakePM(t, func(w http.ResponseWriter, r *http.Request) {
+				_, _ = w.Write([]byte(`{` + tc.answer + `"uid":"i1","name":"Instance","shortName":"inst","instanceClusters":[{"cluster":{"uid":"c1"}}]}`))
+			})
+			r := &instanceResource{provider: AxualProvider{client: client}}
+			data := testInstanceData()
+			data.ConnectEnabled, data.FlinkEnabled = types.BoolValue(tc.state), types.BoolValue(tc.state)
+			state := stateFor(t, r, data)
+			resp := resource.ReadResponse{State: state}
+			r.Read(ctx, resource.ReadRequest{State: state}, &resp)
+			if resp.Diagnostics.HasError() || resp.Diagnostics.WarningsCount() != tc.wantWarnings {
+				t.Errorf("diagnostics = %v, expected %d warnings", resp.Diagnostics, tc.wantWarnings)
+			}
+		})
+	}
+}

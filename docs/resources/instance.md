@@ -16,7 +16,7 @@ An Instance is a group of one or more Clusters that get the same topics and ACLs
 
 ## Platform Manager version
 - Platform Manager 15.0.9 or later. `flink_enabled = true`, and `connect_enabled = true` without `connect_urls`, need Platform Manager 16.0.0 or later; with an older one, the plan fails.
-- Newer Platform Manager versions switch Connect and Flink on for the whole tenant, with the tenant settings `connectRuntimeEnabled` and `flinkRuntimeEnabled`, which this provider does not manage. There `connect_enabled` and `flink_enabled` change nothing: the value is kept only in the Terraform state, and `true` gives a warning.
+- Newer Platform Manager versions switch Connect and Flink on for the whole tenant, with the tenant settings `connectRuntimeEnabled` and `flinkRuntimeEnabled`, which this provider does not manage. There `connect_enabled` and `flink_enabled` change nothing: the value is kept only in the Terraform state, and `true` gives a warning on every plan.
 - Platform Manager refuses a change of `short_name` while the Instance has environments. Platform Manager does not move the schema registry secrets of the Instance-Clusters when `short_name` changes: 15.0.x and 16.0.x lose the whole schema registry, newer versions its password and private key. The next plan shows it, and the next `terraform apply` configures it again from `axual_instance_cluster`.
 - On Platform Manager 15.0.x, adding or removing a Cluster resets `oauth_enabled` of the schema registry of the other Clusters of the Instance. The next `terraform apply` sets it again from `axual_instance_cluster`.
 

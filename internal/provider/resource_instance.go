@@ -347,6 +347,7 @@ func (r *instanceResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
+	warnRuntimeSwitchesWithoutEffect(&resp.Diagnostics, &data, instance)
 	mapInstanceResponseToData(&data, instance)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
