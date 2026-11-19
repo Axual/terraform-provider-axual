@@ -430,10 +430,15 @@ func (r *instanceClusterResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 	if err == nil && existing.Url != "" {
-		resp.Diagnostics.AddError("Schema registry already configured",
-			fmt.Sprintf("Instance-Cluster %s/%s already has a schema registry (%s). Import it to manage it with Terraform: terraform import <address> %s/%s",
-				instance, cluster, existing.Url, instance, cluster))
-		return
+		if !holdsPlannedValues(ctx, &data, existing) {
+			resp.Diagnostics.AddError("Schema registry already configured",
+				fmt.Sprintf("Instance-Cluster %s/%s already has a schema registry (%s). Import it to manage it with Terraform: terraform import <address> %s/%s",
+					instance, cluster, existing.Url, instance, cluster))
+			return
+		}
+		resp.Diagnostics.AddWarning("Schema registry taken over",
+			fmt.Sprintf("Instance-Cluster %s/%s already had a schema registry with every setting of this configuration, for example from an earlier apply whose answer was lost. Terraform now manages it.",
+				instance, cluster))
 	}
 	r.write(ctx, &data, &config, &resp.Diagnostics, "CREATE request error for instance cluster resource")
 	if resp.Diagnostics.HasError() {
@@ -638,6 +643,22 @@ func clientEndpointsToData(endpoints *[]webclient.SchemaRegistryClientEndpoint) 
 		})
 	}
 	return types.MapValueMust(schemaRegistryClientEndpointType(), elements)
+}
+
+// holdsPlannedValues reports whether an existing registry already has every value that the plan knows.
+// The secrets are not compared: Platform Manager never returns them.
+func holdsPlannedValues(ctx context.Context, data *instanceClusterResourceData, existing *webclient.InstanceClusterSchemaRegistry) bool {
+	found := *data
+	if mapSchemaRegistryResponseToData(ctx, &found, existing).HasError() {
+		return false
+	}
+	foundValues := found.SchemaRegistry.Attributes()
+	for name, planned := range data.SchemaRegistry.Attributes() {
+		if !planned.IsUnknown() && !planned.Equal(foundValues[name]) {
+			return false
+		}
+	}
+	return true
 }
 
 // mapSchemaRegistryResponseToData writes the API's view into state. The password, private key and

@@ -431,3 +431,58 @@ func TestInstanceClusterCreateRefusesAnExistingRegistry(t *testing.T) {
 		})
 	}
 }
+
+// A create takes over a registry that already holds every value of the plan, such as its own write from
+// an earlier apply whose answer was lost. Any other registry is still refused.
+func TestInstanceClusterCreateTakesOverARegistryWithThePlannedValues(t *testing.T) {
+	const same = `"url":"http://registry/apis/registry/v3","schemaRegistryType":"APICURIO"`
+	for name, tc := range map[string]struct {
+		existing  string
+		wantPost  bool
+		wantError string
+	}{
+		"the planned values":     {`{` + same + `,"credentials":{"authenticationType":"Basic-Auth","username":"user","password":""},"listeners":{"a":"http://a"}}`, true, ""},
+		"another url":            {`{"url":"https://ui-made.example.com","schemaRegistryType":"APICURIO","credentials":{"authenticationType":"Basic-Auth","username":"user","password":""}}`, false, "already has a schema registry"},
+		"another type":           {`{"url":"http://registry/apis/registry/v3","schemaRegistryType":"CONFLUENT","credentials":{"authenticationType":"Basic-Auth","username":"user","password":""}}`, false, "already has a schema registry"},
+		"another authentication": {`{` + same + `,"credentials":{"authenticationType":"No-Auth"}}`, false, "already has a schema registry"},
+		"another username":       {`{` + same + `,"credentials":{"authenticationType":"Basic-Auth","username":"someone-else","password":""}}`, false, "already has a schema registry"},
+		"OAuth on":               {`{` + same + `,"credentials":{"authenticationType":"Basic-Auth","username":"user","password":""},"authentications":{"basic":true,"oauth":true}}`, false, "already has a schema registry"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			posted := false
+			client := fakePM(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodPost {
+					posted = true
+					w.WriteHeader(http.StatusNoContent)
+					return
+				}
+				_, _ = w.Write([]byte(tc.existing))
+			})
+			r := &instanceClusterResource{provider: AxualProvider{client: client}}
+			// The configuration leaves out the computed values, so the plan has them unknown.
+			config := stateFor(t, r, testInstanceClusterData(t))
+			data := testInstanceClusterData(t)
+			var registry schemaRegistryData
+			_ = data.SchemaRegistry.As(context.Background(), &registry, basetypes.ObjectAsOptions{})
+			registry.Listeners, registry.Properties = types.MapUnknown(types.StringType), types.MapUnknown(types.StringType)
+			registry.Api, registry.ClientEndpoints = types.StringUnknown(), types.MapUnknown(schemaRegistryClientEndpointType())
+			data.SchemaRegistry, _ = types.ObjectValueFrom(context.Background(), schemaRegistryAttrTypes(), registry)
+			planned := stateFor(t, r, data)
+			resp := resource.CreateResponse{State: emptyState(t, r)}
+			r.Create(context.Background(), resource.CreateRequest{
+				Plan:   tfsdk.Plan{Schema: planned.Schema, Raw: planned.Raw},
+				Config: tfsdk.Config{Schema: config.Schema, Raw: config.Raw},
+			}, &resp)
+			gotError := ""
+			for _, d := range resp.Diagnostics.Errors() {
+				gotError += d.Detail()
+			}
+			if posted != tc.wantPost || (tc.wantError == "") != (gotError == "") || !strings.Contains(gotError, tc.wantError) {
+				t.Errorf("POST sent = %v, error = %q; expected POST %v and an error with %q", posted, gotError, tc.wantPost, tc.wantError)
+			}
+			if tc.wantPost && resp.Diagnostics.WarningsCount() != 1 {
+				t.Errorf("expected one warning about the take-over, got %v", resp.Diagnostics)
+			}
+		})
+	}
+}
