@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -232,9 +233,9 @@ func (r *instanceResource) Schema(ctx context.Context, req resource.SchemaReques
 
 // ModifyPlan refuses flink_enabled = true, and connect_enabled = true without connect_urls, on a
 // Platform Manager older than 16.0.0, or when its version cannot be read. It only checks a setting the
-// plan adds.
+// plan adds. It also plans the CA certificates that Platform Manager will keep.
 func (r *instanceResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	if req.Plan.Raw.IsNull() || r.provider.client == nil {
+	if req.Plan.Raw.IsNull() {
 		return
 	}
 	var plan, state instanceResourceData
@@ -243,6 +244,19 @@ func (r *instanceResource) ModifyPlan(ctx context.Context, req resource.ModifyPl
 		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	}
 	if resp.Diagnostics.HasError() {
+		return
+	}
+	// Platform Manager removes the CA certificates of an Instance without MUTUAL_TLS. When the
+	// configuration leaves them out, plan none instead of the ones in the state.
+	var configured types.Set
+	if !req.Config.Raw.IsNull() {
+		resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("ca_certificates"), &configured)...)
+	}
+	if !req.Config.Raw.IsNull() && configured.IsNull() && !plan.AuthenticationMethods.IsNull() && !plan.AuthenticationMethods.IsUnknown() &&
+		!slices.Contains(stringSetFromData(plan.AuthenticationMethods), "MUTUAL_TLS") {
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("ca_certificates"), stringSetToData(nil))...)
+	}
+	if r.provider.client == nil {
 		return
 	}
 	flink := plan.FlinkEnabled.ValueBool() && !state.FlinkEnabled.ValueBool()

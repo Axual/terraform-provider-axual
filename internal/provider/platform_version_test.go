@@ -4,11 +4,13 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -209,6 +211,40 @@ func TestInstanceUpdateSendsClustersOnlyWhenTheyChange(t *testing.T) {
 			}
 			if got := strings.Contains(body, `"instanceClusters"`); got != tc.wantClusters {
 				t.Errorf("PATCH has instanceClusters = %v, expected %v: %s", got, tc.wantClusters, body)
+			}
+		})
+	}
+}
+
+// Removing MUTUAL_TLS and leaving out ca_certificates plans no certificates: Platform Manager removes
+// them, and a plan that keeps the ones of the state fails the apply with an inconsistent result.
+func TestInstancePlanOfCaCertificatesWithoutMutualTLS(t *testing.T) {
+	pem := stringSetToData([]string{"pem"})
+	for name, tc := range map[string]struct {
+		configured, methods types.Set
+		want                []string
+	}{
+		"MUTUAL_TLS removed, certificates left out": {types.SetNull(types.StringType), stringSetToData([]string{"SCRAM_SHA_512"}), []string{}},
+		"MUTUAL_TLS kept":       {types.SetNull(types.StringType), stringSetToData([]string{"MUTUAL_TLS"}), []string{"pem"}},
+		"certificates set":      {pem, stringSetToData([]string{"SCRAM_SHA_512"}), []string{"pem"}},
+		"methods not known yet": {types.SetNull(types.StringType), types.SetUnknown(types.StringType), []string{"pem"}},
+		"methods left out":      {types.SetNull(types.StringType), types.SetNull(types.StringType), []string{"pem"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := &instanceResource{}
+			planned := testInstanceData()
+			planned.AuthenticationMethods, planned.CaCertificates = tc.methods, pem
+			configured := testInstanceData()
+			configured.AuthenticationMethods, configured.CaCertificates = tc.methods, tc.configured
+			plan, config := stateFor(t, r, planned), stateFor(t, r, configured)
+			req := resource.ModifyPlanRequest{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw},
+				Config: tfsdk.Config{Schema: config.Schema, Raw: config.Raw}, State: emptyState(t, r)}
+			resp := resource.ModifyPlanResponse{Plan: req.Plan}
+			r.ModifyPlan(context.Background(), req, &resp)
+			var got types.Set
+			resp.Diagnostics.Append(resp.Plan.GetAttribute(context.Background(), path.Root("ca_certificates"), &got)...)
+			if resp.Diagnostics.HasError() || got.IsNull() || !slices.Equal(stringSetFromData(got), tc.want) {
+				t.Errorf("ca_certificates = %v, expected %v: %v", got, tc.want, resp.Diagnostics)
 			}
 		})
 	}
