@@ -117,3 +117,64 @@ func TestApplicationCredentialRefreshFollowsAReplacedCredential(t *testing.T) {
 		})
 	}
 }
+
+// After the refresh that found a replaced credential, the state has the new ID, so the plans after it
+// find no change. The warning about the dead password still repeats on each of them, through the
+// private state, until the resource is replaced. A credential without a password never gets it.
+func TestApplicationCredentialStalePasswordWarnsOnEveryPlan(t *testing.T) {
+	ctx := context.Background()
+	for name, tc := range map[string]struct {
+		password      string
+		wantLaterWarn bool
+	}{
+		"made by Terraform": {"secret", true},
+		"imported":          {"", false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			client := fakePM(t, func(w http.ResponseWriter, r *http.Request) {
+				_, _ = w.Write([]byte(`[{"id":"cred-new","username":"appenv","application":{"id":"app"},"environment":{"id":"env"},
+					"types":[{"type":"SCHEMA_REGISTRY_BASIC_AUTH"}],"description":"d","metadata":{"clusters":"c"}}]`))
+			})
+			server := providerserver.NewProtocol6(&AxualProvider{client: client})()
+			r := withIdentity(NewApplicationCredentialResource(AxualProvider{client: client}), "id")
+			var schemaResp resource.SchemaResponse
+			r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+			var identityResp resource.IdentitySchemaResponse
+			r.(resource.ResourceWithIdentity).IdentitySchema(ctx, resource.IdentitySchemaRequest{}, &identityResp)
+			stateType, identityType := schemaResp.Schema.Type().TerraformType(ctx), identityResp.IdentitySchema.Type().TerraformType(ctx)
+			state := stateFor(t, r, applicationCredentialResourceData{
+				Id: types.StringValue("cred-old"), ApplicationId: types.StringValue("app"), EnvironmentId: types.StringValue("env"),
+				Target: types.StringValue("SCHEMA_REGISTRY"), UserName: types.StringValue("appenv"), Password: types.StringValue(tc.password),
+				Clusters: types.StringValue("c"), Description: types.StringValue("d"), AuthProvider: types.StringValue("apicurio"),
+			})
+			current, _ := tfprotov6.NewDynamicValue(stateType, state.Raw)
+			identity, _ := tfprotov6.NewDynamicValue(identityType, tftypes.NewValue(identityType, map[string]tftypes.Value{"id": tftypes.NewValue(tftypes.String, "cred-old")}))
+			req := &tfprotov6.ReadResourceRequest{TypeName: "axual_application_credential", CurrentState: &current,
+				CurrentIdentity: &tfprotov6.ResourceIdentityData{IdentityData: &identity}}
+			warnings := func(resp *tfprotov6.ReadResourceResponse) (n int) {
+				for _, d := range resp.Diagnostics {
+					if d.Severity == tfprotov6.DiagnosticSeverityError {
+						t.Fatalf("error: %s: %s", d.Summary, d.Detail)
+					}
+					n++
+				}
+				return n
+			}
+			first, err := server.ReadResource(ctx, req)
+			if err != nil || warnings(first) != 1 {
+				t.Fatalf("first refresh: %v, %v; expected the replaced warning", err, first.Diagnostics)
+			}
+			for i := 2; i <= 3; i++ {
+				next, err := server.ReadResource(ctx, &tfprotov6.ReadResourceRequest{TypeName: "axual_application_credential",
+					CurrentState: first.NewState, CurrentIdentity: first.NewIdentity, Private: first.Private})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got := warnings(next) == 1; got != tc.wantLaterWarn {
+					t.Errorf("refresh %d: warnings %v, expected a warning %v", i, next.Diagnostics, tc.wantLaterWarn)
+				}
+				first = next
+			}
+		})
+	}
+}

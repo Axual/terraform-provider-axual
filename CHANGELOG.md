@@ -37,7 +37,7 @@ All notable changes to this project will be documented in this file.
 * The `axual_application_access_grants` data source matches `application` by name ignoring case, as Platform Manager does (AXPD-12412)
 * The access guides describe the platform correctly: Rejected, Revoked and Cancelled grants are closed, not final; a new request reopens the same grant (AXPD-12412)
 * A plan that leaves out `configs`, `definition` or `sql_script` of an `axual_application_deployment` that has them stops with `Missing configs` (or `definition`, `sql_script`), unless the application or environment changes. `configs = {}` removes all configs (Platform Manager 16.0.0 or later). Before, the apply removed them and stopped the deployment
-* `axual_application_credential` warns when Platform Manager replaced its credential with a new one of the same username, for example when the Schema Registry credential is created again in the Self-Service UI or through the API. The state follows the new credential, as before, and the warning says that the password in the state no longer works (AXPD-10169)
+* `axual_application_credential` warns when Platform Manager replaced its credential with a new one of the same username, for example when the Schema Registry credential is created again in the Self-Service UI or through the API. The state follows the new credential, as before. The warning says that the password in the state no longer works, and comes back on every plan until the credential is replaced (AXPD-10169)
 * Built with Go 1.26.11. The Go modules `golang.org/x/crypto`, `golang.org/x/net`, `golang.org/x/oauth2` and `google.golang.org/grpc` are updated to versions without known vulnerabilities
 
 ### Deprecated
