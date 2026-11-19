@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/mapvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -472,6 +473,13 @@ func (r *clusterResource) Read(ctx context.Context, req resource.ReadRequest, re
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
+// Two changes of one Cluster at the same time can lose the optimistic lock of Platform Manager
+// (AXPD-12780). The update is retried. Variables so the unit tests can shorten them.
+var (
+	clusterWriteAttempts = 10
+	clusterWriteDelay    = time.Second
+)
+
 func (r *clusterResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data clusterResourceData
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -485,7 +493,12 @@ func (r *clusterResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	cluster, err := r.provider.client.UpdateCluster(data.Id.ValueString(), clusterRequest)
+	var cluster *webclient.ClusterResponse
+	err := RetryIfJittered(ctx, clusterWriteAttempts, clusterWriteDelay, isConflict, func() error {
+		var err error
+		cluster, err = r.provider.client.UpdateCluster(data.Id.ValueString(), clusterRequest)
+		return err
+	})
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update Cluster, got error: %s", err))
 		return

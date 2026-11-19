@@ -531,3 +531,38 @@ func TestInstanceRefreshWarnsAboutRuntimeSwitchesWithoutEffect(t *testing.T) {
 		})
 	}
 }
+
+// Two changes of one Cluster at the same time can lose the lock of Platform Manager (AXPD-12780): the
+// update is retried, like the Instance update. Any other error is not.
+func TestClusterUpdateRetriesALostLock(t *testing.T) {
+	t.Cleanup(shorten(&clusterWriteDelay))
+	ctx := context.Background()
+	for name, tc := range map[string]struct {
+		first       string
+		wantPatches int
+		wantError   bool
+	}{
+		"lock lost":     {lockLostJPA, 2, false},
+		"other refusal": {`{"detail":"Access is denied"}`, 1, true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			patches := 0
+			client := fakePM(t, func(w http.ResponseWriter, r *http.Request) {
+				patches++
+				if patches == 1 {
+					w.WriteHeader(http.StatusForbidden)
+					_, _ = w.Write([]byte(tc.first))
+					return
+				}
+				_, _ = w.Write([]byte(`{"uid":"c1","name":"Cluster","providerType":"apache-kafka"}`))
+			})
+			r := &clusterResource{provider: AxualProvider{client: client}}
+			plan := stateFor(t, r, testClusterData(t))
+			resp := resource.UpdateResponse{State: plan}
+			r.Update(ctx, resource.UpdateRequest{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}, State: plan}, &resp)
+			if resp.Diagnostics.HasError() != tc.wantError || patches != tc.wantPatches {
+				t.Errorf("error = %v after %d PATCHes; expected error %v after %d: %v", resp.Diagnostics.HasError(), patches, tc.wantError, tc.wantPatches, resp.Diagnostics)
+			}
+		})
+	}
+}
