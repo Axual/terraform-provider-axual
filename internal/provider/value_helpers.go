@@ -86,6 +86,14 @@ func putIfSet(m map[string]string, key string, value types.String) {
 	m[key] = value.ValueString()
 }
 
+// nonEmptyPointer returns nil for "", so the field is left out of a request.
+func nonEmptyPointer(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
 // stringPointerOrNil returns nil for a null or unknown value, which a PATCH sends as an explicit null.
 func stringPointerOrNil(value types.String) *string {
 	if value.IsNull() || value.IsUnknown() {

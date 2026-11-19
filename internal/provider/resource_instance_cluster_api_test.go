@@ -486,3 +486,76 @@ func TestInstanceClusterCreateTakesOverARegistryWithThePlannedValues(t *testing.
 		})
 	}
 }
+
+// Platform Manager answers a stored password or private key as "" and a lost one as null, for example
+// after the Instance short_name or the Cluster name changed. A lost one is planned again, with a warning.
+func TestInstanceClusterReadFindsALostSecret(t *testing.T) {
+	ctx := context.Background()
+	for name, tc := range map[string]struct {
+		statePassword, answerPassword string
+		wantPassword                  types.String
+		wantWarning                   bool
+	}{
+		"password stored":           {"secret", `""`, types.StringValue("secret"), false},
+		"password lost":             {"secret", `null`, types.StringNull(), true},
+		"password left out":         {"secret", ``, types.StringNull(), true},
+		"imported, no password yet": {"", `null`, types.StringNull(), false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			password := ""
+			if tc.answerPassword != "" {
+				password = `,"password":` + tc.answerPassword
+			}
+			client := fakePM(t, func(w http.ResponseWriter, r *http.Request) {
+				_, _ = w.Write([]byte(`{"url":"http://registry/apis/registry/v3","schemaRegistryType":"APICURIO",
+					"credentials":{"authenticationType":"Basic-Auth","username":"user"` + password + `}}`))
+			})
+			r := &instanceClusterResource{provider: AxualProvider{client: client}}
+			data := testInstanceClusterData(t)
+			if tc.statePassword == "" {
+				data.SchemaRegistry = testSchemaRegistry(t, "APICURIO", "")
+				var registry schemaRegistryData
+				_ = data.SchemaRegistry.As(ctx, &registry, basetypes.ObjectAsOptions{})
+				registry.Password = types.StringNull()
+				data.SchemaRegistry, _ = types.ObjectValueFrom(ctx, schemaRegistryAttrTypes(), registry)
+			}
+			state := stateFor(t, r, data)
+			resp := resource.ReadResponse{State: state}
+			r.Read(ctx, resource.ReadRequest{State: state}, &resp)
+			var got instanceClusterResourceData
+			resp.Diagnostics.Append(resp.State.Get(ctx, &got)...)
+			var registry schemaRegistryData
+			resp.Diagnostics.Append(got.SchemaRegistry.As(ctx, &registry, basetypes.ObjectAsOptions{})...)
+			if resp.Diagnostics.HasError() || !registry.Password.Equal(tc.wantPassword) || (resp.Diagnostics.WarningsCount() == 1) != tc.wantWarning {
+				t.Errorf("password = %v, diagnostics = %v; expected %v and a warning %v", registry.Password, resp.Diagnostics, tc.wantPassword, tc.wantWarning)
+			}
+		})
+	}
+}
+
+// The same for the private key of an MTLS registry.
+func TestInstanceClusterReadFindsALostPrivateKey(t *testing.T) {
+	ctx := context.Background()
+	for answerKey, wantKept := range map[string]bool{`""`: true, `null`: false} {
+		client := fakePM(t, func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(`{"url":"http://registry/apis/registry/v3","schemaRegistryType":"APICURIO",
+				"credentials":{"authenticationType":"mTLS","certificate":"Y2VydA==","privateKey":` + answerKey + `}}`))
+		})
+		r := &instanceClusterResource{provider: AxualProvider{client: client}}
+		data := testInstanceClusterData(t)
+		var registry schemaRegistryData
+		_ = data.SchemaRegistry.As(ctx, &registry, basetypes.ObjectAsOptions{})
+		registry.Authentication, registry.Username, registry.Password = types.StringValue("MTLS"), types.StringNull(), types.StringNull()
+		registry.Certificate, registry.PrivateKey = types.StringValue("cert"), types.StringValue("key")
+		data.SchemaRegistry, _ = types.ObjectValueFrom(ctx, schemaRegistryAttrTypes(), registry)
+		state := stateFor(t, r, data)
+		resp := resource.ReadResponse{State: state}
+		r.Read(ctx, resource.ReadRequest{State: state}, &resp)
+		var got instanceClusterResourceData
+		resp.Diagnostics.Append(resp.State.Get(ctx, &got)...)
+		resp.Diagnostics.Append(got.SchemaRegistry.As(ctx, &registry, basetypes.ObjectAsOptions{})...)
+		if resp.Diagnostics.HasError() || (registry.PrivateKey.ValueString() == "key") != wantKept {
+			t.Errorf("answer %s: private_key = %v, expected kept %v: %v", answerKey, registry.PrivateKey, wantKept, resp.Diagnostics)
+		}
+	}
+}

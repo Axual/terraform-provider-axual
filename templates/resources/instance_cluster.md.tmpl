@@ -19,7 +19,7 @@
 ## Platform Manager version
 - Platform Manager 15.0.9 or later. `api` and `client_endpoints` need Platform Manager 16.1.0 or later; with an older one, the plan fails. Leave them out there: they stay empty, and the provider sends nothing new.
 - Platform Manager 15.0.x and 16.0.x use the Apicurio Registry 2.x API (`/apis/registry/v2`); Platform Manager 16.1.0 uses the 3.x API (`/apis/registry/v3`).
-- Some Platform Manager versions delete this configuration when the Instance's `short_name` or the Cluster's name changes. Terraform sees that on the next plan and configures it again.
+- Platform Manager does not move the schema registry secrets when the Instance's `short_name` or the Cluster's name changes. 15.0.x and 16.0.x then lose the whole schema registry; newer versions keep it but lose its password and private key. The next plan shows it, with a warning for a lost secret, and the next apply configures it again. Until then, topics with a schema fail.
 
 ## Required Roles
 - TENANT_ADMIN

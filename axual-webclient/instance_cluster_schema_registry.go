@@ -8,13 +8,15 @@ import (
 
 // SchemaRegistryCredentials is how Platform Manager signs in to the schema registry. The response
 // answers the password and private key as "".
+// Password and PrivateKey are nil in an answer when Platform Manager has none stored, and "" when it has
+// one: it never returns them.
 type SchemaRegistryCredentials struct {
-	AuthenticationType string `json:"authenticationType"`
-	Username           string `json:"username,omitempty"`
-	Password           string `json:"password,omitempty"`
-	Certificate        string `json:"certificate,omitempty"`
-	PrivateKey         string `json:"privateKey,omitempty"`
-	Truststore         string `json:"truststore,omitempty"`
+	AuthenticationType string  `json:"authenticationType"`
+	Username           string  `json:"username,omitempty"`
+	Password           *string `json:"password,omitempty"`
+	Certificate        string  `json:"certificate,omitempty"`
+	PrivateKey         *string `json:"privateKey,omitempty"`
+	Truststore         string  `json:"truststore,omitempty"`
 }
 
 // SchemaRegistryKeycloakDetails is the Keycloak behind an Apicurio registry, used for OAuth.

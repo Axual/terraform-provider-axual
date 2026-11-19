@@ -566,9 +566,9 @@ func createSchemaRegistryRequestFromData(ctx context.Context, data, config *inst
 		Credentials: &webclient.SchemaRegistryCredentials{
 			AuthenticationType: mtlsToAPI(registry.Authentication.ValueString()),
 			Username:           registry.Username.ValueString(),
-			Password:           registry.Password.ValueString(),
+			Password:           nonEmptyPointer(registry.Password.ValueString()),
 			Certificate:        pemToAPI(registry.Certificate.ValueString()),
-			PrivateKey:         pemToAPI(registry.PrivateKey.ValueString()),
+			PrivateKey:         nonEmptyPointer(pemToAPI(registry.PrivateKey.ValueString())),
 			Truststore:         pemToAPI(registry.Truststore.ValueString()),
 		},
 		Api:        stringPointerOrNil(registry.Api),
@@ -645,6 +645,21 @@ func clientEndpointsToData(endpoints *[]webclient.SchemaRegistryClientEndpoint) 
 	return types.MapValueMust(schemaRegistryClientEndpointType(), elements)
 }
 
+// lostSecrets sets the password and private key that Platform Manager no longer has to null, so the
+// plan sends them again, and names them. Platform Manager answers a stored one as "".
+func lostSecrets(registry *schemaRegistryData, credentials webclient.SchemaRegistryCredentials) string {
+	var lost []string
+	if registry.Password.ValueString() != "" && credentials.Password == nil {
+		registry.Password = types.StringNull()
+		lost = append(lost, "password")
+	}
+	if registry.PrivateKey.ValueString() != "" && credentials.PrivateKey == nil {
+		registry.PrivateKey = types.StringNull()
+		lost = append(lost, "private key")
+	}
+	return strings.Join(lost, " and ")
+}
+
 // holdsPlannedValues reports whether an existing registry already has every value that the plan knows.
 // The secrets are not compared: Platform Manager never returns them.
 func holdsPlannedValues(ctx context.Context, data *instanceClusterResourceData, existing *webclient.InstanceClusterSchemaRegistry) bool {
@@ -691,6 +706,13 @@ func mapSchemaRegistryResponseToData(ctx context.Context, data *instanceClusterR
 	}
 	if registry.PrivateKey.IsUnknown() {
 		registry.PrivateKey = types.StringNull()
+	}
+	// A secret that Platform Manager no longer has is planned again: it loses it, for example, when the
+	// Instance short_name or the Cluster name changes.
+	if lost := lostSecrets(&registry, credentials); lost != "" {
+		diags.AddWarning("Schema registry "+lost+" lost",
+			fmt.Sprintf("Platform Manager has no %s for the schema registry of Instance-Cluster %s any more, for example because the Instance short_name or the Cluster name changed. The next apply sends it again.",
+				lost, data.Id.ValueString()))
 	}
 	registry.OauthEnabled = types.BoolValue(answer.Authentications != nil && answer.Authentications.OAuth)
 	registry.Listeners = stringMapToData(answer.Listeners)

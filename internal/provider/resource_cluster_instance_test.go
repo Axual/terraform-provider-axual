@@ -248,12 +248,12 @@ func TestPEMValuesAreSentBase64AndReadBackAsPEM(t *testing.T) {
 	diags.Append(d...)
 	srRequest, d := createSchemaRegistryRequestFromData(ctx, data, data)
 	diags.Append(d...)
-	if srRequest.Credentials.Certificate != encoded || srRequest.Credentials.PrivateKey != encoded || srRequest.Credentials.Truststore != encoded {
+	if srRequest.Credentials.Certificate != encoded || srRequest.Credentials.PrivateKey == nil || *srRequest.Credentials.PrivateKey != encoded || srRequest.Credentials.Truststore != encoded {
 		t.Errorf("schema registry credentials = %+v, expected base64", srRequest.Credentials)
 	}
 
 	answer := webclient.InstanceClusterSchemaRegistry{Url: "http://r", SchemaRegistryType: "confluent",
-		Credentials: &webclient.SchemaRegistryCredentials{AuthenticationType: "MTLS", Certificate: encoded, Truststore: encoded}}
+		Credentials: &webclient.SchemaRegistryCredentials{AuthenticationType: "MTLS", Certificate: encoded, PrivateKey: new(string), Truststore: encoded}}
 	diags.Append(mapSchemaRegistryResponseToData(ctx, data, &answer)...)
 	diags.Append(data.SchemaRegistry.As(ctx, &registry, basetypes.ObjectAsOptions{})...)
 	if diags.HasError() {
@@ -320,7 +320,7 @@ func TestSchemaRegistryRequest(t *testing.T) {
 		if expectAuthentications && !request.Authentications.Basic {
 			t.Errorf("basic authentication must stay on")
 		}
-		if request.Credentials.Password != "secret" {
+		if request.Credentials.Password == nil || *request.Credentials.Password != "secret" {
 			t.Errorf("%s: password not sent", registryType)
 		}
 	}
