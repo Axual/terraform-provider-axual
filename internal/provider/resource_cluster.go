@@ -359,7 +359,7 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 				},
 			},
 			"oauth_principals_prefix": schema.StringAttribute{
-				MarkdownDescription: "Prefix of OAuth principals on the Cluster. Platform Manager refuses a change while OAuth principals exist.",
+				MarkdownDescription: "Prefix of OAuth principals on the Cluster. Platform Manager refuses a change of the prefix while OAuth principals exist, but not its removal.",
 				Optional:            true,
 				Validators:          []validator.String{notEmpty},
 			},
@@ -541,9 +541,8 @@ func findClusterIDByName(client *webclient.Client, name string) (string, error) 
 	})
 }
 
-// createClusterRequestFromData builds the POST or PATCH body. Platform Manager rewrites the Vault
-// secret from providerInfo on every change, so the secrets are always sent again. sharedCluster is
-// only sent on create: it can never change.
+// createClusterRequestFromData builds the POST or PATCH body. The secrets are always sent, because
+// Platform Manager does not return them. sharedCluster is only sent on create: it can never change.
 func createClusterRequestFromData(ctx context.Context, data *clusterResourceData, create bool) (webclient.ClusterRequest, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	var broker clusterBrokerData

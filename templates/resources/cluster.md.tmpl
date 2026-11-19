@@ -77,7 +77,7 @@ terraform import axual_cluster.<LOCAL NAME> name:<CLUSTER NAME>
 terraform import axual_cluster.production 'name:production-ams'
 ```
 
-The name must match exactly, case included. After importing, add the `private_key` or `password`, and `strimzi.provisioner_password` when it is used, to your configuration: Platform Manager does not return them.
+The name must match exactly, case included. After importing, add the `private_key` or `password`, and `strimzi.provisioner_password` when it is used, to your configuration: Platform Manager does not return them. Without the private key or password, an imported Cluster cannot be managed: every apply fails.
 
 In Terraform 1.12 or later, an `import` block can use `identity` instead of `id`:
 

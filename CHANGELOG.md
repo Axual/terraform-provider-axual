@@ -44,6 +44,7 @@ All notable changes to this project will be documented in this file.
 * `axual_application_access_grant_approval` and `axual_application_access_grant_rejection`: use `axual_application_access_grant_decision` (AXPD-12412)
 
 ### Fixed
+* An `axual_flink_cluster` whose Instance or Cluster was deleted is removed from the state, instead of failing the plan
 * 32-bit builds (386 and arm) handle a `retention_time` above 2147483647 (about 25 days) on `axual_topic_config` and `axual_environment`. Before, the apply could set a shorter retention and then fail, and reading such a value failed
 * `principal` of `axual_application_principal`, and `definition` and `sql_script` of `axual_application_deployment`, are no longer sensitive. `terraform query -generate-config-out` now writes them. `private_key` and `configs` stay sensitive. After the upgrade, the first plan shows an in-place update for each `axual_application_principal` and `axual_application_deployment`, with the note that the value is no longer marked as sensitive. Applying it makes no API call and does not restart a deployment. `terraform plan -detailed-exitcode` returns `2` once (AXPD-12611)
 * A STOP that fails with a `5xx` (for example while the Connect worker rebalances) is retried, like START. It is not sent again once the deployment has stopped

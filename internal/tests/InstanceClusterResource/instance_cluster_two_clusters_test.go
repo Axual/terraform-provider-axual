@@ -9,8 +9,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
-// Two Clusters in one Instance, each with a schema registry: Terraform writes both in parallel, and
-// Platform Manager 16.1.0 then answers one of them with an optimistic lock error, which is retried.
+// Two Clusters in one Instance, each with a schema registry, written in parallel: neither write is lost.
+// On Platform Manager 16.1.0 one of them can lose the optimistic lock and is retried.
 func TestInstanceClusterResourceTwoClusters(t *testing.T) {
 	cfg, err := LoadProviderConfig()
 	if err != nil {

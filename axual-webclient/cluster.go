@@ -29,8 +29,8 @@ func (c *Client) GetCluster(id string) (*ClusterResponse, error) {
 	return &o, nil
 }
 
-// GetClustersByName returns the clusters whose name equals name, ignoring case. The search pages,
-// but names are unique per tenant, so the first page holds every match.
+// GetClustersByName returns the clusters named name, ignoring case, that the user can see: its own and
+// the shared ones. The search pages; the first page holds them all, because there are only a few.
 func (c *Client) GetClustersByName(name string) ([]ClusterResponse, error) {
 	o := ClustersResponse{}
 	err := c.RequestAndMap("GET", fmt.Sprintf("%s/clusters/search/findByName?name=%s", c.ApiURL, url.QueryEscape(name)), nil, nil, &o)

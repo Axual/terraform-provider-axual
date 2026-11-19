@@ -530,7 +530,7 @@ func mapInstanceResponseToData(data *instanceResourceData, instance *webclient.I
 	data.SelfApproval = types.BoolValue(instance.SelfApproval)
 	data.ConnectEnabled = switchFromAnswer(instance.ConnectEnabled, data.ConnectEnabled)
 	data.FlinkEnabled = switchFromAnswer(instance.FlinkEnabled, data.FlinkEnabled)
-	// The answer is a display name such as "None", while a request takes "NONE".
+	// ToUpper accepts any case.
 	data.CertificateReusePrevention = types.StringValue(strings.ToUpper(instance.CertificateReusePreventionLevel))
 
 	if instance.ConnectUrls == "" {

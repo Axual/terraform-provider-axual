@@ -43,7 +43,7 @@ A Cluster is a Kafka cluster that Platform Manager governs. Add it to an Instanc
 - `kafka_listeners` (Map of String) Listeners of the Cluster, by name.
 - `kafka_version` (String) The Kafka version of the Cluster, for information.
 - `location` (String) Where the Cluster runs, for example `Amsterdam`. Must be at most 50 characters.
-- `oauth_principals_prefix` (String) Prefix of OAuth principals on the Cluster. Platform Manager refuses a change while OAuth principals exist.
+- `oauth_principals_prefix` (String) Prefix of OAuth principals on the Cluster. Platform Manager refuses a change of the prefix while OAuth principals exist, but not its removal.
 - `shared` (Boolean) Whether the Cluster is shared by all tenants. A shared Cluster can only be changed and deleted by a Super Admin, so a Tenant Admin keeps the default `false`. Changing it creates a new Cluster.
 - `ssl_auth_mode` (String) How the brokers name an SSL client: `certificate` (the subject) or `fullChainCertificate` (the subjects of the whole chain, from the Axual principal builder). With `fullChainCertificate`, an Instance on this Cluster needs `ca_certificates`. A `strimzi` Cluster cannot use `fullChainCertificate`.
 - `strimzi` (Attributes) The Strimzi Kafka cluster behind the Cluster. Required when `provider_type` is `strimzi` (Platform Manager 16.1.0 or later), and refused for `apache-kafka`. (see [below for nested schema](#nestedatt--strimzi))
@@ -137,7 +137,7 @@ terraform import axual_cluster.<LOCAL NAME> name:<CLUSTER NAME>
 terraform import axual_cluster.production 'name:production-ams'
 ```
 
-The name must match exactly, case included. After importing, add the `private_key` or `password`, and `strimzi.provisioner_password` when it is used, to your configuration: Platform Manager does not return them.
+The name must match exactly, case included. After importing, add the `private_key` or `password`, and `strimzi.provisioner_password` when it is used, to your configuration: Platform Manager does not return them. Without the private key or password, an imported Cluster cannot be managed: every apply fails.
 
 In Terraform 1.12 or later, an `import` block can use `identity` instead of `id`:
 
