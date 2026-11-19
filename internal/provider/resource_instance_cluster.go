@@ -3,6 +3,7 @@ package provider
 import (
 	webclient "axual-webclient"
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -425,7 +426,7 @@ func (r *instanceClusterResource) Create(ctx context.Context, req resource.Creat
 	// The POST creates or replaces, so a create must not overwrite a schema registry made elsewhere.
 	instance, cluster := data.Instance.ValueString(), data.Cluster.ValueString()
 	existing, err := r.provider.client.GetInstanceClusterSchemaRegistry(instance, cluster)
-	if err != nil && !isGone(err) {
+	if err != nil && !isGone(err) && !r.clusterLeftInstance(instance, cluster) {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read Instance-Cluster schema registry, got error: %s", err))
 		return
 	}
@@ -456,7 +457,7 @@ func (r *instanceClusterResource) Read(ctx context.Context, req resource.ReadReq
 	}
 
 	registry, err := r.provider.client.GetInstanceClusterSchemaRegistry(data.Instance.ValueString(), data.Cluster.ValueString())
-	if err != nil && !isGone(err) {
+	if err != nil && !isGone(err) && !r.clusterLeftInstance(data.Instance.ValueString(), data.Cluster.ValueString()) {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read Instance-Cluster schema registry, got error: %s", err))
 		return
 	}
@@ -507,6 +508,10 @@ func (r *instanceClusterResource) write(ctx context.Context, data, config *insta
 		}
 		return r.provider.client.SetInstanceClusterSchemaRegistry(instance, cluster, registry)
 	})
+	if errors.Is(err, webclient.NotFoundError) {
+		diags.AddError(errorSummary, fmt.Sprintf("Cluster %s is not in the clusters of Instance %s. Add it to the Instance first.", cluster, instance))
+		return
+	}
 	if err != nil {
 		diags.AddError(errorSummary, fmt.Sprintf("Error message: %s", err.Error()))
 		return
@@ -530,7 +535,7 @@ func (r *instanceClusterResource) Delete(ctx context.Context, req resource.Delet
 	err := ignoreGone(RetryIfJittered(ctx, schemaRegistryWriteAttempts, schemaRegistryWriteDelay, isConflict, func() error {
 		return r.provider.client.DeleteInstanceClusterSchemaRegistry(data.Instance.ValueString(), data.Cluster.ValueString())
 	}))
-	if err != nil {
+	if err != nil && !r.clusterLeftInstance(data.Instance.ValueString(), data.Cluster.ValueString()) {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete Instance-Cluster schema registry, got error: %s", err))
 	}
 }
@@ -643,6 +648,22 @@ func clientEndpointsToData(endpoints *[]webclient.SchemaRegistryClientEndpoint) 
 		})
 	}
 	return types.MapValueMust(schemaRegistryClientEndpointType(), elements)
+}
+
+// clusterLeftInstance reports whether the Instance exists and no longer has the Cluster, so the schema
+// registry is gone too. Platform Manager 16.1.0 answers the registry requests of such a pair with a 403
+// (LazyInitializationException) instead of a 404. It is asked only after such an error.
+func (r *instanceClusterResource) clusterLeftInstance(instanceId, clusterId string) bool {
+	instance, err := r.provider.client.GetInstance(instanceId)
+	if err != nil {
+		return false
+	}
+	for _, instanceCluster := range instance.InstanceClusters {
+		if instanceCluster.Cluster.Uid == clusterId {
+			return false
+		}
+	}
+	return true
 }
 
 // lostSecrets sets the password and private key that Platform Manager no longer has to null, so the

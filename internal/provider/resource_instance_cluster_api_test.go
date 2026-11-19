@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -406,6 +407,10 @@ func TestInstanceClusterCreateRefusesAnExistingRegistry(t *testing.T) {
 					w.WriteHeader(http.StatusNoContent)
 					return
 				}
+				if r.URL.Path == "/instances/i1" {
+					_, _ = w.Write([]byte(`{"uid":"i1","instanceClusters":[{"cluster":{"uid":"c1"}}]}`))
+					return
+				}
 				gets++
 				if gets == 1 {
 					tc.firstGet(w)
@@ -557,5 +562,64 @@ func TestInstanceClusterReadFindsALostPrivateKey(t *testing.T) {
 		if resp.Diagnostics.HasError() || (registry.PrivateKey.ValueString() == "key") != wantKept {
 			t.Errorf("answer %s: private_key = %v, expected kept %v: %v", answerKey, registry.PrivateKey, wantKept, resp.Diagnostics)
 		}
+	}
+}
+
+// Platform Manager 16.1.0 answers the registry requests of a Cluster that was removed from the Instance
+// with a 403. When the Instance shows that the Cluster left, the registry is gone; any other 403 stays an error.
+func TestInstanceClusterWhenTheClusterLeftTheInstance(t *testing.T) {
+	ctx := context.Background()
+	const lazy = `Request processing failed: org.hibernate.LazyInitializationException: could not initialize proxy - no Session`
+	for name, tc := range map[string]struct {
+		instance             string // the answer of GET /instances/i1; "" answers 403
+		wantGone, wantDelete bool
+		wantCreateError      string
+	}{
+		"cluster left":         {`{"uid":"i1","instanceClusters":[{"cluster":{"uid":"c2"}}]}`, true, true, "is not in the clusters"},
+		"cluster still there":  {`{"uid":"i1","instanceClusters":[{"cluster":{"uid":"c1"}}]}`, false, false, "Unable to read"},
+		"instance not visible": {``, false, false, "Unable to read"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			client := fakePM(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/instances/i1" && tc.instance != "" {
+					_, _ = w.Write([]byte(tc.instance))
+					return
+				}
+				if r.Method == http.MethodPost {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				w.WriteHeader(http.StatusForbidden)
+				_, _ = w.Write([]byte(lazy))
+			})
+			r := &instanceClusterResource{provider: AxualProvider{client: client}}
+			state := stateFor(t, r, testInstanceClusterData(t))
+			read := resource.ReadResponse{State: state}
+			r.Read(ctx, resource.ReadRequest{State: state}, &read)
+			if gone := !read.Diagnostics.HasError() && read.State.Raw.IsNull(); gone != tc.wantGone {
+				t.Errorf("read: gone = %v, expected %v: %v", gone, tc.wantGone, read.Diagnostics)
+			}
+			if deleted := !deleteResource(t, r, testInstanceClusterData(t)).Diagnostics.HasError(); deleted != tc.wantDelete {
+				t.Errorf("delete: done = %v, expected %v", deleted, tc.wantDelete)
+			}
+			created := resource.CreateResponse{State: emptyState(t, r)}
+			r.Create(ctx, resource.CreateRequest{Plan: tfsdk.Plan{Schema: state.Schema, Raw: state.Raw},
+				Config: tfsdk.Config{Schema: state.Schema, Raw: state.Raw}}, &created)
+			if !created.Diagnostics.HasError() || !strings.Contains(created.Diagnostics.Errors()[0].Detail(), tc.wantCreateError) {
+				t.Errorf("create: %v, expected an error with %q", created.Diagnostics, tc.wantCreateError)
+			}
+		})
+	}
+}
+
+// A schema registry for a Cluster that is not in the Instance says so, instead of "resource not found".
+func TestInstanceClusterWriteNamesAClusterNotInTheInstance(t *testing.T) {
+	client := fakePM(t, func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNotFound) })
+	r := &instanceClusterResource{provider: AxualProvider{client: client}}
+	data := testInstanceClusterData(t)
+	var diags diag.Diagnostics
+	r.write(context.Background(), data, data, &diags, "create")
+	if !diags.HasError() || !strings.Contains(diags.Errors()[0].Detail(), "Cluster c1 is not in the clusters of Instance i1") {
+		t.Errorf("diagnostics = %v, expected that the Cluster is not in the Instance", diags)
 	}
 }
