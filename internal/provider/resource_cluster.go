@@ -442,7 +442,7 @@ func (r *clusterResource) Create(ctx context.Context, req resource.CreateRequest
 
 	cluster, err := r.provider.client.CreateCluster(clusterRequest)
 	if err != nil {
-		resp.Diagnostics.AddError("CREATE request error for cluster resource", fmt.Sprintf("Error message: %s", err.Error()))
+		resp.Diagnostics.AddError("CREATE request error for cluster resource", fmt.Sprintf("Error message: %s", err.Error())+importHint(err, data.Name.ValueString()))
 		return
 	}
 

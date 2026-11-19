@@ -566,3 +566,55 @@ func TestClusterUpdateRetriesALostLock(t *testing.T) {
 		})
 	}
 }
+
+// A create refused because the name is taken, for example after the answer of an earlier create was
+// lost, says how to import the object. Other errors get no hint.
+func TestImportHintForATakenName(t *testing.T) {
+	for name, tc := range map[string]struct {
+		err      error
+		wantHint bool
+	}{
+		"cluster name taken":  {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"Cluster with this name already exist in this tenant."}`}, true},
+		"shared name taken":   {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"A shared cluster with this name already exists."}`}, true},
+		"instance name taken": {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"Duplicate Instance name 'prod'."}`}, true},
+		"short name taken":    {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"Duplicate Instance shortName 'prod'."}`}, false},
+		"other 400":           {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"Invalid topic pattern"}`}, false},
+		"name text in a 500":  {&webclient.HTTPError{StatusCode: 500, Body: `Duplicate Instance name`}, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			hint := importHint(tc.err, "prod")
+			if (hint != "") != tc.wantHint || (tc.wantHint && !strings.Contains(hint, "terraform import <address> 'name:prod'")) {
+				t.Errorf("hint = %q, expected a hint %v", hint, tc.wantHint)
+			}
+		})
+	}
+}
+
+// The Cluster and Instance create add the hint to the error.
+func TestCreateOfATakenNameGivesTheImportHint(t *testing.T) {
+	ctx := context.Background()
+	for name, r := range map[string]resource.Resource{
+		"cluster":  &clusterResource{provider: AxualProvider{client: fakePM(t, nameTaken(`Cluster with this name already exist in this tenant.`))}},
+		"instance": &instanceResource{provider: AxualProvider{client: fakePM(t, nameTaken(`Duplicate Instance name 'Instance'.`))}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var data any = testInstanceData()
+			if name == "cluster" {
+				data = testClusterData(t)
+			}
+			plan := stateFor(t, r, data)
+			resp := resource.CreateResponse{State: emptyState(t, r)}
+			r.Create(ctx, resource.CreateRequest{Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}, Config: tfsdk.Config{Schema: plan.Schema, Raw: plan.Raw}}, &resp)
+			if !resp.Diagnostics.HasError() || !strings.Contains(resp.Diagnostics.Errors()[0].Detail(), "terraform import <address> 'name:") {
+				t.Errorf("diagnostics = %v, expected the import hint", resp.Diagnostics)
+			}
+		})
+	}
+}
+
+func nameTaken(detail string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"detail":"` + detail + `"}`))
+	}
+}

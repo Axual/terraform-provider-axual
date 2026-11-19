@@ -319,7 +319,7 @@ func (r *instanceResource) Create(ctx context.Context, req resource.CreateReques
 
 	instance, err := r.provider.client.CreateInstance(createInstanceRequestFromData(&data, r.provider.client.ApiURL))
 	if err != nil {
-		resp.Diagnostics.AddError("CREATE request error for instance resource", fmt.Sprintf("Error message: %s", err.Error()))
+		resp.Diagnostics.AddError("CREATE request error for instance resource", fmt.Sprintf("Error message: %s", err.Error())+importHint(err, data.Name.ValueString()))
 		return
 	}
 
