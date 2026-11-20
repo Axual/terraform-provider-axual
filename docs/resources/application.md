@@ -53,6 +53,44 @@ resource "axual_application" "dev_dashboard" {
 ```
 For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 
+## Changing `short_name`
+
+Platform Manager refuses a new `short_name` while the application has a principal, a credential or a
+deployment that was started, on any environment. Access grants alone do not block it.
+
+To change `short_name` in one apply, add this `lifecycle` block to each `axual_application_principal`,
+`axual_application_credential` and `axual_application_deployment` of the application:
+
+```hcl
+resource "axual_application_principal" "dev_dashboard" {
+  environment = axual_environment.development.id
+  application = axual_application.dev_dashboard.id
+  principal   = file("certs/dev_dashboard.cer")
+
+  lifecycle {
+    replace_triggered_by = [axual_application.dev_dashboard.short_name]
+  }
+}
+```
+
+When `short_name` changes, Terraform deletes these resources, then changes the application, then creates
+them again. Terraform always runs the deletes first, because these resources depend on the application.
+
+- A principal is created again with the same certificate. This also works when the instance prevents
+  certificate reuse.
+- A credential is created again with a new username and password. Give them to the application.
+- A deployment is stopped, deleted, created again and started.
+- Do not set `create_before_destroy` on these resources: the old ones must be gone before the application
+  can change.
+
+Platform Manager does not delete the last principal of an application on an environment where the
+application has a pending or approved access grant (unless it also has a Kafka credential there). Then add
+the same `lifecycle` block to the `axual_application_access_grant`, and let it depend on the principal
+(`depends_on`). The grant is revoked and requested again. In an environment where the topic owner
+approves grants, the new request stays Pending until it is approved again. If the same configuration
+approves it with an `axual_application_access_grant_decision`, add the `lifecycle` block to the decision
+too.
+
 ## Import
 
 Import is supported by ID, or by name (`name:`):

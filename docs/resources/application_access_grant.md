@@ -14,6 +14,7 @@ Application Access Grant resource. Purpose of a grant is to request access to a 
 - In a Stream owner environment, the topic team approves or rejects with `axual_application_access_grant_decision`.
 - `decision_reason`, `decided_at` and `decided_by` show the topic team's answer. A plan warns when the grant is Rejected, Revoked or Cancelled.
 - To ask again after a reject or revoke, change `request_again` (free text, for example a ticket). The same grant reopens. A change never revokes.
+- A new `short_name` of the application can need the grant to be replaced. See "Changing `short_name`" in [`axual_application`](application.md).
 
 ## Required Roles
 - APPLICATION_ADMIN or be part of the Team that owns the Application

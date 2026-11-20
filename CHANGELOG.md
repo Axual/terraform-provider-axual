@@ -39,6 +39,7 @@ All notable changes to this project will be documented in this file.
 * A plan that leaves out `configs`, `definition` or `sql_script` of an `axual_application_deployment` that has them stops with `Missing configs` (or `definition`, `sql_script`), unless the application or environment changes. `configs = {}` removes all configs (Platform Manager 16.0.0 or later). Before, the apply removed them and stopped the deployment
 * `axual_application_credential` warns when Platform Manager replaced its credential with a new one of the same username, for example when the Schema Registry credential is created again in the Self-Service UI or through the API. The state follows the new credential, as before. The warning says that the password in the state no longer works, and comes back on every plan until the credential is replaced (AXPD-10169)
 * Built with Go 1.26.11. The Go modules `golang.org/x/crypto`, `golang.org/x/net`, `golang.org/x/oauth2` and `google.golang.org/grpc` are updated to versions without known vulnerabilities
+* When Platform Manager refuses a new `short_name` of an `axual_application` because the application has principals, credentials or deployments, the error now says how to change it in one apply: `replace_triggered_by` on those resources. The `axual_application` page explains it ([#206](https://github.com/Axual/terraform-provider-axual/issues/206))
 
 ### Deprecated
 * `axual_application_access_grant_approval` and `axual_application_access_grant_rejection`: use `axual_application_access_grant_decision` (AXPD-12412)
