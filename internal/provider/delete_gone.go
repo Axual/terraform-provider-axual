@@ -14,6 +14,8 @@ var goneAnswers = []string{
 	"converted to null",                 // environment, schema version, deployment status
 	"No Group found",                    // group delete
 	"No application found",              // credential of a deleted application
+	"Instance not found",                // schema registry (16.1.0) and Flink cluster of a deleted instance
+	"Cluster not found",                 // the same for a deleted cluster
 }
 
 // isGone reports a 404, or the 400 that Platform Manager answers for some deleted resources.
@@ -42,15 +44,18 @@ func ignoreGone(err error) error {
 	return err
 }
 
-// isConflict reports a concurrent change of the same row: Platform Manager answers 409 "Could not
-// commit changes", or 403 with an ObjectOptimisticLockingFailureException. A retry can succeed.
+// isConflict reports a concurrent change of the same row, which a retry can fix. Platform Manager
+// answers 409 "Could not commit changes", or 403 with the lock error: Spring's
+// ObjectOptimisticLockingFailureException, or jakarta.persistence.OptimisticLockException when the
+// write calls the JPA EntityManager directly, as the Instance update does.
 func isConflict(err error) bool {
 	var httpErr *webclient.HTTPError
 	if !errors.As(err, &httpErr) {
 		return false
 	}
 	return httpErr.StatusCode == http.StatusConflict ||
-		(httpErr.StatusCode == http.StatusForbidden && strings.Contains(httpErr.Body, "OptimisticLocking"))
+		(httpErr.StatusCode == http.StatusForbidden &&
+			(strings.Contains(httpErr.Body, "OptimisticLocking") || strings.Contains(httpErr.Body, "OptimisticLockException")))
 }
 
 // isGrantClosed reports whether an access grant was revoked, rejected or cancelled.

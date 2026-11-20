@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -37,6 +38,24 @@ func importByIDOrKey(ctx context.Context, req resource.ImportStateRequest, resp 
 		return
 	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
+}
+
+// nameTakenAnswers are the texts of the 400 that Platform Manager answers when a Cluster or Instance with
+// the name exists. After a lost answer of a create, the name is taken by the object that create made.
+var nameTakenAnswers = []string{"with this name already exist", "Duplicate Instance name"}
+
+// importHint returns how to import the object when err says that its name is taken, and "" otherwise.
+func importHint(err error, name string) string {
+	var httpErr *webclient.HTTPError
+	if !errors.As(err, &httpErr) || httpErr.StatusCode != http.StatusBadRequest {
+		return ""
+	}
+	for _, answer := range nameTakenAnswers {
+		if strings.Contains(httpErr.Body, answer) {
+			return fmt.Sprintf(" If an earlier apply created it, import it: terraform import <address> '%s%s'", importByNamePrefix, name)
+		}
+	}
+	return ""
 }
 
 // keyedID is one search result: the value that must match, and its ID.

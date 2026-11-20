@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -58,6 +59,9 @@ type applicationCredentialResourceData struct {
 
 func (r *applicationCredentialResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_application_credential"
+	// Read finds the credential by username, application and environment. A Schema Registry credential
+	// generated again outside Terraform keeps its username and comes back with a new ID.
+	resp.ResourceBehavior.MutableIdentity = true
 }
 
 func (r *applicationCredentialResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -235,6 +239,22 @@ func (r *applicationCredentialResource) Read(ctx context.Context, req resource.R
 		return
 	}
 
+	// The warning about a password of a replaced credential repeats on every plan, until a new
+	// credential replaces it, so an unattended apply does not hide it.
+	stale := warnIfReplaced(&resp.Diagnostics, &data, &matchedCredential)
+	flag, d := req.Private.GetKey(ctx, stalePasswordKey)
+	resp.Diagnostics.Append(d...)
+	if len(flag) > 0 && !stale {
+		stale = true
+		resp.Diagnostics.AddWarning("Application Credential password does not work",
+			fmt.Sprintf("The password in the state belongs to a credential that Platform Manager replaced outside Terraform. "+
+				"To get a new password through Terraform, replace this resource with terraform apply -replace. "+
+				"To keep the current credential instead, remove this resource from the state and import it again by its ID %s.", matchedCredential.ID))
+	}
+	if stale && resp.Private != nil {
+		resp.Diagnostics.Append(resp.Private.SetKey(ctx, stalePasswordKey, []byte("true"))...)
+	}
+
 	applicationCredentialJSON, err := json.MarshalIndent(credentials, "", "  ")
 	tflog.Info(ctx, "Application Credential Data:", map[string]interface{}{
 		"data": string(applicationCredentialJSON),
@@ -279,6 +299,29 @@ func (r *applicationCredentialResource) Delete(ctx context.Context, req resource
 
 func (r *applicationCredentialResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// stalePasswordKey marks, in the private state, a password that belongs to a replaced credential.
+const stalePasswordKey = "stale_password"
+
+// warnIfReplaced warns when Platform Manager replaced the credential in the state with a new one of the
+// same username. Platform Manager keeps one Schema Registry credential per application and environment,
+// so generating it again replaces it and gives it a new password. It reports whether the password in
+// the state no longer works.
+func warnIfReplaced(diags *diag.Diagnostics, data *applicationCredentialResourceData, found *webclient.ApplicationCredentialFindByApplicationAndEnvironmentResponse) bool {
+	previous := data.Id.ValueString()
+	if previous == "" || previous == found.ID {
+		return false
+	}
+	detail := fmt.Sprintf("Platform Manager replaced credential %s with %s, which has the same username %s. "+
+		"This happens when the Schema Registry credential of the application is generated again, for example in the Self-Service UI. "+
+		"The state now follows the new credential.", previous, found.ID, found.Username)
+	if data.Password.ValueString() != "" {
+		detail += " The password in the state belongs to the old credential and does not work any more. " +
+			"To get a new password through Terraform, replace this resource with terraform apply -replace."
+	}
+	diags.AddWarning("Application Credential replaced outside Terraform", detail)
+	return data.Password.ValueString() != ""
 }
 
 func createApplicationCredentialRequestFromData(ctx context.Context, data *applicationCredentialResourceData) (webclient.ApplicationCredentialCreateRequest, error) {

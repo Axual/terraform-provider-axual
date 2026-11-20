@@ -62,8 +62,8 @@ func TestIdentityAfterReadOfRemovedResource(t *testing.T) {
 	}
 }
 
-// The wrapper only passes on ImportState and ModifyPlan. A wrapped resource that implements any other
-// optional interface would lose it without an error.
+// The wrapper only passes on ImportState, ModifyPlan and ValidateConfig. A wrapped resource that implements
+// any other optional interface would lose it without an error.
 func TestIdentityWrapperHidesNothing(t *testing.T) {
 	for _, f := range (&AxualProvider{}).Resources(context.Background()) {
 		w, ok := f().(*identityResource)
@@ -74,7 +74,6 @@ func TestIdentityWrapperHidesNothing(t *testing.T) {
 			t.Errorf("%T: needs ImportState, the wrapper calls it", w.Resource)
 		}
 		hidden := map[string]bool{}
-		_, hidden["ValidateConfig"] = w.Resource.(resource.ResourceWithValidateConfig)
 		_, hidden["ConfigValidators"] = w.Resource.(resource.ResourceWithConfigValidators)
 		_, hidden["UpgradeState"] = w.Resource.(resource.ResourceWithUpgradeState)
 		_, hidden["MoveState"] = w.Resource.(resource.ResourceWithMoveState)

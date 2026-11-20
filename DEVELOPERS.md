@@ -248,6 +248,34 @@ Before running acceptance tests:
    and `local.connect_cluster_sasl_name`. Both Connect clusters need the `http-sink` plugin
    (`io.axual.connect.plugins.http.HttpSinkConnector`, version `1.0.0`), which the tests deploy.
 
+   The following values are only needed by the Cluster, Instance and Instance-Cluster tests
+   (`internal/tests/ClusterResource`, `internal/tests/ClusterDataSource`,
+   `internal/tests/InstanceResource`, `internal/tests/InstanceClusterResource` and
+   `TestListClustersAndInstances`). These tests register their own Clusters and Instances with
+   Terraform, all on one Kafka cluster you already have. Platform Manager only checks that it can
+   connect, so several test Clusters can point at the same Kafka cluster. The suites skip themselves
+   while any of these is still a `YOUR_...` placeholder; the Instance-Cluster test also needs the three
+   `schemaRegistry...` values.
+   - `kafkaBootstrapServers`: the bootstrap servers of an MTLS listener of the Kafka cluster.
+   - `kafkaClientCertificateFile`, `kafkaClientPrivateKeyFile`: paths to PEM files of a client
+     certificate and its private key. Platform Manager creates topics and ACLs with it, so it must be
+     a superuser on the Kafka cluster.
+   - `kafkaTruststoreFile`: path to a PEM file with the CA chain of the broker certificates.
+   - `instanceCaCertificateFile`: path to a PEM file with the CA that signs application certificates.
+     It becomes the `ca_certificates` of the test Instances.
+   - `schemaRegistryUrl`, `schemaRegistryUsername`, `schemaRegistryPassword`: an Apicurio registry
+     and a `Basic-Auth` login for it. The URL is the one Platform Manager uses: it ends with
+     `/apis/registry/v3` for Platform Manager 16.1.0 and later, and with `/apis/registry/v2` for
+     older versions. The test also creates an AVRO topic, so the registry must accept schemas. Treat
+     the password as a secret - never commit a real one.
+
+   The fixtures read them as `local.kafka_bootstrap_servers`, `local.kafka_client_certificate_file`,
+   `local.kafka_client_private_key_file`, `local.kafka_truststore_file`,
+   `local.instance_ca_certificate_file`, `local.schema_registry_url`, `local.schema_registry_username`
+   and `local.schema_registry_password`. The tests need the Tenant Admin role. On Platform Manager
+   before 16.0.0, the Instance test skips its `flink_enabled = true` step, and before 16.1.0 the
+   Instance-Cluster test skips its `api` and `client_endpoints` steps.
+
 3. **Verify Test User Permissions:**
 
    Ensure your test user has these roles:
@@ -344,8 +372,9 @@ When running tests for the first time, try them in this order to verify your set
    ```
 
    Note that everything under `./internal/tests/...` is an acceptance test: the test provider reads
-   its credentials from `test_config.yaml`, so nothing skips for a missing `TF_ACC`. The Flink suites
-   are the exception: they skip while the `YOUR_...` Ververica placeholders are still in place.
+   its credentials from `test_config.yaml`, so nothing skips for a missing `TF_ACC`. The Flink, Kafka
+   Connect, Cluster and Instance suites are the exception: they skip while their `YOUR_...`
+   placeholders are still in place.
    Narrow a run with `-run '<TestName>'` while working on one suite — a full run creates and destroys
    every fixture, and an interrupted one leaves resources behind that have to be cleaned by hand.
 

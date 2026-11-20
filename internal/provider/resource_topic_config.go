@@ -153,11 +153,7 @@ func (r *topicConfigResource) ModifyPlan(ctx context.Context, req resource.Modif
 // SupportsInfiniteRetention reports whether a Platform Manager version, as GET /info returns it,
 // accepts retention_time = -1. A version it cannot read counts as too old.
 func SupportsInfiniteRetention(version string) bool {
-	var major, minor int
-	if _, err := fmt.Sscanf(version, "%d.%d", &major, &minor); err != nil {
-		return false
-	}
-	return major > infiniteRetentionMajor || major == infiniteRetentionMajor && minor >= infiniteRetentionMinor
+	return platformVersionAtLeast(version, infiniteRetentionMajor, infiniteRetentionMinor)
 }
 func (r *topicConfigResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data topicConfigResourceData

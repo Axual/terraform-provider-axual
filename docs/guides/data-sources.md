@@ -22,6 +22,7 @@ Data sources are read-only - they fetch information but don't create, update, or
 | `axual_user` | `email` | `id`, `first_name`, `last_name`, `middle_name`, `phone_number` |
 | `axual_group` | `name` | `id`, `members`, `email_address`, `phone_number` |
 | `axual_instance` | `name` or `short_name` | `id`, `name`, `short_name`, `description` |
+| `axual_cluster` | `name` | `id`, `description`, `location`, `provider_type`, `shared`, `topic_pattern`, `group_pattern`, `transactional_pattern`, `kafka_version`, `bootstrap_urls_by_authentication` |
 | `axual_environment` | `name` or `short_name` | `id`, `name`, `short_name`, `description`, `color`, `visibility`, `authorization_issuer`, `owners`, `instance`, `retention_time`, `partitions`, `properties` |
 | `axual_topic` | `name` | `id`, `description`, `key_type`, `key_schema`, `value_type`, `value_schema`, `owners`, `retention_policy`, `properties` |
 | `axual_application` | `name` or `short_name` | `id`, `name`, `short_name`, `description`, `application_type`, `application_id`, `application_class`, `type`, `owners`, `visibility` |
@@ -113,6 +114,28 @@ resource "axual_environment" "test" {
 ```
 
 **Available attributes:** `id`, `name`, `short_name`, `description`
+
+### axual_cluster
+
+To define an `axual_cluster` data source, provide the exact Cluster `name`:
+
+```hcl
+data "axual_cluster" "existing" {
+  name = "production-ams"
+}
+```
+
+Now we can use this data source when creating a resource:
+
+```hcl
+resource "axual_instance" "test" {
+  name       = "Test"
+  short_name = "test"
+  clusters   = [data.axual_cluster.existing.id]
+}
+```
+
+**Available attributes:** `id`, `description`, `location`, `provider_type`, `shared`, `topic_pattern`, `group_pattern`, `transactional_pattern`, `kafka_version`, `bootstrap_urls_by_authentication`
 
 ### axual_environment
 

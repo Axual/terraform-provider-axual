@@ -150,6 +150,7 @@ func (p *AxualProvider) Configure(ctx context.Context, req provider.ConfigureReq
 func (p *AxualProvider) Resources(_ context.Context) []func() resource.Resource {
 	out := []func() resource.Resource{
 		func() resource.Resource { return NewFlinkClusterResource(*p) },
+		func() resource.Resource { return NewInstanceClusterResource(*p) },
 	}
 	for _, spec := range listSpecs() {
 		if spec.ownIdentity {
@@ -191,6 +192,7 @@ func (p *AxualProvider) DataSources(ctx context.Context) []func() datasource.Dat
 		func() datasource.DataSource { return NewInstanceDataSource(*p) },
 		func() datasource.DataSource { return NewUserDataSource(*p) },
 		func() datasource.DataSource { return NewConnectClusterDataSource(*p) },
+		func() datasource.DataSource { return NewClusterDataSource(*p) },
 	}
 }
 
