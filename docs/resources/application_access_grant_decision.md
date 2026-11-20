@@ -54,7 +54,7 @@ The decision finds its grant by `grant_id` first, then by application UID, then 
 - `application_uid` (String) The UID of the application this decision matched first: set at create, or by the first refresh that finds a request. When `application` is a name and the name now belongs to another application (deleted and created again, maybe by another team), the plan doesn't approve its request and warns. To accept the new application, set `application` to its UID. A decision written before the application exists trusts the first application with that name.
 - `closed_outside_terraform` (Boolean) `true` when `decision = "APPROVED"` and someone other than this decision rejected or revoked the grant, for example in the UI: the next request will be approved. Not set when the application team gave up its own access, for a close made while the decision was `DENIED`, or for a revoke by a removed decision block. It only reports.
 - `current_status` (String) The grant's status: `Pending`, `Approved`, `Rejected`, `Revoked`, `Cancelled`, or `Not found` when there is no request that this user can see.
-- `id` (String) `<topic>/<environment>/<access_type>/<application>`, set at create and never changed. Import accepts it, or a grant UID.
+- `id` (String) `<topic>/<environment>/<access_type>/<application>`, set at create. It changes only when a value that is known only at apply points the block at another grant, for example the UID of an application that the same apply replaces. Import accepts it, or a grant UID.
 
 ## Example Usage
 
@@ -160,6 +160,7 @@ To cut access now:
 - `terraform destroy -target` on one of two blocks for the same grant revokes it: Terraform plans only that block, so the provider doesn't see the other one. Use `terraform state rm` to drop a duplicate.
 - Changing `application` from a name to a UID (or the reverse) is an in-place update without an action.
 - Changing `application`, `topic`, `environment`, `access_type` or `grant_id` to another grant replaces the block, which revokes the old grant (with `revoke_on_destroy = false` it stays `Approved`, and the plan warns).
+- When the same apply replaces the application of a decision that names it by UID (`application = axual_application.<name>.id`), the plan shows an in-place update, because the new UID is known only at apply. The apply decides on the new application's grant, and `id` follows the new UID.
 
 ## A decision by name and an application created again
 

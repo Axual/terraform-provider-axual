@@ -4,6 +4,7 @@ import (
 	webclient "axual-webclient"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -32,6 +33,34 @@ func TestIsConflict(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if got := isConflict(test.err); got != test.expected {
 				t.Errorf("isConflict() = %t, expected %t", got, test.expected)
+			}
+		})
+	}
+}
+
+// TestShortNameHint pins when a failed application update says how to change short_name in one apply:
+// only for the 400 that Platform Manager answers while the application has principals, credentials or
+// deployments, also when the error is wrapped.
+func TestShortNameHint(t *testing.T) {
+	refused := `{"detail" : "Application ShortName cannot be edited as there are existing Credentials, Deployments, or Principals for this application.", "status" : 400}`
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{name: "short name refused", err: &webclient.HTTPError{StatusCode: 400, Body: refused}, expected: true},
+		{name: "wrapped", err: fmt.Errorf("update: %w", &webclient.HTTPError{StatusCode: 400, Body: refused}), expected: true},
+		{name: "other bad request", err: &webclient.HTTPError{StatusCode: 400, Body: `{"detail" : "Invalid application type"}`}, expected: false},
+		{name: "other status", err: &webclient.HTTPError{StatusCode: 403, Body: refused}, expected: false},
+		{name: "text only", err: errors.New(refused), expected: false},
+		{name: "no error", err: nil, expected: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			hint := shortNameHint(test.err)
+			if got := strings.Contains(hint, "replace_triggered_by"); got != test.expected {
+				t.Errorf("shortNameHint() = %q, expected a hint: %t", hint, test.expected)
 			}
 		})
 	}

@@ -7,6 +7,7 @@ import (
 	. "axual.com/terraform-provider-axual/internal/tests"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 )
 
 func TestApplicationResource(t *testing.T) {
@@ -249,6 +250,48 @@ func TestApplicationResourceAllTypes(t *testing.T) {
 					"axual_application_type_sink.tf",
 					"axual_application_type_source.tf",
 				),
+			},
+		},
+	})
+}
+
+// TestApplicationResourceShortNameWithPrincipal checks that a new short_name of an application with a
+// principal works in one apply when the principal has replace_triggered_by on the short_name: the
+// principal is deleted before the application changes, and created again after. Without it, Platform
+// Manager refuses the change and the error says how to do it.
+func TestApplicationResourceShortNameWithPrincipal(t *testing.T) {
+	const app = "axual_application.tf-test-app"
+	const principal = "axual_application_principal.tf-test-app-principal"
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+
+		Steps: []resource.TestStep{
+			{
+				Config: GetProvider() + GetFile("axual_application_short_name_setup.tf", "axual_application_short_name_initial.tf"),
+				Check:  resource.TestCheckResourceAttr(app, "short_name", "tf_test_app_short_name"),
+			},
+			{
+				Config: GetProvider() + GetFile("axual_application_short_name_setup.tf", "axual_application_short_name_renamed.tf"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(app, plancheck.ResourceActionUpdate),
+						plancheck.ExpectResourceAction(principal, plancheck.ResourceActionDestroyBeforeCreate),
+					},
+				},
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(app, "short_name", "tf_test_app_short_name1"),
+					CheckBodyMatchesFile(principal, "principal", CertPath("generic_application_1.cer")),
+				),
+			},
+			{
+				Config:      GetProvider() + GetFile("axual_application_short_name_setup.tf", "axual_application_short_name_no_lifecycle.tf"),
+				ExpectError: regexp.MustCompile(`(?s)ShortName\s+cannot\s+be\s+edited.*replace_triggered_by`),
+			},
+			{
+				// To ensure cleanup if one of the test cases had an error
+				Destroy: true,
+				Config:  GetProvider() + GetFile("axual_application_short_name_setup.tf", "axual_application_short_name_renamed.tf"),
 			},
 		},
 	})
