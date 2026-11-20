@@ -57,6 +57,8 @@ type ProviderConfig struct {
 	VervericaWorkspace        string `yaml:"ververicaWorkspace"`
 	VervericaNamespace        string `yaml:"ververicaNamespace"`
 	VervericaDeploymentTarget string `yaml:"ververicaDeploymentTarget"`
+	// KsmlRuntimeUrl is the URL the KSML runtime tests register their KSML runtimes with, on ClusterId.
+	KsmlRuntimeUrl string `yaml:"ksmlRuntimeUrl"`
 	// ResolvedTopicPrefix is only needed by the hand-written Flink table DDL, whose
 	// `CREATE TEMPORARY TABLE` names the real Kafka topic. That test skips when it is empty.
 	ResolvedTopicPrefix string `yaml:"resolvedTopicPrefix"`
@@ -141,6 +143,20 @@ func SkipWithoutVerverica(t *testing.T, config ProviderConfig) {
 	} {
 		if missing(field.value) {
 			SkipForMissingConfig(t, config, "%s is not set in test_config.yaml, so no Flink Cluster can be registered", field.key)
+		}
+	}
+}
+
+// SkipWithoutKsmlRuntime skips a KSML runtime test unless test_config.yaml carries a cluster and a
+// KSML runtime URL to register on it.
+func SkipWithoutKsmlRuntime(t *testing.T, config ProviderConfig) {
+	t.Helper()
+	for _, field := range []struct{ key, value string }{
+		{"clusterId", config.ClusterId},
+		{"ksmlRuntimeUrl", config.KsmlRuntimeUrl},
+	} {
+		if field.value == "" || strings.HasPrefix(field.value, "YOUR_") {
+			t.Skipf("%s is not set in test_config.yaml, so no KSML runtime can be registered", field.key)
 		}
 	}
 }
@@ -442,6 +458,21 @@ func GetFlinkProvider() string {
 	  ververica_workspace = "` + config.VervericaWorkspace + `"
 	  ververica_namespace = "` + config.VervericaNamespace + `"
 	  ververica_deployment_target = "` + config.VervericaDeploymentTarget + `"
+	}
+	`
+}
+
+// GetKsmlProvider returns GetProvider() plus the locals the KSML runtime fixtures read.
+func GetKsmlProvider() string {
+	config, err := LoadProviderConfig()
+	if err != nil {
+		log.Panicf("Error loading provider configuration: %s", err)
+	}
+
+	return GetProvider() + `
+	locals {
+	  cluster_id = "` + config.ClusterId + `"
+	  ksml_runtime_url = "` + config.KsmlRuntimeUrl + `"
 	}
 	`
 }
