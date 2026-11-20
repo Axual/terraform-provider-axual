@@ -32,6 +32,7 @@ func TestIsGone(t *testing.T) {
 		"flink cluster gone (400)": {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"Flink Cluster with ID f1 not found"}`}, true},
 		"instance gone (400)":      {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"Instance not found"}`}, true},
 		"cluster gone (400)":       {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"Cluster not found"}`}, true},
+		"ksml runtime gone (400)":  {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"KSML runtime with ID r1 not found"}`}, true},
 		"other 400":                {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"Invalid action"}`}, false},
 		"500":                      {&webclient.HTTPError{StatusCode: 500}, false},
 		"no error":                 {nil, false},
@@ -263,8 +264,8 @@ func TestRetryIfStopsWhenCancelled(t *testing.T) {
 	}
 }
 
-// Destroy of a resource that was deleted outside Terraform is done, not an error. A gone group or
-// Flink cluster gets a 400, as on Platform Manager master.
+// Destroy of a resource that was deleted outside Terraform is done, not an error. A gone group,
+// Flink cluster or KSML runtime gets a 400, as on Platform Manager master.
 func TestDeleteAcceptsAGoneResource(t *testing.T) {
 	client := fakePM(t, pmGoneAnswers)
 	provider := AxualProvider{client: client}
@@ -280,6 +281,11 @@ func TestDeleteAcceptsAGoneResource(t *testing.T) {
 		}},
 		"flink cluster": {flinkCluster, &FlinkClusterResourceData{
 			Id: types.StringValue("f1"), InstanceId: types.StringValue("i1"), ClusterId: types.StringValue("c1"),
+			SchemaRegistries: types.ListNull(registries.ElemType),
+			AuthorizedGroups: types.SetNull(types.StringType),
+		}},
+		"ksml runtime": {&ksmlRuntimeResource{provider: provider}, &KsmlRuntimeResourceData{
+			Id: types.StringValue("r1"), InstanceId: types.StringValue("i1"), ClusterId: types.StringValue("c1"),
 			SchemaRegistries: types.ListNull(registries.ElemType),
 			AuthorizedGroups: types.SetNull(types.StringType),
 		}},
@@ -304,6 +310,9 @@ func pmGoneAnswers(w http.ResponseWriter, r *http.Request) {
 	case strings.Contains(r.URL.Path, "/flink-clusters/"):
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(`{"detail":"Flink Cluster with ID f1 not found"}`))
+	case strings.Contains(r.URL.Path, "/ksml-runtimes/"):
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"detail":"KSML runtime with ID r1 not found"}`))
 	case strings.Contains(r.URL.Path, "/groups/"):
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(`{"detail":"No Group found"}`))
@@ -327,5 +336,22 @@ func TestFlinkClusterReadDropsAGoneCluster(t *testing.T) {
 
 	if resp.Diagnostics.HasError() || !resp.State.Raw.IsNull() {
 		t.Errorf("read = %v, state null = %t; expected the cluster removed from the state", resp.Diagnostics, resp.State.Raw.IsNull())
+	}
+}
+
+// A KSML runtime deleted outside Terraform is removed from the state, so destroy and plan go on.
+func TestKsmlRuntimeReadDropsAGoneRuntime(t *testing.T) {
+	r := &ksmlRuntimeResource{provider: AxualProvider{client: fakePM(t, pmGoneAnswers)}}
+	state := stateFor(t, r, &KsmlRuntimeResourceData{
+		Id: types.StringValue("r1"), InstanceId: types.StringValue("i1"), ClusterId: types.StringValue("c1"),
+		SchemaRegistries: types.ListNull(schemaRegistryObjectType()),
+		AuthorizedGroups: types.SetNull(types.StringType),
+	})
+	resp := resource.ReadResponse{State: state}
+
+	r.Read(context.Background(), resource.ReadRequest{State: state}, &resp)
+
+	if resp.Diagnostics.HasError() || !resp.State.Raw.IsNull() {
+		t.Errorf("read = %v, state null = %t; expected the runtime removed from the state", resp.Diagnostics, resp.State.Raw.IsNull())
 	}
 }

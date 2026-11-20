@@ -32,8 +32,13 @@ func isGone(err error) bool {
 			return true
 		}
 	}
-	// Flink cluster: "Flink Cluster with ID <id> not found"
-	return strings.Contains(httpErr.Body, "Flink Cluster with ID") && strings.Contains(httpErr.Body, "not found")
+	// "Flink Cluster with ID <id> not found" and "KSML runtime with ID <id> not found"
+	for _, resource := range []string{"Flink Cluster with ID", "KSML runtime with ID"} {
+		if strings.Contains(httpErr.Body, resource) && strings.Contains(httpErr.Body, "not found") {
+			return true
+		}
+	}
+	return false
 }
 
 // ignoreGone returns nil when err only says the resource is already gone.

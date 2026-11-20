@@ -151,6 +151,7 @@ func (p *AxualProvider) Resources(_ context.Context) []func() resource.Resource 
 	out := []func() resource.Resource{
 		func() resource.Resource { return NewFlinkClusterResource(*p) },
 		func() resource.Resource { return NewInstanceClusterResource(*p) },
+		func() resource.Resource { return NewKsmlRuntimeResource(*p) },
 	}
 	for _, spec := range listSpecs() {
 		if spec.ownIdentity {
