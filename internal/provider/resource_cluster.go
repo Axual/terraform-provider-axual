@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -38,6 +39,17 @@ const (
 )
 
 var brokerProtocols = []string{"MTLS", "SASL/PLAIN", "SASL/SCRAM-SHA-256", "SASL/SCRAM-SHA-512"}
+
+// brokerCredentialsOf names the broker attributes that a protocol needs.
+func brokerCredentialsOf(protocol string) []string {
+	switch {
+	case protocol == "MTLS":
+		return []string{"certificate", "private_key"}
+	case strings.HasPrefix(protocol, "SASL/"):
+		return []string{"username", "password"}
+	}
+	return nil
+}
 
 // Platform Manager knows Strimzi clusters from 16.1.0 on.
 const strimziMajor, strimziMinor = 16, 1
@@ -378,7 +390,24 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 func (r *clusterResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
 	var data clusterResourceData
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() || data.ProviderType.IsUnknown() || data.Strimzi.IsUnknown() {
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	// Platform Manager copies the stored credentials into a request that has none. A protocol without its
+	// own credentials then keeps the old ones, and the apply ends in an inconsistent result.
+	if !data.Broker.IsNull() && !data.Broker.IsUnknown() {
+		var broker clusterBrokerData
+		resp.Diagnostics.Append(data.Broker.As(ctx, &broker, basetypes.ObjectAsOptions{})...)
+		needed := brokerCredentialsOf(broker.Protocol.ValueString())
+		for name, value := range map[string]types.String{"certificate": broker.Certificate, "private_key": broker.PrivateKey,
+			"username": broker.Username, "password": broker.Password} {
+			if value.IsNull() && slices.Contains(needed, name) {
+				resp.Diagnostics.AddAttributeError(path.Root("broker").AtName(name), name+" is required",
+					fmt.Sprintf("protocol %q needs %s.", broker.Protocol.ValueString(), strings.Join(needed, " and ")))
+			}
+		}
+	}
+	if data.ProviderType.IsUnknown() || data.Strimzi.IsUnknown() {
 		return
 	}
 	strimzi := data.ProviderType.ValueString() == "strimzi"

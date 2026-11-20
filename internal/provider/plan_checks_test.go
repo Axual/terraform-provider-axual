@@ -312,3 +312,40 @@ func TestInstanceClusterConfigNeedsTheCredentialsOfTheAuthentication(t *testing.
 		})
 	}
 }
+
+// Platform Manager copies the stored broker credentials into a request that has none, so a protocol
+// without its own credentials is refused at plan time: MTLS needs a certificate and private key, SASL
+// a username and password.
+func TestClusterConfigNeedsTheCredentialsOfTheProtocol(t *testing.T) {
+	ctx := context.Background()
+	set, null := types.StringValue("x"), types.StringNull()
+	for name, tc := range map[string]struct {
+		protocol                                    types.String
+		certificate, privateKey, username, password types.String
+		wantErrors                                  int
+	}{
+		"MTLS complete":                  {types.StringValue("MTLS"), set, set, null, null, 0},
+		"SASL to MTLS without the key":   {types.StringValue("MTLS"), null, null, set, set, 2},
+		"SASL complete":                  {types.StringValue("SASL/SCRAM-SHA-512"), null, null, set, set, 0},
+		"SASL without a password":        {types.StringValue("SASL/PLAIN"), null, null, set, null, 1},
+		"MTLS to SASL without the login": {types.StringValue("SASL/SCRAM-SHA-256"), set, set, null, null, 2},
+		"key not known yet":              {types.StringValue("MTLS"), set, types.StringUnknown(), null, null, 0},
+		"protocol not known yet":         {types.StringUnknown(), null, null, null, null, 0},
+	} {
+		t.Run(name, func(t *testing.T) {
+			data := testClusterData(t)
+			var broker clusterBrokerData
+			_ = data.Broker.As(ctx, &broker, basetypes.ObjectAsOptions{})
+			broker.Protocol, broker.Certificate, broker.PrivateKey = tc.protocol, tc.certificate, tc.privateKey
+			broker.Username, broker.Password = tc.username, tc.password
+			data.Broker, _ = types.ObjectValueFrom(ctx, clusterBrokerAttrTypes(), broker)
+			r := withIdentity(&clusterResource{}, "id")
+			config := stateFor(t, r, data)
+			resp := resource.ValidateConfigResponse{}
+			r.(resource.ResourceWithValidateConfig).ValidateConfig(ctx, resource.ValidateConfigRequest{Config: tfsdk.Config{Schema: config.Schema, Raw: config.Raw}}, &resp)
+			if resp.Diagnostics.ErrorsCount() != tc.wantErrors {
+				t.Errorf("errors = %d, expected %d: %v", resp.Diagnostics.ErrorsCount(), tc.wantErrors, resp.Diagnostics)
+			}
+		})
+	}
+}
