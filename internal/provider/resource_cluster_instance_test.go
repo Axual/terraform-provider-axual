@@ -12,7 +12,10 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
@@ -638,5 +641,35 @@ func TestInstanceImportByNameWithAnUnderscore(t *testing.T) {
 	}
 	if len(paths) == 0 || paths[0] != "/instances/search/findByAttributes" {
 		t.Errorf("paths = %v, expected the list search", paths)
+	}
+}
+
+// Platform Manager refuses a change of the provider type, but sets one on a Cluster that has none in
+// place. So only a change from a provider type replaces the Cluster.
+func TestClusterProviderTypeReplacesOnlyAChange(t *testing.T) {
+	ctx := context.Background()
+	r := &clusterResource{}
+	var schemaResp resource.SchemaResponse
+	r.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	modifier := schemaResp.Schema.Attributes["provider_type"].(schema.StringAttribute).PlanModifiers[0]
+	for name, tc := range map[string]struct {
+		state       types.String
+		wantReplace bool
+	}{
+		"none in the state (imported old Cluster)": {types.StringNull(), false},
+		"strimzi in the state":                     {types.StringValue("strimzi"), true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			current := testClusterData(t)
+			current.ProviderType = tc.state
+			state, plan := stateFor(t, r, current), stateFor(t, r, testClusterData(t))
+			req := planmodifier.StringRequest{Path: path.Root("provider_type"), StateValue: tc.state, PlanValue: types.StringValue("apache-kafka"),
+				ConfigValue: types.StringValue("apache-kafka"), State: state, Plan: tfsdk.Plan{Schema: plan.Schema, Raw: plan.Raw}}
+			resp := planmodifier.StringResponse{PlanValue: req.PlanValue}
+			modifier.PlanModifyString(ctx, req, &resp)
+			if resp.RequiresReplace != tc.wantReplace {
+				t.Errorf("replace = %v, expected %v", resp.RequiresReplace, tc.wantReplace)
+			}
+		})
 	}
 }

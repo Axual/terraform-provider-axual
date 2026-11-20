@@ -8,7 +8,7 @@ A Cluster is a Kafka cluster that Platform Manager governs. Add it to an Instanc
   - For `MTLS`, set `certificate` and `private_key` (PEM). For `SASL/...`, set `username` and `password`.
   - `certificate`, `private_key` and `truststore` take PEM. Platform Manager keeps them base64-encoded, the way the Self-Service UI sends them, so the provider does the encoding. An already base64-encoded value is also accepted.
 - The private key and the passwords are stored in Vault. Platform Manager never returns them, so they are sent from the configuration on every update and cannot be imported.
-- `shared` and `provider_type` cannot change: changing either one replaces the Cluster.
+- `shared` and `provider_type` cannot change: changing either one replaces the Cluster. An imported Cluster that has no provider type, made by an older Platform Manager, gets the configured one in place.
 - A Tenant Admin keeps the default `shared = false`. Only a Super Admin can change or delete a shared Cluster.
 - Platform Manager refuses a change of `topic_pattern`, `group_pattern` or `transactional_pattern` once topics exist on the Cluster.
 - Leaving out a pattern, `kafka_listeners`, `bootstrap_urls_by_authentication` or `broker.security_protocol` keeps what the Cluster has. `kafka_listeners = {}` and `bootstrap_urls_by_authentication = {}` remove them.
@@ -32,7 +32,7 @@ A Cluster is a Kafka cluster that Platform Manager governs. Add it to an Instanc
 
 - `broker` (Attributes) How Platform Manager connects to the brokers. Platform Manager checks the connection when the Cluster is created. (see [below for nested schema](#nestedatt--broker))
 - `name` (String) The name of the Cluster, unique in the tenant. Must be between 3 and 50 characters: letters, digits, `.`, `-` and `_`.
-- `provider_type` (String) How Platform Manager manages the Cluster: `apache-kafka` or `strimzi`. Changing it creates a new Cluster.
+- `provider_type` (String) How Platform Manager manages the Cluster: `apache-kafka` or `strimzi`. Changing it creates a new Cluster. An imported Cluster that has none gets it in place.
 
 ### Optional
 

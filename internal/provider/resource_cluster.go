@@ -191,13 +191,17 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 				},
 			},
 			"provider_type": schema.StringAttribute{
-				MarkdownDescription: "How Platform Manager manages the Cluster: `apache-kafka` or `strimzi`. Changing it creates a new Cluster.",
+				MarkdownDescription: "How Platform Manager manages the Cluster: `apache-kafka` or `strimzi`. Changing it creates a new Cluster. An imported Cluster that has none gets it in place.",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.OneOf("apache-kafka", "strimzi"),
 				},
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
+					// Platform Manager refuses a change of the provider type, but sets one on a Cluster that has
+					// none (an old Cluster) in place.
+					stringplanmodifier.RequiresReplaceIf(func(_ context.Context, req planmodifier.StringRequest, resp *stringplanmodifier.RequiresReplaceIfFuncResponse) {
+						resp.RequiresReplace = !req.StateValue.IsNull()
+					}, "Changing provider_type creates a new Cluster.", "Changing `provider_type` creates a new Cluster."),
 				},
 			},
 			"broker": schema.SingleNestedAttribute{
