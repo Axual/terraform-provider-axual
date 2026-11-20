@@ -63,6 +63,7 @@ All notable changes to this project will be documented in this file.
 * An `axual_application_credential` of a Schema Registry that uses OAuth, imported or exported with `terraform query`, now gets `target = "SCHEMA_REGISTRY"` instead of `"KAFKA"`, so destroying it deletes it. A configuration that sets `target = "KAFKA"` for such a credential must change it to `"SCHEMA_REGISTRY"`
 * A `retention_time` above 160704000000 (5 years) on `axual_topic_config` fails at plan. Before, the apply failed, and Platform Manager before 16.1.0 had already set the value on the topic
 * `axual_application_deployment` no longer writes the connector `configs` to the Terraform log. Before, a log at `INFO` level or lower showed the values (all releases with Connector support), and they can hold passwords although `configs` is sensitive. The log now shows the config keys only
+* An `axual_application_access_grant_decision` that names its application by UID (`application = axual_application.<name>.id`) no longer fails with `Provider produced inconsistent final plan` when the same apply replaces the application. The decision is updated in place and decides on the new application's grant in that apply; its `id` and identity follow the new UID
 
 ## [3.2.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.2.0) - 2026-10-08
 ### Added
