@@ -376,6 +376,51 @@ func TestIsConnectTargetChange(t *testing.T) {
 
 // TestUpdateRequestSendsTargetOnlyWhenItChanges guards Platform Manager 15.0.x, which refuses a
 // PATCH body that contains `targetId` or `targetVersion`.
+// A KSML deployment is created on the KSML runtime named by `target_id`. Without it the key is left
+// out, and the Platform Manager decides.
+func TestCreateRequestSendsTheTargetOfAKsmlDeployment(t *testing.T) {
+	tests := map[string]struct {
+		target     types.String
+		wantTarget any
+	}{
+		"target set": {types.StringValue("ksml-runtime"), "ksml-runtime"},
+		"no target":  {types.StringNull(), nil},
+		"unknown":    {types.StringUnknown(), nil},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			data := ApplicationDeploymentResourceData{
+				Type:          types.StringValue("Ksml"),
+				Application:   types.StringValue("a1"),
+				Environment:   types.StringValue("e1"),
+				Definition:    types.StringValue("streams: {}"),
+				TargetId:      tt.target,
+				TargetVersion: types.StringNull(),
+			}
+
+			request, err := createApplicationDeploymentRequestFromData(context.Background(), &data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			body, err := json.Marshal(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var fields map[string]any
+			if err := json.Unmarshal(body, &fields); err != nil {
+				t.Fatal(err)
+			}
+
+			if fields["targetId"] != tt.wantTarget {
+				t.Errorf("targetId = %v, want %v (body %s)", fields["targetId"], tt.wantTarget, body)
+			}
+			if configs, _ := fields["configs"].(map[string]any); configs["ksml_definition"] != "streams: {}" {
+				t.Errorf("configs = %v, want the KSML definition (body %s)", fields["configs"], body)
+			}
+		})
+	}
+}
+
 func TestUpdateRequestSendsTargetOnlyWhenItChanges(t *testing.T) {
 	deployment := func(appType, targetId, targetVersion string) ApplicationDeploymentResourceData {
 		data := ApplicationDeploymentResourceData{
