@@ -451,31 +451,38 @@ func TestInstanceClusterCreateRefusesAnExistingRegistry(t *testing.T) {
 	}
 }
 
-// A create takes over a registry that already holds every value of the plan, such as its own write from
-// an earlier apply whose answer was lost. Any other registry is still refused.
-func TestInstanceClusterCreateTakesOverARegistryWithThePlannedValues(t *testing.T) {
-	const same = `"url":"http://registry/apis/registry/v3","schemaRegistryType":"APICURIO"`
+// A create whose answer is lost, or whose read after the POST fails, may have saved the registry. It
+// keeps the resource in the state with the error, so Terraform taints it and the next apply replaces it,
+// instead of refusing the registry as already configured. A refused POST keeps nothing.
+func TestInstanceClusterCreateKeepsAMaybeSavedRegistryTainted(t *testing.T) {
 	for name, tc := range map[string]struct {
-		existing  string
-		wantPost  bool
-		wantError string
+		post, readBack int // statuses; 0 closes the connection without an answer
+		wantState      bool
 	}{
-		"the planned values":     {`{` + same + `,"credentials":{"authenticationType":"Basic-Auth","username":"user","password":""},"listeners":{"a":"http://a"}}`, true, ""},
-		"another url":            {`{"url":"https://ui-made.example.com","schemaRegistryType":"APICURIO","credentials":{"authenticationType":"Basic-Auth","username":"user","password":""}}`, false, "already has a schema registry"},
-		"another type":           {`{"url":"http://registry/apis/registry/v3","schemaRegistryType":"CONFLUENT","credentials":{"authenticationType":"Basic-Auth","username":"user","password":""}}`, false, "already has a schema registry"},
-		"another authentication": {`{` + same + `,"credentials":{"authenticationType":"No-Auth"}}`, false, "already has a schema registry"},
-		"another username":       {`{` + same + `,"credentials":{"authenticationType":"Basic-Auth","username":"someone-else","password":""}}`, false, "already has a schema registry"},
-		"OAuth on":               {`{` + same + `,"credentials":{"authenticationType":"Basic-Auth","username":"user","password":""},"authentications":{"basic":true,"oauth":true}}`, false, "already has a schema registry"},
+		"POST answer is a 502":       {http.StatusBadGateway, http.StatusOK, true},
+		"POST gets no answer":        {0, http.StatusOK, true},
+		"read after the POST is 503": {http.StatusNoContent, http.StatusServiceUnavailable, true},
+		"POST refused with a 400":    {http.StatusBadRequest, http.StatusOK, false},
+		"POST refused with a 403":    {http.StatusForbidden, http.StatusOK, false},
 	} {
 		t.Run(name, func(t *testing.T) {
 			posted := false
 			client := fakePM(t, func(w http.ResponseWriter, r *http.Request) {
-				if r.Method == http.MethodPost {
+				switch {
+				case r.Method == http.MethodPost && tc.post == 0:
 					posted = true
-					w.WriteHeader(http.StatusNoContent)
-					return
+					conn, _, _ := w.(http.Hijacker).Hijack()
+					_ = conn.Close()
+				case r.Method == http.MethodPost:
+					posted = true
+					w.WriteHeader(tc.post)
+				case !posted:
+					_, _ = w.Write([]byte(`{"url":null,"credentials":{"authenticationType":null}}`))
+				default:
+					w.WriteHeader(tc.readBack)
+					_, _ = w.Write([]byte(`{"url":"http://registry/apis/registry/v3","schemaRegistryType":"APICURIO",
+						"credentials":{"authenticationType":"Basic-Auth","username":"user","password":""}}`))
 				}
-				_, _ = w.Write([]byte(tc.existing))
 			})
 			r := &instanceClusterResource{provider: AxualProvider{client: client}}
 			// The configuration leaves out the computed values, so the plan has them unknown.
@@ -492,15 +499,14 @@ func TestInstanceClusterCreateTakesOverARegistryWithThePlannedValues(t *testing.
 				Plan:   tfsdk.Plan{Schema: planned.Schema, Raw: planned.Raw},
 				Config: tfsdk.Config{Schema: config.Schema, Raw: config.Raw},
 			}, &resp)
-			gotError := ""
-			for _, d := range resp.Diagnostics.Errors() {
-				gotError += d.Detail()
+			if !resp.Diagnostics.HasError() {
+				t.Fatalf("expected the error to stay: %v", resp.Diagnostics)
 			}
-			if posted != tc.wantPost || (tc.wantError == "") != (gotError == "") || !strings.Contains(gotError, tc.wantError) {
-				t.Errorf("POST sent = %v, error = %q; expected POST %v and an error with %q", posted, gotError, tc.wantPost, tc.wantError)
+			if kept := !resp.State.Raw.IsNull(); kept != tc.wantState {
+				t.Fatalf("state kept = %v, expected %v: %v", kept, tc.wantState, resp.Diagnostics)
 			}
-			if tc.wantPost && resp.Diagnostics.WarningsCount() != 1 {
-				t.Errorf("expected one warning about the take-over, got %v", resp.Diagnostics)
+			if tc.wantState && !resp.State.Raw.IsFullyKnown() {
+				t.Errorf("the kept state has unknown values: %v", resp.State.Raw)
 			}
 		})
 	}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"slices"
 	"sort"
 	"strings"
@@ -24,6 +25,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -444,22 +446,30 @@ func (r *instanceClusterResource) Create(ctx context.Context, req resource.Creat
 	// The POST creates or replaces, so a create must not overwrite a schema registry made elsewhere.
 	instance, cluster := data.Instance.ValueString(), data.Cluster.ValueString()
 	existing, err := r.provider.client.GetInstanceClusterSchemaRegistry(instance, cluster)
-	if err != nil && !isGone(err) && !r.clusterLeftInstance(instance, cluster) {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read Instance-Cluster schema registry, got error: %s", err))
+	if err != nil && !isGone(err) {
+		if r.clusterLeftInstance(instance, cluster) {
+			resp.Diagnostics.AddError("CREATE request error for instance cluster resource", notInInstance(instance, cluster))
+		} else {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read Instance-Cluster schema registry, got error: %s", err))
+		}
 		return
 	}
 	if err == nil && existing.Url != "" {
-		if !holdsPlannedValues(ctx, &data, existing) {
-			resp.Diagnostics.AddError("Schema registry already configured",
-				fmt.Sprintf("Instance-Cluster %s/%s already has a schema registry (%s). Import it to manage it with Terraform: terraform import <address> %s/%s",
-					instance, cluster, existing.Url, instance, cluster))
-			return
-		}
-		resp.Diagnostics.AddWarning("Schema registry taken over",
-			fmt.Sprintf("Instance-Cluster %s/%s already had a schema registry with every setting of this configuration, for example from an earlier apply whose answer was lost. Terraform now manages it.",
-				instance, cluster))
+		resp.Diagnostics.AddError("Schema registry already configured",
+			fmt.Sprintf("Instance-Cluster %s/%s already has a schema registry (%s). Import it to manage it with Terraform: terraform import <address> %s/%s",
+				instance, cluster, existing.Url, instance, cluster))
+		return
 	}
-	r.write(ctx, &data, &config, &resp.Diagnostics, "CREATE request error for instance cluster resource")
+	if r.write(ctx, &data, &config, &resp.Diagnostics, "CREATE request error for instance cluster resource") {
+		// Platform Manager may have saved it. Kept in the state with the error, the resource is tainted,
+		// so the next apply replaces it instead of refusing it as already configured.
+		data.Id = types.StringValue(instance + "/" + cluster)
+		data.SchemaRegistry = unknownAsNull(ctx, data.SchemaRegistry, &resp.Diagnostics)
+		resp.Diagnostics.AddWarning("Schema registry may be saved",
+			"Platform Manager may have saved the schema registry although the apply failed. Terraform keeps it as tainted, so the next apply replaces it.")
+		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+		return
+	}
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -504,14 +514,15 @@ func (r *instanceClusterResource) Update(ctx context.Context, req resource.Updat
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-// write posts the whole schema registry (the POST creates or replaces it) and reads it back. The
-// client endpoints keep their ids: an endpoint with the name of an existing one is sent with its id,
-// so Platform Manager updates it in place.
-func (r *instanceClusterResource) write(ctx context.Context, data, config *instanceClusterResourceData, diags *diag.Diagnostics, errorSummary string) {
+// write posts the whole schema registry (the POST creates or replaces it) and reads it back. On an error,
+// it reports whether Platform Manager may have saved the registry anyway: the POST got no answer or a 5xx,
+// or the read after it failed. The client endpoints keep their ids: an endpoint with the name of an
+// existing one is sent with its id, so Platform Manager updates it in place.
+func (r *instanceClusterResource) write(ctx context.Context, data, config *instanceClusterResourceData, diags *diag.Diagnostics, errorSummary string) (maybeSaved bool) {
 	registry, d := createSchemaRegistryRequestFromData(ctx, data, config)
 	diags.Append(d...)
 	if diags.HasError() {
-		return
+		return false
 	}
 	instance, cluster := data.Instance.ValueString(), data.Cluster.ValueString()
 	err := RetryIfJittered(ctx, schemaRegistryWriteAttempts, schemaRegistryWriteDelay, isConflict, func() error {
@@ -527,20 +538,47 @@ func (r *instanceClusterResource) write(ctx context.Context, data, config *insta
 		return r.provider.client.SetInstanceClusterSchemaRegistry(instance, cluster, registry)
 	})
 	if errors.Is(err, webclient.NotFoundError) {
-		diags.AddError(errorSummary, fmt.Sprintf("Cluster %s is not in the clusters of Instance %s. Add it to the Instance first.", cluster, instance))
-		return
+		diags.AddError(errorSummary, notInInstance(instance, cluster))
+		return false
 	}
 	if err != nil {
 		diags.AddError(errorSummary, fmt.Sprintf("Error message: %s", err.Error()))
-		return
+		var httpErr *webclient.HTTPError
+		return !errors.As(err, &httpErr) || httpErr.StatusCode >= http.StatusInternalServerError
 	}
 	answer, err := r.provider.client.GetInstanceClusterSchemaRegistry(instance, cluster)
 	if err != nil {
 		diags.AddError("Client Error", fmt.Sprintf("Unable to read Instance-Cluster schema registry, got error: %s", err))
-		return
+		return true
 	}
 	data.Id = types.StringValue(instance + "/" + cluster)
 	diags.Append(mapSchemaRegistryResponseToData(ctx, data, answer)...)
+	return false
+}
+
+// notInInstance is the error for a Cluster that is not in the Instance. Platform Manager answers a 400 for
+// an Instance or Cluster that does not exist, and a 404 (16.1.0: a 403) for a pair that is not linked.
+func notInInstance(instance, cluster string) string {
+	return fmt.Sprintf("Cluster %s is not in the clusters of Instance %s. Add it to the Instance first.", cluster, instance)
+}
+
+// unknownAsNull returns the registry with each value that is not known yet set to null, as the state
+// must hold known values only.
+func unknownAsNull(ctx context.Context, registry types.Object, diags *diag.Diagnostics) types.Object {
+	values := registry.Attributes()
+	for name, value := range values {
+		if value.IsUnknown() {
+			null, err := value.Type(ctx).ValueFromTerraform(ctx, tftypes.NewValue(value.Type(ctx).TerraformType(ctx), nil))
+			if err != nil {
+				diags.AddError("Unable to set a null value", err.Error())
+				continue
+			}
+			values[name] = null
+		}
+	}
+	object, d := types.ObjectValue(registry.AttributeTypes(ctx), values)
+	diags.Append(d...)
+	return object
 }
 
 func (r *instanceClusterResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -697,22 +735,6 @@ func lostSecrets(registry *schemaRegistryData, credentials webclient.SchemaRegis
 		lost = append(lost, "private key")
 	}
 	return strings.Join(lost, " and ")
-}
-
-// holdsPlannedValues reports whether an existing registry already has every value that the plan knows.
-// The secrets are not compared: Platform Manager never returns them.
-func holdsPlannedValues(ctx context.Context, data *instanceClusterResourceData, existing *webclient.InstanceClusterSchemaRegistry) bool {
-	found := *data
-	if mapSchemaRegistryResponseToData(ctx, &found, existing).HasError() {
-		return false
-	}
-	foundValues := found.SchemaRegistry.Attributes()
-	for name, planned := range data.SchemaRegistry.Attributes() {
-		if !planned.IsUnknown() && !planned.Equal(foundValues[name]) {
-			return false
-		}
-	}
-	return true
 }
 
 // mapSchemaRegistryResponseToData writes the API's view into state. The password, private key and
