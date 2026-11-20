@@ -113,7 +113,7 @@ func TestMapFlinkClusterResponseMapsTheOwnerAndAuthorizedGroups(t *testing.T) {
 		Uid:            "id",
 		OwnerGroupId:   "owner-id",
 		OwnerGroupName: "Owner",
-		AuthorizedGroups: []webclient.FlinkClusterAuthorizedGroup{
+		AuthorizedGroups: []webclient.AuthorizedGroup{
 			{Id: "a", Name: "A"},
 			{Id: "b", Name: "B"},
 		},

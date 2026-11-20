@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -318,32 +317,9 @@ func createFlinkClusterRequestFromData(data *FlinkClusterResourceData) webclient
 		description = &value
 	}
 
-	// The same holds for the schema registries: an omitted key leaves the stored list in place,
-	// so a removed block is sent as an explicit null.
-	var schemaRegistries *[]webclient.SchemaRegistryConfig
-	if !data.SchemaRegistries.IsNull() && !data.SchemaRegistries.IsUnknown() {
-		registries := make([]webclient.SchemaRegistryConfig, 0, len(data.SchemaRegistries.Elements()))
-		for _, element := range data.SchemaRegistries.Elements() {
-			object, ok := element.(types.Object)
-			if !ok {
-				continue
-			}
-			attributes := object.Attributes()
-			registry := webclient.SchemaRegistryConfig{}
-			if value, ok := attributes["type"].(types.String); ok {
-				registry.Type = value.ValueString()
-			}
-			if value, ok := attributes["url"].(types.String); ok {
-				registry.Url = value.ValueString()
-			}
-			registries = append(registries, registry)
-		}
-		schemaRegistries = &registries
-	}
-
 	return webclient.FlinkClusterRequest{
 		OwnerGroupId:       data.Owners.ValueString(),
-		AuthorizedGroupIds: authorizedGroupIdsForRequest(data),
+		AuthorizedGroupIds: authorizedGroupIdsForRequest(data.AuthorizedGroups),
 		Name:               data.Name.ValueString(),
 		Description:        description,
 		Url:                data.Url.ValueString(),
@@ -351,62 +327,8 @@ func createFlinkClusterRequestFromData(data *FlinkClusterResourceData) webclient
 		Namespace:          data.Namespace.ValueString(),
 		DeploymentTarget:   data.DeploymentTarget.ValueString(),
 		ApiToken:           data.ApiToken.ValueString(),
-		SchemaRegistries:   schemaRegistries,
+		SchemaRegistries:   schemaRegistriesForRequest(data.SchemaRegistries),
 	}
-}
-
-// authorizedGroupIdsForRequest leaves the key out when there is no value yet, which is a create without the
-// attribute: Platform Manager then starts with no authorized groups. On an update the plan holds the groups from
-// the state when the attribute is left out, so they are kept.
-func authorizedGroupIdsForRequest(data *FlinkClusterResourceData) *[]string {
-	if data.AuthorizedGroups.IsNull() || data.AuthorizedGroups.IsUnknown() {
-		return nil
-	}
-
-	ids := make([]string, 0, len(data.AuthorizedGroups.Elements()))
-	for _, element := range data.AuthorizedGroups.Elements() {
-		if value, ok := element.(types.String); ok {
-			ids = append(ids, value.ValueString())
-		}
-	}
-	return &ids
-}
-
-// schemaRegistryObjectType mirrors the nested object of the `schema_registries` attribute.
-func schemaRegistryObjectType() attr.TypeWithAttributeTypes {
-	return types.ObjectType{AttrTypes: map[string]attr.Type{
-		"type": types.StringType,
-		"url":  types.StringType,
-	}}
-}
-
-// mapSchemaRegistriesToData writes the API's list into state, keeping an unset attribute null: the
-// API answers with an empty list for a cluster that has none, which is not the same as `[]`.
-func mapSchemaRegistriesToData(data *FlinkClusterResourceData, registries []webclient.SchemaRegistryConfig) {
-	objectType := schemaRegistryObjectType()
-	if len(registries) == 0 {
-		data.SchemaRegistries = types.ListNull(objectType)
-		return
-	}
-
-	elements := make([]attr.Value, 0, len(registries))
-	for _, registry := range registries {
-		object, diags := types.ObjectValue(objectType.AttributeTypes(), map[string]attr.Value{
-			"type": types.StringValue(registry.Type),
-			"url":  types.StringValue(registry.Url),
-		})
-		if diags.HasError() {
-			continue
-		}
-		elements = append(elements, object)
-	}
-
-	list, diags := types.ListValue(objectType, elements)
-	if diags.HasError() {
-		data.SchemaRegistries = types.ListNull(objectType)
-		return
-	}
-	data.SchemaRegistries = list
 }
 
 func mapOwnerToData(data *FlinkClusterResourceData, flinkCluster *webclient.FlinkClusterResponse) {
@@ -417,16 +339,6 @@ func mapOwnerToData(data *FlinkClusterResourceData, flinkCluster *webclient.Flin
 	data.Owners = types.StringValue(flinkCluster.OwnerGroupId)
 }
 
-// mapAuthorizedGroupsToData writes the API's groups into state. The attribute is computed, so a cluster without
-// authorized groups is an empty set, never null.
-func mapAuthorizedGroupsToData(data *FlinkClusterResourceData, flinkCluster *webclient.FlinkClusterResponse) {
-	ids := make([]attr.Value, 0, len(flinkCluster.AuthorizedGroups))
-	for _, group := range flinkCluster.AuthorizedGroups {
-		ids = append(ids, types.StringValue(group.Id))
-	}
-	data.AuthorizedGroups = types.SetValueMust(types.StringType, ids)
-}
-
 func mapFlinkClusterResponseToData(data *FlinkClusterResourceData, flinkCluster *webclient.FlinkClusterResponse) {
 	data.Id = types.StringValue(flinkCluster.Uid)
 	data.Name = types.StringValue(flinkCluster.Name)
@@ -434,9 +346,9 @@ func mapFlinkClusterResponseToData(data *FlinkClusterResourceData, flinkCluster 
 	data.Workspace = types.StringValue(flinkCluster.Workspace)
 	data.Namespace = types.StringValue(flinkCluster.Namespace)
 	data.DeploymentTarget = types.StringValue(flinkCluster.DeploymentTarget)
-	mapSchemaRegistriesToData(data, flinkCluster.SchemaRegistries)
+	data.SchemaRegistries = schemaRegistriesToList(flinkCluster.SchemaRegistries)
 	mapOwnerToData(data, flinkCluster)
-	mapAuthorizedGroupsToData(data, flinkCluster)
+	data.AuthorizedGroups = authorizedGroupsToSet(flinkCluster.AuthorizedGroups)
 
 	if flinkCluster.Description == "" {
 		data.Description = types.StringNull()
