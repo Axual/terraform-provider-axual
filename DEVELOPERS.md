@@ -194,7 +194,7 @@ Before running acceptance tests:
        - SSL using `Axual Dummy Root CA` as the Signing Authority
      - `GranularBrowsePermission` is enabled
      - `ConnectSupport` is enabled
-     - has a `KSML Provisioner` configured
+     - KSML is enabled for the tenant, and a KSML provisioner is reachable from Platform Manager (see `ksmlRuntimeUrl` below)
      - has an `Apicurio` Schema Registry configured
      - `certificateReusePreventionLevel` is set to `None`
    - `groupName`: A group you are a member of
@@ -230,6 +230,17 @@ Before running acceptance tests:
    Instance-Cluster named by `clusterId` before running the tests — including one left behind by a
    test run that failed part-way through, which is a common cause of a Flink test failing during its
    setup step.
+
+   The following value is only needed by the KSML runtime tests (`internal/tests/KsmlRuntimeResource`)
+   and the KSML part of the Application Deployment tests. They register their own KSML runtimes on
+   the Instance-Cluster named by `clusterId` (shared with the Flink tests, and a cluster of the
+   instance named by `instanceName`), so they need a Tenant Admin or a Platform Admin, and the group
+   named by `groupName` as the owner of the test application. They skip themselves while `clusterId`
+   or `ksmlRuntimeUrl` is still a placeholder.
+   - `ksmlRuntimeUrl`: The URL of a KSML provisioner that Platform Manager can reach. Exposed to the
+     test fixtures as `local.ksml_runtime_url` and used as the `url` of `axual_ksml_runtime`. The
+     Application Deployment test starts a real KSML application on it. It may be the URL of a KSML
+     runtime that is already registered: Platform Manager accepts several KSML runtimes with one URL.
 
    The following values are only needed by the Kafka Connect tests
    (`internal/tests/ConnectClusterDataSource` and `internal/tests/ApplicationDeploymentStateResource`).
@@ -379,8 +390,8 @@ When running tests for the first time, try them in this order to verify your set
 
    Note that everything under `./internal/tests/...` is an acceptance test: the test provider reads
    its credentials from `test_config.yaml`, so nothing skips for a missing `TF_ACC`. The Flink, Kafka
-   Connect, Cluster and Instance suites are the exception: they skip while their `YOUR_...`
-   placeholders are still in place.
+   Connect, Cluster, Instance and KSML runtime suites are the exception: they skip while their
+   `YOUR_...` placeholders are still in place.
    Narrow a run with `-run '<TestName>'` while working on one suite — a full run creates and destroys
    every fixture, and an interrupted one leaves resources behind that have to be cleaned by hand.
 

@@ -221,13 +221,13 @@ in the Terraform state only.
   decision of the topic team, and `DENIED` would reject the team's next request.
 - When you set more than one filter, a resource must match all of them.
 
-`axual_flink_cluster` and `axual_instance_cluster` have no list resource: they need an instance and
-cluster ID.
+`axual_flink_cluster`, `axual_instance_cluster` and `axual_ksml_runtime` have no list resource: they
+need an instance and cluster ID.
 
 ## Importing a single resource by identity
 
-Every resource except `axual_flink_cluster` and `axual_instance_cluster` also accepts an `identity` in
-an `import` block, as an alternative to `id`:
+Every resource except `axual_flink_cluster`, `axual_instance_cluster` and `axual_ksml_runtime` also
+accepts an `identity` in an `import` block, as an alternative to `id`:
 
 ```terraform
 import {

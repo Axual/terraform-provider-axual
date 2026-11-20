@@ -10,6 +10,7 @@
 - Updating the resource stops the application first (if it is running), applies the update, and starts it again, for every deployment type including **Connector** (a registered Kafka Connect cluster or legacy Axual Connect). With `autostart = false` it is started again only if it was running before the update. One exception:
   - a **FLINK_SQL** deployment is *resumed* rather than started, so it continues from its last checkpoint, and a change of `deployment_size` alone is stored without stopping the job at all - the running job keeps its current size, and the new one takes effect the next time the job is deployed.
 - To move a **Connector** from a Kafka Connect cluster back to legacy Axual Connect, set `target_id = "axualconnect-<instance short name>"`, the value the deployment reports for Axual Connect. Removing `target_id` from the configuration keeps the current target. A move in either direction resets the stopped connector on its old cluster first, so it is removed there; its consumer group offsets stay.
+- To move a **KSML** deployment to another KSML runtime, change `target_id` to the id of that [`axual_ksml_runtime`](ksml_runtime.md). The deployment is stopped, moved and started again, without being replaced. Platform Manager removes the application from the old KSML runtime, including its state store. Removing `target_id` from the configuration keeps the current KSML runtime.
 - Deleting the `axual_application_deployment` resource automatically stops the application (if it is running) before removing it.
 - For more information about connector applications in Axual, refer to the documentation: [Starting Connectors](https://docs.axual.io/connect/Axual-Connect/starting-connectors.html).
 - Currently, a data source for `axual_application_deployment` is not supported.
@@ -35,6 +36,14 @@ Activation options:
 KSML deployments are unaffected - they allow one authentication (`axual_application_credential` or `axual_application_principal`) and do not require an active principal.
 
 A **Connector** deployment whose `target_id` names a registered Kafka Connect cluster (see [`axual_connect_cluster`](../data-sources/connect_cluster.md)) only works with `autostart = false`. On an `MTLS` cluster it uses an `axual_application_principal`, and Platform Manager writes the principal's private key to the Connect cluster's Vault only when the deployment and its target already exist. On a `SASL_SCRAM` cluster it uses an `axual_application_credential`, which Platform Manager creates only for a deployment whose target is already stored. So create the deployment with `autostart = false`, give the principal or credential `depends_on = [axual_application_deployment...]`, and start it with an `axual_application_deployment_state`. With `autostart = true` the provider refuses it with `Kafka Connect cluster needs autostart = false`: in `terraform plan` when the application already exists, otherwise in `terraform apply`, before anything is created.
+
+### Prerequisites: KSML
+
+On a Platform Manager with KSML runtimes (see [Platform Manager version](#platform-manager-version)), a `Ksml` deployment runs on an [`axual_ksml_runtime`](ksml_runtime.md):
+
+- A new deployment needs a `target_id` naming an `axual_ksml_runtime` of the environment's instance. Without it, Platform Manager refuses the deployment with "A `targetId` referring to a KSML runtime must be provided".
+- The owner Group of the application must be in the `authorized_groups` of that KSML runtime, or Platform Manager refuses to create, update or start the deployment with `403 Forbidden`.
+- A deployment that existed before Platform Manager had KSML runtimes keeps working without `target_id` in the configuration: Platform Manager assigned it the KSML runtime of its instance when it was upgraded, and the plan shows no change.
 
 ### Prerequisites: FLINK_SQL
 
@@ -63,6 +72,7 @@ A `FLINK_SQL` deployment needs all of the following before it can be created. Th
 | A `Connector` on Axual Connect (no `target_id`), with `autostart = true` or `false` | 15.0.x or later |
 | A `Ksml` deployment | 15.0.x or later |
 | A change of `target_id` on a `Ksml` deployment | 16.0.0 or later |
+| A `Ksml` deployment on an `axual_ksml_runtime`: `target_id` is required for a new deployment | 17.0.0 or later |
 | A `Connector` whose `target_id` names a registered Kafka Connect cluster, and `target_version` | 16.0.0 or later |
 | A `Connector` deployment without `configs` | 16.0.0 or later |
 | A `FLINK_SQL` deployment (`sql_script`, `generate_tables_sql` and the other Flink attributes) | 16.0.0 or later |
