@@ -259,11 +259,11 @@ func (r *instanceClusterResource) Schema(ctx context.Context, req resource.Schem
 						Optional:            true,
 						Attributes: map[string]schema.Attribute{
 							"url":             schema.StringAttribute{Required: true, Validators: []validator.String{notEmpty}, MarkdownDescription: "Keycloak base URL."},
-							"master_realm":    schema.StringAttribute{Required: true, MarkdownDescription: "The realm the admin user signs in to, usually `master`."},
-							"admin_username":  schema.StringAttribute{Required: true, MarkdownDescription: "Keycloak admin username."},
-							"admin_password":  schema.StringAttribute{Required: true, Sensitive: true, MarkdownDescription: "Keycloak admin password. Platform Manager never returns it, and signs in to Keycloak with it on every save of the registry, so a wrong one fails the apply. This field is Sensitive."},
-							"admin_client_id": schema.StringAttribute{Required: true, MarkdownDescription: "The client the admin user signs in with, usually `admin-cli`."},
-							"apicurio_realm":  schema.StringAttribute{Required: true, MarkdownDescription: "The realm of the Apicurio clients."},
+							"master_realm":    schema.StringAttribute{Required: true, Validators: []validator.String{notEmpty}, MarkdownDescription: "The realm the admin user signs in to, usually `master`."},
+							"admin_username":  schema.StringAttribute{Required: true, Validators: []validator.String{notEmpty}, MarkdownDescription: "Keycloak admin username."},
+							"admin_password":  schema.StringAttribute{Required: true, Validators: []validator.String{notEmpty}, Sensitive: true, MarkdownDescription: "Keycloak admin password. Platform Manager never returns it, and signs in to Keycloak with it on every save of the registry, so a wrong one fails the apply. This field is Sensitive."},
+							"admin_client_id": schema.StringAttribute{Required: true, Validators: []validator.String{notEmpty}, MarkdownDescription: "The client the admin user signs in with, usually `admin-cli`."},
+							"apicurio_realm":  schema.StringAttribute{Required: true, Validators: []validator.String{notEmpty}, MarkdownDescription: "The realm of the Apicurio clients."},
 						},
 					},
 					"listeners": schema.MapAttribute{

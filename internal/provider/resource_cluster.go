@@ -240,6 +240,7 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 						Sensitive:           true,
 						Validators: []validator.String{
 							stringvalidator.AlsoRequires(path.MatchRelative().AtParent().AtName("certificate")),
+							notEmpty,
 						},
 					},
 					"username": schema.StringAttribute{
@@ -256,6 +257,7 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 						Sensitive:           true,
 						Validators: []validator.String{
 							stringvalidator.AlsoRequires(path.MatchRelative().AtParent().AtName("username")),
+							notEmpty,
 						},
 					},
 					"truststore": schema.StringAttribute{
@@ -306,6 +308,7 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 						Sensitive:           true,
 						Validators: []validator.String{
 							stringvalidator.AlsoRequires(path.MatchRelative().AtParent().AtName("provisioner_username")),
+							notEmpty,
 						},
 					},
 				},

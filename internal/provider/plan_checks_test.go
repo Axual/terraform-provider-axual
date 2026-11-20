@@ -138,11 +138,13 @@ func TestEmptyStringsAreRefused(t *testing.T) {
 		attributes []string
 	}{
 		"cluster": {&clusterResource{}, []string{"description", "location", "kafka_version", "oauth_principals_prefix",
-			"broker.certificate", "broker.username", "broker.truststore", "strimzi.provisioner_url", "strimzi.provisioner_username"}},
+			"broker.certificate", "broker.private_key", "broker.username", "broker.password", "broker.truststore",
+			"strimzi.provisioner_url", "strimzi.provisioner_username", "strimzi.provisioner_password"}},
 		"instance": {&instanceResource{}, []string{"description", "connect_urls"}},
 		"instance cluster": {&instanceClusterResource{}, []string{"schema_registry.version", "schema_registry.username",
 			"schema_registry.password", "schema_registry.certificate", "schema_registry.private_key", "schema_registry.truststore",
-			"schema_registry.keycloak.url"}},
+			"schema_registry.keycloak.url", "schema_registry.keycloak.master_realm", "schema_registry.keycloak.admin_username",
+			"schema_registry.keycloak.admin_password", "schema_registry.keycloak.admin_client_id", "schema_registry.keycloak.apicurio_realm"}},
 	} {
 		schemaResp := resource.SchemaResponse{}
 		test.resource.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
