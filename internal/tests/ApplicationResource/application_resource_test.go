@@ -258,7 +258,8 @@ func TestApplicationResourceAllTypes(t *testing.T) {
 // TestApplicationResourceShortNameWithPrincipal checks that a new short_name of an application with a
 // principal works in one apply when the principal has replace_triggered_by on the short_name: the
 // principal is deleted before the application changes, and created again after. Without it, Platform
-// Manager refuses the change and the error says how to do it.
+// Manager refuses the change and the error says how to do it. The application is a Custom "Kafka Streams"
+// application: Platform Manager refuses its rename on every version.
 func TestApplicationResourceShortNameWithPrincipal(t *testing.T) {
 	const app = "axual_application.tf-test-app"
 	const principal = "axual_application_principal.tf-test-app-principal"

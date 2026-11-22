@@ -137,8 +137,8 @@ To cut access now:
 - `terraform apply -replace` on a decision revokes its grant too, and the plan doesn't show it. Don't use `-replace` on a decision.
 - `terraform destroy -target` on one of two blocks for the same grant revokes it: Terraform plans only that block, so the provider doesn't see the other one. Use `terraform state rm` to drop a duplicate.
 - Changing `application` from a name to a UID (or the reverse) is an in-place update without an action.
-- Changing `application`, `topic`, `environment`, `access_type` or `grant_id` to another grant replaces the block, which revokes the old grant (with `revoke_on_destroy = false` it stays `Approved`, and the plan warns).
-- When the same apply replaces the application of a decision that names it by UID (`application = axual_application.<name>.id`), the plan shows an in-place update, because the new UID is known only at apply. The apply decides on the new application's grant, and `id` follows the new UID.
+- Changing `application`, `topic`, `environment`, `access_type` or `grant_id` to another grant replaces the block, which revokes the old grant (with `revoke_on_destroy = false` it stays `Approved`, and the plan warns). When the old grant no longer exists, it is an in-place update.
+- When the same apply replaces the application of a decision that names it by UID (`application = axual_application.<name>.id`), the plan shows an in-place update, because the new UID is known only at apply. With `depends_on = [axual_application_access_grant.<name>]` the apply decides on the new grant, and `id` follows the new UID. Without it, the decision can run before the new grant exists: the apply warns, and the next apply decides.
 
 ## A decision by name and an application created again
 

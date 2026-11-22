@@ -263,7 +263,8 @@ func shortNameHint(err error) string {
 		return ""
 	}
 	return "\n\nTo change short_name in one apply, add lifecycle { replace_triggered_by = [axual_application.<name>.short_name] } " +
-		"to the principals, credentials and deployments of this application (see \"Changing short_name\" in the axual_application documentation)."
+		"to the principals, credentials and deployments of this application. With access grants, read \"Changing short_name\" " +
+		"in the axual_application documentation first."
 }
 
 func (r *applicationResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

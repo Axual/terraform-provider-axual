@@ -95,9 +95,10 @@ func TestGrantMatchesLookups(t *testing.T) {
 // decisionPM is a fake Platform Manager with the grants of one topic, environment and access type.
 // It records the approve and deny calls.
 type decisionPM struct {
-	mu     sync.Mutex
-	grants map[string]map[string]any
-	calls  []string
+	mu        sync.Mutex
+	grants    map[string]map[string]any
+	calls     []string
+	forbidden string // a grant whose GET answers 403
 }
 
 const (
@@ -128,6 +129,8 @@ func (f *decisionPM) handler(w http.ResponseWriter, r *http.Request) {
 			list = append(list, g)
 		}
 		_ = json.NewEncoder(w).Encode(list)
+	case r.Method == http.MethodGet && parts[0] == f.forbidden:
+		w.WriteHeader(http.StatusForbidden)
 	case !strings.HasPrefix(r.URL.Path, "/application_access_grants/") || f.grants[parts[0]] == nil:
 		w.WriteHeader(http.StatusNotFound)
 	case r.Method == http.MethodPut:
@@ -310,5 +313,58 @@ func TestDecisionSameGrantPlanStillStopsOnAnotherGrant(t *testing.T) {
 	}
 	if len(pm.calls) != 0 {
 		t.Errorf("calls = %v, expected none", pm.calls)
+	}
+}
+
+// TestDecisionOtherGrantWithOldGrantForbidden: a 403 on the old grant is not "gone". The plan replaces
+// the block, as before, and an update that the plan made for another grant fails instead of leaving the
+// old grant Approved.
+func TestDecisionOtherGrantWithOldGrantForbidden(t *testing.T) {
+	pm := &decisionPM{grants: map[string]map[string]any{}, forbidden: "g1"}
+	pm.add("g1", "Approved", decisionAppA)
+	pm.add("g2", "Pending", decisionAppB)
+	client := fakePM(t, pm.handler)
+	r := &grantDecisionResource{provider: AxualProvider{client: client, grants: newGrantCache(client)}}
+
+	resp, _ := planDecisionFrom(t, r, decisionState(), types.StringValue(decisionAppB))
+	if resp.Diagnostics.HasError() || len(resp.RequiresReplace) == 0 {
+		t.Errorf("plan: replace %v, diagnostics %v; expected a replace", resp.RequiresReplace, resp.Diagnostics)
+	}
+
+	planned := decisionState()
+	planned.Application, planned.Id = types.StringValue(decisionAppB), types.StringUnknown()
+	planned.GrantId, planned.CurrentStatus, planned.ClosedOutside, planned.ApplicationUid =
+		types.StringUnknown(), types.StringUnknown(), types.BoolUnknown(), types.StringUnknown()
+	out := emptyState(t, r)
+	var diags diag.Diagnostics
+	r.apply(context.Background(), planned, decisionState(), false, false, grantDecisionPrivate{}, &out, nil, nil, &diags)
+	if !diags.HasError() || len(pm.calls) != 0 {
+		t.Errorf("apply: diagnostics %v, calls %v; expected an error and no calls", diags, pm.calls)
+	}
+}
+
+// TestDecisionUpdateToAnotherGrantKeepsRevokeOnDestroyFalse: with revoke_on_destroy = false the old
+// grant stays Approved, as in a replace.
+func TestDecisionUpdateToAnotherGrantKeepsRevokeOnDestroyFalse(t *testing.T) {
+	t.Parallel() // an approve waits 10 seconds
+	pm := &decisionPM{grants: map[string]map[string]any{}}
+	pm.add("g1", "Approved", decisionAppA)
+	pm.add("g2", "Pending", decisionAppB)
+	client := fakePM(t, pm.handler)
+	r := &grantDecisionResource{provider: AxualProvider{client: client, grants: newGrantCache(client)}}
+	state := decisionState()
+	state.RevokeOnDestroy = types.BoolValue(false)
+	planned := state
+	planned.Application, planned.Id = types.StringValue(decisionAppB), types.StringUnknown()
+	planned.GrantId, planned.CurrentStatus, planned.ClosedOutside, planned.ApplicationUid =
+		types.StringUnknown(), types.StringUnknown(), types.BoolUnknown(), types.StringUnknown()
+	out := emptyState(t, r)
+	var diags diag.Diagnostics
+	r.apply(context.Background(), planned, state, false, false, grantDecisionPrivate{}, &out, nil, nil, &diags)
+	if diags.HasError() {
+		t.Fatalf("apply: %v", diags)
+	}
+	if expected := []string{"approve g2"}; !slices.Equal(pm.calls, expected) {
+		t.Errorf("calls = %v, expected %v", pm.calls, expected)
 	}
 }

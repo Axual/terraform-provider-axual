@@ -4,7 +4,7 @@ resource "axual_application" "tf-test-app" {
   short_name       = "tf_test_app_short_name2"
   application_id   = "tf.test.app.short.name"
   owners           = data.axual_group.test_group.id
-  type             = "Java"
+  type             = "Kafka Streams"
   visibility       = "Public"
 }
 
