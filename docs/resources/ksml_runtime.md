@@ -36,7 +36,7 @@ A KSML runtime registers a KSML provisioner on an Instance-Cluster, so KSML appl
 - `instance_id` (String) The Uid of the Instance this KSML runtime belongs to.
 - `name` (String) Human-readable name of the KSML runtime. Must be between 3 and 50 characters, and unique within your tenant, ignoring case. Platform Manager does not allow renaming, so changing the name destroys and re-creates the KSML runtime.
 - `owners` (String) The id of the Group that owns the KSML runtime, for example `data.axual_group.platform_team.id`. Members of the owner Group can edit the KSML runtime, but owning it does not allow deploying to it: add the Group to `authorized_groups` for that. Only a Tenant Admin or a Platform Admin can change the owner.
-- `url` (String) Base URL of the KSML provisioner, e.g. `https://ksml.example.com`. Must be at most 255 characters.
+- `url` (String) Base URL of the KSML provisioner, e.g. `https://ksml.example.com`. Must be 1 to 255 characters, without white space around it.
 
 ### Optional
 

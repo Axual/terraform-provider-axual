@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -216,6 +217,28 @@ func TestKsmlRuntimeSchemaReplacesOnlyOnNameInstanceAndCluster(t *testing.T) {
 		}
 		if got != replaced[name] {
 			t.Errorf("%s: requires replace = %t, expected %t", name, got, replaced[name])
+		}
+	}
+}
+
+// Platform Manager refuses a blank url and removes white space around it, so the plan refuses both.
+func TestKsmlRuntimeUrlRefusesBlankAndPaddedValues(t *testing.T) {
+	ctx := context.Background()
+	attribute := emptyState(t, &ksmlRuntimeResource{}).Schema.GetAttributes()["url"].(schema.StringAttribute)
+
+	for value, refused := range map[string]bool{
+		"":                          true,
+		"   ":                       true,
+		" https://ksml.example.com": true,
+		"https://ksml.example.com ": true,
+		"https://ksml.example.com":  false,
+	} {
+		resp := validator.StringResponse{}
+		for _, v := range attribute.Validators {
+			v.ValidateString(ctx, validator.StringRequest{Path: path.Root("url"), ConfigValue: types.StringValue(value)}, &resp)
+		}
+		if resp.Diagnostics.HasError() != refused {
+			t.Errorf("url %q: refused = %t, expected %t", value, resp.Diagnostics.HasError(), refused)
 		}
 	}
 }
