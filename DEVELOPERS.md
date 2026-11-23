@@ -296,6 +296,12 @@ Before running acceptance tests:
    the tests fail, and do not skip, when the test user is not a Tenant Admin or the tenant has Axual group
    management off.
 
+   A test skips when a value it needs is empty or still a `YOUR_` placeholder, and a package whose tests all skip
+   still reports `ok`. Set `strict: true` for a release run: such a test then fails with the name of the missing
+   value. Tests for a feature of a newer Platform Manager still skip (for example registered Kafka Connect
+   clusters and service accounts before 16.0.0). On a stack without Ververica, also set `flinkTests: false`: the
+   Flink tests then skip on purpose.
+
 4. **Creating Test Users:**
    Some tests (e.g., `TopicBrowsePermissionsResource`) require existing users to be referenced. Update the test files in [`internal/tests/TopicBrowsePermissionsResource/`](./internal/tests/TopicBrowsePermissionsResource/) with email addresses of users that exist in your test environment.
    
@@ -499,10 +505,5 @@ To debug acceptance tests in IntelliJ IDEA:
 
 ## Release Process
 
-1. Update the `CHANGELOG.md` version to the target release
-2. Update any provider.tf version to the target release in the `examples/`
-3. Update `templates/index.md.tmpl` version to the target release
-4. Generate the documentation with `go generate` command
-5. Git Commit these files
-6. Git tag and push
-7. Update the https://github.com/Axual/terraform-provider-axual/releases page with the newly released tag
+See [RELEASE_PROCEDURE.md](./RELEASE_PROCEDURE.md): the version, the release changes, the tests on three Platform
+Manager versions, the tag and the release notes.

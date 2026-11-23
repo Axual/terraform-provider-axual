@@ -2,7 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [3.3.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.3.0) - TBR
+This release has two breaking changes, marked **Breaking** under "Changed": `owners` is required on `axual_flink_cluster`, and a group that is linked to an IAM group fails the plan when the configuration sets `members` or `managers`. Read them before you upgrade from 3.2.x.
+
 ### Added
 * `owners` and `authorized_groups` on `axual_flink_cluster` (Platform Manager 17.0.0 or later). `owners` is the Group that manages the Flink Cluster. `authorized_groups` lists the Groups that may deploy Flink SQL applications to it: with no authorized Groups, no Group can deploy, the owner included. Leave `authorized_groups` out to keep the Groups the Flink Cluster has; `authorized_groups = []` removes all of them
 * `tags` on `axual_topic` and the `axual_topic` data source: the topic tags shown in the Self-Service UI. Leaving out `tags` keeps the tags the topic has; `tags = []` removes them ([#177](https://github.com/Axual/terraform-provider-axual/issues/177))
