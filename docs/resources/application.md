@@ -96,11 +96,13 @@ application has grants:
   owner approves grants, the new request stays Pending until it is approved again. A decision with
   `grant_id = axual_application_access_grant.<name>.id` in the same configuration approves it in the same
   apply, with no extra block. A decision by name or UID needs the `lifecycle` block and
-  `depends_on = [axual_application_access_grant.<name>]`.
+  `depends_on = [axual_application_access_grant.<name>]`. Replacing the decision does no harm here: the grant
+  is revoked and requested again anyway, and the new decision approves the new request.
 
 For a one-off rename without `lifecycle` blocks, run `terraform apply -replace=<address>` for each
 principal, credential and deployment of the application, in the same apply as the new `short_name`. With
-grants, the rules above still apply: add the `depends_on`, or also replace the grants.
+grants, the rules above still apply: add the `depends_on`, or also replace the grants, and the decisions by
+name or UID that approve them (a decision with `grant_id` is replaced by itself).
 
 For a production application whose grants must not be revoked, create a new application with the new
 `short_name` instead. Get its grants approved, move the clients to it, and then delete the old application.

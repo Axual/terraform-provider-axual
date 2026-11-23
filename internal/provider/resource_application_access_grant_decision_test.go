@@ -255,28 +255,31 @@ func TestDecisionPlanKeepsItsActionWhenTheApplicationIsReplaced(t *testing.T) {
 	}
 }
 
-// TestDecisionUpdateToAnotherGrantRevokesTheOldOne: an update that the plan made for another grant
-// (current_status unknown) revokes the old grant if it is still Approved, as a replace does, and then
-// decides on the new one.
-func TestDecisionUpdateToAnotherGrantRevokesTheOldOne(t *testing.T) {
-	t.Parallel() // an approve waits 10 seconds
-	pm := &decisionPM{grants: map[string]map[string]any{}}
-	pm.add("g1", "Approved", decisionAppA)
-	pm.add("g2", "Pending", decisionAppB)
-	client := fakePM(t, pm.handler)
-	r := &grantDecisionResource{provider: AxualProvider{client: client, grants: newGrantCache(client)}}
-	planned := decisionState()
-	planned.Application, planned.Id = types.StringValue(decisionAppB), types.StringUnknown()
-	planned.GrantId, planned.CurrentStatus, planned.ClosedOutside, planned.ApplicationUid =
-		types.StringUnknown(), types.StringUnknown(), types.BoolUnknown(), types.StringUnknown()
-	out := emptyState(t, r)
-	var diags diag.Diagnostics
-	r.apply(context.Background(), planned, decisionState(), false, false, grantDecisionPrivate{}, &out, nil, nil, &diags)
-	if diags.HasError() {
-		t.Fatalf("apply: %v", diags)
-	}
-	if expected := []string{"deny g1", "approve g2"}; !slices.Equal(pm.calls, expected) {
-		t.Errorf("calls = %v, expected %v", pm.calls, expected)
+// TestDecisionUpdateToAnotherGrantStopsWhenTheOldOneIsThere: Terraform plans again at apply, and that
+// plan keeps an update to another grant only when the old grant is gone. If the old grant is there when
+// the apply runs, the apply changes nothing, with or without revoke_on_destroy.
+func TestDecisionUpdateToAnotherGrantStopsWhenTheOldOneIsThere(t *testing.T) {
+	for _, revokeOnDestroy := range []bool{true, false} {
+		pm := &decisionPM{grants: map[string]map[string]any{}}
+		pm.add("g1", "Approved", decisionAppA)
+		pm.add("g2", "Pending", decisionAppB)
+		client := fakePM(t, pm.handler)
+		r := &grantDecisionResource{provider: AxualProvider{client: client, grants: newGrantCache(client)}}
+		state := decisionState()
+		state.RevokeOnDestroy = types.BoolValue(revokeOnDestroy)
+		planned := state
+		planned.Application, planned.Id = types.StringValue(decisionAppB), types.StringUnknown()
+		planned.GrantId, planned.CurrentStatus, planned.ClosedOutside, planned.ApplicationUid =
+			types.StringUnknown(), types.StringUnknown(), types.BoolUnknown(), types.StringUnknown()
+		out := emptyState(t, r)
+		var diags diag.Diagnostics
+		r.apply(context.Background(), planned, state, false, false, grantDecisionPrivate{}, &out, nil, nil, &diags)
+		if !diags.HasError() || !strings.Contains(diags.Errors()[0].Summary(), "The grant changed between plan and apply") {
+			t.Errorf("revoke_on_destroy %t: apply diagnostics = %v, expected \"The grant changed between plan and apply\"", revokeOnDestroy, diags)
+		}
+		if len(pm.calls) != 0 {
+			t.Errorf("revoke_on_destroy %t: calls = %v, expected none", revokeOnDestroy, pm.calls)
+		}
 	}
 }
 
@@ -340,31 +343,5 @@ func TestDecisionOtherGrantWithOldGrantForbidden(t *testing.T) {
 	r.apply(context.Background(), planned, decisionState(), false, false, grantDecisionPrivate{}, &out, nil, nil, &diags)
 	if !diags.HasError() || len(pm.calls) != 0 {
 		t.Errorf("apply: diagnostics %v, calls %v; expected an error and no calls", diags, pm.calls)
-	}
-}
-
-// TestDecisionUpdateToAnotherGrantKeepsRevokeOnDestroyFalse: with revoke_on_destroy = false the old
-// grant stays Approved, as in a replace.
-func TestDecisionUpdateToAnotherGrantKeepsRevokeOnDestroyFalse(t *testing.T) {
-	t.Parallel() // an approve waits 10 seconds
-	pm := &decisionPM{grants: map[string]map[string]any{}}
-	pm.add("g1", "Approved", decisionAppA)
-	pm.add("g2", "Pending", decisionAppB)
-	client := fakePM(t, pm.handler)
-	r := &grantDecisionResource{provider: AxualProvider{client: client, grants: newGrantCache(client)}}
-	state := decisionState()
-	state.RevokeOnDestroy = types.BoolValue(false)
-	planned := state
-	planned.Application, planned.Id = types.StringValue(decisionAppB), types.StringUnknown()
-	planned.GrantId, planned.CurrentStatus, planned.ClosedOutside, planned.ApplicationUid =
-		types.StringUnknown(), types.StringUnknown(), types.BoolUnknown(), types.StringUnknown()
-	out := emptyState(t, r)
-	var diags diag.Diagnostics
-	r.apply(context.Background(), planned, state, false, false, grantDecisionPrivate{}, &out, nil, nil, &diags)
-	if diags.HasError() {
-		t.Fatalf("apply: %v", diags)
-	}
-	if expected := []string{"approve g2"}; !slices.Equal(pm.calls, expected) {
-		t.Errorf("calls = %v, expected %v", pm.calls, expected)
 	}
 }

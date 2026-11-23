@@ -873,10 +873,17 @@ func (r *grantDecisionResource) apply(ctx context.Context, plan, state grantDeci
 			fmt.Sprintf("grant_id is %s, but the lookup attributes find grant %s. Nothing was changed.", plan.GrantId.ValueString(), g.Uid))
 		return
 	}
-	// An update planned for another grant: revoke the old grant as a replace would, then act as a new block.
+	// An update planned for another grant: the plan made again at apply found the old grant gone, so act
+	// as a new block. If the old grant is there now, act on nothing.
 	if !create && !byGrant && plan.CurrentStatus.IsUnknown() && lookupsDiffer(plan, state) &&
 		(g == nil || !known(state.GrantId) || g.Uid != state.GrantId.ValueString()) {
-		if !r.revokeOld(ctx, state, diags) {
+		gone, ok := r.grantGone(state, diags)
+		if !ok {
+			return
+		}
+		if !gone {
+			diags.AddError("The grant changed between plan and apply",
+				fmt.Sprintf("The plan was made when grant %s was gone, but it is there now. Nothing was changed. Run plan again.", state.GrantId.ValueString()))
 			return
 		}
 		create = true
@@ -1021,47 +1028,21 @@ func (r *grantDecisionResource) Delete(ctx context.Context, req resource.DeleteR
 		resp.Diagnostics.AddError("Failed to find the application access grant", err.Error())
 		return
 	}
-	r.revokeApproved(state, g, &resp.Diagnostics)
+	if g != nil && g.Status == "Approved" {
+		if err := r.provider.client.RevokeOrDenyGrant(g.Uid, destroyReason(state)); err != nil {
+			// Revoked or deleted at the same time by another resource in this destroy, for example the grant.
+			if now, getErr := r.provider.client.GetGrantView(g.Uid); isGone(getErr) || (getErr == nil && now.IsClosed()) {
+				return
+			}
+			resp.Diagnostics.AddError(fmt.Sprintf("Failed to revoke %s", grantName(*g)), err.Error())
+		}
+	}
 }
 
 // lookupsDiffer: the plan's application, topic, environment or access_type is not the state's.
 func lookupsDiffer(plan, state grantDecisionData) bool {
 	return !plan.Application.Equal(state.Application) || !plan.Topic.Equal(state.Topic) ||
 		!plan.Environment.Equal(state.Environment) || !plan.AccessType.Equal(state.AccessType)
-}
-
-// revokeOld revokes the grant of the state when an update points the block at another grant, as Delete
-// does in a replace: only with revoke_on_destroy. A grant that is gone is left alone.
-func (r *grantDecisionResource) revokeOld(ctx context.Context, state grantDecisionData, diags *diag.Diagnostics) bool {
-	if !state.RevokeOnDestroy.ValueBool() || !known(state.GrantId) {
-		return true
-	}
-	old, err := r.provider.client.GetGrantView(state.GrantId.ValueString())
-	if isGone(err) {
-		return true
-	}
-	if err != nil {
-		diags.AddError("Failed to read the old application access grant", err.Error())
-		return false
-	}
-	tflog.Info(ctx, fmt.Sprintf("The decision points at another grant: revoking grant %s if it is Approved", old.Uid))
-	return r.revokeApproved(state, old, diags)
-}
-
-// revokeApproved revokes g when it is Approved, as removing the block does. A grant that is gone or
-// closed by another resource in the same apply is fine.
-func (r *grantDecisionResource) revokeApproved(state grantDecisionData, g *webclient.GrantView, diags *diag.Diagnostics) bool {
-	if g == nil || g.Status != "Approved" {
-		return true
-	}
-	if err := r.provider.client.RevokeOrDenyGrant(g.Uid, destroyReason(state)); err != nil {
-		if now, getErr := r.provider.client.GetGrantView(g.Uid); isGone(getErr) || (getErr == nil && now.IsClosed()) {
-			return true
-		}
-		diags.AddError(fmt.Sprintf("Failed to revoke %s", grantName(*g)), err.Error())
-		return false
-	}
-	return true
 }
 
 // destroyReason is the reason sent when removing the block revokes the grant. The decision's own reason
