@@ -32,6 +32,68 @@ resource "axual_application" "dev_dashboard" {
 ```
 For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 
+## Changing `short_name`
+
+Platform Manager refuses a new `short_name` while the application has a principal, a credential or a
+deployment that was started, on any environment. Access grants alone do not block it.
+
+To change `short_name` in one apply, add this `lifecycle` block to each `axual_application_principal`,
+`axual_application_credential` and `axual_application_deployment` of the application:
+
+```hcl
+resource "axual_application_principal" "dev_dashboard" {
+  environment = axual_environment.development.id
+  application = axual_application.dev_dashboard.id
+  principal   = file("certs/dev_dashboard.cer")
+
+  lifecycle {
+    replace_triggered_by = [axual_application.dev_dashboard.short_name]
+  }
+}
+```
+
+When `short_name` changes, Terraform deletes these resources, then changes the application, then creates
+them again. Terraform always runs the deletes first, because these resources depend on the application.
+
+The block acts only when `short_name` changes. Adding it or removing it shows "No changes" in the plan,
+and a change of any other attribute replaces nothing. So you can keep it, or add it in the same change as
+the new `short_name` and remove it after that apply.
+
+- A principal is created again with the same certificate. This also works when the instance prevents
+  certificate reuse.
+- A credential is created again with a new username and password. Give them to the application.
+- A deployment is stopped, deleted, created again and started.
+- Do not set `create_before_destroy` on these resources: the old ones must be gone before the application
+  can change.
+
+Platform Manager does not delete the last principal of an application on an environment where the
+application has a pending or approved access grant, unless the application keeps a Kafka credential there.
+A credential that is replaced in the same apply does not count: Terraform may delete it first. So when the
+application has grants:
+
+- If the application also has an `axual_application_credential` with `target = "KAFKA"` on that
+  environment, add `depends_on = [axual_application_credential.<name>]` to the principal. Terraform then
+  deletes the principal before the credential, and the grants stay approved.
+- Otherwise add the same `lifecycle` block to the `axual_application_access_grant`, and let it depend on
+  the principal (`depends_on`). The grant is revoked and requested again. In an environment where the topic
+  owner approves grants, the new request stays Pending until it is approved again. A decision with
+  `grant_id = axual_application_access_grant.<name>.id` in the same configuration approves it in the same
+  apply, with no extra block. A decision by name or UID needs the `lifecycle` block and
+  `depends_on = [axual_application_access_grant.<name>]`. Replacing the decision does no harm here: the grant
+  is revoked and requested again anyway, and the new decision approves the new request.
+
+For a one-off rename without `lifecycle` blocks, run `terraform apply -replace=<address>` for each
+principal, credential and deployment of the application, in the same apply as the new `short_name`
+(with a saved plan: `terraform plan -replace=<address> -out=tfplan`, then `terraform apply tfplan`). With
+`count` or `for_each`, name each instance and put the whole argument in single quotes, for example
+`-replace='axual_application_principal.dev_dashboard["dev"]'`: an address without the key replaces
+nothing, and the apply then fails. With grants, the rules above still apply: add the `depends_on`, or also
+replace the grants, and the decisions by name or UID that approve them (a decision with `grant_id` is
+replaced by itself).
+
+For a production application whose grants must not be revoked, create a new application with the new
+`short_name` instead. Get its grants approved, move the clients to it, and then delete the old application.
+
 ## Import
 
 Import is supported by ID, or by name (`name:`):

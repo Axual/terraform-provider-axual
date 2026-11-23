@@ -13,6 +13,7 @@
 - Deleting the `axual_application_deployment` resource automatically stops the application (if it is running) before removing it.
 - For more information about connector applications in Axual, refer to the documentation: [Starting Connectors](https://docs.axual.io/connect/Axual-Connect/starting-connectors.html).
 - Currently, a data source for `axual_application_deployment` is not supported.
+- A deployment that was started blocks a new `short_name` of its application. See "Changing `short_name`" in [`axual_application`](application.md).
 
 ### Prerequisite: active Application Principal (Connector only, `autostart = true`)
 

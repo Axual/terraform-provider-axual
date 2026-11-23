@@ -1,12 +1,16 @@
 package ApplicationAccessGrantDecisionResource
 
 import (
+	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 
 	. "axual.com/terraform-provider-axual/internal/tests"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
 const (
@@ -164,6 +168,57 @@ func TestApplicationAccessGrantDecisionFromApproval(t *testing.T) {
 			{
 				Destroy: true,
 				Config:  config("grant.tf", "decision_approved.tf", "moved_from_approval.tf"),
+			},
+		},
+	})
+}
+
+// idNamesApplication checks that the decision's id ends with the UID of the application, so it follows
+// a replaced application.
+func idNamesApplication(s *terraform.State) error {
+	d, app := s.RootModule().Resources[decision], s.RootModule().Resources["axual_application.tf-test-app"]
+	if d == nil || app == nil {
+		return fmt.Errorf("decision or application not in the state")
+	}
+	if !strings.HasSuffix(d.Primary.ID, "/"+app.Primary.ID) {
+		return fmt.Errorf("decision id %s doesn't end with the application UID %s", d.Primary.ID, app.Primary.ID)
+	}
+	return nil
+}
+
+// TestApplicationAccessGrantDecisionApplicationReplaced replaces the application (and so its grant) of a
+// decision that names it by UID. The UID is unknown in the plan, so the decision is planned as an update,
+// and it must stay one when the apply knows the new UID: it approves the new grant in the same apply,
+// and id follows the new application. Before, the apply failed with "Provider produced inconsistent
+// final plan".
+func TestApplicationAccessGrantDecisionApplicationReplaced(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: config("grant.tf", "decision_by_uid.tf"),
+				Check:  resource.TestCheckResourceAttr(decision, "current_status", "Approved"),
+			},
+			{
+				Config: config("grant.tf", "decision_by_uid.tf"),
+				Taint:  []string{"axual_application.tf-test-app", grant},
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("axual_application.tf-test-app", plancheck.ResourceActionDestroyBeforeCreate),
+						plancheck.ExpectResourceAction(decision, plancheck.ResourceActionUpdate),
+					},
+				},
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(decision, "current_status", "Approved"),
+					resource.TestCheckResourceAttrPair(decision, "application_uid", "axual_application.tf-test-app", "id"),
+					resource.TestCheckResourceAttrPair(decision, "grant_id", grant, "id"),
+					idNamesApplication,
+				),
+			},
+			{
+				Destroy: true,
+				Config:  config("grant.tf", "decision_by_uid.tf"),
 			},
 		},
 	})

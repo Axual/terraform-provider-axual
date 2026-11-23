@@ -5,7 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	custom_validator "axual.com/terraform-provider-axual/internal/custom-validator"
@@ -214,7 +216,7 @@ func (r *applicationResource) Update(ctx context.Context, req resource.UpdateReq
 	}
 	Application, err := r.provider.client.UpdateApplication(data.Id.ValueString(), ApplicationRequest)
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update Application, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update Application, got error: %s", err)+shortNameHint(err))
 		return
 	}
 
@@ -247,6 +249,22 @@ func (r *applicationResource) Delete(ctx context.Context, req resource.DeleteReq
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete Application, got error: %s", err))
 		return
 	}
+}
+
+// shortNameLocked is in the 400 that Platform Manager answers when the short name of an application
+// with principals, credentials or deployments is changed.
+const shortNameLocked = "ShortName cannot be edited"
+
+// shortNameHint returns how to change the short name in one apply when err is that refusal, and ""
+// otherwise.
+func shortNameHint(err error) string {
+	var httpErr *webclient.HTTPError
+	if !errors.As(err, &httpErr) || httpErr.StatusCode != http.StatusBadRequest || !strings.Contains(httpErr.Body, shortNameLocked) {
+		return ""
+	}
+	return "\n\nTo change short_name in one apply, add lifecycle { replace_triggered_by = [axual_application.<name>.short_name] } " +
+		"to the principals, credentials and deployments of this application. With access grants, read \"Changing short_name\" " +
+		"in the axual_application documentation first."
 }
 
 func (r *applicationResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
