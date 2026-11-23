@@ -374,8 +374,6 @@ func TestIsConnectTargetChange(t *testing.T) {
 	}
 }
 
-// TestUpdateRequestSendsTargetOnlyWhenItChanges guards Platform Manager 15.0.x, which refuses a
-// PATCH body that contains `targetId` or `targetVersion`.
 // A KSML deployment is created on the KSML runtime named by `target_id`. Without it the key is left
 // out, and the Platform Manager decides.
 func TestCreateRequestSendsTheTargetOfAKsmlDeployment(t *testing.T) {
@@ -421,6 +419,8 @@ func TestCreateRequestSendsTheTargetOfAKsmlDeployment(t *testing.T) {
 	}
 }
 
+// TestUpdateRequestSendsTargetOnlyWhenItChanges guards Platform Manager 15.0.x, which refuses a
+// PATCH body that contains `targetId` or `targetVersion`.
 func TestUpdateRequestSendsTargetOnlyWhenItChanges(t *testing.T) {
 	deployment := func(appType, targetId, targetVersion string) ApplicationDeploymentResourceData {
 		data := ApplicationDeploymentResourceData{
