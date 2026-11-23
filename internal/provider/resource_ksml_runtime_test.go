@@ -8,6 +8,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -239,6 +240,31 @@ func TestKsmlRuntimeUrlRefusesBlankAndPaddedValues(t *testing.T) {
 		}
 		if resp.Diagnostics.HasError() != refused {
 			t.Errorf("url %q: refused = %t, expected %t", value, resp.Diagnostics.HasError(), refused)
+		}
+	}
+}
+
+// Platform Manager answers an empty list for no schema registries, which is null in the state, so
+// the plan refuses `schema_registries = []`: leaving the attribute out is what clears the list.
+func TestKsmlRuntimeSchemaRegistriesRefusesAnEmptyList(t *testing.T) {
+	ctx := context.Background()
+	attribute := emptyState(t, &ksmlRuntimeResource{}).Schema.GetAttributes()["schema_registries"].(schema.ListNestedAttribute)
+	registry := []webclient.SchemaRegistryConfig{{Type: "APICURIO", Url: "https://sr.example.com"}}
+
+	for name, tt := range map[string]struct {
+		value   types.List
+		refused bool
+	}{
+		"empty list":   {types.ListValueMust(schemaRegistryObjectType(), []attr.Value{}), true},
+		"left out":     {types.ListNull(schemaRegistryObjectType()), false},
+		"one registry": {schemaRegistriesToList(registry), false},
+	} {
+		resp := validator.ListResponse{}
+		for _, v := range attribute.Validators {
+			v.ValidateList(ctx, validator.ListRequest{Path: path.Root("schema_registries"), ConfigValue: tt.value}, &resp)
+		}
+		if resp.Diagnostics.HasError() != tt.refused {
+			t.Errorf("%s: refused = %t, expected %t", name, resp.Diagnostics.HasError(), tt.refused)
 		}
 	}
 }

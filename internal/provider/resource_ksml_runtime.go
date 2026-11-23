@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -112,8 +113,11 @@ func (r *ksmlRuntimeResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"schema_registries": schema.ListNestedAttribute{
-				MarkdownDescription: "Schema registries the KSML applications on this KSML runtime read schemas from.",
+				MarkdownDescription: "Schema registries the KSML applications on this KSML runtime read schemas from. Leave it out for none: an empty list is refused.",
 				Optional:            true,
+				Validators: []validator.List{
+					listvalidator.SizeAtLeast(1),
+				},
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"type": schema.StringAttribute{

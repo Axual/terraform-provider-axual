@@ -42,7 +42,7 @@ A KSML runtime registers a KSML provisioner on an Instance-Cluster, so KSML appl
 
 - `authorized_groups` (Set of String) The ids of the Groups that may deploy KSML applications to the KSML runtime. Leave it out to keep the Groups the KSML runtime has; `authorized_groups = []` removes all of them. **A KSML runtime without authorized Groups accepts no deployments, from the owner Group either.** A Group cannot be removed while it has a running KSML deployment on this KSML runtime.
 - `description` (String) A short description of the KSML runtime. Must be at most 255 characters.
-- `schema_registries` (Attributes List) Schema registries the KSML applications on this KSML runtime read schemas from. (see [below for nested schema](#nestedatt--schema_registries))
+- `schema_registries` (Attributes List) Schema registries the KSML applications on this KSML runtime read schemas from. Leave it out for none: an empty list is refused. (see [below for nested schema](#nestedatt--schema_registries))
 
 ### Read-Only
 
