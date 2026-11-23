@@ -43,7 +43,7 @@ On a Platform Manager with KSML runtimes (see [Platform Manager version](#platfo
 
 - A new deployment needs a `target_id` naming an `axual_ksml_runtime` of the environment's instance. Without it, Platform Manager refuses the deployment with "A `targetId` referring to a KSML runtime must be provided".
 - The owner Group of the application must be in the `authorized_groups` of that KSML runtime, or Platform Manager refuses to create, update or start the deployment with `403 Forbidden`.
-- A deployment that existed before Platform Manager had KSML runtimes keeps working without `target_id` in the configuration: Platform Manager assigned it the KSML runtime of its instance when it was upgraded, and the plan shows no change.
+- A deployment that existed before Platform Manager had KSML runtimes keeps working without `target_id` in the configuration: Platform Manager assigned it the KSML runtime of its instance when it was upgraded, and the plan shows no change. A deployment whose instance had no KSML Provisioner at the upgrade was left without a KSML runtime: set its `target_id` before it can be updated or started.
 
 ### Prerequisites: FLINK_SQL
 
