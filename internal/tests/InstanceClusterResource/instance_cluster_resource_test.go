@@ -64,13 +64,16 @@ func TestInstanceClusterResource(t *testing.T) {
 			// The steps with api and client_endpoints need Platform Manager 16.1.0. Before that, the plan
 			// fails, see the unit tests.
 			{
-				// Platform Manager derives api from version, and the endpoints from listeners.
+				// Platform Manager derives api from version, and the endpoints from listeners. Before
+				// AXPD-12769 it derives APICURIO_V2 for this Apicurio 2.x registry, since then APICURIO_V3
+				// for every Apicurio version. Both report the same version as 16.1.0, so accept both, and
+				// the legacy endpoint must have the same api.
 				SkipFunc: SkipStepWithoutSchemaRegistryApi,
 				Config:   GetClusterProvider() + GetFile(setup, "axual_instance_cluster_derived.tf"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr(name, "schema_registry.api", "APICURIO_V2"),
+					resource.TestMatchResourceAttr(name, "schema_registry.api", regexp.MustCompile(`^APICURIO_V[23]$`)),
 					resource.TestCheckResourceAttr(name, "schema_registry.client_endpoints.%", "1"),
-					resource.TestCheckResourceAttr(name, "schema_registry.client_endpoints.legacy.api", "APICURIO_V2"),
+					resource.TestCheckResourceAttrPair(name, "schema_registry.client_endpoints.legacy.api", name, "schema_registry.api"),
 					resource.TestCheckResourceAttr(name, "schema_registry.client_endpoints.legacy.url", config.SchemaRegistryUrl),
 					resource.TestCheckResourceAttr(name, "schema_registry.client_endpoints.legacy.used_by", "ALL_APPS"),
 				),

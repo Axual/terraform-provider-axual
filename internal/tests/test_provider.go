@@ -42,6 +42,12 @@ type ProviderConfig struct {
 	TestUserEmail string `yaml:"testUserEmail"`
 	// IamGroupTests turns on the IAM group tests. Missing means false.
 	IamGroupTests bool `yaml:"iamGroupTests"`
+	// Strict makes a test fail instead of skip when a key it needs is empty, so a run with an incomplete
+	// file cannot pass. Tests for a feature of a newer Platform Manager still skip. Missing means false.
+	Strict bool `yaml:"strict"`
+	// FlinkTests = false skips the Flink tests on purpose, also with strict: true (for a stack without
+	// Ververica). Missing means the Flink tests run when the Ververica values are set.
+	FlinkTests *bool `yaml:"flinkTests"`
 	// The Ververica values the Flink suites need. The API validates the workspace, namespace and
 	// deployment target live, so a developer whose namespace differs sets them here rather than
 	// editing the fixtures; they default to defaultworkspace / default / default-target.
@@ -104,18 +110,37 @@ func LoadProviderConfig() (ProviderConfig, error) {
 	return config, nil
 }
 
+// SkipForMissingConfig skips a test because a test_config.yaml value it needs is not set. With
+// strict: true the test fails instead: a package whose tests all skip still reports ok, which can hide
+// an incomplete file.
+func SkipForMissingConfig(t *testing.T, config ProviderConfig, format string, args ...any) {
+	t.Helper()
+	if config.Strict {
+		t.Fatalf("strict: true in test_config.yaml, and "+format+". Set it, or remove strict: true", args...)
+	}
+	t.Skipf(format, args...)
+}
+
+// missing reports whether a test_config.yaml value is empty or still a YOUR_ placeholder.
+func missing(value string) bool {
+	return value == "" || strings.HasPrefix(value, "YOUR_")
+}
+
 // SkipWithoutVerverica skips a Flink test unless test_config.yaml carries real Ververica values.
 // The committed file ships `YOUR_...` placeholders, so without this the Flink suites fail rather
-// than skip for every developer who has no Ververica namespace.
+// than skip for every developer who has no Ververica namespace. flinkTests: false skips them on purpose.
 func SkipWithoutVerverica(t *testing.T, config ProviderConfig) {
 	t.Helper()
+	if config.FlinkTests != nil && !*config.FlinkTests {
+		t.Skip("flinkTests is false in test_config.yaml")
+	}
 	for _, field := range []struct{ key, value string }{
 		{"ververicaUrl", config.VervericaUrl},
 		{"ververicaApiToken", config.VervericaApiToken},
 		{"clusterId", config.ClusterId},
 	} {
-		if field.value == "" || strings.HasPrefix(field.value, "YOUR_") {
-			t.Skipf("%s is not set in test_config.yaml, so no Flink Cluster can be registered", field.key)
+		if missing(field.value) {
+			SkipForMissingConfig(t, config, "%s is not set in test_config.yaml, so no Flink Cluster can be registered", field.key)
 		}
 	}
 }
@@ -134,8 +159,9 @@ func SkipWithoutConnectCluster(t *testing.T, config ProviderConfig) {
 		{"connectClusterSaslId", config.ConnectClusterSaslId},
 		{"connectClusterSaslName", config.ConnectClusterSaslName},
 	} {
-		if field.value == "" || strings.HasPrefix(field.value, "YOUR_") {
-			t.Skipf("%s is not set in test_config.yaml, so no registered Kafka Connect cluster is available", field.key)
+		if missing(field.value) {
+			skipBefore(t, config, 16, 0, "registered Kafka Connect clusters")
+			SkipForMissingConfig(t, config, "%s is not set in test_config.yaml, so no registered Kafka Connect cluster is available", field.key)
 		}
 	}
 }
@@ -144,11 +170,7 @@ func SkipWithoutConnectCluster(t *testing.T, config ProviderConfig) {
 // refuses it. It signs in, so call it from PreCheck, which only runs with TF_ACC set.
 func SkipWithoutInfiniteRetention(t *testing.T) {
 	t.Helper()
-	client, err := apiClient()
-	if err != nil {
-		t.Fatalf("Error signing in to read the Platform Manager version: %v", err)
-	}
-	version, err := client.GetPlatformVersion()
+	version, err := platformVersion()
 	if err != nil {
 		t.Fatalf("Error reading the Platform Manager version: %v", err)
 	}
@@ -170,16 +192,87 @@ func SkipStepWithoutSchemaRegistryApi() (bool, error) {
 	return skipStepUnless(provider.SupportsSchemaRegistryApi, "api and client endpoints of a schema registry")
 }
 
-// skipStepUnless skips a test step when the Platform Manager version does not support a feature. Test
-// steps only run with TF_ACC set, so it may sign in.
-func skipStepUnless(supports func(version string) bool, feature string) (bool, error) {
+// SkipStepBefore returns the SkipFunc of a test step that uses a feature of Platform Manager major.minor
+// or later: it skips the step on an older Platform Manager.
+func SkipStepBefore(major, minor int, feature string) func() (bool, error) {
+	return func() (bool, error) {
+		return skipStepUnless(func(version string) bool { return versionAtLeast(version, major, minor) },
+			fmt.Sprintf("%s (needs %d.%d.0)", feature, major, minor))
+	}
+}
+
+// CheckFrom runs check only on Platform Manager major.minor or later, for a value an older Platform
+// Manager does not have.
+func CheckFrom(major, minor int, check resource.TestCheckFunc) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		version, err := platformVersion()
+		if err != nil {
+			return err
+		}
+		if !versionAtLeast(version, major, minor) {
+			log.Printf("[WARN] Platform Manager %s is older than %d.%d.0: this check is skipped", version, major, minor)
+			return nil
+		}
+		return check(s)
+	}
+}
+
+// SkipWithoutServiceAccount skips a test that adds a service account to a group unless
+// test_config.yaml names one. Platform Manager before 16.0.0 has no service accounts.
+func SkipWithoutServiceAccount(t *testing.T, config ProviderConfig) {
+	t.Helper()
+	if missing(config.ServiceAccountUid) {
+		skipBefore(t, config, 16, 0, "service accounts")
+		SkipForMissingConfig(t, config, "serviceAccountUid is not set in test_config.yaml, so no service account can be added to a group")
+	}
+}
+
+// skipBefore skips the test, with strict: true only, when the Platform Manager is older than
+// major.minor and so has no feature: then an empty test_config.yaml value is expected. Without strict
+// it signs in to nothing, because the test skips for the empty value anyway.
+func skipBefore(t *testing.T, config ProviderConfig, major, minor int, feature string) {
+	t.Helper()
+	if !config.Strict {
+		return
+	}
+	version, err := platformVersion()
+	if err != nil {
+		t.Fatalf("Error reading the Platform Manager version: %v", err)
+	}
+	if !versionAtLeast(version, major, minor) {
+		t.Skipf("Platform Manager %s has no %s (needs %d.%d.0)", version, feature, major, minor)
+	}
+}
+
+// platformVersion signs in and reads the Platform Manager version.
+func platformVersion() (string, error) {
 	client, err := apiClient()
 	if err != nil {
-		return false, fmt.Errorf("signing in to read the Platform Manager version: %w", err)
+		return "", fmt.Errorf("signing in to read the Platform Manager version: %w", err)
 	}
 	version, err := client.GetPlatformVersion()
 	if err != nil {
-		return false, fmt.Errorf("reading the Platform Manager version: %w", err)
+		return "", fmt.Errorf("reading the Platform Manager version: %w", err)
+	}
+	return version, nil
+}
+
+// versionAtLeast reports whether a Platform Manager version such as "16.0.4" or "16.1.0-SNAPSHOT" is
+// major.minor or later. A version it cannot read counts as too old, as in the provider.
+func versionAtLeast(version string, major, minor int) bool {
+	var gotMajor, gotMinor int
+	if _, err := fmt.Sscanf(version, "%d.%d", &gotMajor, &gotMinor); err != nil {
+		return false
+	}
+	return gotMajor > major || gotMajor == major && gotMinor >= minor
+}
+
+// skipStepUnless skips a test step when the Platform Manager version does not support a feature. Test
+// steps only run with TF_ACC set, so it may sign in.
+func skipStepUnless(supports func(version string) bool, feature string) (bool, error) {
+	version, err := platformVersion()
+	if err != nil {
+		return false, err
 	}
 	if !supports(version) {
 		log.Printf("[WARN] Platform Manager %s has no %s: this step is skipped", version, feature)
@@ -199,8 +292,8 @@ func SkipWithoutKafkaCluster(t *testing.T, config ProviderConfig) {
 		{"kafkaTruststoreFile", config.KafkaTruststoreFile},
 		{"instanceCaCertificateFile", config.InstanceCaCertificateFile},
 	} {
-		if field.value == "" || strings.HasPrefix(field.value, "YOUR_") {
-			t.Skipf("%s is not set in test_config.yaml, so no Kafka cluster can be registered", field.key)
+		if missing(field.value) {
+			SkipForMissingConfig(t, config, "%s is not set in test_config.yaml, so no Kafka cluster can be registered", field.key)
 		}
 	}
 }
@@ -215,8 +308,8 @@ func SkipWithoutSchemaRegistry(t *testing.T, config ProviderConfig) {
 		{"schemaRegistryUsername", config.SchemaRegistryUsername},
 		{"schemaRegistryPassword", config.SchemaRegistryPassword},
 	} {
-		if field.value == "" || strings.HasPrefix(field.value, "YOUR_") {
-			t.Skipf("%s is not set in test_config.yaml, so no schema registry is available", field.key)
+		if missing(field.value) {
+			SkipForMissingConfig(t, config, "%s is not set in test_config.yaml, so no schema registry is available", field.key)
 		}
 	}
 }

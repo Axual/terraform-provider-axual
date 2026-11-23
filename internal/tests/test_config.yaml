@@ -41,6 +41,15 @@ testUserEmail: ""
 # Write true or false without quotes: a quoted value stops every test. Missing means false.
 iamGroupTests: false
 
+# Set to true for a release run: a test then fails, and does not skip, when a value it needs is empty or a YOUR_
+# placeholder, so an incomplete file cannot hide tests that never ran (a package whose tests all skip still
+# reports ok). Tests for a feature of a newer Platform Manager still skip. Missing means false.
+strict: false
+
+# Set to false to skip the Flink tests on purpose, also with strict: true, on a stack without Ververica. Missing
+# means the Flink tests run when the Ververica values above are set.
+# flinkTests: false
+
 # Two Kafka Connect clusters already registered on one Instance-Cluster, used by the Kafka Connect
 # tests (ConnectClusterDataSource, ApplicationDeploymentStateResource): one MTLS, one SASL_SCRAM.
 # The tests never register them. They skip while any of these is still a YOUR_ placeholder.
