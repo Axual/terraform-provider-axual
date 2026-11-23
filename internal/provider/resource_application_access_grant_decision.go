@@ -450,6 +450,7 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 		}
 	}
 
+	repointed := false
 	if lookupChanged {
 		// Replace only when the edit points at another grant. Name to UID of the same application
 		// stays in place.
@@ -461,6 +462,7 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 			if !gone {
 				resp.RequiresReplace = append(resp.RequiresReplace, lookupPaths...)
 				r.warnOldGrant(state, resp)
+				repointed = true
 			}
 			// Old grant gone: update in place, so the apply keeps the action planUnknownLookup planned.
 			create = true
@@ -549,7 +551,7 @@ func (r *grantDecisionResource) ModifyPlan(ctx context.Context, req resource.Mod
 			return
 		}
 	}
-	r.warn(plan, g, status, out, p, closed, create, create || !plan.Decision.Equal(state.Decision), byGrant, resp)
+	r.warn(plan, g, status, out, p, closed, create, create || !plan.Decision.Equal(state.Decision), byGrant, repointed, resp)
 	if other {
 		r.warnOtherApplication(plan, state, g, status, p.SeenApp, resp)
 	}
@@ -682,7 +684,7 @@ func (r *grantDecisionResource) warnOldGrant(state grantDecisionData, resp *reso
 }
 
 func (r *grantDecisionResource) warn(plan grantDecisionData, g *webclient.GrantView, status string, out decisionOutcome, p grantDecisionPrivate,
-	closed, create, decisionChanged, byGrant bool, resp *resource.ModifyPlanResponse) {
+	closed, create, decisionChanged, byGrant, repointed bool, resp *resource.ModifyPlanResponse) {
 	name := r.label(plan, g)
 	closedBy := "someone other than the application team"
 	if p.ClosedBy != "" {
@@ -752,9 +754,18 @@ func (r *grantDecisionResource) warn(plan grantDecisionData, g *webclient.GrantV
 		}
 	}
 	if (out.Action == actionApprove && out.Warning != warnApprovedAgain) || (create && out.Action != actionNone) {
-		resp.Diagnostics.AddWarning(fmt.Sprintf("%s will be %s by this apply", name, map[string]string{
-			actionApprove: "approved", actionReject: "rejected", actionRevoke: "revoked"}[out.Action]),
-			fmt.Sprintf("The grant is %s now.%s", status, owners))
+		done := map[string]string{actionApprove: "approved", actionReject: "rejected", actionRevoke: "revoked"}[out.Action]
+		if repointed {
+			// Terraform also plans this again at apply, where it stops when the plan was an update.
+			resp.Diagnostics.AddWarning(fmt.Sprintf("%s will be %s when the block is replaced", name, done),
+				fmt.Sprintf("The grant is %s now.%s The decision points at another grant, so the block is replaced. "+
+					"If the new value was known only at apply (for example the UID of an application that this apply creates), "+
+					"Terraform stops instead with \"Provider produced inconsistent final plan\": the decision is not changed, and the next apply replaces it.",
+					status, owners))
+		} else {
+			resp.Diagnostics.AddWarning(fmt.Sprintf("%s will be %s by this apply", name, done),
+				fmt.Sprintf("The grant is %s now.%s", status, owners))
+		}
 	}
 
 	// Approve is strict (withOffer); reject and revoke are tried anyway.

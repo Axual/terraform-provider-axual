@@ -255,6 +255,46 @@ func TestDecisionPlanKeepsItsActionWhenTheApplicationIsReplaced(t *testing.T) {
 	}
 }
 
+// TestDecisionRepointWarningDoesNotPromiseThisApply: a decision pointed at another grant while the old
+// one is still there is replaced. Terraform also plans this again at apply, where it stops when the value
+// was unknown in the plan, so the warning must not promise an action "by this apply". When the old grant
+// is gone, the update approves the new grant in this apply, and the warning says so.
+func TestDecisionRepointWarningDoesNotPromiseThisApply(t *testing.T) {
+	tests := []struct {
+		name     string
+		oldGrant bool
+		replace  bool
+		summary  string
+	}{
+		{name: "old grant still there", oldGrant: true, replace: true, summary: "will be approved when the block is replaced"},
+		{name: "old grant gone", summary: "will be approved by this apply"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			pm := &decisionPM{grants: map[string]map[string]any{}}
+			pm.add("g2", "Pending", decisionAppB)
+			if test.oldGrant {
+				pm.add("g1", "Approved", decisionAppA)
+			}
+			client := fakePM(t, pm.handler)
+			r := &grantDecisionResource{provider: AxualProvider{client: client, grants: newGrantCache(client)}}
+			resp, _ := planDecisionFrom(t, r, decisionState(), types.StringValue(decisionAppB))
+			if resp.Diagnostics.HasError() || (len(resp.RequiresReplace) > 0) != test.replace {
+				t.Fatalf("plan: replace %v, diagnostics %v; expected replace %t", resp.RequiresReplace, resp.Diagnostics, test.replace)
+			}
+			var summaries []string
+			for _, w := range resp.Diagnostics.Warnings() {
+				summaries = append(summaries, w.Summary())
+			}
+			found := slices.ContainsFunc(summaries, func(s string) bool { return strings.HasSuffix(s, test.summary) })
+			promised := slices.ContainsFunc(summaries, func(s string) bool { return strings.HasSuffix(s, "by this apply") })
+			if !found || (test.replace && promised) {
+				t.Errorf("warnings %q, expected one that ends with %q and, on a replace, none that ends with \"by this apply\"", summaries, test.summary)
+			}
+		})
+	}
+}
+
 // TestDecisionUpdateToAnotherGrantStopsWhenTheOldOneIsThere: Terraform plans again at apply, and that
 // plan keeps an update to another grant only when the old grant is gone. If the old grant is there when
 // the apply runs, the apply changes nothing, with or without revoke_on_destroy.

@@ -161,6 +161,7 @@ To cut access now:
 - Changing `application` from a name to a UID (or the reverse) is an in-place update without an action.
 - Changing `application`, `topic`, `environment`, `access_type` or `grant_id` to another grant replaces the block, which revokes the old grant (with `revoke_on_destroy = false` it stays `Approved`, and the plan warns). When the old grant no longer exists, it is an in-place update.
 - When the same apply replaces the application of a decision that names it by UID (`application = axual_application.<name>.id`), the plan shows an in-place update, because the new UID is known only at apply. With `depends_on = [axual_application_access_grant.<name>]` the apply decides on the new grant, and `id` follows the new UID. Without it, the decision can run before the new grant exists: the apply warns, and the next apply decides.
+- Pointing a decision at an application that the same apply creates, while the old grant stays, stops the apply with "Provider produced inconsistent final plan": the new UID is known only at apply, and Terraform refuses to turn the planned update into a replace. The decision is not changed, and the next apply replaces it.
 
 ## A decision by name and an application created again
 
