@@ -55,6 +55,10 @@ resource "axual_application_principal" "dev_dashboard" {
 When `short_name` changes, Terraform deletes these resources, then changes the application, then creates
 them again. Terraform always runs the deletes first, because these resources depend on the application.
 
+The block acts only when `short_name` changes. Adding it or removing it shows "No changes" in the plan,
+and a change of any other attribute replaces nothing. So you can keep it, or add it in the same change as
+the new `short_name` and remove it after that apply.
+
 - A principal is created again with the same certificate. This also works when the instance prevents
   certificate reuse.
 - A credential is created again with a new username and password. Give them to the application.
@@ -79,9 +83,13 @@ application has grants:
   is revoked and requested again anyway, and the new decision approves the new request.
 
 For a one-off rename without `lifecycle` blocks, run `terraform apply -replace=<address>` for each
-principal, credential and deployment of the application, in the same apply as the new `short_name`. With
-grants, the rules above still apply: add the `depends_on`, or also replace the grants, and the decisions by
-name or UID that approve them (a decision with `grant_id` is replaced by itself).
+principal, credential and deployment of the application, in the same apply as the new `short_name`
+(with a saved plan: `terraform plan -replace=<address> -out=tfplan`, then `terraform apply tfplan`). With
+`count` or `for_each`, name each instance and put the whole argument in single quotes, for example
+`-replace='axual_application_principal.dev_dashboard["dev"]'`: an address without the key replaces
+nothing, and the apply then fails. With grants, the rules above still apply: add the `depends_on`, or also
+replace the grants, and the decisions by name or UID that approve them (a decision with `grant_id` is
+replaced by itself).
 
 For a production application whose grants must not be revoked, create a new application with the new
 `short_name` instead. Get its grants approved, move the clients to it, and then delete the old application.
