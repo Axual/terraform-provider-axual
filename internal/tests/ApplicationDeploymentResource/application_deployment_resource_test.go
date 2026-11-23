@@ -223,11 +223,31 @@ func TestApplicationDeploymentKSMLResource(t *testing.T) {
 				),
 			},
 			{
-				// Back on the first KSML runtime; the second one is no longer targeted and is deleted.
+				// Back on the first KSML runtime, in place. The second one is still declared: dropped in this
+				// apply, Terraform would delete it before it moves the deployment.
+				Config: GetKsmlProvider() + GetFile(
+					"axual_application_deployment_ksml_setup.tf",
+					"axual_application_deployment_ksml_moved_back.tf",
+				),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction(deployment, plancheck.ResourceActionUpdate)},
+				},
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrPair(deployment, "target_id", "axual_ksml_runtime.tf_test_ksml_runtime", "id"),
+					idUnchanged(deployment, &deploymentId),
+				),
+			},
+			{
+				// The second KSML runtime is no longer targeted, so it can be deleted.
 				Config: GetKsmlProvider() + GetFile(
 					"axual_application_deployment_ksml_setup.tf",
 					"axual_application_deployment_ksml_updated.tf",
 				),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("axual_ksml_runtime.tf_test_ksml_runtime_2", plancheck.ResourceActionDestroy),
+					},
+				},
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttrPair(deployment, "environment", "axual_environment.tf-test-ksml-env", "id"),
 					resource.TestCheckResourceAttrPair(deployment, "application", "axual_application.tf-test-ksml-app", "id"),
