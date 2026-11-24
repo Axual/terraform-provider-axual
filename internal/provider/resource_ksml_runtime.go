@@ -89,7 +89,7 @@ func (r *ksmlRuntimeResource) Schema(ctx context.Context, req resource.SchemaReq
 				Required:            true,
 			},
 			"authorized_groups": schema.SetAttribute{
-				MarkdownDescription: "The ids of the Groups that may deploy KSML applications to the KSML runtime. Leave it out to keep the Groups the KSML runtime has; `authorized_groups = []` removes all of them. **A KSML runtime without authorized Groups accepts no deployments, from the owner Group either.** A Group cannot be removed while it has a running KSML deployment on this KSML runtime.",
+				MarkdownDescription: "The ids of the Groups that may deploy KSML applications to the KSML runtime. Leave it out to keep the Groups the KSML runtime has; `authorized_groups = []` removes all of them. A replaced KSML runtime (a new `name`, `instance_id` or `cluster_id`) gets only the Groups in the configuration. **A KSML runtime without authorized Groups accepts no deployments, from the owner Group either.** A Group cannot be removed while it has a running KSML deployment on this KSML runtime.",
 				ElementType:         types.StringType,
 				Optional:            true,
 				Computed:            true,
