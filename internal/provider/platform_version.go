@@ -27,13 +27,19 @@ func releaseName(major, minor int) string {
 	return fmt.Sprintf("%d.%d.0", major, minor)
 }
 
+// versionUnreadableSummary is the error title when GET /info fails, so the title does not say that the
+// Platform Manager is too old.
+func versionUnreadableSummary(feature string) string {
+	return fmt.Sprintf("Cannot check the Platform Manager version for %s", feature)
+}
+
 // requirePlatformVersion adds an error on attribute when the Platform Manager version that
 // GetPlatformVersion returned is older than major.minor, or when reading it failed (err). olderDoes
 // says what an older Platform Manager does instead.
 func requirePlatformVersion(diags *diag.Diagnostics, version string, err error, attribute path.Path, feature string, major, minor int, olderDoes string) {
 	summary := fmt.Sprintf("%s needs Platform Manager %s or later", feature, releaseName(major, minor))
 	if err != nil {
-		diags.AddAttributeError(attribute, summary, fmt.Sprintf("Reading the Platform Manager version failed: %s", err))
+		diags.AddAttributeError(attribute, versionUnreadableSummary(feature), fmt.Sprintf("%s, and reading the version failed: %s", summary, err))
 		return
 	}
 	if !platformVersionAtLeast(version, major, minor) {

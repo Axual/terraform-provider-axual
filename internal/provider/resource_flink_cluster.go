@@ -193,8 +193,11 @@ func (r *flinkClusterResource) ModifyPlan(ctx context.Context, req resource.Modi
 		return
 	}
 	version, err := r.provider.client.GetPlatformVersion()
-	requirePlatformVersion(&resp.Diagnostics, version, err, path.Root("owners"), "axual_flink_cluster", flinkClusterMajor, flinkClusterMinor,
-		"It has no owners and authorized_groups for a Flink Cluster, so the apply would fail. On Platform Manager 16.x, use provider 3.2.x for a Flink Cluster, or register the Flink Cluster in Self-Service.")
+	olderDoes := "It has no Flink Clusters."
+	if platformVersionAtLeast(version, 16, 0) {
+		olderDoes = "It has no owners and authorized_groups for a Flink Cluster, so the apply would fail. Use provider 3.2.x for a Flink Cluster, or register the Flink Cluster in Self-Service."
+	}
+	requirePlatformVersion(&resp.Diagnostics, version, err, path.Root("owners"), "axual_flink_cluster", flinkClusterMajor, flinkClusterMinor, olderDoes)
 }
 
 func (r *flinkClusterResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

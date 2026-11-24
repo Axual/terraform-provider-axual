@@ -140,8 +140,8 @@ func (r *topicConfigResource) ModifyPlan(ctx context.Context, req resource.Modif
 	summary := fmt.Sprintf("retention_time = -1 needs Platform Manager %s or later", releaseName(infiniteRetentionMajor, infiniteRetentionMinor))
 	version, err := r.provider.client.GetPlatformVersion()
 	if err != nil {
-		resp.Diagnostics.AddAttributeError(path.Root("retention_time"), summary,
-			fmt.Sprintf("Reading the Platform Manager version failed: %s", err))
+		resp.Diagnostics.AddAttributeError(path.Root("retention_time"), versionUnreadableSummary("retention_time = -1"),
+			fmt.Sprintf("%s, and reading the version failed: %s", summary, err))
 		return
 	}
 	if !SupportsInfiniteRetention(version) {

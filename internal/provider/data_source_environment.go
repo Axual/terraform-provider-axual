@@ -57,7 +57,7 @@ func (d *environmentDataSource) Schema(ctx context.Context, req datasource.Schem
 
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				MarkdownDescription: "A suitable name identifying this environment. Alphabetical characters, digits and the following characters are allowed: `- `,` _` ,` .`, but not as the first character.)",
+				MarkdownDescription: "The name of the environment.",
 				Optional:            true,
 				Computed:            true,
 				Validators: []validator.String{
@@ -83,7 +83,7 @@ func (d *environmentDataSource) Schema(ctx context.Context, req datasource.Schem
 				Computed:            true,
 			},
 			"visibility": schema.StringAttribute{
-				MarkdownDescription: "Private environments are only visible to the owning group (your team). They are not included in dashboard visualisations.",
+				MarkdownDescription: "`Public` or `Private`. Private environments are only visible to the owning group (your team). They are not included in dashboard visualisations.",
 				Computed:            true,
 			},
 			"authorization_issuer": schema.StringAttribute{
@@ -104,12 +104,12 @@ func (d *environmentDataSource) Schema(ctx context.Context, req datasource.Schem
 				Computed:            true,
 			},
 			"retention_time": schema.Int64Attribute{
-				MarkdownDescription: "The time in milliseconds after which the messages can be deleted from all topics. This is an optional field. If not specified, default value is 7 days (604800000).",
+				MarkdownDescription: "The time in milliseconds after which the messages can be deleted from all topics.",
 				Computed:            true,
 			},
 
 			"partitions": schema.Int64Attribute{
-				MarkdownDescription: "Defines the number of partitions configured for every topic of this tenant. This is an optional field. If not specified, default value is 12",
+				MarkdownDescription: "The number of partitions of every topic in this environment.",
 				Computed:            true,
 			},
 			"properties": schema.MapAttribute{

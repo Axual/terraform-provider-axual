@@ -81,6 +81,7 @@ func TestConnectorApplicationDataSource(t *testing.T) {
 					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported", "type", "SOURCE"),
 					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported", "visibility", "Public"),
 					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported", "description", "Axual's TF Test Application"),
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported", "viewers.#", "0"),
 				),
 			},
 		},

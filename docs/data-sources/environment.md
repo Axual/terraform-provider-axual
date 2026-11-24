@@ -24,7 +24,7 @@ data "axual_environment" "frontend_developers" {
 
 ### Optional
 
-- `name` (String) A suitable name identifying this environment. Alphabetical characters, digits and the following characters are allowed: `- `,` _` ,` .`, but not as the first character.)
+- `name` (String) The name of the environment.
 - `short_name` (String) A short name that will uniquely identify this environment.
 
 ### Read-Only
@@ -35,8 +35,8 @@ data "axual_environment" "frontend_developers" {
 - `id` (String) Environment's unique identifier
 - `instance` (String) The ID of the instance where this environment should be deployed.
 - `owners` (String) The ID of the team owning this environment.
-- `partitions` (Number) Defines the number of partitions configured for every topic of this tenant. This is an optional field. If not specified, default value is 12
+- `partitions` (Number) The number of partitions of every topic in this environment.
 - `properties` (Map of String) Environment-wide properties for all topics and applications.
-- `retention_time` (Number) The time in milliseconds after which the messages can be deleted from all topics. This is an optional field. If not specified, default value is 7 days (604800000).
+- `retention_time` (Number) The time in milliseconds after which the messages can be deleted from all topics.
 - `viewers` (Set of String) The uids of the Viewer Groups of this environment. Environment Viewer Groups can view all topic configurations and application authentications in the environment, regardless of ownership and visibility. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#viewer-groups
-- `visibility` (String) Private environments are only visible to the owning group (your team). They are not included in dashboard visualisations.
+- `visibility` (String) `Public` or `Private`. Private environments are only visible to the owning group (your team). They are not included in dashboard visualisations.

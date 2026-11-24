@@ -46,7 +46,7 @@ and so do the topics and applications it owns.
 
 | You change | What happens |
 |---|---|
-| Add `iam_reference` | The group is linked. The stored members stay in Axual, and service accounts in the list stay members. From Platform Manager 16.0, a person in the list is a member only when the token has the group, so a stored manager can no longer change the group. Before 16.1.0 the stored members also decide who can create applications, topics and environments for the group. The plan shows the lists as removed from the Terraform state only, with a warning. |
+| Add `iam_reference` | The group is linked. The stored members stay in Axual, and service accounts in the list stay members. From Platform Manager 16.0, a person in the list is a member only when the token has the group, so a stored manager can no longer change the group. Before 17.0.0 the stored members also decide who can create applications, topics and environments for the group. The plan shows the lists as removed from the Terraform state only, with a warning. |
 | Change `iam_reference` | The group moves to another IAM group. |
 | Leave `iam_reference` out | Nothing changes: the group keeps the link it has, also a link that was made outside Terraform. |
 | Write `iam_reference = ""` | The group is Axual-managed again (Terraform prints the change as `"..." -> null`). Its stored members and managers count again. The plan warns you, and the next plan shows them: add them to `members` and `managers` to keep them, or the next apply removes them. |

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -149,20 +150,22 @@ func TestMapFlinkClusterResponseMapsNoAuthorizedGroupsToAnEmptySet(t *testing.T)
 func TestFlinkClusterPlanRefusesOlderPlatformManager(t *testing.T) {
 	changed := flinkClusterData("owner-group", groupSet("deploy-group"))
 	changed.Description = types.StringValue("changed")
+	const tooOld = "axual_flink_cluster needs Platform Manager 17.0.0 or later"
 	for _, tc := range []struct {
-		name      string
-		info      string
-		current   *FlinkClusterResourceData
-		wantError bool
-		wantCalls int
+		name         string
+		info         string
+		current      *FlinkClusterResourceData
+		wantSummary  string // "": no error
+		wantInDetail string
+		wantCalls    int
 	}{
-		{"create on 16.0.5", `{"version":"16.0.5"}`, nil, true, 1},
-		{"create on 15.0.11", `{"version":"15.0.11"}`, nil, true, 1},
-		{"create on a master build", `{"version":"16.1.0-SNAPSHOT"}`, nil, false, 1},
-		{"create on 17.0.0", `{"version":"17.0.0"}`, nil, false, 1},
-		{"version unreadable", "", nil, true, 1},
-		{"change on 16.0.5", `{"version":"16.0.5"}`, changed, true, 1},
-		{"no change on 16.0.5", `{"version":"16.0.5"}`, flinkClusterData("owner-group", groupSet("deploy-group")), false, 0},
+		{"create on 16.0.5", `{"version":"16.0.5"}`, nil, tooOld, "Use provider 3.2.x", 1},
+		{"create on 15.0.11", `{"version":"15.0.11"}`, nil, tooOld, "This Platform Manager is 15.0.11. It has no Flink Clusters.", 1},
+		{"create on a master build", `{"version":"16.1.0-SNAPSHOT"}`, nil, "", "", 1},
+		{"create on 17.0.0", `{"version":"17.0.0"}`, nil, "", "", 1},
+		{"version unreadable", "", nil, "Cannot check the Platform Manager version for axual_flink_cluster", tooOld + ", and reading the version failed", 1},
+		{"change on 16.0.5", `{"version":"16.0.5"}`, changed, tooOld, "Use provider 3.2.x", 1},
+		{"no change on 16.0.5", `{"version":"16.0.5"}`, flinkClusterData("owner-group", groupSet("deploy-group")), "", "", 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			calls := 0
@@ -172,12 +175,16 @@ func TestFlinkClusterPlanRefusesOlderPlatformManager(t *testing.T) {
 				current = tc.current
 			}
 			resp := modifyPlanOf(t, r, flinkClusterData("owner-group", groupSet("deploy-group")), current)
-			if resp.Diagnostics.HasError() != tc.wantError || calls != tc.wantCalls {
+			wantError := tc.wantSummary != ""
+			if resp.Diagnostics.HasError() != wantError || calls != tc.wantCalls {
 				t.Fatalf("error = %v, GET /info calls = %d; expected error %v, %d calls. Diagnostics: %v",
-					resp.Diagnostics.HasError(), calls, tc.wantError, tc.wantCalls, resp.Diagnostics)
+					resp.Diagnostics.HasError(), calls, wantError, tc.wantCalls, resp.Diagnostics)
 			}
-			if tc.wantError && resp.Diagnostics.Errors()[0].Summary() != "axual_flink_cluster needs Platform Manager 17.0.0 or later" {
-				t.Errorf("summary = %q", resp.Diagnostics.Errors()[0].Summary())
+			if !wantError {
+				return
+			}
+			if got := resp.Diagnostics.Errors()[0]; got.Summary() != tc.wantSummary || !strings.Contains(got.Detail(), tc.wantInDetail) {
+				t.Errorf("summary = %q, detail = %q; expected %q and a detail with %q", got.Summary(), got.Detail(), tc.wantSummary, tc.wantInDetail)
 			}
 		})
 	}

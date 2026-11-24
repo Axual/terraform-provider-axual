@@ -19,15 +19,15 @@ data "axual_schema_version" "ApplicationV1" {
 ### Required
 
 - `full_name` (String) Full name of the schema: `<namespace>.<name>`, for example `io.axual.qa.general.GitOpsTest`.
-- `version` (String) The version of the schema Version.
+- `version` (String) The schema version to read, for example `1.0.0`.
 
 ### Optional
 
-- `owners` (String) Schema Owner
+- `owners` (String) The uid of the Group that owns the schema. Read-only: a value set here is ignored.
 
 ### Read-Only
 
 - `body` (String) The schema body: Avro, Protobuf or JSON Schema.
-- `description` (String) A short text describing the schema. It belongs to the schema, not to this version: it is the latest description set on any version of the schema, not always the one of `version`.
+- `description` (String) The description of the schema: the latest one set on any version, not always the one of `version`.
 - `id` (String) Schema version unique identifier
 - `schema_id` (String) Schema unique identifier
