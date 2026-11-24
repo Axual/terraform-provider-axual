@@ -68,7 +68,7 @@ func (r *topicConfigResource) Schema(ctx context.Context, req resource.SchemaReq
 				Required:            true,
 			},
 			"retention_time": schema.Int64Attribute{
-				MarkdownDescription: "Determine how long the messages should be available on a topic. There should be an agreed value most likely discussed in Intake session with the team supporting Axual Platform. In most cases, it is 7 days. The value is in milliseconds, from 1000 to 160704000000 (5 years). `-1` means infinite retention: messages are never deleted, so disk usage grows without limit. `-1` needs Platform Manager 16.1.0 or later; with an older one, the plan fails. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#retention-time",
+				MarkdownDescription: "Determine how long the messages should be available on a topic. There should be an agreed value most likely discussed in Intake session with the team supporting Axual Platform. In most cases, it is 7 days. The value is in milliseconds, from 1000 to 160704000000 (5 years). `-1` means infinite retention: messages are never deleted, so disk usage grows without limit. `-1` needs Platform Manager 17.0.0 or later; with an older one, the plan fails. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#retention-time",
 				Required:            true,
 				Validators: []validator.Int64{
 					custom_validator.NewRetentionTimeValidator(),
@@ -137,7 +137,7 @@ func (r *topicConfigResource) ModifyPlan(ctx context.Context, req resource.Modif
 			return
 		}
 	}
-	summary := fmt.Sprintf("retention_time = -1 needs Platform Manager %d.%d.0 or later", infiniteRetentionMajor, infiniteRetentionMinor)
+	summary := fmt.Sprintf("retention_time = -1 needs Platform Manager %s or later", releaseName(infiniteRetentionMajor, infiniteRetentionMinor))
 	version, err := r.provider.client.GetPlatformVersion()
 	if err != nil {
 		resp.Diagnostics.AddAttributeError(path.Root("retention_time"), summary,

@@ -19,7 +19,7 @@ A Cluster is a Kafka cluster that Platform Manager governs. Add it to an Instanc
 - Platform Manager connects to the brokers when the Cluster is created, and again when `broker` changes. A bootstrap host it cannot reach fails the apply. A `broker.security_protocol` that does not match the listener of the bootstrap servers (for example the default `SASL_SSL` on a plaintext port) also fails the apply after a few seconds, with only a timeout message such as "Received upstream client response 408". Credentials that the brokers reject only give a warning in the Platform Manager log, so check that a topic can be created. Only when Platform Manager creates a `strimzi` Cluster does it refuse them, and it then also checks the provisioner: its URL, username and password, and that it may write to `namespace`. A later change of `strimzi` is stored without these checks, and a `cluster_name` that does not exist is not refused.
 
 ## Platform Manager version
-- Platform Manager 15.0.9 or later. `provider_type = "strimzi"` and the `strimzi` block need Platform Manager 16.1.0 or later; with an older one, the plan fails.
+- Platform Manager 15.0.9 or later. `provider_type = "strimzi"` and the `strimzi` block need Platform Manager 17.0.0 or later; with an older one, the plan fails.
 - Platform Manager does not move the schema registry secrets of the Instance-Clusters when a Cluster is renamed. 15.0.x and 16.0.x then lose the whole schema registry; newer versions keep it but lose its password and private key. The next plan shows it, and the next `terraform apply` configures it again from `axual_instance_cluster`. Until then, topics with a schema fail.
 
 ## Required Roles
@@ -46,7 +46,7 @@ A Cluster is a Kafka cluster that Platform Manager governs. Add it to an Instanc
 - `oauth_principals_prefix` (String) Prefix of OAuth principals on the Cluster. Platform Manager refuses a change of the prefix while OAuth principals exist, but not its removal.
 - `shared` (Boolean) Whether the Cluster is shared by all tenants. A shared Cluster can only be changed and deleted by a Super Admin, so a Tenant Admin keeps the default `false`. Changing it creates a new Cluster.
 - `ssl_auth_mode` (String) How the brokers name an SSL client: `certificate` (the subject) or `fullChainCertificate` (the subjects of the whole chain, from the Axual principal builder). With `fullChainCertificate`, an Instance on this Cluster needs `ca_certificates`. A `strimzi` Cluster cannot use `fullChainCertificate`.
-- `strimzi` (Attributes) The Strimzi Kafka cluster behind the Cluster. Required when `provider_type` is `strimzi` (Platform Manager 16.1.0 or later), and refused for `apache-kafka`. (see [below for nested schema](#nestedatt--strimzi))
+- `strimzi` (Attributes) The Strimzi Kafka cluster behind the Cluster. Required when `provider_type` is `strimzi` (Platform Manager 17.0.0 or later), and refused for `apache-kafka`. (see [below for nested schema](#nestedatt--strimzi))
 - `topic_pattern` (String) How a topic name is made on the Cluster, for example `{tenant}-{instance}-{environment}-{topic}`. Platform Manager refuses a change once topics exist. A Cluster can only serve several environments of one Instance when the pattern contains `{environment}`.
 - `transactional_pattern` (String) How a transactional id is made on the Cluster, for example `{tenant}-{instance}-{environment}-{transactional.id}`.
 

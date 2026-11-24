@@ -21,7 +21,7 @@ A Flink Cluster registers a Ververica Platform namespace on an Instance-Cluster,
 
 ## Platform Manager version
 
-- Platform Manager 17.0.0 or later.
+- Platform Manager 17.0.0 or later; with an older one, the plan fails when it creates or changes a Flink Cluster. On Platform Manager 16.x, use provider 3.2.x for a Flink Cluster, or register the Flink Cluster in Self-Service and use its id as `target_id`.
 
 ## Required Roles
 - TENANT_ADMIN

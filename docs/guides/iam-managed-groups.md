@@ -7,7 +7,7 @@ description: |-
 
 # IAM-managed groups
 
-Needs Platform Manager 15.0.0 or later. Service accounts need 16.0.0 or later. If people get into the group through the token, use Platform Manager 16.1.0 or later: older versions have problems for them (see "Known Platform Manager problems").
+Needs Platform Manager 15.0.0 or later. Service accounts need 16.0.0 or later. If people get into the group through the token, use Platform Manager 17.0.0 or later: older versions have problems for them (see "Known Platform Manager problems").
 
 A normal group (**Axual-managed**) has a member list that is stored in Axual. An
 **IAM-managed** group has no member list that counts. Your identity system decides who is in
@@ -107,7 +107,7 @@ account with `groupIds` in the service account API. For how to sign in as a serv
 
 ## Known Platform Manager problems
 
-These problems can affect IAM-managed groups. The first three are fixed in Platform Manager 16.1.0 (seen on 15.0.7 and 16.0.1):
+These problems can affect IAM-managed groups. The first three are fixed in Platform Manager 17.0.0 (seen on 15.0.7 and 16.0.1):
 
 - A person who is a member only through the token cannot create an application, topic or environment for the
   group, and cannot save an application in Self-Service (AXPD-12554). A person who left the IAM group but is still

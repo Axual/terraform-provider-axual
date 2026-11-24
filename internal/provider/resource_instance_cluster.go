@@ -198,7 +198,7 @@ func (r *instanceClusterResource) Schema(ctx context.Context, req resource.Schem
 						},
 					},
 					"version": schema.StringAttribute{
-						MarkdownDescription: "The registry version, for example `3.0`. From Platform Manager 16.1.0, it also sets the API of an `APICURIO` registry: a version that starts with `2` means the Apicurio 2.x API, any other version the 3.x API.",
+						MarkdownDescription: "The registry version, for example `3.0`.",
 						Optional:            true,
 						Validators:          []validator.String{notEmpty},
 					},
@@ -267,7 +267,7 @@ func (r *instanceClusterResource) Schema(ctx context.Context, req resource.Schem
 						},
 					},
 					"listeners": schema.MapAttribute{
-						MarkdownDescription: "Registry URLs applications use, by name. From Platform Manager 16.1.0, these are the `client_endpoints`: a new name becomes an endpoint with the registry's `api` for `ALL_APPS`, and an endpoint whose name is left out is removed. Conflicts with `client_endpoints`.",
+						MarkdownDescription: "Registry URLs applications use, by name. From Platform Manager 17.0.0, these are the `client_endpoints`: a new name becomes an endpoint with the registry's `api` for `ALL_APPS`, and an endpoint whose name is left out is removed. Conflicts with `client_endpoints`.",
 						Optional:            true,
 						Computed:            true,
 						ElementType:         types.StringType,
@@ -276,7 +276,7 @@ func (r *instanceClusterResource) Schema(ctx context.Context, req resource.Schem
 						},
 					},
 					"api": schema.StringAttribute{
-						MarkdownDescription: "The API the registry at `url` speaks: `APICURIO_V2` or `APICURIO_V3` for `APICURIO`, `CONFLUENT_V7` for `CONFLUENT`. Needs Platform Manager 16.1.0 or later. Platform Manager 17.0.0 or later refuses `APICURIO_V2`; `client_endpoints` still accept it. When it is not set, Platform Manager derives it from `type` and `version`, and the provider keeps it until `type` or `version` changes.",
+						MarkdownDescription: "The API the registry at `url` speaks: `APICURIO_V2` or `APICURIO_V3` for `APICURIO`, `CONFLUENT_V7` for `CONFLUENT`. Needs Platform Manager 17.0.0 or later, which refuses `APICURIO_V2`; `client_endpoints` still accept it. When it is not set, Platform Manager derives it from `type` and `version`, and the provider keeps it until `type` or `version` changes.",
 						Optional:            true,
 						Computed:            true,
 						Validators: []validator.String{
@@ -287,7 +287,7 @@ func (r *instanceClusterResource) Schema(ctx context.Context, req resource.Schem
 						},
 					},
 					"client_endpoints": schema.MapNestedAttribute{
-						MarkdownDescription: "The registry endpoints applications use, by name. Needs Platform Manager 16.1.0 or later. When set, it replaces all endpoints of the Instance-Cluster, and an endpoint keeps its identity in Platform Manager while its name stays the same. Leaving it out keeps the endpoints Platform Manager has, and `{}` removes them all. When it is not set, the endpoints follow `listeners`. Conflicts with `listeners`, which Platform Manager ignores when the endpoints are sent.",
+						MarkdownDescription: "The registry endpoints applications use, by name. Needs Platform Manager 17.0.0 or later. When set, it replaces all endpoints of the Instance-Cluster, and an endpoint keeps its identity in Platform Manager while its name stays the same. Leaving it out keeps the endpoints Platform Manager has, and `{}` removes them all. When it is not set, the endpoints follow `listeners`. Conflicts with `listeners`, which Platform Manager ignores when the endpoints are sent.",
 						Optional:            true,
 						Computed:            true,
 						Validators: []validator.Map{

@@ -7,6 +7,8 @@ All notable changes to this project will be documented in this file.
 * `managers` on the `axual_group` data source, and `viewers` on the `axual_topic`, `axual_application` and `axual_environment` data sources, so a data source shows the same lists as its resource. An empty list is `[]`, not null (AXPD-9556)
 
 ### Fixed
+* Creating or changing an `axual_flink_cluster` on a Platform Manager older than 17.0.0 now fails in the plan with `axual_flink_cluster needs Platform Manager 17.0.0 or later`. Before, the plan passed and the apply failed, because older versions have no `owners` and `authorized_groups` for a Flink Cluster. Destroying a Flink Cluster is not checked
+* The docs and the version check errors name the next Platform Manager release 17.0.0 everywhere. Before, some pages said 16.1.0 for the same release (infinite retention, Strimzi, the schema registry `api` and `client_endpoints`, IAM-managed groups). Development builds that report `16.1.0-SNAPSHOT` still pass the checks
 * A data source that finds nothing now says `Resource Not Found` and names the value it looked for, for example `No Application resources found with short_name 'payments'`. Before, `axual_application` showed `Client Error ... got error: resource not found`, `axual_environment` by `short_name` showed an empty name, and `axual_instance`, `axual_cluster` and `axual_schema_version` showed `Client Error` or did not name the value (AXPD-9556)
 * The data source pages of the documentation list every attribute with its type, generated from the schema like the resource pages. Before, they were written by hand, badly formatted and missed attributes (AXPD-9556)
 
