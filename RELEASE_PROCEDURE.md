@@ -53,6 +53,7 @@ git switch -c prepare-release-vX.Y.Z origin/master
 | --- | --- |
 | `CHANGELOG.md` | `## [Unreleased]` becomes `## [X.Y.Z](https://github.com/Axual/terraform-provider-axual/releases/tag/vX.Y.Z) - YYYY-MM-DD`. Write `TBR` as the date until the release day. For breaking changes in a minor release, add the warning (see "Version numbers") |
 | `README.md`, `templates/index.md.tmpl`, `templates/guides/*.md`, `examples/*/provider.tf` | Check the `version` pins. A pin that says "the first release with ..." must name a released version, or this one. A pin to an exact version (`examples/terraform-query`) becomes `X.Y.Z` |
+| `templates/index.md.tmpl` | Add a row for `X.Y.x` to the Compatibility table, with the Platform Manager and platform versions it supports |
 | `docs/` | Generated: run `go generate ./...` (see below). Never edit `docs/` by hand |
 
 Generate the docs:
