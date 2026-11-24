@@ -147,10 +147,13 @@ func SkipWithoutVerverica(t *testing.T, config ProviderConfig) {
 	}
 }
 
-// SkipWithoutKsmlRuntime skips a KSML runtime test unless test_config.yaml carries a cluster and a
-// KSML runtime URL to register on it.
+// SkipWithoutKsmlRuntime skips a KSML runtime test on a Platform Manager without KSML runtimes, and
+// unless test_config.yaml carries a cluster and a KSML runtime URL to register on it.
 func SkipWithoutKsmlRuntime(t *testing.T, config ProviderConfig) {
 	t.Helper()
+	if !hasKsmlRuntimes(t) {
+		t.Skip("Platform Manager has no KSML runtimes")
+	}
 	for _, field := range []struct{ key, value string }{
 		{"clusterId", config.ClusterId},
 		{"ksmlRuntimeUrl", config.KsmlRuntimeUrl},
@@ -158,6 +161,35 @@ func SkipWithoutKsmlRuntime(t *testing.T, config ProviderConfig) {
 		if field.value == "" || strings.HasPrefix(field.value, "YOUR_") {
 			t.Skipf("%s is not set in test_config.yaml, so no KSML runtime can be registered", field.key)
 		}
+	}
+}
+
+// SkipWithKsmlRuntimes skips a KSML deployment test without target_id on a Platform Manager that needs it.
+func SkipWithKsmlRuntimes(t *testing.T) {
+	t.Helper()
+	if hasKsmlRuntimes(t) {
+		t.Skip("Platform Manager has KSML runtimes, so a KSML deployment needs target_id")
+	}
+}
+
+// hasKsmlRuntimes asks for the KSML runtimes of unknown ids: a Platform Manager without KSML runtimes
+// answers 404, one with them 400 "Instance not found".
+func hasKsmlRuntimes(t *testing.T) bool {
+	t.Helper()
+	client, err := apiClient()
+	if err != nil {
+		t.Fatalf("Error signing in: %v", err)
+	}
+	err = client.RequestAndMap("GET", client.ApiURL+"/instances/none/clusters/none/ksml-runtimes", nil, nil, nil)
+	var httpErr *webclient.HTTPError
+	switch {
+	case errors.Is(err, webclient.NotFoundError):
+		return false
+	case errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusBadRequest:
+		return true
+	default:
+		t.Fatalf("Error asking Platform Manager whether it has KSML runtimes: %v", err)
+		return false
 	}
 }
 

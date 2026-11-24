@@ -236,8 +236,8 @@ Before running acceptance tests:
    the Instance-Cluster named by `clusterId` (shared with the Flink tests, and a cluster of the
    instance named by `instanceName`), so they need a Tenant Admin or a Platform Admin, and the group
    named by `groupName` as the owner of the test application. They skip themselves while `clusterId`
-   or `ksmlRuntimeUrl` is still a placeholder. Both need Platform Manager 17.0.0 or later: on an
-   older version they fail rather than skip.
+   or `ksmlRuntimeUrl` is still a placeholder, and on a Platform Manager without KSML runtimes
+   (before 17.0.0).
    - `ksmlRuntimeUrl`: The URL of a KSML provisioner that Platform Manager can reach. Exposed to the
      test fixtures as `local.ksml_runtime_url` and used as the `url` of `axual_ksml_runtime`. The
      Application Deployment test starts a real KSML application on it. It may be the URL of a KSML
