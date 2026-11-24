@@ -113,9 +113,21 @@ func TestKsmlRuntimeResource(t *testing.T) {
 				Config:            GetKsmlProvider() + GetFile("axual_ksml_runtime_renamed.tf"),
 			},
 			{
+				// A replaced KSML runtime gets only the Groups in the configuration: with authorized_groups
+				// left out it has none, whatever the one it replaces had.
+				Config: GetKsmlProvider() + GetFile("axual_ksml_runtime_replaced_authorized_groups_omitted.tf"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction(ksmlRuntime, plancheck.ResourceActionDestroyBeforeCreate)},
+				},
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(ksmlRuntime, "name", "tf-test-ksml-runtime-replaced"),
+					resource.TestCheckResourceAttr(ksmlRuntime, "authorized_groups.#", "0"),
+				),
+			},
+			{
 				// To ensure cleanup if one of the test cases had an error
 				Destroy: true,
-				Config:  GetKsmlProvider() + GetFile("axual_ksml_runtime_renamed.tf"),
+				Config:  GetKsmlProvider() + GetFile("axual_ksml_runtime_replaced_authorized_groups_omitted.tf"),
 			},
 		},
 	})
