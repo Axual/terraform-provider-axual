@@ -105,7 +105,7 @@ func (r *ksmlRuntimeResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"url": schema.StringAttribute{
-				MarkdownDescription: "Base URL of the KSML provisioner, e.g. `https://ksml.example.com`. Must be 1 to 255 characters, without white space around it. Only a Tenant Admin or a Platform Admin can change the url.",
+				MarkdownDescription: "Base URL of the KSML provisioner, e.g. `https://ksml.example.com`. Must be 1 to 255 characters, without white space around it.",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(1, ksmlRuntimeUrlMaxLength),
