@@ -98,10 +98,10 @@ func (r *ksmlRuntimeResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"description": schema.StringAttribute{
-				MarkdownDescription: "A short description of the KSML runtime. Must be at most 255 characters.",
+				MarkdownDescription: "A short description of the KSML runtime. Must be 1 to 255 characters. Leave it out for none.",
 				Optional:            true,
 				Validators: []validator.String{
-					stringvalidator.LengthAtMost(ksmlRuntimeDescriptionMaxLength),
+					stringvalidator.LengthBetween(1, ksmlRuntimeDescriptionMaxLength),
 				},
 			},
 			"url": schema.StringAttribute{

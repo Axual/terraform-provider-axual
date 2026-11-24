@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -240,6 +241,31 @@ func TestKsmlRuntimeUrlRefusesBlankAndPaddedValues(t *testing.T) {
 		}
 		if resp.Diagnostics.HasError() != refused {
 			t.Errorf("url %q: refused = %t, expected %t", value, resp.Diagnostics.HasError(), refused)
+		}
+	}
+}
+
+// Platform Manager stores an empty description, which is null in the state, so the plan refuses
+// `description = ""`: leaving the attribute out is what removes the description.
+func TestKsmlRuntimeDescriptionRefusesAnEmptyValue(t *testing.T) {
+	ctx := context.Background()
+	attribute := emptyState(t, &ksmlRuntimeResource{}).Schema.GetAttributes()["description"].(schema.StringAttribute)
+
+	for name, tt := range map[string]struct {
+		value   types.String
+		refused bool
+	}{
+		"empty":    {types.StringValue(""), true},
+		"left out": {types.StringNull(), false},
+		"a text":   {types.StringValue("KSML runtime"), false},
+		"too long": {types.StringValue(strings.Repeat("a", ksmlRuntimeDescriptionMaxLength+1)), true},
+	} {
+		resp := validator.StringResponse{}
+		for _, v := range attribute.Validators {
+			v.ValidateString(ctx, validator.StringRequest{Path: path.Root("description"), ConfigValue: tt.value}, &resp)
+		}
+		if resp.Diagnostics.HasError() != tt.refused {
+			t.Errorf("%s: refused = %t, expected %t", name, resp.Diagnostics.HasError(), tt.refused)
 		}
 	}
 }
