@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.3.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.3.0) - TBR
+## [3.3.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.3.0) - 2026-11-24
 This release has three breaking changes, marked **Breaking** under "Changed": `axual_flink_cluster` needs Platform Manager 17.0.0, `owners` is required on `axual_flink_cluster`, and a group that is linked to an IAM group fails the plan when the configuration sets `members` or `managers`. Read them before you upgrade from 3.2.x.
 
 ### Added
