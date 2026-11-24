@@ -158,8 +158,8 @@ func SkipWithoutKsmlRuntime(t *testing.T, config ProviderConfig) {
 		{"clusterId", config.ClusterId},
 		{"ksmlRuntimeUrl", config.KsmlRuntimeUrl},
 	} {
-		if field.value == "" || strings.HasPrefix(field.value, "YOUR_") {
-			t.Skipf("%s is not set in test_config.yaml, so no KSML runtime can be registered", field.key)
+		if missing(field.value) {
+			SkipForMissingConfig(t, config, "%s is not set in test_config.yaml, so no KSML runtime can be registered", field.key)
 		}
 	}
 }

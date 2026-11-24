@@ -313,8 +313,8 @@ Before running acceptance tests:
    A test skips when a value it needs is empty or still a `YOUR_` placeholder, and a package whose tests all skip
    still reports `ok`. Set `strict: true` for a release run: such a test then fails with the name of the missing
    value. Tests for a feature of a newer Platform Manager still skip (for example registered Kafka Connect
-   clusters and service accounts before 16.0.0). On a stack without Ververica, also set `flinkTests: false`: the
-   Flink tests then skip on purpose.
+   clusters and service accounts before 16.0.0, and KSML runtimes before 17.0.0). On a stack without Ververica,
+   also set `flinkTests: false`: the Flink tests then skip on purpose.
 
 4. **Creating Test Users:**
    Some tests (e.g., `TopicBrowsePermissionsResource`) require existing users to be referenced. Update the test files in [`internal/tests/TopicBrowsePermissionsResource/`](./internal/tests/TopicBrowsePermissionsResource/) with email addresses of users that exist in your test environment.
