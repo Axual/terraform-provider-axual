@@ -194,7 +194,7 @@ Before running acceptance tests:
        - SSL using `Axual Dummy Root CA` as the Signing Authority
      - `GranularBrowsePermission` is enabled
      - `ConnectSupport` is enabled
-     - KSML is enabled for the tenant, and a KSML provisioner is reachable from Platform Manager (see `ksmlRuntimeUrl` below)
+     - KSML is enabled for the tenant. Before Platform Manager 17.0.0 the instance has a `KSML Provisioner` configured; from 17.0.0 a KSML provisioner is reachable from Platform Manager (see `ksmlRuntimeUrl` below)
      - has an `Apicurio` Schema Registry configured
      - `certificateReusePreventionLevel` is set to `None`
    - `groupName`: A group you are a member of
@@ -232,12 +232,14 @@ Before running acceptance tests:
    setup step.
 
    The following value is only needed by the KSML runtime tests (`internal/tests/KsmlRuntimeResource`)
-   and the KSML part of the Application Deployment tests. They register their own KSML runtimes on
+   and `TestApplicationDeploymentKSMLRuntimeResource`. They register their own KSML runtimes on
    the Instance-Cluster named by `clusterId` (shared with the Flink tests, and a cluster of the
    instance named by `instanceName`), so they need a Tenant Admin or a Platform Admin, and the group
    named by `groupName` as the owner of the test application. They skip themselves while `clusterId`
    or `ksmlRuntimeUrl` is still a placeholder, and on a Platform Manager without KSML runtimes
-   (before 17.0.0).
+   (before 17.0.0). `TestApplicationDeploymentKSMLResource` is the opposite: it creates a KSML
+   deployment without `target_id` on the instance's KSML Provisioner, and skips on a Platform
+   Manager with KSML runtimes.
    - `ksmlRuntimeUrl`: The URL of a KSML provisioner that Platform Manager can reach. Exposed to the
      test fixtures as `local.ksml_runtime_url` and used as the `url` of `axual_ksml_runtime`. The
      Application Deployment test starts a real KSML application on it. It may be the URL of a KSML

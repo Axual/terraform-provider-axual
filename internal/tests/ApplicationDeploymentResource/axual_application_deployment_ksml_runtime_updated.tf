@@ -1,0 +1,10 @@
+resource "axual_application_deployment" "ksml_axual_application_deployment" {
+  environment     = axual_environment.tf-test-ksml-env.id
+  application     = axual_application.tf-test-ksml-app.id
+  target_id       = axual_ksml_runtime.tf_test_ksml_runtime.id
+  definition      = file("definitions/ksml-definition.yaml")
+  deployment_size = "M"
+  depends_on = [
+    axual_application_access_grant_decision.tf-test-ksml-application-access-grant-approval,
+  ]
+}
