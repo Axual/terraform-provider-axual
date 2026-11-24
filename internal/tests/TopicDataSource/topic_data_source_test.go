@@ -31,6 +31,8 @@ func TestTopicDataSource(t *testing.T) {
 					resource.TestCheckResourceAttr("data.axual_topic.topic-test-imported", "tags.#", "2"),
 					resource.TestCheckTypeSetElemAttr("data.axual_topic.topic-test-imported", "tags.*", "finance"),
 					resource.TestCheckTypeSetElemAttr("data.axual_topic.topic-test-imported", "tags.*", "pii"),
+					resource.TestCheckResourceAttr("data.axual_topic.topic-test-imported", "viewers.#", "1"),
+					resource.TestCheckTypeSetElemAttrPair("data.axual_topic.topic-test-imported", "viewers.*", "axual_group.tf-test-topic-viewers", "id"),
 
 					resource.TestCheckResourceAttr("data.axual_topic.topic_mix_test_imported", "name", "test-mix-topic"),
 					resource.TestCheckResourceAttr("data.axual_topic.topic_mix_test_imported", "description", "Demo of deploying a mixed schema topic via Terraform"),
@@ -44,6 +46,7 @@ func TestTopicDataSource(t *testing.T) {
 					resource.TestCheckResourceAttrPair("data.axual_topic.topic_mix_test_imported", "key_schema", "axual_topic.topic_mix_test", "key_schema"),
 					resource.TestCheckResourceAttrPair("data.axual_topic.topic_mix_test_imported", "value_schema", "axual_topic.topic_mix_test", "value_schema"),
 					resource.TestCheckResourceAttr("data.axual_topic.topic_mix_test_imported", "tags.#", "0"),
+					resource.TestCheckResourceAttr("data.axual_topic.topic_mix_test_imported", "viewers.#", "0"),
 				),
 			},
 			{

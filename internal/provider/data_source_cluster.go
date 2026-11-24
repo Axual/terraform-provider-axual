@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -78,6 +79,11 @@ func (d *clusterDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	}
 
 	id, err := findClusterIDByName(d.provider.client, data.Name.ValueString())
+	var noMatch *noMatchError
+	if errors.As(err, &noMatch) {
+		resp.Diagnostics.AddError("Resource Not Found", err.Error())
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", err.Error())
 		return

@@ -1,3 +1,7 @@
+resource "axual_group" "tf-test-env-viewers" {
+  name = "tf-test-env-viewers"
+}
+
 resource "axual_environment" "tf-test-env" {
   name                 = "tf-development"
   short_name           = "tfdev"
@@ -7,6 +11,7 @@ resource "axual_environment" "tf-test-env" {
   authorization_issuer = "Auto"
   instance             = data.axual_instance.test_instance.id
   owners               = data.axual_group.test_group.id
+  viewers              = [axual_group.tf-test-env-viewers.id]
 }
 
 data "axual_environment" "tf-test-env-imported-by-name" {

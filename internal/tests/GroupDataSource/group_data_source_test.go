@@ -22,6 +22,8 @@ func TestGroupDataSource(t *testing.T) {
 					resource.TestCheckResourceAttr("data.axual_group.team-integrations-imported", "phone_number", "+6112356789"),
 					resource.TestCheckResourceAttr("data.axual_group.team-integrations-imported", "members.#", "1"),
 					resource.TestCheckResourceAttrPair("data.axual_group.team-integrations-imported", "members.0", "data.axual_user.test_user", "id"),
+					resource.TestCheckResourceAttr("data.axual_group.team-integrations-imported", "managers.#", "1"),
+					resource.TestCheckResourceAttrPair("data.axual_group.team-integrations-imported", "managers.0", "data.axual_user.test_user", "id"),
 					resource.TestCheckNoResourceAttr("data.axual_group.team-integrations-imported", "iam_reference"),
 				),
 			},

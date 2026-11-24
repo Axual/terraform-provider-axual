@@ -64,6 +64,12 @@ type keyedID struct {
 	id  string
 }
 
+// noMatchError is the error of onlyExactMatch when no result has the key, so a data source can say
+// "Resource Not Found" instead of "Client Error".
+type noMatchError struct{ message string }
+
+func (e *noMatchError) Error() string { return e.message }
+
 // onlyExactMatch runs search and returns the one ID whose key equals key exactly. Platform Manager's
 // searches ignore case, so a result can differ from key in case only. An email address does not
 // depend on case, so a user matches in any case.
@@ -84,9 +90,9 @@ func onlyExactMatch(kind string, key string, search func() ([]keyedID, error)) (
 		return ids[0], nil
 	case 0:
 		if ignoreCase {
-			return "", fmt.Errorf("no %s %q found", kind, key)
+			return "", &noMatchError{fmt.Sprintf("no %s %q found", kind, key)}
 		}
-		return "", fmt.Errorf("no %s %q found; it must match exactly, case included", kind, key)
+		return "", &noMatchError{fmt.Sprintf("no %s %q found; it must match exactly, case included", kind, key)}
 	default:
 		return "", fmt.Errorf("%d %ss match %q; use the ID instead", len(ids), kind, key)
 	}

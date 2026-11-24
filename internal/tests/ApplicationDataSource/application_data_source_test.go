@@ -24,7 +24,17 @@ func TestApplicationDataSource(t *testing.T) {
 					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-name", "type", "Java"),
 					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-name", "visibility", "Public"),
 					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-name", "description", "Axual's TF Test Application"),
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-name", "viewers.#", "1"),
+					resource.TestCheckTypeSetElemAttrPair("data.axual_application.tf-test-app-imported-by-name", "viewers.*", "axual_group.tf-test-app-viewers", "id"),
 				),
+			},
+			{
+				Config:      GetProvider() + GetFile("axual_application_not_found.tf"),
+				ExpectError: regexp.MustCompile("No Application resources found with name 'non_existent_resource'"),
+			},
+			{
+				Config:      GetProvider() + GetFile("axual_application_short_name_not_found.tf"),
+				ExpectError: regexp.MustCompile("No Application resources found with short_name 'non_existent_resource'"),
 			},
 		},
 	})
@@ -46,6 +56,8 @@ func TestApplicationDataSourceByShortName(t *testing.T) {
 					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name", "type", "Java"),
 					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name", "visibility", "Public"),
 					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name", "description", "Axual's TF Test Application"),
+					resource.TestCheckResourceAttr("data.axual_application.tf-test-app-imported-by-short-name", "viewers.#", "1"),
+					resource.TestCheckTypeSetElemAttrPair("data.axual_application.tf-test-app-imported-by-short-name", "viewers.*", "axual_group.tf-test-app-viewers", "id"),
 				),
 			},
 		},

@@ -24,7 +24,7 @@ func TestClusterDataSource(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      GetClusterProvider() + GetFile("axual_cluster_data_source_missing.tf"),
-				ExpectError: regexp.MustCompile(`no cluster "tf-test-cluster-that-does-not-exist" found`),
+				ExpectError: regexp.MustCompile(`(?s)Resource Not Found.*no cluster "tf-test-cluster-that-does-not-exist" found`),
 			},
 			{
 				Config: GetClusterProvider() + GetFile("axual_cluster_data_source.tf"),

@@ -3,6 +3,7 @@ package provider
 import (
 	webclient "axual-webclient"
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -38,6 +39,7 @@ type applicationDataSourceData struct {
 	ApplicationId    types.String `tfsdk:"application_id"`
 	Type             types.String `tfsdk:"type"`
 	Owners           types.String `tfsdk:"owners"`
+	Viewers          types.Set    `tfsdk:"viewers"`
 	Visibility       types.String `tfsdk:"visibility"`
 }
 
@@ -56,7 +58,7 @@ func (d *applicationDataSource) Schema(ctx context.Context, req datasource.Schem
 				Computed:            true,
 			},
 			"application_type": schema.StringAttribute{
-				MarkdownDescription: "Axual Application type. Possible values are Custom or Connector.",
+				MarkdownDescription: "Axual Application type. Possible values are Custom, Connector, Ksml, or FLINK_SQL.",
 				Computed:            true,
 			},
 			"application_id": schema.StringAttribute{
@@ -84,6 +86,11 @@ func (d *applicationDataSource) Schema(ctx context.Context, req datasource.Schem
 			"owners": schema.StringAttribute{
 				MarkdownDescription: "Application Owner",
 				Computed:            true,
+			},
+			"viewers": schema.SetAttribute{
+				MarkdownDescription: "The uids of the Viewer Groups of this application. Application Viewer Groups can view the application configuration, regardless of ownership and visibility. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#viewer-groups",
+				Computed:            true,
+				ElementType:         types.StringType,
 			},
 			"type": schema.StringAttribute{
 				Computed:            true,
@@ -132,6 +139,7 @@ func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 	}
 	params := url.Values{}
 	searchParam := "name"
+	searchAttribute := "name"
 	var searchValue string
 
 	if data.ShortName.ValueString() == "" {
@@ -141,21 +149,33 @@ func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 		searchValue = data.ShortName.ValueString()
 		params.Set("shortName", searchValue)
 		searchParam = "shortName"
+		searchAttribute = "short_name"
 	}
 
 	appResponse, err := d.provider.client.GetApplicationByNameOrShortName(params)
+	if errors.Is(err, webclient.NotFoundError) {
+		addNotFoundError(&resp.Diagnostics, "Application", searchAttribute, searchValue)
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application by %s: '%s', got error: %s", searchParam, searchValue, err))
 		return
 	}
 
-	mapApplicationDataSourceResponseToData(&data, appResponse)
+	// The search answer has no viewers, so read the application by uid.
+	app, err := d.provider.client.GetApplication(appResponse.Uid)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application, got error: %s", err))
+		return
+	}
+
+	mapApplicationDataSourceResponseToData(ctx, &data, app)
 
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 }
 
-func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, app *webclient.ApplicationResponse) {
+func mapApplicationDataSourceResponseToData(ctx context.Context, data *applicationDataSourceData, app *webclient.ApplicationResponse) {
 
 	data.Id = types.StringValue(app.Uid)
 	data.ApplicationType = types.StringValue(app.ApplicationType)
@@ -163,6 +183,11 @@ func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, app
 	data.Name = types.StringValue(app.Name)
 	data.ShortName = types.StringValue(app.ShortName)
 	data.Owners = types.StringValue(app.Owners.Uid)
+	viewers := make([]string, 0, len(app.Embedded.Viewers))
+	for _, viewer := range app.Embedded.Viewers {
+		viewers = append(viewers, viewer.Uid)
+	}
+	data.Viewers = uidStringSet(ctx, viewers)
 	data.Type = types.StringValue(app.Type)
 	data.Visibility = types.StringValue(app.Visibility)
 

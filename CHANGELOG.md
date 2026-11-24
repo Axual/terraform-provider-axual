@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+### Added
+* `managers` on the `axual_group` data source, and `viewers` on the `axual_topic`, `axual_application` and `axual_environment` data sources, so a data source shows the same lists as its resource. An empty list is `[]`, not null (AXPD-9556)
+
+### Fixed
+* A data source that finds nothing now says `Resource Not Found` and names the value it looked for, for example `No Application resources found with short_name 'payments'`. Before, `axual_application` showed `Client Error ... got error: resource not found`, `axual_environment` by `short_name` showed an empty name, and `axual_instance`, `axual_cluster` and `axual_schema_version` showed `Client Error` or did not name the value (AXPD-9556)
+* The data source pages of the documentation list every attribute with its type, generated from the schema like the resource pages. Before, they were written by hand, badly formatted and missed attributes (AXPD-9556)
+
 ## [3.3.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.3.0) - 2026-11-24
 This release has three breaking changes, marked **Breaking** under "Changed": `axual_flink_cluster` needs Platform Manager 17.0.0, `owners` is required on `axual_flink_cluster`, and a group that is linked to an IAM group fails the plan when the configuration sets `members` or `managers`. Read them before you upgrade from 3.2.x.
 

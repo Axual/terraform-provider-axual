@@ -44,7 +44,7 @@ func (d *schemaVersionDataSource) Schema(ctx context.Context, req datasource.Sch
 				MarkdownDescription: "Schema version unique identifier",
 			},
 			"body": schema.StringAttribute{
-				MarkdownDescription: "Avro schema body",
+				MarkdownDescription: "The schema body: Avro, Protobuf or JSON Schema.",
 				Computed:            true,
 			},
 			"version": schema.StringAttribute{
@@ -52,7 +52,7 @@ func (d *schemaVersionDataSource) Schema(ctx context.Context, req datasource.Sch
 				Required:            true,
 			},
 			"description": schema.StringAttribute{
-				MarkdownDescription: "A short text describing the schema version",
+				MarkdownDescription: "A short text describing the schema. It belongs to the schema, not to this version: it is the latest description set on any version of the schema, not always the one of `version`.",
 				Computed:            true,
 			},
 			"schema_id": schema.StringAttribute{
@@ -61,7 +61,7 @@ func (d *schemaVersionDataSource) Schema(ctx context.Context, req datasource.Sch
 			},
 			"full_name": schema.StringAttribute{
 				Required:            true,
-				MarkdownDescription: "Full name of the schema. Full name is schema's <namespace>.<name>. For example: io.axual.qa.general.GitOpsTest",
+				MarkdownDescription: "Full name of the schema: `<namespace>.<name>`, for example `io.axual.qa.general.GitOpsTest`.",
 			},
 			"owners": schema.StringAttribute{
 				MarkdownDescription: "Schema Owner",
@@ -88,7 +88,7 @@ func (d *schemaVersionDataSource) Read(ctx context.Context, req datasource.ReadR
 		return
 	}
 	if len(axualSchema.Embedded.Schemas) == 0 {
-		resp.Diagnostics.AddError("Schema not found error", "Schema matching the full name you requested was not found")
+		addNotFoundError(&resp.Diagnostics, "Schema", "full_name", data.FullName.ValueString())
 		return
 	}
 
@@ -99,8 +99,9 @@ func (d *schemaVersionDataSource) Read(ctx context.Context, req datasource.ReadR
 		return
 	}
 
-	// data.Version is overwritten below, so capture the target before the loop starts.
+	// data.Version and data.FullName are overwritten below, so capture them before the loop starts.
 	requestedVersion := data.Version.ValueString()
+	requestedFullName := data.FullName.ValueString()
 	foundMatchingVersion := false
 
 	for i := range sv.Embedded.SchemaVersion {
@@ -121,7 +122,7 @@ func (d *schemaVersionDataSource) Read(ctx context.Context, req datasource.ReadR
 	}
 
 	if !foundMatchingVersion {
-		resp.Diagnostics.AddError("Client Error", "Schema version matching the name you requested was not found")
+		resp.Diagnostics.AddError("Resource Not Found", fmt.Sprintf("No version '%s' found for schema with full_name '%s'.", requestedVersion, requestedFullName))
 		return
 	}
 	diags = resp.State.Set(ctx, &data)

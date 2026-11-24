@@ -24,6 +24,10 @@ resource "axual_schema_version" "jsonschema_v1" {
   type = "JSON_SCHEMA"
 }
 
+resource "axual_group" "tf-test-topic-viewers" {
+  name = "tf-test-topic-viewers"
+}
+
 resource "axual_topic" "topic-avro-test" {
   name             = "test-avro-topic"
   key_type         = "AVRO"
@@ -38,6 +42,7 @@ resource "axual_topic" "topic-avro-test" {
   }
   description = "Demo of deploying a topic via Terraform"
   tags        = ["finance", "pii"]
+  viewers     = [axual_group.tf-test-topic-viewers.id]
 }
 
 data "axual_topic" "topic-test-imported" {
