@@ -244,7 +244,7 @@ func TestApplicationDeploymentStateAxualConnectMtls(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(acTlsState, "current_state", "Running"),
 					// No target is stored; the API reports the synthetic legacy Axual Connect target.
-					resource.TestMatchResourceAttr(acTlsDeployment, "target_id", regexp.MustCompile(`^axualconnect-`)),
+					CheckFrom(16, 0, resource.TestMatchResourceAttr(acTlsDeployment, "target_id", regexp.MustCompile(`^axualconnect-`))),
 				),
 			},
 			{

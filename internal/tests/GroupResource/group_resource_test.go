@@ -3,7 +3,6 @@ package GroupResource
 import (
 	"fmt"
 	"regexp"
-	"strings"
 	"testing"
 
 	. "axual.com/terraform-provider-axual/internal/tests"
@@ -68,9 +67,7 @@ func TestGroupResourceServiceAccountMemberAndManager(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error loading provider config: %v", err)
 	}
-	if config.ServiceAccountUid == "" || strings.HasPrefix(config.ServiceAccountUid, "YOUR_") {
-		t.Skip("serviceAccountUid is not set in test_config.yaml, so no service account can be added to a group")
-	}
+	SkipWithoutServiceAccount(t, config)
 	locals := fmt.Sprintf("locals {\n  service_account_uid = %q\n}\n", config.ServiceAccountUid)
 
 	resource.Test(t, resource.TestCase{

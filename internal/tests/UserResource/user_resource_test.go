@@ -89,7 +89,7 @@ func TestUserResource(t *testing.T) {
 	}
 	email := config.TestUserEmail
 	if email == "" || strings.HasPrefix(email, "YOUR_") {
-		t.Skip("testUserEmail is not set in test_config.yaml")
+		SkipForMissingConfig(t, config, "testUserEmail is not set in test_config.yaml")
 	}
 	user := readTestUser(t, email)
 

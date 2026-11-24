@@ -97,7 +97,7 @@ terraform {
   required_providers {
     axual = {
       source  = "axual/axual"
-      version = "~> 2.6"
+      version = ">= 3.3.0" # the first release with axual_application_access_grant_decision
     }
   }
 }

@@ -60,6 +60,7 @@ func TestApplicationDeploymentResource(t *testing.T) {
 			// deployment cannot be started yet. The next step adds the configs to the same
 			// deployment, in place.
 			{
+				SkipFunc: SkipStepBefore(16, 0, "Connector deployments without configs"),
 				Config: GetProvider() + GetFile(
 					"axual_application_deployment_setup.tf",
 					"axual_application_deployment_missing_configs.tf",
@@ -206,7 +207,7 @@ func TestApplicationDeploymentFlinkManualTablesResource(t *testing.T) {
 	}
 	SkipWithoutVerverica(t, config)
 	if config.ResolvedTopicPrefix == "" {
-		t.Skip("resolvedTopicPrefix is not set in test_config.yaml, so the Kafka topic names in the hand-written DDL cannot be built")
+		SkipForMissingConfig(t, config, "resolvedTopicPrefix is not set in test_config.yaml, so the Kafka topic names in the hand-written DDL cannot be built")
 	}
 
 	resource.Test(t, resource.TestCase{
