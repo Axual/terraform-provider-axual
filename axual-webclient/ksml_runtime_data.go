@@ -14,6 +14,8 @@ type KsmlRuntimeResponse struct {
 	Uid              string            `json:"id"`
 	Name             string            `json:"name"`
 	Description      string            `json:"description"`
+	InstanceId       string            `json:"instanceId"`
+	ClusterId        string            `json:"clusterId"`
 	OwnerGroupId     string            `json:"ownerGroupId"`
 	AuthorizedGroups []AuthorizedGroup `json:"authorizedGroups"`
 	Config           KsmlRuntimeConfig `json:"config"`

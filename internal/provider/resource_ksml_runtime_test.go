@@ -4,6 +4,7 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"encoding/json"
+	"net/http"
 	"reflect"
 	"sort"
 	"strings"
@@ -239,6 +240,51 @@ func TestKsmlRuntimeImportRefusesAnIdWithoutThreeParts(t *testing.T) {
 
 			if !resp.Diagnostics.HasError() {
 				t.Error("import succeeded, expected an Unexpected Import Identifier error")
+			}
+		})
+	}
+}
+
+// readKsmlRuntime runs Read on a state for runtime r1 on instanceId and clusterId, against a Platform
+// Manager that answers GET /runtimes/r1 with answer.
+func readKsmlRuntime(t *testing.T, instanceId, clusterId, answer string) resource.ReadResponse {
+	t.Helper()
+	r := &ksmlRuntimeResource{provider: AxualProvider{client: fakePM(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(answer))
+	})}}
+	data := ksmlRuntimeData("owner-id", groupSet())
+	data.Id, data.InstanceId, data.ClusterId = types.StringValue("r1"), types.StringValue(instanceId), types.StringValue(clusterId)
+	state := stateFor(t, r, data)
+	resp := resource.ReadResponse{State: state}
+	r.Read(context.Background(), resource.ReadRequest{State: state}, &resp)
+	return resp
+}
+
+const ksmlRuntimeOnI1C1 = `{"id":"r1","type":"KSML","name":"ksml-runtime","instanceId":"i1","clusterId":"c1","ownerGroupId":"owner-id",` +
+	`"authorizedGroups":[],"config":{"url":"https://ksml.example.com","schemaRegistries":[]}}`
+
+// /runtimes/{id} finds a KSML runtime by its id alone, so the instance and the cluster of an import
+// identifier are checked against the answer.
+func TestKsmlRuntimeReadRefusesAnotherInstanceOrCluster(t *testing.T) {
+	for name, tt := range map[string]struct {
+		instanceId, clusterId string
+		refused               bool
+	}{
+		"the instance and cluster it is on": {"i1", "c1", false},
+		"another instance":                  {"i2", "c1", true},
+		"another cluster":                   {"i1", "c2", true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			resp := readKsmlRuntime(t, tt.instanceId, tt.clusterId, ksmlRuntimeOnI1C1)
+
+			if resp.Diagnostics.HasError() != tt.refused {
+				t.Fatalf("read error = %v, expected refused = %t", resp.Diagnostics, tt.refused)
+			}
+			if !tt.refused {
+				return
+			}
+			if detail := resp.Diagnostics.Errors()[0].Detail(); !strings.Contains(detail, "i1/c1/r1") {
+				t.Errorf("detail = %q, expected it to name the import identifier i1/c1/r1", detail)
 			}
 		})
 	}

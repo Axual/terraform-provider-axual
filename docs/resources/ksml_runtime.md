@@ -90,7 +90,7 @@ resource "axual_application_deployment" "example_ksml_deployment" {
 
 ## Import
 
-Import is supported using the following syntax. Because Platform Manager finds a KSML runtime through the Instance-Cluster it is registered on, the import identifier is the instance uid, the cluster uid and the KSML runtime uid separated by `/`:
+Import is supported using the following syntax. The import identifier is the instance uid, the cluster uid and the KSML runtime uid separated by `/`. The import fails when the KSML runtime is not registered on that instance and cluster:
 
 ```shell
 terraform import axual_ksml_runtime.<LOCAL NAME> <INSTANCE UID>/<CLUSTER UID>/<KSML RUNTIME UID>

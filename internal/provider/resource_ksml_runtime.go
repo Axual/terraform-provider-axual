@@ -194,6 +194,18 @@ func (r *ksmlRuntimeResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
+	// The API finds a KSML runtime by its id alone, so this is where an import identifier with the
+	// wrong instance or cluster is noticed.
+	if ksmlRuntime.InstanceId != data.InstanceId.ValueString() || ksmlRuntime.ClusterId != data.ClusterId.ValueString() {
+		resp.Diagnostics.AddError(
+			"KSML runtime is registered on another Instance-Cluster",
+			fmt.Sprintf("KSML runtime %s is registered on instance %s and cluster %s, not on instance %s and cluster %s. To import it, use the identifier %s/%s/%s.",
+				ksmlRuntime.Uid, ksmlRuntime.InstanceId, ksmlRuntime.ClusterId, data.InstanceId.ValueString(), data.ClusterId.ValueString(),
+				ksmlRuntime.InstanceId, ksmlRuntime.ClusterId, ksmlRuntime.Uid),
+		)
+		return
+	}
+
 	mapKsmlRuntimeResponseToData(&data, ksmlRuntime)
 
 	diags = resp.State.Set(ctx, &data)
@@ -242,7 +254,7 @@ func (r *ksmlRuntimeResource) Delete(ctx context.Context, req resource.DeleteReq
 }
 
 // ImportState accepts an id of the form "instance_id/cluster_id/ksml_runtime_id": the Instance-Cluster
-// the KSML runtime is registered on, and the KSML runtime.
+// the KSML runtime is registered on, and the KSML runtime. Read checks the first two against the API.
 func (r *ksmlRuntimeResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	parts := strings.Split(req.ID, "/")
 	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {

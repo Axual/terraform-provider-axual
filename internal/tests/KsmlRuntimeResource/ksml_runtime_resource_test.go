@@ -100,8 +100,8 @@ func TestKsmlRuntimeResource(t *testing.T) {
 				),
 			},
 			{
-				// The API finds a KSML runtime through its instance and cluster, so ImportState expects a
-				// composite "instance_id/cluster_id/ksml_runtime_id" identifier, which ImportStateIdFunc
+				// ImportState expects the Instance-Cluster the KSML runtime is registered on and the KSML runtime, as
+				// a composite "instance_id/cluster_id/ksml_runtime_id" identifier, which ImportStateIdFunc
 				// assembles from state.
 				ResourceName: ksmlRuntime,
 				ImportState:  true,
