@@ -160,7 +160,7 @@ func (r *ksmlRuntimeResource) Create(ctx context.Context, req resource.CreateReq
 
 	ksmlRuntimeRequest := createKsmlRuntimeRequestFromData(&data)
 
-	ksmlRuntime, err := r.provider.client.CreateKsmlRuntime(data.InstanceId.ValueString(), data.ClusterId.ValueString(), ksmlRuntimeRequest)
+	ksmlRuntime, err := r.provider.client.CreateKsmlRuntime(ksmlRuntimeRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("CREATE request error for KSML runtime resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
@@ -183,7 +183,7 @@ func (r *ksmlRuntimeResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
-	ksmlRuntime, err := r.provider.client.GetKsmlRuntime(data.InstanceId.ValueString(), data.ClusterId.ValueString(), data.Id.ValueString())
+	ksmlRuntime, err := r.provider.client.GetKsmlRuntime(data.Id.ValueString())
 	if err != nil {
 		if isGone(err) {
 			tflog.Warn(ctx, fmt.Sprintf("KSML runtime not found. Id: %s", data.Id.ValueString()))
@@ -210,9 +210,9 @@ func (r *ksmlRuntimeResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
-	ksmlRuntimeRequest := createKsmlRuntimeRequestFromData(&data)
+	ksmlRuntimeRequest := updateKsmlRuntimeRequestFromData(&data)
 
-	ksmlRuntime, err := r.provider.client.UpdateKsmlRuntime(data.InstanceId.ValueString(), data.ClusterId.ValueString(), data.Id.ValueString(), ksmlRuntimeRequest)
+	ksmlRuntime, err := r.provider.client.UpdateKsmlRuntime(data.Id.ValueString(), ksmlRuntimeRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update KSML runtime, got error: %s", err))
 		return
@@ -234,15 +234,15 @@ func (r *ksmlRuntimeResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	err := ignoreGone(r.provider.client.DeleteKsmlRuntime(data.InstanceId.ValueString(), data.ClusterId.ValueString(), data.Id.ValueString()))
+	err := ignoreGone(r.provider.client.DeleteKsmlRuntime(data.Id.ValueString()))
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete KSML runtime, got error: %s", err))
 		return
 	}
 }
 
-// ImportState accepts an id of the form "instance_id/cluster_id/ksml_runtime_id": the API finds a
-// KSML runtime through the instance and cluster it is registered on.
+// ImportState accepts an id of the form "instance_id/cluster_id/ksml_runtime_id": the Instance-Cluster
+// the KSML runtime is registered on, and the KSML runtime.
 func (r *ksmlRuntimeResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	parts := strings.Split(req.ID, "/")
 	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
@@ -258,29 +258,52 @@ func (r *ksmlRuntimeResource) ImportState(ctx context.Context, req resource.Impo
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[2])...)
 }
 
-func createKsmlRuntimeRequestFromData(data *KsmlRuntimeResourceData) webclient.KsmlRuntimeRequest {
-	// A removed description is sent as an explicit null, which is what the PATCH needs to clear it.
-	var description *string
-	if !data.Description.IsNull() && !data.Description.IsUnknown() {
-		value := data.Description.ValueString()
-		description = &value
-	}
-
-	return webclient.KsmlRuntimeRequest{
+func createKsmlRuntimeRequestFromData(data *KsmlRuntimeResourceData) webclient.KsmlRuntimeCreateRequest {
+	return webclient.KsmlRuntimeCreateRequest{
+		Name:               data.Name.ValueString(),
+		Description:        ksmlRuntimeDescriptionForRequest(data),
+		InstanceId:         data.InstanceId.ValueString(),
+		ClusterId:          data.ClusterId.ValueString(),
 		OwnerGroupId:       data.Owners.ValueString(),
 		AuthorizedGroupIds: authorizedGroupIdsForRequest(data.AuthorizedGroups),
-		Name:               data.Name.ValueString(),
-		Description:        description,
-		Url:                data.Url.ValueString(),
-		SchemaRegistries:   schemaRegistriesForRequest(data.SchemaRegistries),
+		Config:             ksmlRuntimeConfigForRequest(data),
 	}
+}
+
+func updateKsmlRuntimeRequestFromData(data *KsmlRuntimeResourceData) webclient.KsmlRuntimeUpdateRequest {
+	return webclient.KsmlRuntimeUpdateRequest{
+		Description:        ksmlRuntimeDescriptionForRequest(data),
+		OwnerGroupId:       data.Owners.ValueString(),
+		AuthorizedGroupIds: authorizedGroupIdsForRequest(data.AuthorizedGroups),
+		Config:             ksmlRuntimeConfigForRequest(data),
+	}
+}
+
+// ksmlRuntimeDescriptionForRequest returns nil when the attribute has no value. A create leaves that out,
+// and an update sends it as an explicit null, which clears the description.
+func ksmlRuntimeDescriptionForRequest(data *KsmlRuntimeResourceData) *string {
+	if data.Description.IsNull() || data.Description.IsUnknown() {
+		return nil
+	}
+	description := data.Description.ValueString()
+	return &description
+}
+
+// ksmlRuntimeConfigForRequest sends schema registries without a value as an empty list: on a create
+// that is none, and on an update it empties the stored list.
+func ksmlRuntimeConfigForRequest(data *KsmlRuntimeResourceData) webclient.KsmlRuntimeConfig {
+	registries := []webclient.SchemaRegistryConfig{}
+	if configured := schemaRegistriesForRequest(data.SchemaRegistries); configured != nil {
+		registries = *configured
+	}
+	return webclient.KsmlRuntimeConfig{Url: data.Url.ValueString(), SchemaRegistries: registries}
 }
 
 func mapKsmlRuntimeResponseToData(data *KsmlRuntimeResourceData, ksmlRuntime *webclient.KsmlRuntimeResponse) {
 	data.Id = types.StringValue(ksmlRuntime.Uid)
 	data.Name = types.StringValue(ksmlRuntime.Name)
-	data.Url = types.StringValue(ksmlRuntime.Url)
-	data.SchemaRegistries = schemaRegistriesToList(ksmlRuntime.SchemaRegistries)
+	data.Url = types.StringValue(ksmlRuntime.Config.Url)
+	data.SchemaRegistries = schemaRegistriesToList(ksmlRuntime.Config.SchemaRegistries)
 	data.AuthorizedGroups = authorizedGroupsToSet(ksmlRuntime.AuthorizedGroups)
 	// A runtime that was a KSML Provisioner before Platform Manager had KSML runtimes has no owner.
 	data.Owners = stringOrNull(ksmlRuntime.OwnerGroupId)

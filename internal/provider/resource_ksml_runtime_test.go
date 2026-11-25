@@ -20,6 +20,8 @@ import (
 
 func ksmlRuntimeData(owner string, groups types.Set) *KsmlRuntimeResourceData {
 	return &KsmlRuntimeResourceData{
+		InstanceId:       types.StringValue("i1"),
+		ClusterId:        types.StringValue("c1"),
 		Name:             types.StringValue("ksml-runtime"),
 		Url:              types.StringValue("https://ksml.example.com"),
 		Description:      types.StringNull(),
@@ -29,88 +31,123 @@ func ksmlRuntimeData(owner string, groups types.Set) *KsmlRuntimeResourceData {
 	}
 }
 
-func ksmlRuntimeRequestBody(t *testing.T, request webclient.KsmlRuntimeRequest) map[string]any {
+// ksmlRuntimeRequestBodies returns the JSON bodies of the create and of the update request for data.
+func ksmlRuntimeRequestBodies(t *testing.T, data *KsmlRuntimeResourceData) map[string]map[string]any {
 	t.Helper()
-	body, err := json.Marshal(request)
-	if err != nil {
-		t.Fatalf("marshal request: %v", err)
+	bodies := map[string]map[string]any{}
+	for verb, request := range map[string]any{
+		"create": createKsmlRuntimeRequestFromData(data),
+		"update": updateKsmlRuntimeRequestFromData(data),
+	} {
+		body, err := json.Marshal(request)
+		if err != nil {
+			t.Fatalf("marshal %s request: %v", verb, err)
+		}
+		var decoded map[string]any
+		if err := json.Unmarshal(body, &decoded); err != nil {
+			t.Fatalf("unmarshal %s request: %v", verb, err)
+		}
+		bodies[verb] = decoded
 	}
-	var decoded map[string]any
-	if err := json.Unmarshal(body, &decoded); err != nil {
-		t.Fatalf("unmarshal request: %v", err)
-	}
-	return decoded
+	return bodies
 }
 
-func TestCreateKsmlRuntimeRequestSendsTheNameUrlAndOwner(t *testing.T) {
-	body := ksmlRuntimeRequestBody(t, createKsmlRuntimeRequestFromData(ksmlRuntimeData("owner-id", types.SetNull(types.StringType))))
+func TestCreateKsmlRuntimeRequestSendsTheNameInstanceClusterUrlAndOwner(t *testing.T) {
+	body := ksmlRuntimeRequestBodies(t, ksmlRuntimeData("owner-id", types.SetNull(types.StringType)))["create"]
 
-	for key, want := range map[string]string{"name": "ksml-runtime", "url": "https://ksml.example.com", "ownerGroupId": "owner-id"} {
+	for key, want := range map[string]string{"name": "ksml-runtime", "instanceId": "i1", "clusterId": "c1", "ownerGroupId": "owner-id"} {
 		if body[key] != want {
 			t.Errorf("%s = %v, expected %s", key, body[key], want)
 		}
 	}
+	if config, _ := body["config"].(map[string]any); config["url"] != "https://ksml.example.com" {
+		t.Errorf("config = %v, expected the url in it", body["config"])
+	}
 }
 
-func TestCreateKsmlRuntimeRequestOmitsAuthorizedGroupsThatHaveNoValue(t *testing.T) {
+// Platform Manager refuses a changed name, type, instance or cluster, and the plan replaces the KSML
+// runtime for those, so an update sends none of them.
+func TestUpdateKsmlRuntimeRequestSendsTheUrlAndOwnerAndNoFixedFields(t *testing.T) {
+	body := ksmlRuntimeRequestBodies(t, ksmlRuntimeData("owner-id", types.SetNull(types.StringType)))["update"]
+
+	if config, _ := body["config"].(map[string]any); config["url"] != "https://ksml.example.com" || body["ownerGroupId"] != "owner-id" {
+		t.Errorf("ownerGroupId = %v, config = %v; expected the owner and the url", body["ownerGroupId"], body["config"])
+	}
+	for _, key := range []string{"name", "type", "instanceId", "clusterId"} {
+		if _, present := body[key]; present {
+			t.Errorf("%s was sent, expected it left out", key)
+		}
+	}
+}
+
+func TestKsmlRuntimeRequestsOmitAuthorizedGroupsThatHaveNoValue(t *testing.T) {
 	for name, groups := range map[string]types.Set{
 		"null":    types.SetNull(types.StringType),
 		"unknown": types.SetUnknown(types.StringType),
 	} {
 		t.Run(name, func(t *testing.T) {
-			request := createKsmlRuntimeRequestFromData(ksmlRuntimeData("owner-id", groups))
-
-			if _, present := ksmlRuntimeRequestBody(t, request)["authorizedGroupIds"]; present {
-				t.Error("authorizedGroupIds was sent, expected it left out")
+			for verb, body := range ksmlRuntimeRequestBodies(t, ksmlRuntimeData("owner-id", groups)) {
+				if _, present := body["authorizedGroupIds"]; present {
+					t.Errorf("%s: authorizedGroupIds was sent, expected it left out", verb)
+				}
 			}
 		})
 	}
 }
 
-func TestCreateKsmlRuntimeRequestSendsTheConfiguredAuthorizedGroups(t *testing.T) {
-	request := createKsmlRuntimeRequestFromData(ksmlRuntimeData("owner-id", groupSet("b", "a")))
-
-	ids, _ := ksmlRuntimeRequestBody(t, request)["authorizedGroupIds"].([]any)
-	got := make([]string, 0, len(ids))
-	for _, id := range ids {
-		got = append(got, id.(string))
-	}
-	sort.Strings(got)
-	if !reflect.DeepEqual(got, []string{"a", "b"}) {
-		t.Errorf("authorizedGroupIds = %v, expected [a b]", got)
-	}
-}
-
-func TestCreateKsmlRuntimeRequestSendsAnEmptyListForEmptyAuthorizedGroups(t *testing.T) {
-	request := createKsmlRuntimeRequestFromData(ksmlRuntimeData("owner-id", groupSet()))
-
-	ids, present := ksmlRuntimeRequestBody(t, request)["authorizedGroupIds"]
-	if list, ok := ids.([]any); !present || !ok || len(list) != 0 {
-		t.Errorf("authorizedGroupIds = %v (present %t), expected an empty list", ids, present)
-	}
-}
-
-// A removed description or schema registry list is cleared by an explicit null.
-func TestCreateKsmlRuntimeRequestSendsNullForAnUnsetDescriptionAndSchemaRegistries(t *testing.T) {
-	body := ksmlRuntimeRequestBody(t, createKsmlRuntimeRequestFromData(ksmlRuntimeData("owner-id", groupSet())))
-
-	for _, key := range []string{"description", "schemaRegistries"} {
-		if value, present := body[key]; !present || value != nil {
-			t.Errorf("%s = %v (present %t), expected an explicit null", key, value, present)
+func TestKsmlRuntimeRequestsSendTheConfiguredAuthorizedGroups(t *testing.T) {
+	for verb, body := range ksmlRuntimeRequestBodies(t, ksmlRuntimeData("owner-id", groupSet("b", "a"))) {
+		ids, _ := body["authorizedGroupIds"].([]any)
+		got := make([]string, 0, len(ids))
+		for _, id := range ids {
+			got = append(got, id.(string))
+		}
+		sort.Strings(got)
+		if !reflect.DeepEqual(got, []string{"a", "b"}) {
+			t.Errorf("%s: authorizedGroupIds = %v, expected [a b]", verb, got)
 		}
 	}
 }
 
-func TestCreateKsmlRuntimeRequestSendsTheDescriptionAndSchemaRegistries(t *testing.T) {
+func TestKsmlRuntimeRequestsSendAnEmptyListForEmptyAuthorizedGroups(t *testing.T) {
+	for verb, body := range ksmlRuntimeRequestBodies(t, ksmlRuntimeData("owner-id", groupSet())) {
+		ids, present := body["authorizedGroupIds"]
+		if list, ok := ids.([]any); !present || !ok || len(list) != 0 {
+			t.Errorf("%s: authorizedGroupIds = %v (present %t), expected an empty list", verb, ids, present)
+		}
+	}
+}
+
+// A create leaves an unset description out. An update clears a removed description with an explicit
+// null. Schema registries without a value are an empty list on both.
+func TestKsmlRuntimeRequestsForAnUnsetDescriptionAndSchemaRegistries(t *testing.T) {
+	bodies := ksmlRuntimeRequestBodies(t, ksmlRuntimeData("owner-id", groupSet()))
+
+	if _, present := bodies["create"]["description"]; present {
+		t.Error("create: description was sent, expected it left out")
+	}
+	if value, present := bodies["update"]["description"]; !present || value != nil {
+		t.Errorf("update: description = %v (present %t), expected an explicit null", value, present)
+	}
+	for verb, body := range bodies {
+		config, _ := body["config"].(map[string]any)
+		if list, ok := config["schemaRegistries"].([]any); !ok || len(list) != 0 {
+			t.Errorf("%s: config.schemaRegistries = %v, expected an empty list", verb, config["schemaRegistries"])
+		}
+	}
+}
+
+func TestKsmlRuntimeRequestsSendTheDescriptionAndSchemaRegistries(t *testing.T) {
 	data := ksmlRuntimeData("owner-id", groupSet())
 	data.Description = types.StringValue("a runtime")
 	data.SchemaRegistries = schemaRegistriesToList([]webclient.SchemaRegistryConfig{{Type: "APICURIO", Url: "https://sr.example.com"}})
 
-	body := ksmlRuntimeRequestBody(t, createKsmlRuntimeRequestFromData(data))
-
 	want := []any{map[string]any{"type": "APICURIO", "url": "https://sr.example.com"}}
-	if body["description"] != "a runtime" || !reflect.DeepEqual(body["schemaRegistries"], want) {
-		t.Errorf("description = %v, schemaRegistries = %v; expected them sent as configured", body["description"], body["schemaRegistries"])
+	for verb, body := range ksmlRuntimeRequestBodies(t, data) {
+		config, _ := body["config"].(map[string]any)
+		if body["description"] != "a runtime" || !reflect.DeepEqual(config["schemaRegistries"], want) {
+			t.Errorf("%s: description = %v, config.schemaRegistries = %v; expected them sent as configured", verb, body["description"], config["schemaRegistries"])
+		}
 	}
 }
 
@@ -118,7 +155,9 @@ func TestCreateKsmlRuntimeRequestSendsTheDescriptionAndSchemaRegistries(t *testi
 func TestMapKsmlRuntimeResponseMapsAMissingOwnerDescriptionAndSchemaRegistriesToNull(t *testing.T) {
 	data := &KsmlRuntimeResourceData{}
 
-	mapKsmlRuntimeResponseToData(data, &webclient.KsmlRuntimeResponse{Uid: "id", Name: "ksml", Url: "https://ksml.example.com"})
+	mapKsmlRuntimeResponseToData(data, &webclient.KsmlRuntimeResponse{
+		Uid: "id", Name: "ksml", Config: webclient.KsmlRuntimeConfig{Url: "https://ksml.example.com", SchemaRegistries: []webclient.SchemaRegistryConfig{}},
+	})
 
 	if !data.Owners.IsNull() || !data.Description.IsNull() || !data.SchemaRegistries.IsNull() {
 		t.Errorf("owners = %s, description = %s, schema_registries = %s; expected all null", data.Owners, data.Description, data.SchemaRegistries)
@@ -133,10 +172,10 @@ func TestMapKsmlRuntimeResponseMapsTheOwnerGroupsDescriptionAndSchemaRegistries(
 	registries := []webclient.SchemaRegistryConfig{{Type: "CONFLUENT", Url: "https://sr.example.com"}}
 
 	mapKsmlRuntimeResponseToData(data, &webclient.KsmlRuntimeResponse{
-		Uid:              "id",
-		Description:      "a runtime",
-		OwnerGroupId:     "owner-id",
-		SchemaRegistries: registries,
+		Uid:          "id",
+		Description:  "a runtime",
+		OwnerGroupId: "owner-id",
+		Config:       webclient.KsmlRuntimeConfig{SchemaRegistries: registries},
 		AuthorizedGroups: []webclient.AuthorizedGroup{
 			{Id: "a", Name: "A"},
 			{Id: "b", Name: "B"},
