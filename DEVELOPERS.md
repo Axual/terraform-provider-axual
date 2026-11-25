@@ -234,7 +234,7 @@ Before running acceptance tests:
    The following value is only needed by the KSML runtime tests (`internal/tests/KsmlRuntimeResource`)
    and `TestApplicationDeploymentKSMLRuntimeResource`. They register their own KSML runtimes on
    the Instance-Cluster named by `clusterId` (shared with the Flink tests, and a cluster of the
-   instance named by `instanceName`), so they need a Tenant Admin or a Platform Admin, and the group
+   instance named by `instanceName`), so they need a Platform Admin, and the group
    named by `groupName` as the owner of the test application. They skip themselves while `clusterId`
    or `ksmlRuntimeUrl` is still a placeholder, and on a Platform Manager without KSML runtimes
    (before 17.0.0). `TestApplicationDeploymentKSMLResource` is the opposite: it creates a KSML
@@ -294,6 +294,7 @@ Before running acceptance tests:
 
    Ensure your test user has these roles:
    - Tenant Admin (needed for creating Groups)
+   - Platform Admin (needed for the KSML runtime tests)
    - Application Author
    - Environment Author
    - Topic Author

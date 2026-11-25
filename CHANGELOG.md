@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 ### Added
 * `managers` on the `axual_group` data source, and `viewers` on the `axual_topic`, `axual_application` and `axual_environment` data sources, so a data source shows the same lists as its resource. An empty list is `[]`, not null (AXPD-9556)
-* `axual_ksml_runtime`: register KSML runtimes on an Instance-Cluster, several if you need, each with `owners` and `authorized_groups` (Platform Manager 17.0.0 or later). `authorized_groups` lists the Groups that may deploy KSML applications to it: with no authorized Groups, no Group can deploy, the owner included. It has no `terraform query` list resource and no resource identity (AXPD-9233)
+* `axual_ksml_runtime`: register KSML runtimes on an Instance-Cluster, several if you need, each with `owners` and `authorized_groups` (Platform Manager 17.0.0 or later). `authorized_groups` lists the Groups that may deploy KSML applications to it: with no authorized Groups, no Group can deploy, the owner included. Registering and deleting one, and changing its owner, needs a Platform Admin. It has no `terraform query` list resource and no resource identity (AXPD-9233)
 
 ### Fixed
 * Creating or changing an `axual_flink_cluster` on a Platform Manager older than 17.0.0 now fails in the plan, not in the apply, and the whole plan stops. On Platform Manager 16.x this happens on every plan of a configuration with an `axual_flink_cluster`; the `axual_flink_cluster` page says how to get unblocked. Destroying one still works

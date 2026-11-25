@@ -85,7 +85,7 @@ func (r *ksmlRuntimeResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"owners": schema.StringAttribute{
-				MarkdownDescription: "The id of the Group that owns the KSML runtime, for example `data.axual_group.platform_team.id`. Members of the owner Group can edit the KSML runtime, but owning it does not allow deploying to it: add the Group to `authorized_groups` for that. Only a Tenant Admin or a Platform Admin can change the owner.",
+				MarkdownDescription: "The id of the Group that owns the KSML runtime, for example `data.axual_group.platform_team.id`. Members of the owner Group can edit the KSML runtime, but owning it does not allow deploying to it: add the Group to `authorized_groups` for that. Only a Platform Admin can change the owner.",
 				Required:            true,
 			},
 			"authorized_groups": schema.SetAttribute{
