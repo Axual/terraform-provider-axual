@@ -172,21 +172,20 @@ func SkipWithKsmlRuntimes(t *testing.T) {
 	}
 }
 
-// hasKsmlRuntimes asks for the KSML runtimes of unknown ids: a Platform Manager without KSML runtimes
-// answers 404, one with them 400 "Instance not found".
+// hasKsmlRuntimes asks for one runtime: a Platform Manager with KSML runtimes has /runtimes and answers
+// 200, one without them answers 404.
 func hasKsmlRuntimes(t *testing.T) bool {
 	t.Helper()
 	client, err := apiClient()
 	if err != nil {
 		t.Fatalf("Error signing in: %v", err)
 	}
-	err = client.RequestAndMap("GET", client.ApiURL+"/instances/none/clusters/none/ksml-runtimes", nil, nil, nil)
-	var httpErr *webclient.HTTPError
+	err = client.RequestAndMap("GET", client.ApiURL+"/runtimes?size=1", nil, nil, nil)
 	switch {
+	case err == nil:
+		return true
 	case errors.Is(err, webclient.NotFoundError):
 		return false
-	case errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusBadRequest:
-		return true
 	default:
 		t.Fatalf("Error asking Platform Manager whether it has KSML runtimes: %v", err)
 		return false
