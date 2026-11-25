@@ -1,6 +1,7 @@
 package SchemaVersionDataSource
 
 import (
+	"regexp"
 	"testing"
 
 	. "axual.com/terraform-provider-axual/internal/tests"
@@ -37,6 +38,14 @@ func TestSchemaVersionDataSource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("data.axual_schema_version.jsonschema_v1_imported", "id"),
 					CheckBodyMatchesFile("data.axual_schema_version.jsonschema_v1_imported", "body", "json-schemas/tf-json-schema-test1.json"),
 				),
+			},
+			{
+				Config:      GetProvider() + GetFile("axual_schema_version.tf") + GetFile("axual_schema_version_missing_version.tf"),
+				ExpectError: regexp.MustCompile("No version '9.9.9' found for schema with full_name\\s+'io.axual.qa.general.GitOpsTest1'"),
+			},
+			{
+				Config:      GetProvider() + GetFile("axual_schema_version_not_found.tf"),
+				ExpectError: regexp.MustCompile("No Schema resources found with full_name\\s+'io.axual.qa.general.DoesNotExist'"),
 			},
 		},
 	})

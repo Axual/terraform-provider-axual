@@ -3,6 +3,7 @@ package provider
 import (
 	webclient "axual-webclient"
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -38,6 +39,7 @@ type applicationDataSourceData struct {
 	ApplicationId    types.String `tfsdk:"application_id"`
 	Type             types.String `tfsdk:"type"`
 	Owners           types.String `tfsdk:"owners"`
+	Viewers          types.Set    `tfsdk:"viewers"`
 	Visibility       types.String `tfsdk:"visibility"`
 }
 
@@ -56,7 +58,7 @@ func (d *applicationDataSource) Schema(ctx context.Context, req datasource.Schem
 				Computed:            true,
 			},
 			"application_type": schema.StringAttribute{
-				MarkdownDescription: "Axual Application type. Possible values are Custom or Connector.",
+				MarkdownDescription: "Axual Application type. Possible values are Custom, Connector, Ksml, or FLINK_SQL.",
 				Computed:            true,
 			},
 			"application_id": schema.StringAttribute{
@@ -64,7 +66,7 @@ func (d *applicationDataSource) Schema(ctx context.Context, req datasource.Schem
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "The name of the Application. Must be unique. Only the special characters _ , - and . are valid as part of an application name",
+				MarkdownDescription: "The name of the application.",
 				Optional:            true,
 				Computed:            true,
 				Validators: []validator.String{
@@ -73,7 +75,7 @@ func (d *applicationDataSource) Schema(ctx context.Context, req datasource.Schem
 				},
 			},
 			"short_name": schema.StringAttribute{
-				MarkdownDescription: "Application short name. Unique human-readable name for the application. Only Alphanumeric and underscore allowed. Must be unique",
+				MarkdownDescription: "The short name of the application. It is unique in the tenant.",
 				Optional:            true,
 				Computed:            true,
 				Validators: []validator.String{
@@ -85,17 +87,22 @@ func (d *applicationDataSource) Schema(ctx context.Context, req datasource.Schem
 				MarkdownDescription: "Application Owner",
 				Computed:            true,
 			},
+			"viewers": schema.SetAttribute{
+				MarkdownDescription: "The uids of the Viewer Groups of this application. Members of these groups can view the authentications (principals and credentials) of the application. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#viewer-groups",
+				Computed:            true,
+				ElementType:         types.StringType,
+			},
 			"type": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "If application_type is Custom, type can be: Java, Pega, SAP, DotNet, Bridge. If application_type is Connector, type can be: SINK, SOURCE",
 			},
 			"application_class": schema.StringAttribute{
 				Computed:            true,
-				MarkdownDescription: "The application's plugin class. Required if application_type is Connector. For example com.couchbase.connect.kafka.CouchbaseSinkConnector. All available application plugin class names, pluginTypes and pluginConfigs listed here- GET: /api/connect_plugins?page=0&size=9999&sort=pluginClass and in Axual Connect Docs: https://docs.axual.io/connect/Axual-Connect/connect-plugins-catalog/connect-plugins-catalog.html",
+				MarkdownDescription: "The plugin class of a Connector application, for example `com.couchbase.connect.kafka.CouchbaseSinkConnector`.",
 			},
 			"visibility": schema.StringAttribute{
 				Computed:            true,
-				MarkdownDescription: "Application Visibility. Defines the visibility of this application. Possible values are Public and Private. Set the visibility to “Private” if you don’t want your application to end up in overviews such as the topic graph. Read more: https://docs.axual.io/axual/2026.1/self-service/application-management.html#app-visibility",
+				MarkdownDescription: "The visibility of the application: `Public` or `Private`. A Private application is not shown in overviews such as the topic graph. Read more: https://docs.axual.io/axual/2026.1/self-service/application-management.html#app-visibility",
 			},
 			"description": schema.StringAttribute{
 				Computed:            true,
@@ -132,6 +139,7 @@ func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 	}
 	params := url.Values{}
 	searchParam := "name"
+	searchAttribute := "name"
 	var searchValue string
 
 	if data.ShortName.ValueString() == "" {
@@ -141,21 +149,33 @@ func (d *applicationDataSource) Read(ctx context.Context, req datasource.ReadReq
 		searchValue = data.ShortName.ValueString()
 		params.Set("shortName", searchValue)
 		searchParam = "shortName"
+		searchAttribute = "short_name"
 	}
 
 	appResponse, err := d.provider.client.GetApplicationByNameOrShortName(params)
+	if errors.Is(err, webclient.NotFoundError) {
+		addNotFoundError(&resp.Diagnostics, "Application", searchAttribute, searchValue)
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application by %s: '%s', got error: %s", searchParam, searchValue, err))
 		return
 	}
 
-	mapApplicationDataSourceResponseToData(&data, appResponse)
+	// The search answer has no viewers, so read the application by uid.
+	app, err := d.provider.client.GetApplication(appResponse.Uid)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read application by %s: '%s', got error: %s", searchParam, searchValue, err))
+		return
+	}
+
+	mapApplicationDataSourceResponseToData(ctx, &data, app)
 
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 }
 
-func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, app *webclient.ApplicationResponse) {
+func mapApplicationDataSourceResponseToData(ctx context.Context, data *applicationDataSourceData, app *webclient.ApplicationResponse) {
 
 	data.Id = types.StringValue(app.Uid)
 	data.ApplicationType = types.StringValue(app.ApplicationType)
@@ -163,6 +183,11 @@ func mapApplicationDataSourceResponseToData(data *applicationDataSourceData, app
 	data.Name = types.StringValue(app.Name)
 	data.ShortName = types.StringValue(app.ShortName)
 	data.Owners = types.StringValue(app.Owners.Uid)
+	viewers := make([]string, 0, len(app.Embedded.Viewers))
+	for _, viewer := range app.Embedded.Viewers {
+		viewers = append(viewers, viewer.Uid)
+	}
+	data.Viewers = uidStringSet(ctx, viewers)
 	data.Type = types.StringValue(app.Type)
 	data.Visibility = types.StringValue(app.Visibility)
 

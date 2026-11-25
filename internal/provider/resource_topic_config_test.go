@@ -84,6 +84,12 @@ func TestTopicConfigPlanRefusesInfiniteRetentionOnOlderPlatformManager(t *testin
 				t.Errorf("error = %v, GET /info calls = %d; expected error %v, %d calls. Diagnostics: %v",
 					resp.Diagnostics.HasError(), calls, tc.wantError, tc.wantCalls, resp.Diagnostics)
 			}
+			// When the version cannot be read, the title must not say that Platform Manager is too old.
+			if tc.info == "" && resp.Diagnostics.HasError() {
+				if got := resp.Diagnostics.Errors()[0].Summary(); got != "Cannot check the Platform Manager version for retention_time = -1" {
+					t.Errorf("summary = %q", got)
+				}
+			}
 		})
 	}
 }

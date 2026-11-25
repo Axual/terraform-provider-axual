@@ -37,6 +37,7 @@ type topicDataSourceData struct {
 	ValueType       types.String `tfsdk:"value_type"`
 	ValueSchema     types.String `tfsdk:"value_schema"`
 	Owners          types.String `tfsdk:"owners"`
+	Viewers         types.Set    `tfsdk:"viewers"`
 	RetentionPolicy types.String `tfsdk:"retention_policy"`
 	Id              types.String `tfsdk:"id"`
 	Properties      types.Map    `tfsdk:"properties"`
@@ -54,7 +55,7 @@ func (d *topicDataSource) Schema(ctx context.Context, req datasource.SchemaReque
 
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				MarkdownDescription: "The name of the topic. Can only contain letters, numbers, dots, dashes and underscores and cannot begin with an underscore, dot or dash, but can't start with underscore, dot or dash. The topic name is usually discussed and finalized as part of the Intake session or a follow up.",
+				MarkdownDescription: "The name of the topic.",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(3, 180),
@@ -84,6 +85,11 @@ func (d *topicDataSource) Schema(ctx context.Context, req datasource.SchemaReque
 			"owners": schema.StringAttribute{
 				MarkdownDescription: "The team owning this topic. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#topic-owner",
 				Computed:            true,
+			},
+			"viewers": schema.SetAttribute{
+				MarkdownDescription: "The uids of the Viewer Groups of this topic. Topic Viewer Groups can view the topic configurations, regardless of ownership and visibility. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#viewer-groups",
+				Computed:            true,
+				ElementType:         types.StringType,
 			},
 			"retention_policy": schema.StringAttribute{
 				MarkdownDescription: "Determines what to do with messages after a certain period. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#retention-policy",
@@ -123,12 +129,8 @@ func (d *topicDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 		return
 	}
 
-	// Check if Embedded or topic is nil or empty
 	if len(topicByName.Embedded.Topics) == 0 {
-		resp.Diagnostics.AddError(
-			"Resource Not Found",
-			fmt.Sprintf("No Topic resources found with name '%s'.", data.Name.ValueString()),
-		)
+		addNotFoundError(&resp.Diagnostics, "Topic", "name", data.Name.ValueString())
 		return
 	}
 
@@ -150,6 +152,11 @@ func mapTopicDataSourceResponseToData(ctx context.Context, data *topicDataSource
 	data.KeyType = types.StringValue(topic.KeyType)
 	data.ValueType = types.StringValue(topic.ValueType)
 	data.Owners = types.StringValue(topic.Embedded.Owners.Uid)
+	viewers := make([]string, 0, len(topic.Embedded.Viewers))
+	for _, viewer := range topic.Embedded.Viewers {
+		viewers = append(viewers, viewer.Uid)
+	}
+	data.Viewers = uidStringSet(ctx, viewers)
 	data.RetentionPolicy = types.StringValue(topic.RetentionPolicy)
 	tags, diags := types.SetValueFrom(ctx, types.StringType, append([]string{}, topic.Tags...))
 	if diags.HasError() {

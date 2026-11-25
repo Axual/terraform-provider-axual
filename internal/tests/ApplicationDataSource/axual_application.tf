@@ -1,9 +1,14 @@
+resource "axual_group" "tf-test-app-viewers" {
+  name = "tf-test-app-viewers"
+}
+
 resource "axual_application" "tf-test-app" {
   name             = "tf-test-app"
   application_type = "Custom"
   short_name       = "tf_test_app_short"
   application_id   = "tf.test.app"
   owners           = data.axual_group.test_group.id
+  viewers          = [axual_group.tf-test-app-viewers.id]
   type             = "Java"
   visibility       = "Public"
   description      = "Axual's TF Test Application"

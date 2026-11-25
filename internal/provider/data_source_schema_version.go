@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 var _ datasource.DataSource = &schemaVersionDataSource{}
+var _ datasource.DataSourceWithValidateConfig = &schemaVersionDataSource{}
 
 func NewSchemaVersionDataSource(provider AxualProvider) datasource.DataSource {
 	return &schemaVersionDataSource{
@@ -44,15 +46,15 @@ func (d *schemaVersionDataSource) Schema(ctx context.Context, req datasource.Sch
 				MarkdownDescription: "Schema version unique identifier",
 			},
 			"body": schema.StringAttribute{
-				MarkdownDescription: "Avro schema body",
+				MarkdownDescription: "The schema body: Avro, Protobuf or JSON Schema.",
 				Computed:            true,
 			},
 			"version": schema.StringAttribute{
-				MarkdownDescription: "The version of the schema Version.",
+				MarkdownDescription: "The schema version to read, for example `1.0.0`.",
 				Required:            true,
 			},
 			"description": schema.StringAttribute{
-				MarkdownDescription: "A short text describing the schema version",
+				MarkdownDescription: "The description of the schema: the latest one set on any version, not always the one of `version`.",
 				Computed:            true,
 			},
 			"schema_id": schema.StringAttribute{
@@ -61,10 +63,10 @@ func (d *schemaVersionDataSource) Schema(ctx context.Context, req datasource.Sch
 			},
 			"full_name": schema.StringAttribute{
 				Required:            true,
-				MarkdownDescription: "Full name of the schema. Full name is schema's <namespace>.<name>. For example: io.axual.qa.general.GitOpsTest",
+				MarkdownDescription: "Full name of the schema: `<namespace>.<name>`, for example `io.axual.qa.general.GitOpsTest`.",
 			},
 			"owners": schema.StringAttribute{
-				MarkdownDescription: "Schema Owner",
+				MarkdownDescription: "The uid of the Group that owns the schema. Read-only: a value set here is ignored.",
 				Optional:            true,
 				Computed:            false,
 			},
@@ -88,7 +90,7 @@ func (d *schemaVersionDataSource) Read(ctx context.Context, req datasource.ReadR
 		return
 	}
 	if len(axualSchema.Embedded.Schemas) == 0 {
-		resp.Diagnostics.AddError("Schema not found error", "Schema matching the full name you requested was not found")
+		addNotFoundError(&resp.Diagnostics, "Schema", "full_name", data.FullName.ValueString())
 		return
 	}
 
@@ -99,8 +101,9 @@ func (d *schemaVersionDataSource) Read(ctx context.Context, req datasource.ReadR
 		return
 	}
 
-	// data.Version is overwritten below, so capture the target before the loop starts.
+	// data.Version and data.FullName are overwritten below, so capture them before the loop starts.
 	requestedVersion := data.Version.ValueString()
+	requestedFullName := data.FullName.ValueString()
 	foundMatchingVersion := false
 
 	for i := range sv.Embedded.SchemaVersion {
@@ -121,9 +124,21 @@ func (d *schemaVersionDataSource) Read(ctx context.Context, req datasource.ReadR
 	}
 
 	if !foundMatchingVersion {
-		resp.Diagnostics.AddError("Client Error", "Schema version matching the name you requested was not found")
+		resp.Diagnostics.AddError("Resource Not Found", fmt.Sprintf("No version '%s' found for schema with full_name '%s'.", requestedVersion, requestedFullName))
 		return
 	}
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
+}
+
+// ValidateConfig warns when owners is set. The data source does not filter by owner: it reads the owner
+// of the schema, so a value set here is ignored. A DeprecationMessage would also warn on every read of
+// owners, which is fine to do.
+func (d *schemaVersionDataSource) ValidateConfig(ctx context.Context, req datasource.ValidateConfigRequest, resp *datasource.ValidateConfigResponse) {
+	var owners types.String
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("owners"), &owners)...)
+	if !owners.IsNull() {
+		resp.Diagnostics.AddAttributeWarning(path.Root("owners"), "owners is ignored",
+			"The axual_schema_version data source does not filter by owner: it reads the owner of the schema. Remove owners from the data source block.")
+	}
 }

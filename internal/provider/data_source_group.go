@@ -32,6 +32,7 @@ type groupDataSourceData struct {
 	EmailAddress types.String `tfsdk:"email_address"`
 	PhoneNumber  types.String `tfsdk:"phone_number"`
 	Members      types.Set    `tfsdk:"members"`
+	Managers     types.Set    `tfsdk:"managers"`
 	IamReference types.String `tfsdk:"iam_reference"`
 	Id           types.String `tfsdk:"id"`
 }
@@ -70,6 +71,11 @@ func (d *groupDataSource) Schema(ctx context.Context, req datasource.SchemaReque
 				Computed:            true,
 				ElementType:         types.StringType,
 			},
+			"managers": schema.SetAttribute{
+				MarkdownDescription: "Group's managers. A Group Manager can edit this group. Each entry is the uid of a user or of a service account. For an IAM-managed group (see `iam_reference`) this is the stored list.",
+				Computed:            true,
+				ElementType:         types.StringType,
+			},
 			"iam_reference": schema.StringAttribute{
 				MarkdownDescription: "The identifier of this group in the IAM system. Null for an Axual-managed group.",
 				Computed:            true,
@@ -94,12 +100,8 @@ func (d *groupDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 		return
 	}
 
-	// Check if Embedded or group is nil or empty
 	if len(groupByName.Embedded.Groups) == 0 {
-		resp.Diagnostics.AddError(
-			"Resource Not Found",
-			fmt.Sprintf("No Group resources found with name '%s'.", data.Name.ValueString()),
-		)
+		addNotFoundError(&resp.Diagnostics, "Group", "name", data.Name.ValueString())
 		return
 	}
 
@@ -136,6 +138,12 @@ func mapGroupDataSourceResponseToData(ctx context.Context, data *groupDataSource
 	}
 
 	data.Members = setValue
+
+	managers := make([]string, 0, len(group.Embedded.Managers))
+	for _, manager := range group.Embedded.Managers {
+		managers = append(managers, manager.Uid)
+	}
+	data.Managers = uidStringSet(ctx, managers)
 
 	// optional fields
 	if group.EmailAddress.Email == "" {

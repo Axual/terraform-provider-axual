@@ -101,6 +101,7 @@ func (d *instanceDataSource) Read(ctx context.Context, req datasource.ReadReques
 	}
 
 	searchParam := "name"
+	searchAttribute := "name"
 	var searchValue string
 	var instanceResponse *webclient.InstanceResponse
 	var err error
@@ -111,12 +112,13 @@ func (d *instanceDataSource) Read(ctx context.Context, req datasource.ReadReques
 	} else {
 		searchValue = data.ShortName.ValueString()
 		searchParam = "shortName"
+		searchAttribute = "short_name"
 		instanceResponse, err = d.provider.client.GetInstanceByShortName(searchValue)
 	}
 
 	if err != nil {
 		if errors.Is(err, webclient.NotFoundError) {
-			resp.Diagnostics.AddError("Client Error", "Instance not found")
+			addNotFoundError(&resp.Diagnostics, "Instance", searchAttribute, searchValue)
 			return
 		}
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read instance by %s: '%s', got error: %s", searchParam, searchValue, err))

@@ -32,6 +32,11 @@ const (
 
 var _ resource.Resource = &flinkClusterResource{}
 var _ resource.ResourceWithImportState = &flinkClusterResource{}
+var _ resource.ResourceWithModifyPlan = &flinkClusterResource{}
+
+// The Flink Cluster API with an owner and authorized groups is on Platform Manager master, which reports
+// 16.1.0-SNAPSHOT and is released as 17.0.0.
+const flinkClusterMajor, flinkClusterMinor = 16, 1
 
 func NewFlinkClusterResource(provider AxualProvider) resource.Resource {
 	return &flinkClusterResource{
@@ -175,6 +180,24 @@ func (r *flinkClusterResource) Schema(ctx context.Context, req resource.SchemaRe
 			},
 		},
 	}
+}
+
+// ModifyPlan refuses to create or change a Flink Cluster on a Platform Manager older than 17.0.0. Such a
+// Platform Manager ignores owners and authorized_groups, so the apply would fail with "Provider produced
+// inconsistent result after apply". A destroy and a plan without changes are not checked.
+func (r *flinkClusterResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() || r.provider.client == nil {
+		return
+	}
+	if !req.State.Raw.IsNull() && req.Plan.Raw.Equal(req.State.Raw) {
+		return
+	}
+	version, err := r.provider.client.GetPlatformVersion()
+	olderDoes := "It has no Flink Clusters."
+	if platformVersionAtLeast(version, 16, 0) {
+		olderDoes = "It has no owners and authorized_groups for a Flink Cluster, so the apply would fail. Use provider 3.2.x for a Flink Cluster, or register the Flink Cluster in Self-Service."
+	}
+	requirePlatformVersion(&resp.Diagnostics, version, err, path.Root("owners"), "axual_flink_cluster", flinkClusterMajor, flinkClusterMinor, olderDoes)
 }
 
 func (r *flinkClusterResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

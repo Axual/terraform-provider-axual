@@ -2,12 +2,16 @@ package provider
 
 import (
 	webclient "axual-webclient"
+	"context"
 	"encoding/json"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -138,5 +142,64 @@ func TestMapFlinkClusterResponseMapsNoAuthorizedGroupsToAnEmptySet(t *testing.T)
 				t.Errorf("authorized_groups = %s, expected an empty set", data.AuthorizedGroups)
 			}
 		})
+	}
+}
+
+// A Flink Cluster needs the API of Platform Manager 17.0.0 (master builds report 16.1.0-SNAPSHOT). The plan
+// reads GET /info only when it creates or changes a Flink Cluster.
+func TestFlinkClusterPlanRefusesOlderPlatformManager(t *testing.T) {
+	changed := flinkClusterData("owner-group", groupSet("deploy-group"))
+	changed.Description = types.StringValue("changed")
+	const tooOld = "axual_flink_cluster needs Platform Manager 17.0.0 or later"
+	for _, tc := range []struct {
+		name         string
+		info         string
+		current      *FlinkClusterResourceData
+		wantSummary  string // "": no error
+		wantInDetail string
+		wantCalls    int
+	}{
+		{"create on 16.0.5", `{"version":"16.0.5"}`, nil, tooOld, "Use provider 3.2.x", 1},
+		{"create on 15.0.11", `{"version":"15.0.11"}`, nil, tooOld, "This Platform Manager is 15.0.11. It has no Flink Clusters.", 1},
+		{"create on a master build", `{"version":"16.1.0-SNAPSHOT"}`, nil, "", "", 1},
+		{"create on 17.0.0", `{"version":"17.0.0"}`, nil, "", "", 1},
+		{"version unreadable", "", nil, "Cannot check the Platform Manager version for axual_flink_cluster", tooOld + ", and reading the version failed", 1},
+		{"change on 16.0.5", `{"version":"16.0.5"}`, changed, tooOld, "Use provider 3.2.x", 1},
+		{"no change on 16.0.5", `{"version":"16.0.5"}`, flinkClusterData("owner-group", groupSet("deploy-group")), "", "", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			r := &flinkClusterResource{provider: infoPM(t, tc.info, &calls)}
+			var current any
+			if tc.current != nil {
+				current = tc.current
+			}
+			resp := modifyPlanOf(t, r, flinkClusterData("owner-group", groupSet("deploy-group")), current)
+			wantError := tc.wantSummary != ""
+			if resp.Diagnostics.HasError() != wantError || calls != tc.wantCalls {
+				t.Fatalf("error = %v, GET /info calls = %d; expected error %v, %d calls. Diagnostics: %v",
+					resp.Diagnostics.HasError(), calls, wantError, tc.wantCalls, resp.Diagnostics)
+			}
+			if !wantError {
+				return
+			}
+			if got := resp.Diagnostics.Errors()[0]; got.Summary() != tc.wantSummary || !strings.Contains(got.Detail(), tc.wantInDetail) {
+				t.Errorf("summary = %q, detail = %q; expected %q and a detail with %q", got.Summary(), got.Detail(), tc.wantSummary, tc.wantInDetail)
+			}
+		})
+	}
+}
+
+// A destroy is not checked, so a Flink Cluster can be removed from any Platform Manager.
+func TestFlinkClusterPlanAllowsDestroyOnOlderPlatformManager(t *testing.T) {
+	calls := 0
+	r := &flinkClusterResource{provider: infoPM(t, `{"version":"16.0.5"}`, &calls)}
+	current := stateFor(t, r, flinkClusterData("owner-group", groupSet("deploy-group")))
+	empty := emptyState(t, r)
+	req := resource.ModifyPlanRequest{Plan: tfsdk.Plan{Schema: empty.Schema, Raw: empty.Raw}, State: current}
+	resp := resource.ModifyPlanResponse{Plan: req.Plan}
+	r.ModifyPlan(context.Background(), req, &resp)
+	if resp.Diagnostics.HasError() || calls != 0 {
+		t.Fatalf("error = %v, GET /info calls = %d; expected no error and no call", resp.Diagnostics, calls)
 	}
 }

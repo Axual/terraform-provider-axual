@@ -228,8 +228,8 @@ func TestInstanceClusterPlanErrorTextBefore161(t *testing.T) {
 	config := registryWith(t, "APICURIO", "", "APICURIO_V3", nil, map[string]string{"a": "APICURIO_V3 http://a ALL_APPS"})
 	resp, _ := modifyInstanceClusterPlan(t, r, config, config, nil)
 	want := map[string]string{
-		"api needs Platform Manager 16.1.0 or later":              "This Platform Manager is 16.0.3. It ignores api, so the apply would fail.",
-		"client_endpoints needs Platform Manager 16.1.0 or later": "This Platform Manager is 16.0.3. It ignores client_endpoints, so the apply would fail.",
+		"api needs Platform Manager 17.0.0 or later":              "This Platform Manager is 16.0.3. It ignores api, so the apply would fail.",
+		"client_endpoints needs Platform Manager 17.0.0 or later": "This Platform Manager is 16.0.3. It ignores client_endpoints, so the apply would fail.",
 	}
 	if errs := resp.Diagnostics.Errors(); len(errs) != len(want) {
 		t.Fatalf("errors = %v, expected %d", errs, len(want))

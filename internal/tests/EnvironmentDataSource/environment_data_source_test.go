@@ -23,11 +23,17 @@ func TestEnvironmentDataSource(t *testing.T) {
 					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-name", "visibility", "Private"),
 					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-name", "authorization_issuer", "Auto"),
 					resource.TestCheckResourceAttrPair("data.axual_environment.tf-test-env-imported-by-name", "owners", "data.axual_group.test_group", "id"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-name", "viewers.#", "1"),
+					resource.TestCheckTypeSetElemAttrPair("data.axual_environment.tf-test-env-imported-by-name", "viewers.*", "axual_group.tf-test-env-viewers", "id"),
 				),
 			},
 			{
 				Config:      GetProvider() + GetFile("axual_environment_not_found.tf"),
 				ExpectError: regexp.MustCompile("No Environment resources found with name 'non_existent_resource'"),
+			},
+			{
+				Config:      GetProvider() + GetFile("axual_environment_short_name_not_found.tf"),
+				ExpectError: regexp.MustCompile("No Environment resources found with short_name 'nonexistent'"),
 			},
 		},
 	})
@@ -48,6 +54,8 @@ func TestEnvironmentDataSourceGetByShortName(t *testing.T) {
 					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-short-name", "visibility", "Private"),
 					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-short-name", "authorization_issuer", "Auto"),
 					resource.TestCheckResourceAttrPair("data.axual_environment.tf-test-env-imported-by-short-name", "owners", "data.axual_group.test_group", "id"),
+					resource.TestCheckResourceAttr("data.axual_environment.tf-test-env-imported-by-short-name", "viewers.#", "1"),
+					resource.TestCheckTypeSetElemAttrPair("data.axual_environment.tf-test-env-imported-by-short-name", "viewers.*", "axual_group.tf-test-env-viewers", "id"),
 				),
 			},
 		},

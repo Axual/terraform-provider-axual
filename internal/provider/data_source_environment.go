@@ -38,6 +38,7 @@ type environmentDataSourceData struct {
 	AuthorizationIssuer types.String `tfsdk:"authorization_issuer"`
 	Visibility          types.String `tfsdk:"visibility"`
 	Owners              types.String `tfsdk:"owners"`
+	Viewers             types.Set    `tfsdk:"viewers"`
 	RetentionTime       types.Int64  `tfsdk:"retention_time"`
 	Instance            types.String `tfsdk:"instance"`
 	Id                  types.String `tfsdk:"id"`
@@ -56,7 +57,7 @@ func (d *environmentDataSource) Schema(ctx context.Context, req datasource.Schem
 
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				MarkdownDescription: "A suitable name identifying this environment. Alphabetical characters, digits and the following characters are allowed: `- `,` _` ,` .`, but not as the first character.)",
+				MarkdownDescription: "The name of the environment.",
 				Optional:            true,
 				Computed:            true,
 				Validators: []validator.String{
@@ -82,7 +83,7 @@ func (d *environmentDataSource) Schema(ctx context.Context, req datasource.Schem
 				Computed:            true,
 			},
 			"visibility": schema.StringAttribute{
-				MarkdownDescription: "Private environments are only visible to the owning group (your team). They are not included in dashboard visualisations.",
+				MarkdownDescription: "`Public` or `Private`. Private environments are only visible to the owning group (your team). They are not included in dashboard visualisations.",
 				Computed:            true,
 			},
 			"authorization_issuer": schema.StringAttribute{
@@ -93,17 +94,22 @@ func (d *environmentDataSource) Schema(ctx context.Context, req datasource.Schem
 				MarkdownDescription: "The ID of the team owning this environment.",
 				Computed:            true,
 			},
+			"viewers": schema.SetAttribute{
+				MarkdownDescription: "The uids of the Viewer Groups of this environment. Environment Viewer Groups can view all topic configurations and application authentications in the environment, regardless of ownership and visibility. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#viewer-groups",
+				Computed:            true,
+				ElementType:         types.StringType,
+			},
 			"instance": schema.StringAttribute{
 				MarkdownDescription: "The ID of the instance where this environment should be deployed.",
 				Computed:            true,
 			},
 			"retention_time": schema.Int64Attribute{
-				MarkdownDescription: "The time in milliseconds after which the messages can be deleted from all topics. This is an optional field. If not specified, default value is 7 days (604800000).",
+				MarkdownDescription: "The time in milliseconds after which the messages can be deleted from all topics.",
 				Computed:            true,
 			},
 
 			"partitions": schema.Int64Attribute{
-				MarkdownDescription: "Defines the number of partitions configured for every topic of this tenant. This is an optional field. If not specified, default value is 12",
+				MarkdownDescription: "The number of partitions of every topic in this environment.",
 				Computed:            true,
 			},
 			"properties": schema.MapAttribute{
@@ -162,12 +168,12 @@ func (d *environmentDataSource) Read(ctx context.Context, req datasource.ReadReq
 		}
 	}
 
-	// Check if Embedded or environment is nil or empty
 	if len(environmentResponse.Embedded.Environments) == 0 {
-		resp.Diagnostics.AddError(
-			"Resource Not Found",
-			fmt.Sprintf("No Environment resources found with name '%s'.", data.Name.ValueString()),
-		)
+		if data.ShortName.ValueString() == "" {
+			addNotFoundError(&resp.Diagnostics, "Environment", "name", data.Name.ValueString())
+		} else {
+			addNotFoundError(&resp.Diagnostics, "Environment", "short_name", data.ShortName.ValueString())
+		}
 		return
 	}
 
@@ -195,6 +201,11 @@ func mapEnvironmentDataSourceResponseToData(ctx context.Context, data *environme
 	// embedded fields
 	data.Owners = types.StringValue(environment.Embedded.Owners.Uid)
 	data.Instance = types.StringValue(environment.Embedded.Instance.Uid)
+	viewers := make([]string, 0, len(environment.Embedded.Viewers))
+	for _, viewer := range environment.Embedded.Viewers {
+		viewers = append(viewers, viewer.Uid)
+	}
+	data.Viewers = uidStringSet(ctx, viewers)
 
 	properties := make(map[string]attr.Value)
 	for key, value := range environment.Properties {

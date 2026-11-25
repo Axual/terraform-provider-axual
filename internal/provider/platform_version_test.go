@@ -29,6 +29,18 @@ func TestPlatformVersionAtLeast(t *testing.T) {
 	}
 }
 
+// Master builds report 16.1.0-SNAPSHOT and are released as 17.0.0, so a check for 16.1 names 17.0.0.
+func TestReleaseName(t *testing.T) {
+	for _, tc := range []struct {
+		major, minor int
+		want         string
+	}{{16, 1, "17.0.0"}, {16, 0, "16.0.0"}, {15, 0, "15.0.0"}, {17, 0, "17.0.0"}} {
+		if got := releaseName(tc.major, tc.minor); got != tc.want {
+			t.Errorf("releaseName(%d, %d) = %q, expected %q", tc.major, tc.minor, got, tc.want)
+		}
+	}
+}
+
 // infoPM answers GET /info with info ("" answers 500) and counts the calls.
 func infoPM(t *testing.T, info string, calls *int) AxualProvider {
 	return AxualProvider{client: fakePM(t, func(w http.ResponseWriter, r *http.Request) {

@@ -278,7 +278,7 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 				},
 			},
 			"strimzi": schema.SingleNestedAttribute{
-				MarkdownDescription: "The Strimzi Kafka cluster behind the Cluster. Required when `provider_type` is `strimzi` (Platform Manager 16.1.0 or later), and refused for `apache-kafka`.",
+				MarkdownDescription: "The Strimzi Kafka cluster behind the Cluster. Required when `provider_type` is `strimzi` (Platform Manager 17.0.0 or later), and refused for `apache-kafka`.",
 				Optional:            true,
 				Attributes: map[string]schema.Attribute{
 					"cluster_name": schema.StringAttribute{
