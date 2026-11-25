@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 * `terraform destroy` no longer fails with `403` when it deletes an `axual_environment` at the same time as an application or topics that use it. The environment delete now retries a lost lock, like the application delete. All requests that already retry a conflict now also retry a database deadlock or lock wait timeout (AXPD-12798, AXPD-12837)
+* `terraform plan` no longer fails with `400 ... converted to null` after an `axual_environment` was deleted outside Terraform, for example in Self-Service. The environment is removed from the state, and the plan creates it again
 * Creating or changing an `axual_flink_cluster` on a Platform Manager older than 17.0.0 now fails in the plan, not in the apply, and the whole plan stops. On Platform Manager 16.x this happens on every plan of a configuration with an `axual_flink_cluster`; the `axual_flink_cluster` page says how to get unblocked. Destroying one still works
 * The docs and the version check errors name the next Platform Manager release 17.0.0 everywhere. Before, some pages said 16.1.0 for the same release (infinite retention, Strimzi, the schema registry `api` and `client_endpoints`, IAM-managed groups)
 * When a version check cannot read the Platform Manager version, the error says so (`Cannot check the Platform Manager version for ...`) instead of saying that Platform Manager is too old

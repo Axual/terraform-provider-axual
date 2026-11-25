@@ -1,10 +1,12 @@
 package provider
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -65,6 +67,44 @@ func TestEnvironmentDeleteRetriesALostLock(t *testing.T) {
 			}
 			if !resp.Diagnostics.HasError() || !strings.Contains(resp.Diagnostics.Errors()[0].Detail(), tc.wantError) {
 				t.Fatalf("expected an error with %q, got %v", tc.wantError, resp.Diagnostics)
+			}
+		})
+	}
+}
+
+// An environment deleted outside Terraform is removed from the state, so the plan creates it again. Platform
+// Manager answers a deleted environment with 400 "... converted to null" (15.0.11, 16.0.5 and master), not 404.
+// Other errors still fail the read.
+func TestEnvironmentReadDropsAGoneEnvironment(t *testing.T) {
+	for name, tc := range map[string]struct {
+		status      int
+		body        string
+		wantRemoved bool
+	}{
+		"400 converted to null": {http.StatusBadRequest, `{"detail":"Required URI template variable 'uid' for method parameter type is present but converted to null","status":400}`, true},
+		"404":                   {http.StatusNotFound, "", true},
+		"another 400":           {http.StatusBadRequest, `{"detail":"Invalid request"}`, false},
+		"500":                   {http.StatusInternalServerError, `{"detail":"boom"}`, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			client := fakePM(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet || r.URL.Path != "/environments/e1" {
+					t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+				}
+				w.WriteHeader(tc.status)
+				_, _ = w.Write([]byte(tc.body))
+			})
+			r := NewEnvironmentResource(AxualProvider{client: client})
+			state := stateFor(t, r, environmentToDelete())
+			resp := resource.ReadResponse{State: state}
+
+			r.Read(context.Background(), resource.ReadRequest{State: state}, &resp)
+
+			if tc.wantRemoved && (resp.Diagnostics.HasError() || !resp.State.Raw.IsNull()) {
+				t.Errorf("read = %v, state null = %t; expected the environment removed from the state", resp.Diagnostics, resp.State.Raw.IsNull())
+			}
+			if !tc.wantRemoved && (!resp.Diagnostics.HasError() || resp.State.Raw.IsNull()) {
+				t.Errorf("read = %v, state null = %t; expected an error and the state kept", resp.Diagnostics, resp.State.Raw.IsNull())
 			}
 		})
 	}
