@@ -194,6 +194,15 @@ func (r *ksmlRuntimeResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
+	// /runtimes/{id} answers for a runtime of any type.
+	if !strings.EqualFold(ksmlRuntime.Type, webclient.KsmlRuntimeType) {
+		resp.Diagnostics.AddError(
+			"Runtime is not a KSML runtime",
+			fmt.Sprintf("Runtime %s is a %s runtime. An axual_ksml_runtime manages a KSML runtime only.", ksmlRuntime.Uid, ksmlRuntime.Type),
+		)
+		return
+	}
+
 	// The API finds a KSML runtime by its id alone, so this is where an import identifier with the
 	// wrong instance or cluster is noticed.
 	if ksmlRuntime.InstanceId != data.InstanceId.ValueString() || ksmlRuntime.ClusterId != data.ClusterId.ValueString() {

@@ -12,6 +12,7 @@ type KsmlRuntimeConfig struct {
 
 type KsmlRuntimeResponse struct {
 	Uid              string            `json:"id"`
+	Type             string            `json:"type"`
 	Name             string            `json:"name"`
 	Description      string            `json:"description"`
 	InstanceId       string            `json:"instanceId"`

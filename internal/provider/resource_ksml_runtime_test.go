@@ -290,6 +290,22 @@ func TestKsmlRuntimeReadRefusesAnotherInstanceOrCluster(t *testing.T) {
 	}
 }
 
+// /runtimes/{id} also answers for the runtimes of other types, which an axual_ksml_runtime must not take over.
+func TestKsmlRuntimeReadRefusesARuntimeOfAnotherType(t *testing.T) {
+	for runtimeType, refused := range map[string]bool{"KSML": false, "ksml": false, "FLINK": true, "CONNECT": true} {
+		t.Run(runtimeType, func(t *testing.T) {
+			resp := readKsmlRuntime(t, "i1", "c1", strings.Replace(ksmlRuntimeOnI1C1, `"type":"KSML"`, `"type":"`+runtimeType+`"`, 1))
+
+			if resp.Diagnostics.HasError() != refused {
+				t.Fatalf("read error = %v, expected refused = %t", resp.Diagnostics, refused)
+			}
+			if refused && !strings.Contains(resp.Diagnostics.Errors()[0].Detail(), runtimeType) {
+				t.Errorf("detail = %q, expected it to name the type %s", resp.Diagnostics.Errors()[0].Detail(), runtimeType)
+			}
+		})
+	}
+}
+
 // A changed name, instance or cluster replaces the runtime; everything else is updated in place.
 func TestKsmlRuntimeSchemaReplacesOnlyOnNameInstanceAndCluster(t *testing.T) {
 	replaced := map[string]bool{"name": true, "instance_id": true, "cluster_id": true}
