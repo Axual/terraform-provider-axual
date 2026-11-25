@@ -29,6 +29,10 @@ const (
 
 var _ resource.Resource = &ksmlRuntimeResource{}
 var _ resource.ResourceWithImportState = &ksmlRuntimeResource{}
+var _ resource.ResourceWithModifyPlan = &ksmlRuntimeResource{}
+
+// KSML runtimes are on Platform Manager master, which reports 16.1.0-SNAPSHOT and is released as 17.0.0.
+const ksmlRuntimeMajor, ksmlRuntimeMinor = 16, 1
 
 func NewKsmlRuntimeResource(provider AxualProvider) resource.Resource {
 	return &ksmlRuntimeResource{
@@ -146,6 +150,19 @@ func (r *ksmlRuntimeResource) Schema(ctx context.Context, req resource.SchemaReq
 			},
 		},
 	}
+}
+
+// ModifyPlan refuses to create or change a KSML runtime on a Platform Manager older than 17.0.0, which
+// has no KSML runtimes. A destroy and a plan without changes are not checked.
+func (r *ksmlRuntimeResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() || r.provider.client == nil {
+		return
+	}
+	if !req.State.Raw.IsNull() && req.Plan.Raw.Equal(req.State.Raw) {
+		return
+	}
+	version, err := r.provider.client.GetPlatformVersion()
+	requirePlatformVersion(&resp.Diagnostics, version, err, path.Root("name"), "axual_ksml_runtime", ksmlRuntimeMajor, ksmlRuntimeMinor, "It has no KSML runtimes.")
 }
 
 func (r *ksmlRuntimeResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

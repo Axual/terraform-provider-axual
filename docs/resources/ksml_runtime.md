@@ -21,7 +21,7 @@ A KSML runtime registers a KSML provisioner on an Instance-Cluster, so KSML appl
 
 ## Platform Manager version
 
-- Platform Manager 17.0.0 or later.
+- Platform Manager 17.0.0 or later. With an older one, the plan fails when it creates or changes a KSML runtime, and the plan of the whole configuration stops, for the other resources too.
 
 ## Required Roles
 - PLATFORM_ADMIN to register or delete a KSML runtime, and to change its owner. TENANT_ADMIN alone is not enough

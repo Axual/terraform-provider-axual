@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -303,6 +304,74 @@ func TestKsmlRuntimeReadRefusesARuntimeOfAnotherType(t *testing.T) {
 				t.Errorf("detail = %q, expected it to name the type %s", resp.Diagnostics.Errors()[0].Detail(), runtimeType)
 			}
 		})
+	}
+}
+
+// A KSML runtime needs the API of Platform Manager 17.0.0 (master builds report 16.1.0-SNAPSHOT). The plan
+// reads GET /info only when it creates or changes a KSML runtime.
+func TestKsmlRuntimePlanRefusesOlderPlatformManager(t *testing.T) {
+	planned := func() *KsmlRuntimeResourceData {
+		data := ksmlRuntimeData("owner-group", groupSet("deploy-group"))
+		data.Id = types.StringValue("r1")
+		return data
+	}
+	changed := planned()
+	changed.Description = types.StringValue("changed")
+	const tooOld = "axual_ksml_runtime needs Platform Manager"
+	for _, tc := range []struct {
+		name         string
+		info         string
+		current      *KsmlRuntimeResourceData
+		wantInDetail string // "": no error
+		wantCalls    int
+	}{
+		{"create on 16.0.5", `{"version":"16.0.5"}`, nil, "This Platform Manager is 16.0.5. It has no KSML runtimes.", 1},
+		{"create on 15.0.11", `{"version":"15.0.11"}`, nil, "This Platform Manager is 15.0.11. It has no KSML runtimes.", 1},
+		{"create on a master build", `{"version":"16.1.0-SNAPSHOT"}`, nil, "", 1},
+		{"create on 17.0.0", `{"version":"17.0.0"}`, nil, "", 1},
+		{"version unreadable", "", nil, "version failed", 1},
+		{"change on 16.0.5", `{"version":"16.0.5"}`, changed, "It has no KSML runtimes.", 1},
+		{"no change on 16.0.5", `{"version":"16.0.5"}`, planned(), "", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			r := &ksmlRuntimeResource{provider: infoPM(t, tc.info, &calls)}
+			var current any
+			if tc.current != nil {
+				current = tc.current
+			}
+			resp := modifyPlanOf(t, r, planned(), current)
+			wantError := tc.wantInDetail != ""
+			if resp.Diagnostics.HasError() != wantError || calls != tc.wantCalls {
+				t.Fatalf("error = %v, GET /info calls = %d; expected error %v, %d calls. Diagnostics: %v",
+					resp.Diagnostics.HasError(), calls, wantError, tc.wantCalls, resp.Diagnostics)
+			}
+			if !wantError {
+				return
+			}
+			got := resp.Diagnostics.Errors()[0]
+			if !strings.Contains(got.Summary()+got.Detail(), tooOld) || !strings.Contains(got.Detail(), tc.wantInDetail) {
+				t.Errorf("summary = %q, detail = %q; expected %q in them and a detail with %q", got.Summary(), got.Detail(), tooOld, tc.wantInDetail)
+			}
+		})
+	}
+}
+
+// A destroy is not checked, so a KSML runtime can be removed from the state on any Platform Manager.
+func TestKsmlRuntimePlanAllowsDestroyOnOlderPlatformManager(t *testing.T) {
+	calls := 0
+	r := &ksmlRuntimeResource{provider: infoPM(t, `{"version":"16.0.5"}`, &calls)}
+	data := ksmlRuntimeData("owner-group", groupSet("deploy-group"))
+	data.Id = types.StringValue("r1")
+	current := stateFor(t, r, data)
+	empty := emptyState(t, r)
+	req := resource.ModifyPlanRequest{Plan: tfsdk.Plan{Schema: empty.Schema, Raw: empty.Raw}, State: current}
+	resp := resource.ModifyPlanResponse{Plan: req.Plan}
+
+	r.ModifyPlan(context.Background(), req, &resp)
+
+	if resp.Diagnostics.HasError() || calls != 0 {
+		t.Fatalf("error = %v, GET /info calls = %d; expected no error and no call", resp.Diagnostics, calls)
 	}
 }
 
