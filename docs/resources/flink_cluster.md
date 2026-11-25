@@ -21,7 +21,17 @@ A Flink Cluster registers a Ververica Platform namespace on an Instance-Cluster,
 
 ## Platform Manager version
 
-- Platform Manager 17.0.0 or later; with an older one, the plan fails when it creates or changes a Flink Cluster. On Platform Manager 16.x, use provider 3.2.x for a Flink Cluster, or register the Flink Cluster in Self-Service and use its id as `target_id`.
+- Platform Manager 17.0.0 or later. With an older one, the plan fails when it creates or changes a Flink Cluster, and the plan of the whole configuration stops, for the other resources too. Platform Manager 16.x returns no `owners` for a Flink Cluster, so there every plan of a configuration with an `axual_flink_cluster` fails.
+- To get unblocked on Platform Manager 16.x, stop managing the Flink Cluster with Terraform without deleting it: replace its `resource` block with a `removed` block (Terraform 1.7 or later), or run `terraform state rm axual_flink_cluster.<LOCAL NAME>`. Then use the Flink Cluster's id as `target_id`, and register or change Flink Clusters in Self-Service. After the upgrade to Platform Manager 17.0.0, import it again (see "Import"). Or use provider 3.2.x.
+
+```hcl
+removed {
+  from = axual_flink_cluster.example_flink_cluster
+  lifecycle {
+    destroy = false
+  }
+}
+```
 
 ## Required Roles
 - TENANT_ADMIN
