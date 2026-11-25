@@ -32,7 +32,6 @@ func TestIsGone(t *testing.T) {
 		"flink cluster gone (400)": {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"Flink Cluster with ID f1 not found"}`}, true},
 		"instance gone (400)":      {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"Instance not found"}`}, true},
 		"cluster gone (400)":       {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"Cluster not found"}`}, true},
-		"ksml runtime gone (400)":  {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"KSML runtime with ID r1 not found"}`}, true},
 		"other 400":                {&webclient.HTTPError{StatusCode: 400, Body: `{"detail":"Invalid action"}`}, false},
 		"500":                      {&webclient.HTTPError{StatusCode: 500}, false},
 		"no error":                 {nil, false},
@@ -264,8 +263,8 @@ func TestRetryIfStopsWhenCancelled(t *testing.T) {
 	}
 }
 
-// Destroy of a resource that was deleted outside Terraform is done, not an error. A gone group,
-// Flink cluster or KSML runtime gets a 400, as on Platform Manager master.
+// Destroy of a resource that was deleted outside Terraform is done, not an error. A gone group or
+// Flink cluster gets a 400, as on Platform Manager master. A gone KSML runtime gets a 404.
 func TestDeleteAcceptsAGoneResource(t *testing.T) {
 	client := fakePM(t, pmGoneAnswers)
 	provider := AxualProvider{client: client}
@@ -310,9 +309,6 @@ func pmGoneAnswers(w http.ResponseWriter, r *http.Request) {
 	case strings.Contains(r.URL.Path, "/flink-clusters/"):
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(`{"detail":"Flink Cluster with ID f1 not found"}`))
-	case strings.Contains(r.URL.Path, "/ksml-runtimes/"):
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte(`{"detail":"KSML runtime with ID r1 not found"}`))
 	case strings.Contains(r.URL.Path, "/groups/"):
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(`{"detail":"No Group found"}`))
