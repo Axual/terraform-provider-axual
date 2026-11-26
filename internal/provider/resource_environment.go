@@ -297,7 +297,7 @@ func (r *environmentResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	err := RetryIf(ctx, environmentDeleteAttempts, environmentDeleteDelay, isConflict, func() error {
+	err := RetryIfJittered(ctx, environmentDeleteAttempts, environmentDeleteDelay, isConflict, func() error {
 		err := r.provider.client.DeleteEnvironment(data.Id.ValueString())
 		if isConflict(err) {
 			tflog.Info(ctx, fmt.Sprintf("Environment %s could not be deleted yet (%s)", data.Id.ValueString(), err))
