@@ -258,8 +258,8 @@ The Axual Terraform provider enables a distributed GitOps setup across teams:
 | 3.2.x                      | 15.0.x - onward                      |   2026.2 - onwards          |
 | 3.3.x                      | 15.0.x - onward                      |   2026.2 - onwards          |
 
-## Custom JSON Schema Support
+## IDE support (IntelliJ)
 
-Enable IDE integration for Terraform auto-complete and validation by importing the provider’s custom JSON schema:
+Get syntax highlighting, validation and auto-completion of Axual resources in IntelliJ:
 
-[Custom JSON Schema Guide](guides/json-schema)
+[IDE support (IntelliJ) guide](guides/json-schema)
