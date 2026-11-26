@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 * When a version check cannot read the Platform Manager version, the error says so (`Cannot check the Platform Manager version for ...`) instead of saying that Platform Manager is too old
 * A data source that finds nothing now says `Resource Not Found` and names the value it looked for, for example `No Application resources found with short_name 'payments'`. Before, `axual_application` showed `Client Error ... got error: resource not found`, `axual_environment` by `short_name` showed an empty name, and `axual_instance`, `axual_cluster` and `axual_schema_version` showed `Client Error` or did not name the value (AXPD-9556)
 * The guide `IDE support (IntelliJ)` (renamed from `Custom JSON Schema`) works with current IntelliJ versions: it shows the built-in action `Terraform Tools > Generate Providers Metadata`, and says that the global metadata file is read only when `Use Global metadata` is switched on in the Advanced Settings (AXPD-12853)
+* The guide `Declarative Multi-Repo Gitops Setup`, the index page and the README say that the admin team also manages instances and clusters (`axual_instance`, `axual_cluster`, `axual_instance_cluster`, `axual_flink_cluster`)
 * The data source pages of the documentation list every attribute with its type, generated from the schema like the resource pages. Before, they were written by hand, badly formatted and missed attributes (AXPD-9556)
 
 ### Changed
