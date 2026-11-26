@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is the Terraform Provider for Axual Platform, allowing users to manage Axual resources (applications, topics, schemas, environments, users, groups) through Terraform. The provider is written in Go using the Terraform Plugin Framework.
+This is the Terraform Provider for Axual Platform, allowing users to manage Axual resources (applications, topics, schemas, environments, users, groups, instances, clusters) through Terraform. The provider is written in Go using the Terraform Plugin Framework.
 
 ## Key Commands
 

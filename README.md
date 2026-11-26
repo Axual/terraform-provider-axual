@@ -1,6 +1,6 @@
 # Terraform Provider for Axual Platform
 
-The Terraform Provider for Axual Platform allows you to manage Axual resources through Terraform, including applications, topics, schemas, environments, users, and groups.
+The Terraform Provider for Axual Platform allows you to manage Axual resources through Terraform, including applications, topics, schemas, environments, users, groups, instances and clusters.
 
 ## Requirements
 

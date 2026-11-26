@@ -22,10 +22,19 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"regexp"
 	"strings"
+	"time"
 )
 
 var _ resource.Resource = &environmentResource{}
 var _ resource.ResourceWithImportState = &environmentResource{}
+
+// An environment delete can lose a lock to an application or topic delete that removes the same access
+// grants at the same moment (AXPD-12798, AXPD-12837). That conflict is transient, so the delete is retried
+// like the application delete.
+var (
+	environmentDeleteAttempts = 5
+	environmentDeleteDelay    = 3 * time.Second
+)
 
 func NewEnvironmentResource(provider AxualProvider) resource.Resource {
 	return &environmentResource{
@@ -288,8 +297,14 @@ func (r *environmentResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	err := ignoreGone(r.provider.client.DeleteEnvironment(data.Id.ValueString()))
-	if err != nil {
+	err := RetryIfJittered(ctx, environmentDeleteAttempts, environmentDeleteDelay, isConflict, func() error {
+		err := r.provider.client.DeleteEnvironment(data.Id.ValueString())
+		if isConflict(err) {
+			tflog.Info(ctx, fmt.Sprintf("Environment %s could not be deleted yet (%s)", data.Id.ValueString(), err))
+		}
+		return err
+	})
+	if err = ignoreGone(err); err != nil {
 		resp.Diagnostics.AddError("DELETE request error for environment resource", fmt.Sprintf("Error message: %s", err.Error()))
 		return
 	}

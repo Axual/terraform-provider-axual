@@ -7,7 +7,7 @@ This guide demonstrates how to use Axual Self Service with the Axual Terraform p
 
 1. **Application Team**: Requests permissions to produce to or consume from a topic owned by the Topic Team.
 2. **Topic Team**: Approves or rejects application access requests to their topics.
-3. **Admin Team**: Manages users, groups and environments in Self-Service.
+3. **Admin Team**: Manages users, groups, environments, instances and clusters in Self-Service.
 
 **Key Practices**:
 - Each team manages its own Terraform state independently.
@@ -18,7 +18,7 @@ This guide demonstrates how to use Axual Self Service with the Axual Terraform p
 
 The teams will have the following responsibilities and roles:
 
-- **Admin Team**: Manages `axual_user`, `axual_group`, and `axual_environment` resources.
+- **Admin Team**: Manages `axual_user`, `axual_group`, `axual_environment`, `axual_instance`, `axual_cluster`, `axual_instance_cluster` and `axual_flink_cluster` resources.
   - Roles: `TENANT_ADMIN`, `ENVIRONMENT_ADMIN`
 
 - **Application Team**: Manages `axual_application`, `axual_application_principal`, and `axual_application_access_grant` resources.
@@ -35,6 +35,7 @@ The Application Team submits a request to produce to a topic. The Topic Team, ow
 
 ### 1. Admin Team
 - The Admin team creates `Environments`, `Users` and `Groups` within its Terraform state using an Admin-level user account.
+  It can also manage `Instances` and `Clusters` there. The example does not create them: it reads an existing Instance with the `axual_instance` data source.
   - [Admin Team's Terraform Resources](https://github.com/Axual/terraform-provider-axual/blob/master/examples/3-team-guide/admin-team/main.tf)
 - Please note that Users can be already registered using Keycloak or another authentication service. In that case, Admin team will define the configuration for these users that already exist and use `terraform import` to import them into `axual_user` resources. Please see more details here [User resource](../../docs/resources/user.md) 
 

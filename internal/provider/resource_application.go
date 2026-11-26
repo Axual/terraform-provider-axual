@@ -238,7 +238,7 @@ func (r *applicationResource) Delete(ctx context.Context, req resource.DeleteReq
 
 	// The delete cascades over just-revoked access grants and can lose the optimistic lock (409, or
 	// 403 OptimisticLocking). That conflict is transient, so it is retried.
-	err := RetryIf(ctx, applicationDeleteAttempts, applicationDeleteDelay, isConflict, func() error {
+	err := RetryIfJittered(ctx, applicationDeleteAttempts, applicationDeleteDelay, isConflict, func() error {
 		err := r.provider.client.DeleteApplication(data.Id.ValueString())
 		if isConflict(err) {
 			tflog.Info(ctx, fmt.Sprintf("Application %s could not be deleted yet (%s)", data.Id.ValueString(), err))

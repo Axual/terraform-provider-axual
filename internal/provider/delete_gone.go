@@ -47,15 +47,31 @@ func ignoreGone(err error) error {
 // isConflict reports a concurrent change of the same row, which a retry can fix. Platform Manager
 // answers 409 "Could not commit changes", or 403 with the lock error: Spring's
 // ObjectOptimisticLockingFailureException, or jakarta.persistence.OptimisticLockException when the
-// write calls the JPA EntityManager directly, as the Instance update does.
+// write calls the JPA EntityManager directly, as the Instance update does. A database deadlock or lock
+// wait timeout on MySQL also answers 403 (CannotAcquireLockException, PessimisticLockingFailureException,
+// AXPD-12837). The database rolled the request back, so a retry is safe.
 func isConflict(err error) bool {
 	var httpErr *webclient.HTTPError
 	if !errors.As(err, &httpErr) {
 		return false
 	}
-	return httpErr.StatusCode == http.StatusConflict ||
-		(httpErr.StatusCode == http.StatusForbidden &&
-			(strings.Contains(httpErr.Body, "OptimisticLocking") || strings.Contains(httpErr.Body, "OptimisticLockException")))
+	if httpErr.StatusCode == http.StatusConflict {
+		return true
+	}
+	if httpErr.StatusCode != http.StatusForbidden {
+		return false
+	}
+	for _, lockLost := range lockLostAnswers {
+		if strings.Contains(httpErr.Body, lockLost) {
+			return true
+		}
+	}
+	return false
+}
+
+// lockLostAnswers are the texts of the 403 that Platform Manager answers when a request lost a lock.
+var lockLostAnswers = []string{
+	"OptimisticLocking", "OptimisticLockException", "CannotAcquireLockException", "PessimisticLockingFailureException",
 }
 
 // isGrantClosed reports whether an access grant was revoked, rejected or cancelled.
