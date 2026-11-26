@@ -317,7 +317,7 @@ func TestKsmlRuntimePlanRefusesOlderPlatformManager(t *testing.T) {
 	}
 	changed := planned()
 	changed.Description = types.StringValue("changed")
-	const tooOld = "axual_ksml_runtime needs Platform Manager"
+	const tooOld = "axual_ksml_runtime needs Platform Manager 17.0.0 or later"
 	for _, tc := range []struct {
 		name         string
 		info         string
