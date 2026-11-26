@@ -1,8 +1,8 @@
 ---
-page_title: "Custom JSON Schema"
+page_title: "IDE support (IntelliJ)"
 ---
 
-# Make your IDE know the Axual provider
+# IDE support (IntelliJ)
 
 Your IDE needs a description of the provider (its schema) to give you:
 
