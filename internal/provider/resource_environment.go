@@ -5,7 +5,6 @@ import (
 	custom_validator "axual.com/terraform-provider-axual/internal/custom-validator"
 	"axual.com/terraform-provider-axual/internal/provider/utils"
 	"context"
-	"errors"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/mapvalidator"
@@ -239,7 +238,7 @@ func (r *environmentResource) Read(ctx context.Context, req resource.ReadRequest
 
 	environment, err := r.provider.client.GetEnvironment(data.Id.ValueString())
 	if err != nil {
-		if errors.Is(err, webclient.NotFoundError) {
+		if isGone(err) {
 			tflog.Warn(ctx, fmt.Sprintf("Environment not found. Id: %s", data.Id.ValueString()))
 			resp.State.RemoveResource(ctx)
 		} else {

@@ -6,7 +6,25 @@ import (
 	. "axual.com/terraform-provider-axual/internal/tests"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 )
+
+// deleteOutsideTerraform deletes the environment with the API, as a user does in Self-Service.
+func deleteOutsideTerraform(t *testing.T, name string) func() {
+	return func() {
+		client, err := ApiClient()
+		if err != nil {
+			t.Fatalf("building API client: %v", err)
+		}
+		found, err := client.GetEnvironmentByName(name)
+		if err != nil || len(found.Embedded.Environments) != 1 {
+			t.Fatalf("finding environment %s: %v", name, err)
+		}
+		if err := client.DeleteEnvironment(found.Embedded.Environments[0].Uid); err != nil {
+			t.Fatalf("deleting environment %s: %v", name, err)
+		}
+	}
+}
 
 func TestEnvironmentResource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
@@ -77,6 +95,16 @@ func TestEnvironmentResource(t *testing.T) {
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "settings.%", "0"),
 					resource.TestCheckResourceAttr("axual_environment.tf-test-env", "viewers.#", "1"),
 				),
+			},
+			{
+				// The environment is deleted outside Terraform. The plan creates it again.
+				PreConfig: deleteOutsideTerraform(t, "tf-development1"),
+				Config:    GetProvider() + GetFile("axual_environment_removed_settings_properties.tf"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("axual_environment.tf-test-env", plancheck.ResourceActionCreate),
+					},
+				},
 			},
 			{
 				ResourceName:      "axual_environment.tf-test-env",
