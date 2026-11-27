@@ -169,6 +169,8 @@ in the Terraform state only.
   that already exist.
 - **Clusters**: Platform Manager never returns the broker private key or passwords, so add them to a
   generated `axual_cluster` before you apply it.
+- **Tenant settings**: the generated `axual_tenant_settings` sets every setting. Remove the ones that
+  Terraform should not manage: a left-out setting keeps its value.
 - **Access grants**: revoked and cancelled grants are left out, unless the `status` filter asks for
   them.
 - **Browse permissions**: topic configurations whose browse permissions you may not manage are left
@@ -190,6 +192,7 @@ in the Terraform state only.
 |---|---|
 | `axual_cluster` | `name` |
 | `axual_instance` | `name` |
+| `axual_tenant_settings` | none: it lists the tenant of the login |
 | `axual_group` | `name` |
 | `axual_user` | `email`, `role` |
 | `axual_environment` | `name`, `owners` |

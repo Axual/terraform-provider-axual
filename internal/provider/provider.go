@@ -193,6 +193,7 @@ func (p *AxualProvider) DataSources(ctx context.Context) []func() datasource.Dat
 		func() datasource.DataSource { return NewUserDataSource(*p) },
 		func() datasource.DataSource { return NewConnectClusterDataSource(*p) },
 		func() datasource.DataSource { return NewClusterDataSource(*p) },
+		func() datasource.DataSource { return NewTenantDataSource(*p) },
 	}
 }
 

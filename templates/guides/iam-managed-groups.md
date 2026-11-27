@@ -17,8 +17,16 @@ of the group.
 
 ## Before you start
 
-- A Tenant Admin switches on IAM-managed groups for the tenant: Tenants, your tenant, card
-  "Group Management", Configure. Terraform cannot do this.
+- IAM-managed groups must be switched on for the tenant. Do it with Terraform:
+
+  ```hcl
+  resource "axual_tenant_settings" "this" {
+    iam_group_management = true
+  }
+  ```
+
+  Add `depends_on = [axual_tenant_settings.this]` to the IAM-managed groups. A Tenant Admin can also
+  do it in Self-Service: Tenants, your tenant, card "Group Management", Configure.
 - Creating, linking and unlinking a group needs the `TENANT_ADMIN` role. This is true for a
   person and for a service account.
 - A group that was linked outside Terraform (for example in Self-Service) keeps its link when the

@@ -1,0 +1,93 @@
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+## Usage
+- `axual_tenant_settings` manages the settings of the tenant that the provider is logged in to. It cannot manage another tenant, and it does not create a tenant.
+- Only the attributes that you set are managed. An attribute that you leave out keeps its value in Platform Manager, and the state shows that value. So one team can take over a single setting of a tenant in use without touching the others.
+- Removing an attribute from the configuration stops managing it: the setting keeps its last value.
+- `terraform destroy` changes nothing in the tenant, and the plan says so in a warning. The settings have no "empty" value to go back to, and Instances and applications depend on them.
+- Use one `axual_tenant_settings` for each tenant. Two of them would overwrite each other's changes, and Terraform cannot see that.
+- Create takes over the tenant as it is: it sends only the attributes that differ from what Platform Manager has.
+- The order of `authentication_methods` is the rank. A different order is a change.
+- `iam_group_management`, `axual_group_management` and `automatic_iam_group_creation` are changed together, with the same call as the Self-Service UI. At least one of the first two must be `true`, and automatic creation needs IAM group management: the plan refuses anything else. Switching IAM group management off also switches automatic creation off.
+- Platform Manager refuses to remove a login method that an Instance uses, and to switch Connect, KSML or Flink off while the tenant still has such a runtime or application. The apply then fails with the message of Platform Manager, and nothing is changed.
+- Put `depends_on = [axual_tenant_settings.<name>]` on resources that need a setting, for example an `axual_instance` that uses a login method, or a Connector application that needs `connect_runtime_enabled`. Then one apply switches the setting on first.
+- The `axual_tenant` data source reads the same values, without managing them.
+
+## Platform Manager version
+- Platform Manager 15.0.0 or later.
+- `connect_runtime_enabled`, `ksml_runtime_enabled` and `flink_runtime_enabled` need Platform Manager 17.0.0 or later; with an older one, the plan fails when you set them, and they are `null` in the state. On older versions Connect and Flink are switched on per Instance, with `connect_enabled` and `flink_enabled` of `axual_instance`.
+- On Platform Manager 17.0.0, a tenant made by a first login has Connect, KSML and Flink switched off. Connect clusters, KSML provisioners, Flink clusters, and Connector, KSML and Flink SQL applications are refused until the switch is on. Tenants that existed before the upgrade got all three switched on.
+
+## Required Roles
+- TENANT_ADMIN. A service account with this role works too (Platform Manager 16.0.0 or later).
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Example Usage
+
+```hcl
+resource "axual_tenant_settings" "this" {
+  authentication_methods  = ["MUTUAL_TLS", "SCRAM_SHA_512"]
+  connect_runtime_enabled = true
+  ksml_runtime_enabled    = true
+  iam_group_management    = true
+  data_masking_enabled    = true
+  history_retention_days  = 90
+}
+
+# The Instance uses SCRAM_SHA_512, so it waits for the tenant settings.
+resource "axual_instance" "main" {
+  name                   = "Production"
+  short_name             = "prod"
+  clusters               = [axual_cluster.main.id]
+  authentication_methods = ["MUTUAL_TLS", "SCRAM_SHA_512"]
+  depends_on             = [axual_tenant_settings.this]
+}
+```
+
+Manage one setting only, and leave the rest as they are:
+
+```hcl
+resource "axual_tenant_settings" "this" {
+  connect_runtime_enabled = true
+}
+```
+
+## Import
+
+Import is supported by the ID or the short name of the tenant of the login:
+
+```shell
+terraform import axual_tenant_settings.<LOCAL NAME> <TENANT UID>
+terraform import axual_tenant_settings.this bee8b5c9682940aea2e09a1e07137d9a
+terraform import axual_tenant_settings.<LOCAL NAME> <TENANT SHORT NAME>
+terraform import axual_tenant_settings.this axual
+```
+
+After the import, the state holds every setting. Only the attributes in your configuration are managed. The `axual_tenant` data source gives the ID:
+
+```terraform
+data "axual_tenant" "this" {}
+
+import {
+  to = axual_tenant_settings.this
+  id = data.axual_tenant.this.id
+}
+```
+
+In Terraform 1.12 or later, an `import` block can use `identity` instead of `id`:
+
+```terraform
+import {
+  to = axual_tenant_settings.this
+  identity = {
+    id = "bee8b5c9682940aea2e09a1e07137d9a"
+  }
+}
+```
+
+`terraform query` with a `list "axual_tenant_settings"` block finds the tenant of the login. The generated resource sets every setting: remove the ones that Terraform should not manage.
+
+{{ .IdentitySchemaMarkdown | trimspace }}

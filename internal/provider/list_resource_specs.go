@@ -50,6 +50,13 @@ func listSpecs() []listSpec {
 			find:        findInstances,
 		},
 		{
+			typeName:    "axual_tenant_settings",
+			attr:        "id",
+			description: "Lists the tenant of the login, so its settings can be written as an `axual_tenant_settings`. The generated resource sets every setting; remove the ones that Terraform should not manage.",
+			newResource: NewTenantSettingsResource,
+			find:        findTenant,
+		},
+		{
 			typeName:    "axual_group",
 			attr:        "id",
 			description: "Lists groups in the tenant.",
@@ -409,6 +416,15 @@ func findClusters(_ context.Context, c *webclient.Client, f map[string]string) (
 		return nil, err
 	}
 	return toFound(items, byKey("name")), nil
+}
+
+// findTenant returns the tenant of the login: a login sees only its own tenant.
+func findTenant(_ context.Context, c *webclient.Client, _ map[string]string) ([]listFound, error) {
+	tenant, err := c.GetTenant()
+	if err != nil {
+		return nil, err
+	}
+	return []listFound{{id: tenant.Uid, displayName: tenant.Name}}, nil
 }
 
 func findInstances(_ context.Context, c *webclient.Client, f map[string]string) ([]listFound, error) {

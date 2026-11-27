@@ -488,13 +488,13 @@ func warnRuntimeSwitchesWithoutEffect(diags *diag.Diagnostics, data *instanceRes
 		value                types.Bool
 		attribute, name, key string
 	}{
-		{instance.ConnectEnabled, data.ConnectEnabled, "connect_enabled", "Connect", "connectRuntimeEnabled"},
-		{instance.FlinkEnabled, data.FlinkEnabled, "flink_enabled", "Flink", "flinkRuntimeEnabled"},
+		{instance.ConnectEnabled, data.ConnectEnabled, "connect_enabled", "Connect", "connect_runtime_enabled"},
+		{instance.FlinkEnabled, data.FlinkEnabled, "flink_enabled", "Flink", "flink_runtime_enabled"},
 	} {
 		if s.answer == nil && s.value.ValueBool() {
 			diags.AddAttributeWarning(path.Root(s.attribute), s.attribute+" has no effect on this Platform Manager",
 				fmt.Sprintf("This Platform Manager has no %[1]s switch on an Instance. %[1]s is switched on for the whole tenant: "+
-					"a Tenant Admin sets the tenant setting %[2]s. The value true is kept only in the Terraform state.", s.name, s.key))
+					"set %[2]s of axual_tenant_settings. The value true is kept only in the Terraform state.", s.name, s.key))
 		}
 	}
 }

@@ -18,6 +18,11 @@ you. It can run in two places:
 Platform Manager 16.0.0 added support for Kafka Connect clusters. With an older Platform Manager,
 only AC is available.
 
+On Platform Manager 17.0.0 and later, Connect must be switched on for the tenant, or Platform Manager
+refuses Connector applications. A tenant made by a first login has it off. Switch it on with
+`connect_runtime_enabled` of [`axual_tenant_settings`](../resources/tenant_settings.md), and add
+`depends_on = [axual_tenant_settings.<name>]` to the Connector application.
+
 ### Two ways to start a connector
 
 | | `autostart = true` (default) | `autostart = false` |
