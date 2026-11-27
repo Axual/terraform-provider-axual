@@ -133,7 +133,7 @@ func (r *instanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				},
 			},
 			"clusters": schema.SetAttribute{
-				MarkdownDescription: "IDs of the Clusters in the Instance, at least one. Removing a Cluster deletes its schema registry configuration; Platform Manager refuses it while a Kafka Connect or Flink cluster is registered on it.",
+				MarkdownDescription: "IDs of the Clusters in the Instance, at least one. Removing a Cluster deletes its schema registry configuration; Platform Manager refuses it while a Kafka Connect cluster, a Flink cluster or a KSML runtime is registered on it.",
 				Required:            true,
 				ElementType:         types.StringType,
 				Validators: []validator.Set{

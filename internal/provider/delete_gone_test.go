@@ -264,7 +264,7 @@ func TestRetryIfStopsWhenCancelled(t *testing.T) {
 }
 
 // Destroy of a resource that was deleted outside Terraform is done, not an error. A gone group or
-// Flink cluster gets a 400, as on Platform Manager master.
+// Flink cluster gets a 400, as on Platform Manager master. A gone KSML runtime gets a 404.
 func TestDeleteAcceptsAGoneResource(t *testing.T) {
 	client := fakePM(t, pmGoneAnswers)
 	provider := AxualProvider{client: client}
@@ -280,6 +280,11 @@ func TestDeleteAcceptsAGoneResource(t *testing.T) {
 		}},
 		"flink cluster": {flinkCluster, &FlinkClusterResourceData{
 			Id: types.StringValue("f1"), InstanceId: types.StringValue("i1"), ClusterId: types.StringValue("c1"),
+			SchemaRegistries: types.ListNull(registries.ElemType),
+			AuthorizedGroups: types.SetNull(types.StringType),
+		}},
+		"ksml runtime": {&ksmlRuntimeResource{provider: provider}, &KsmlRuntimeResourceData{
+			Id: types.StringValue("r1"), InstanceId: types.StringValue("i1"), ClusterId: types.StringValue("c1"),
 			SchemaRegistries: types.ListNull(registries.ElemType),
 			AuthorizedGroups: types.SetNull(types.StringType),
 		}},
@@ -327,5 +332,22 @@ func TestFlinkClusterReadDropsAGoneCluster(t *testing.T) {
 
 	if resp.Diagnostics.HasError() || !resp.State.Raw.IsNull() {
 		t.Errorf("read = %v, state null = %t; expected the cluster removed from the state", resp.Diagnostics, resp.State.Raw.IsNull())
+	}
+}
+
+// A KSML runtime deleted outside Terraform is removed from the state, so destroy and plan go on.
+func TestKsmlRuntimeReadDropsAGoneRuntime(t *testing.T) {
+	r := &ksmlRuntimeResource{provider: AxualProvider{client: fakePM(t, pmGoneAnswers)}}
+	state := stateFor(t, r, &KsmlRuntimeResourceData{
+		Id: types.StringValue("r1"), InstanceId: types.StringValue("i1"), ClusterId: types.StringValue("c1"),
+		SchemaRegistries: types.ListNull(schemaRegistryObjectType()),
+		AuthorizedGroups: types.SetNull(types.StringType),
+	})
+	resp := resource.ReadResponse{State: state}
+
+	r.Read(context.Background(), resource.ReadRequest{State: state}, &resp)
+
+	if resp.Diagnostics.HasError() || !resp.State.Raw.IsNull() {
+		t.Errorf("read = %v, state null = %t; expected the runtime removed from the state", resp.Diagnostics, resp.State.Raw.IsNull())
 	}
 }

@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 ### Added
 * `managers` on the `axual_group` data source, and `viewers` on the `axual_topic`, `axual_application` and `axual_environment` data sources, so a data source shows the same lists as its resource. An empty list is `[]`, not null (AXPD-9556)
+* `axual_ksml_runtime`: register KSML runtimes on an Instance-Cluster, several if you need, each with `owners` and `authorized_groups` (Platform Manager 17.0.0 or later). `authorized_groups` lists the Groups that may deploy KSML applications to it: with no authorized Groups, no Group can deploy, the owner included. Registering and deleting one, and changing its owner, needs a Platform Admin. It has no `terraform query` list resource and no resource identity (AXPD-9233)
 
 ### Fixed
 * `terraform destroy` no longer fails with `403` when it deletes an `axual_environment` at the same time as an application or topics that use it. The environment delete now retries a lost lock, like the application delete. All requests that already retry a conflict now also retry a database deadlock or lock wait timeout (AXPD-12798, AXPD-12837)
@@ -19,6 +20,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 * The `axual_schema_version` data source warns when `owners` is set. It never filtered anything: the data source always reads the owner of the schema. Remove `owners` from the data source block (AXPD-9556)
+* On Platform Manager 17.0.0 or later, a new `axual_application_deployment` of a `Ksml` application needs `target_id`, the id of an `axual_ksml_runtime`, and the owner Group of the application must be authorized on that KSML runtime. An existing deployment keeps the KSML runtime Platform Manager assigned it when it was upgraded: a configuration without `target_id` plans no change (AXPD-9233)
 
 ## [3.3.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.3.0) - 2026-11-24
 This release has three breaking changes, marked **Breaking** under "Changed": `axual_flink_cluster` needs Platform Manager 17.0.0, `owners` is required on `axual_flink_cluster`, and a group that is linked to an IAM group fails the plan when the configuration sets `members` or `managers`. Read them before you upgrade from 3.2.x.

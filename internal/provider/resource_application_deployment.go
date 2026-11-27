@@ -168,11 +168,12 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				},
 			},
 			"target_id": schema.StringAttribute{
-				// Optional and Computed: the Platform Manager assigns a default target when none is
-				// set, and UseStateForUnknown keeps an omitted `target_id` on that value.
+				// Optional and Computed: a deployment can have a target the configuration does not set
+				// (the default of a Connector, the KSML runtime the Platform Manager assigned), and
+				// UseStateForUnknown keeps an omitted `target_id` on that value.
 				// Only FLINK_SQL has to be replaced for a changed target: it rejects the change
 				// outright (AXPD-11759), while the API patches the target of the other types.
-				MarkdownDescription: "The id of the deployment target to deploy to. Required for FLINK_SQL deployments, where it must be the id of an `axual_flink_cluster` registered for the environment. For other deployment types the Platform Manager assigns a default target if not specified. Changing this value replaces a FLINK_SQL Application Deployment, whose deployment target can only be set when the deployment is created; for the other types the target is updated in place. Available targets can be listed via `GET /applications/{applicationId}/deployment-targets?environmentId={environmentId}`.",
+				MarkdownDescription: "The id of the deployment target to deploy to. Required for FLINK_SQL deployments, where it must be the id of an `axual_flink_cluster` registered for the environment. For a Ksml deployment it is the id of an `axual_ksml_runtime` of the environment's instance: a Platform Manager with KSML runtimes requires it when the deployment is created, and leaving it out afterwards keeps the KSML runtime the deployment has. For a Connector deployment the Platform Manager assigns a default target if not specified. Changing this value replaces a FLINK_SQL Application Deployment, whose deployment target can only be set when the deployment is created; for the other types the target is updated in place. Available targets can be listed via `GET /applications/{applicationId}/deployment-targets?environmentId={environmentId}`.",
 				Optional:            true,
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{

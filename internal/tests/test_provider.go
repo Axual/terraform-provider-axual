@@ -57,6 +57,8 @@ type ProviderConfig struct {
 	VervericaWorkspace        string `yaml:"ververicaWorkspace"`
 	VervericaNamespace        string `yaml:"ververicaNamespace"`
 	VervericaDeploymentTarget string `yaml:"ververicaDeploymentTarget"`
+	// KsmlRuntimeUrl is the URL the KSML runtime tests register their KSML runtimes with, on ClusterId.
+	KsmlRuntimeUrl string `yaml:"ksmlRuntimeUrl"`
 	// ResolvedTopicPrefix is only needed by the hand-written Flink table DDL, whose
 	// `CREATE TEMPORARY TABLE` names the real Kafka topic. That test skips when it is empty.
 	ResolvedTopicPrefix string `yaml:"resolvedTopicPrefix"`
@@ -142,6 +144,51 @@ func SkipWithoutVerverica(t *testing.T, config ProviderConfig) {
 		if missing(field.value) {
 			SkipForMissingConfig(t, config, "%s is not set in test_config.yaml, so no Flink Cluster can be registered", field.key)
 		}
+	}
+}
+
+// SkipWithoutKsmlRuntime skips a KSML runtime test on a Platform Manager without KSML runtimes, and
+// unless test_config.yaml carries a cluster and a KSML runtime URL to register on it.
+func SkipWithoutKsmlRuntime(t *testing.T, config ProviderConfig) {
+	t.Helper()
+	if !hasKsmlRuntimes(t) {
+		t.Skip("Platform Manager has no KSML runtimes")
+	}
+	for _, field := range []struct{ key, value string }{
+		{"clusterId", config.ClusterId},
+		{"ksmlRuntimeUrl", config.KsmlRuntimeUrl},
+	} {
+		if missing(field.value) {
+			SkipForMissingConfig(t, config, "%s is not set in test_config.yaml, so no KSML runtime can be registered", field.key)
+		}
+	}
+}
+
+// SkipWithKsmlRuntimes skips a KSML deployment test without target_id on a Platform Manager that needs it.
+func SkipWithKsmlRuntimes(t *testing.T) {
+	t.Helper()
+	if hasKsmlRuntimes(t) {
+		t.Skip("Platform Manager has KSML runtimes, so a KSML deployment needs target_id")
+	}
+}
+
+// hasKsmlRuntimes asks for one runtime: a Platform Manager with KSML runtimes has /runtimes and answers
+// 200, one without them answers 404.
+func hasKsmlRuntimes(t *testing.T) bool {
+	t.Helper()
+	client, err := apiClient()
+	if err != nil {
+		t.Fatalf("Error signing in: %v", err)
+	}
+	err = client.RequestAndMap("GET", client.ApiURL+"/runtimes?size=1", nil, nil, nil)
+	switch {
+	case err == nil:
+		return true
+	case errors.Is(err, webclient.NotFoundError):
+		return false
+	default:
+		t.Fatalf("Error asking Platform Manager whether it has KSML runtimes: %v", err)
+		return false
 	}
 }
 
@@ -442,6 +489,21 @@ func GetFlinkProvider() string {
 	  ververica_workspace = "` + config.VervericaWorkspace + `"
 	  ververica_namespace = "` + config.VervericaNamespace + `"
 	  ververica_deployment_target = "` + config.VervericaDeploymentTarget + `"
+	}
+	`
+}
+
+// GetKsmlProvider returns GetProvider() plus the locals the KSML runtime fixtures read.
+func GetKsmlProvider() string {
+	config, err := LoadProviderConfig()
+	if err != nil {
+		log.Panicf("Error loading provider configuration: %s", err)
+	}
+
+	return GetProvider() + `
+	locals {
+	  cluster_id = "` + config.ClusterId + `"
+	  ksml_runtime_url = "` + config.KsmlRuntimeUrl + `"
 	}
 	`
 }

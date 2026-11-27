@@ -8,6 +8,7 @@ import (
 	. "axual.com/terraform-provider-axual/internal/tests"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
@@ -129,7 +130,10 @@ func TestApplicationDeploymentResource(t *testing.T) {
 	})
 }
 
+// KSML deployments on a Platform Manager without KSML runtimes: no target_id.
 func TestApplicationDeploymentKSMLResource(t *testing.T) {
+	SkipWithKsmlRuntimes(t)
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
 		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
@@ -191,6 +195,157 @@ func TestApplicationDeploymentKSMLResource(t *testing.T) {
 				Config: GetProvider() + GetFile(
 					"axual_application_deployment_ksml_setup.tf",
 					"axual_application_deployment_ksml_updated.tf",
+				),
+			},
+		},
+	})
+}
+
+// KSML deployments on an axual_ksml_runtime.
+func TestApplicationDeploymentKSMLRuntimeResource(t *testing.T) {
+	config, err := LoadProviderConfig()
+	if err != nil {
+		t.Fatalf("Error loading provider config: %v", err)
+	}
+	SkipWithoutKsmlRuntime(t, config)
+
+	const deployment = "axual_application_deployment.ksml_axual_application_deployment"
+	var deploymentId string
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: GetProviderConfig(t).ProtoV6ProviderFactories,
+		ExternalProviders:        GetProviderConfig(t).ExternalProviders,
+
+		Steps: []resource.TestStep{
+			// Test invalid `restart_policy` - should fail validation
+			{
+				Config: GetKsmlProvider() + GetFile(
+					"axual_application_deployment_ksml_runtime_setup.tf",
+					"axual_application_deployment_ksml_runtime_invalid_restart_policy.tf",
+				),
+				ExpectError: regexp.MustCompile(`Attribute restart_policy value must be one of: `),
+			},
+			// Test missing `definition` - should fail response
+			{
+				Config: GetKsmlProvider() + GetFile(
+					"axual_application_deployment_ksml_runtime_setup.tf",
+					"axual_application_deployment_ksml_runtime_missing_definition.tf",
+				),
+				ExpectError: regexp.MustCompile(`KSML_DEFINITION must be provided`),
+			},
+			// Platform Manager refuses a new KSML deployment that names no KSML runtime.
+			{
+				Config: GetKsmlProvider() + GetFile(
+					"axual_application_deployment_ksml_runtime_setup.tf",
+					"axual_application_deployment_ksml_runtime_no_target.tf",
+				),
+				ExpectError: regexp.MustCompile(`referring\s+to\s+a\s+KSML\s+runtime\s+must\s+be\s+provided`),
+			},
+			// The application's owner Group is not in the authorized Groups of the KSML runtime.
+			{
+				Config: GetKsmlProvider() + GetFile(
+					"axual_application_deployment_ksml_runtime_setup.tf",
+					"axual_application_deployment_ksml_runtime_not_authorized.tf",
+				),
+				ExpectError: regexp.MustCompile(`is\s+not\s+authorized\s+to\s+deploy\s+to\s+KSML\s+runtime`),
+			},
+			{
+				Config: GetKsmlProvider() + GetFile(
+					"axual_application_deployment_ksml_runtime_setup.tf",
+					"axual_application_deployment_ksml_runtime_initial.tf",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrPair(deployment, "environment", "axual_environment.tf-test-ksml-env", "id"),
+					resource.TestCheckResourceAttrPair(deployment, "application", "axual_application.tf-test-ksml-app", "id"),
+					resource.TestCheckResourceAttrPair(deployment, "target_id", "axual_ksml_runtime.tf_test_ksml_runtime", "id"),
+					resource.TestCheckResourceAttr(deployment, "type", "Ksml"),
+					resource.TestCheckResourceAttr(deployment, "deployment_size", "S"),
+					resource.TestCheckResourceAttr(deployment, "restart_policy", "on_exit"),
+					resource.TestCheckResourceAttrSet(deployment, "definition"),
+					idUnchanged(deployment, &deploymentId),
+				),
+			},
+			{
+				// A configuration without `target_id` keeps the KSML runtime the deployment has: this is
+				// what a configuration written before Platform Manager had KSML runtimes looks like.
+				Config: GetKsmlProvider() + GetFile(
+					"axual_application_deployment_ksml_runtime_setup.tf",
+					"axual_application_deployment_ksml_runtime_no_target.tf",
+				),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrPair(deployment, "target_id", "axual_ksml_runtime.tf_test_ksml_runtime", "id"),
+					idUnchanged(deployment, &deploymentId),
+				),
+			},
+			{
+				// Another `target_id` moves the deployment to that KSML runtime in place.
+				Config: GetKsmlProvider() + GetFile(
+					"axual_application_deployment_ksml_runtime_setup.tf",
+					"axual_application_deployment_ksml_runtime_moved.tf",
+				),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction(deployment, plancheck.ResourceActionUpdate)},
+				},
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrPair(deployment, "target_id", "axual_ksml_runtime.tf_test_ksml_runtime_2", "id"),
+					idUnchanged(deployment, &deploymentId),
+				),
+			},
+			{
+				// Back on the first KSML runtime, in place. The second one is still declared: dropped in this
+				// apply, Terraform would delete it before it moves the deployment.
+				Config: GetKsmlProvider() + GetFile(
+					"axual_application_deployment_ksml_runtime_setup.tf",
+					"axual_application_deployment_ksml_runtime_moved_back.tf",
+				),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction(deployment, plancheck.ResourceActionUpdate)},
+				},
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrPair(deployment, "target_id", "axual_ksml_runtime.tf_test_ksml_runtime", "id"),
+					idUnchanged(deployment, &deploymentId),
+				),
+			},
+			{
+				// The second KSML runtime is no longer targeted, so it can be deleted.
+				Config: GetKsmlProvider() + GetFile(
+					"axual_application_deployment_ksml_runtime_setup.tf",
+					"axual_application_deployment_ksml_runtime_updated.tf",
+				),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("axual_ksml_runtime.tf_test_ksml_runtime_2", plancheck.ResourceActionDestroy),
+					},
+				},
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrPair(deployment, "environment", "axual_environment.tf-test-ksml-env", "id"),
+					resource.TestCheckResourceAttrPair(deployment, "application", "axual_application.tf-test-ksml-app", "id"),
+					resource.TestCheckResourceAttrPair(deployment, "target_id", "axual_ksml_runtime.tf_test_ksml_runtime", "id"),
+					resource.TestCheckResourceAttr(deployment, "type", "Ksml"),
+					resource.TestCheckResourceAttr(deployment, "deployment_size", "M"),
+					resource.TestCheckNoResourceAttr(deployment, "restart_policy"),
+					resource.TestCheckResourceAttrSet(deployment, "definition"),
+					idUnchanged(deployment, &deploymentId),
+				),
+			},
+			{
+				ResourceName:      deployment,
+				ImportState:       true,
+				ImportStateVerify: true,
+				Config: GetKsmlProvider() + GetFile(
+					"axual_application_deployment_ksml_runtime_setup.tf",
+					"axual_application_deployment_ksml_runtime_updated.tf",
+				),
+			},
+			{
+				// To ensure cleanup if one of the test cases had an error
+				Destroy: true,
+				Config: GetKsmlProvider() + GetFile(
+					"axual_application_deployment_ksml_runtime_setup.tf",
+					"axual_application_deployment_ksml_runtime_updated.tf",
 				),
 			},
 		},

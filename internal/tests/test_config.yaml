@@ -15,7 +15,14 @@ password: "YOUR_PASSWORD"
 # Ververica cluster test values
 ververicaUrl: "YOUR_VERVERICA_URL"
 ververicaApiToken: "YOUR_VERVERICA_API_TOKEN"
+# The uid of a Kafka cluster of the instance above. The Flink Cluster and the KSML runtime tests
+# register their Flink Clusters and KSML runtimes on it.
 clusterId: "YOUR_CLUSTER_ID"
+
+# The URL of a reachable KSML runtime (KSML provisioner), for the KSML runtime tests
+# (KsmlRuntimeResource, and the KSML part of ApplicationDeploymentResource). They register their own
+# KSML runtimes with this URL on clusterId, and skip while either is still a YOUR_ placeholder.
+ksmlRuntimeUrl: "YOUR_KSML_RUNTIME_URL"
 
 # The instance's topic pattern with everything but the topic name filled in, e.g.
 # "axual-dta-tfflinkdev-". Only TestApplicationDeploymentFlinkManualTablesResource needs it, because

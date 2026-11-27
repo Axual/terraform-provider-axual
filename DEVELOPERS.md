@@ -194,7 +194,7 @@ Before running acceptance tests:
        - SSL using `Axual Dummy Root CA` as the Signing Authority
      - `GranularBrowsePermission` is enabled
      - `ConnectSupport` is enabled
-     - has a `KSML Provisioner` configured
+     - KSML is enabled for the tenant. Before Platform Manager 17.0.0 the instance has a `KSML Provisioner` configured; from 17.0.0 a KSML provisioner is reachable from Platform Manager (see `ksmlRuntimeUrl` below)
      - has an `Apicurio` Schema Registry configured
      - `certificateReusePreventionLevel` is set to `None`
    - `groupName`: A group you are a member of
@@ -230,6 +230,20 @@ Before running acceptance tests:
    Instance-Cluster named by `clusterId` before running the tests — including one left behind by a
    test run that failed part-way through, which is a common cause of a Flink test failing during its
    setup step.
+
+   The following value is only needed by the KSML runtime tests (`internal/tests/KsmlRuntimeResource`)
+   and `TestApplicationDeploymentKSMLRuntimeResource`. They register their own KSML runtimes on
+   the Instance-Cluster named by `clusterId` (shared with the Flink tests, and a cluster of the
+   instance named by `instanceName`), so they need a Platform Admin, and the group
+   named by `groupName` as the owner of the test application. They skip themselves while `clusterId`
+   or `ksmlRuntimeUrl` is still a placeholder, and on a Platform Manager without KSML runtimes
+   (before 17.0.0). `TestApplicationDeploymentKSMLResource` is the opposite: it creates a KSML
+   deployment without `target_id` on the instance's KSML Provisioner, and skips on a Platform
+   Manager with KSML runtimes.
+   - `ksmlRuntimeUrl`: The URL of a KSML provisioner that Platform Manager can reach. Exposed to the
+     test fixtures as `local.ksml_runtime_url` and used as the `url` of `axual_ksml_runtime`. The
+     Application Deployment test starts a real KSML application on it. It may be the URL of a KSML
+     runtime that is already registered: Platform Manager accepts several KSML runtimes with one URL.
 
    The following values are only needed by the Kafka Connect tests
    (`internal/tests/ConnectClusterDataSource` and `internal/tests/ApplicationDeploymentStateResource`).
@@ -280,6 +294,7 @@ Before running acceptance tests:
 
    Ensure your test user has these roles:
    - Tenant Admin (needed for creating Groups)
+   - Platform Admin (needed for the KSML runtime tests)
    - Application Author
    - Environment Author
    - Topic Author
@@ -299,8 +314,8 @@ Before running acceptance tests:
    A test skips when a value it needs is empty or still a `YOUR_` placeholder, and a package whose tests all skip
    still reports `ok`. Set `strict: true` for a release run: such a test then fails with the name of the missing
    value. Tests for a feature of a newer Platform Manager still skip (for example registered Kafka Connect
-   clusters and service accounts before 16.0.0). On a stack without Ververica, also set `flinkTests: false`: the
-   Flink tests then skip on purpose.
+   clusters and service accounts before 16.0.0, and KSML runtimes before 17.0.0). On a stack without Ververica,
+   also set `flinkTests: false`: the Flink tests then skip on purpose.
 
 4. **Creating Test Users:**
    Some tests (e.g., `TopicBrowsePermissionsResource`) require existing users to be referenced. Update the test files in [`internal/tests/TopicBrowsePermissionsResource/`](./internal/tests/TopicBrowsePermissionsResource/) with email addresses of users that exist in your test environment.
@@ -379,8 +394,8 @@ When running tests for the first time, try them in this order to verify your set
 
    Note that everything under `./internal/tests/...` is an acceptance test: the test provider reads
    its credentials from `test_config.yaml`, so nothing skips for a missing `TF_ACC`. The Flink, Kafka
-   Connect, Cluster and Instance suites are the exception: they skip while their `YOUR_...`
-   placeholders are still in place.
+   Connect, Cluster, Instance and KSML runtime suites are the exception: they skip while their
+   `YOUR_...` placeholders are still in place.
    Narrow a run with `-run '<TestName>'` while working on one suite — a full run creates and destroys
    every fixture, and an interrupted one leaves resources behind that have to be cleaned by hand.
 

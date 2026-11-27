@@ -1,0 +1,349 @@
+package provider
+
+import (
+	webclient "axual-webclient"
+	"context"
+	"fmt"
+	"strings"
+
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+)
+
+// Lengths the API enforces on a KSML runtime.
+const (
+	ksmlRuntimeNameMinLength        = 3
+	ksmlRuntimeNameMaxLength        = 50
+	ksmlRuntimeDescriptionMaxLength = 255
+	ksmlRuntimeUrlMaxLength         = 255
+)
+
+var _ resource.Resource = &ksmlRuntimeResource{}
+var _ resource.ResourceWithImportState = &ksmlRuntimeResource{}
+var _ resource.ResourceWithModifyPlan = &ksmlRuntimeResource{}
+
+// KSML runtimes are on Platform Manager master, which reports 16.1.0-SNAPSHOT and is released as 17.0.0.
+const ksmlRuntimeMajor, ksmlRuntimeMinor = 16, 1
+
+func NewKsmlRuntimeResource(provider AxualProvider) resource.Resource {
+	return &ksmlRuntimeResource{
+		provider: provider,
+	}
+}
+
+type ksmlRuntimeResource struct {
+	provider AxualProvider
+}
+
+type KsmlRuntimeResourceData struct {
+	Id               types.String `tfsdk:"id"`
+	InstanceId       types.String `tfsdk:"instance_id"`
+	ClusterId        types.String `tfsdk:"cluster_id"`
+	Name             types.String `tfsdk:"name"`
+	Description      types.String `tfsdk:"description"`
+	Url              types.String `tfsdk:"url"`
+	SchemaRegistries types.List   `tfsdk:"schema_registries"`
+	Owners           types.String `tfsdk:"owners"`
+	AuthorizedGroups types.Set    `tfsdk:"authorized_groups"`
+}
+
+func (r *ksmlRuntimeResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_ksml_runtime"
+}
+
+func (r *ksmlRuntimeResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		MarkdownDescription: "A KSML runtime registers a KSML provisioner on an Instance-Cluster, so KSML applications can be deployed to it.",
+		Attributes: map[string]schema.Attribute{
+			"instance_id": schema.StringAttribute{
+				MarkdownDescription: "The Uid of the Instance this KSML runtime belongs to.",
+				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"cluster_id": schema.StringAttribute{
+				MarkdownDescription: "The Uid of the Cluster this KSML runtime belongs to.",
+				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"name": schema.StringAttribute{
+				MarkdownDescription: "Human-readable name of the KSML runtime. Must be between 3 and 50 characters, and unique within your tenant, ignoring case. Platform Manager does not allow renaming, so changing the name destroys and re-creates the KSML runtime.",
+				Required:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(ksmlRuntimeNameMinLength, ksmlRuntimeNameMaxLength),
+				},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"owners": schema.StringAttribute{
+				MarkdownDescription: "The id of the Group that owns the KSML runtime, for example `data.axual_group.platform_team.id`. Members of the owner Group can edit the KSML runtime, but owning it does not allow deploying to it: add the Group to `authorized_groups` for that. Only a Platform Admin can change the owner.",
+				Required:            true,
+			},
+			"authorized_groups": schema.SetAttribute{
+				MarkdownDescription: "The ids of the Groups that may deploy KSML applications to the KSML runtime. Leave it out to keep the Groups the KSML runtime has; `authorized_groups = []` removes all of them. A replaced KSML runtime (a new `name`, `instance_id` or `cluster_id`) gets only the Groups in the configuration. **A KSML runtime without authorized Groups accepts no deployments, from the owner Group either.** A Group cannot be removed while it has a running KSML deployment on this KSML runtime.",
+				ElementType:         types.StringType,
+				Optional:            true,
+				Computed:            true,
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"description": schema.StringAttribute{
+				MarkdownDescription: "A short description of the KSML runtime. Must be 1 to 255 characters. Leave it out for none.",
+				Optional:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(1, ksmlRuntimeDescriptionMaxLength),
+				},
+			},
+			"url": schema.StringAttribute{
+				MarkdownDescription: "Base URL of the KSML provisioner, e.g. `https://ksml.example.com`. Must be 1 to 255 characters, without white space around it.",
+				Required:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(1, ksmlRuntimeUrlMaxLength),
+					noSurroundingWhitespace,
+				},
+			},
+			"schema_registries": schema.ListNestedAttribute{
+				MarkdownDescription: "Schema registries the KSML applications on this KSML runtime read schemas from. Leave it out for none: an empty list is refused.",
+				Optional:            true,
+				Validators: []validator.List{
+					listvalidator.SizeAtLeast(1),
+				},
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"type": schema.StringAttribute{
+							MarkdownDescription: "Schema registry type: `CONFLUENT` or `APICURIO`.",
+							Required:            true,
+							Validators: []validator.String{
+								stringvalidator.OneOf("CONFLUENT", "APICURIO"),
+							},
+						},
+						"url": schema.StringAttribute{
+							MarkdownDescription: "Base URL of the schema registry API, e.g. `https://apicurio.example.com/apis/ccompat/v7` for Confluent compatibility.",
+							Required:            true,
+							Validators: []validator.String{
+								stringvalidator.LengthAtMost(ksmlRuntimeUrlMaxLength),
+							},
+						},
+					},
+				},
+			},
+			"id": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "KSML runtime unique identifier",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+		},
+	}
+}
+
+// ModifyPlan refuses to create or change a KSML runtime on a Platform Manager older than 17.0.0, which
+// has no KSML runtimes. A destroy and a plan without changes are not checked.
+func (r *ksmlRuntimeResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() || r.provider.client == nil {
+		return
+	}
+	if !req.State.Raw.IsNull() && req.Plan.Raw.Equal(req.State.Raw) {
+		return
+	}
+	version, err := r.provider.client.GetPlatformVersion()
+	requirePlatformVersion(&resp.Diagnostics, version, err, path.Root("name"), "axual_ksml_runtime", ksmlRuntimeMajor, ksmlRuntimeMinor, "It has no KSML runtimes.")
+}
+
+func (r *ksmlRuntimeResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data KsmlRuntimeResourceData
+
+	diags := req.Config.Get(ctx, &data)
+	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	ksmlRuntimeRequest := createKsmlRuntimeRequestFromData(&data)
+
+	ksmlRuntime, err := r.provider.client.CreateKsmlRuntime(ksmlRuntimeRequest)
+	if err != nil {
+		resp.Diagnostics.AddError("CREATE request error for KSML runtime resource", fmt.Sprintf("Error message: %s", err.Error()))
+		return
+	}
+
+	mapKsmlRuntimeResponseToData(&data, ksmlRuntime)
+	tflog.Info(ctx, "created KSML runtime")
+
+	diags = resp.State.Set(ctx, &data)
+	resp.Diagnostics.Append(diags...)
+}
+
+func (r *ksmlRuntimeResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data KsmlRuntimeResourceData
+
+	diags := req.State.Get(ctx, &data)
+	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	ksmlRuntime, err := r.provider.client.GetKsmlRuntime(data.Id.ValueString())
+	if err != nil {
+		if isGone(err) {
+			tflog.Warn(ctx, fmt.Sprintf("KSML runtime not found. Id: %s", data.Id.ValueString()))
+			resp.State.RemoveResource(ctx)
+		} else {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read KSML runtime, got error: %s", err))
+		}
+		return
+	}
+
+	// /runtimes/{id} answers for a runtime of any type.
+	if !strings.EqualFold(ksmlRuntime.Type, webclient.KsmlRuntimeType) {
+		resp.Diagnostics.AddError(
+			"Runtime is not a KSML runtime",
+			fmt.Sprintf("Runtime %s is a %s runtime. An axual_ksml_runtime manages a KSML runtime only.", ksmlRuntime.Uid, ksmlRuntime.Type),
+		)
+		return
+	}
+
+	// The API finds a KSML runtime by its id alone, so this is where an import identifier with the
+	// wrong instance or cluster is noticed.
+	if ksmlRuntime.InstanceId != data.InstanceId.ValueString() || ksmlRuntime.ClusterId != data.ClusterId.ValueString() {
+		resp.Diagnostics.AddError(
+			"KSML runtime is registered on another Instance-Cluster",
+			fmt.Sprintf("KSML runtime %s is registered on instance %s and cluster %s, not on instance %s and cluster %s. To import it, use the identifier %s/%s/%s.",
+				ksmlRuntime.Uid, ksmlRuntime.InstanceId, ksmlRuntime.ClusterId, data.InstanceId.ValueString(), data.ClusterId.ValueString(),
+				ksmlRuntime.InstanceId, ksmlRuntime.ClusterId, ksmlRuntime.Uid),
+		)
+		return
+	}
+
+	mapKsmlRuntimeResponseToData(&data, ksmlRuntime)
+
+	diags = resp.State.Set(ctx, &data)
+	resp.Diagnostics.Append(diags...)
+}
+
+func (r *ksmlRuntimeResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data KsmlRuntimeResourceData
+
+	diags := req.Plan.Get(ctx, &data)
+	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	ksmlRuntimeRequest := updateKsmlRuntimeRequestFromData(&data)
+
+	ksmlRuntime, err := r.provider.client.UpdateKsmlRuntime(data.Id.ValueString(), ksmlRuntimeRequest)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update KSML runtime, got error: %s", err))
+		return
+	}
+
+	mapKsmlRuntimeResponseToData(&data, ksmlRuntime)
+
+	diags = resp.State.Set(ctx, &data)
+	resp.Diagnostics.Append(diags...)
+}
+
+func (r *ksmlRuntimeResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data KsmlRuntimeResourceData
+
+	diags := req.State.Get(ctx, &data)
+	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	err := ignoreGone(r.provider.client.DeleteKsmlRuntime(data.Id.ValueString()))
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete KSML runtime, got error: %s", err))
+		return
+	}
+}
+
+// ImportState accepts an id of the form "instance_id/cluster_id/ksml_runtime_id": the Instance-Cluster
+// the KSML runtime is registered on, and the KSML runtime. Read checks the first two against the API.
+func (r *ksmlRuntimeResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	parts := strings.Split(req.ID, "/")
+	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
+		resp.Diagnostics.AddError(
+			"Unexpected Import Identifier",
+			fmt.Sprintf("Expected import identifier with format: instance_id/cluster_id/ksml_runtime_id. Got: %q", req.ID),
+		)
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("instance_id"), parts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cluster_id"), parts[1])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[2])...)
+}
+
+func createKsmlRuntimeRequestFromData(data *KsmlRuntimeResourceData) webclient.KsmlRuntimeCreateRequest {
+	return webclient.KsmlRuntimeCreateRequest{
+		Name:               data.Name.ValueString(),
+		Description:        ksmlRuntimeDescriptionForRequest(data),
+		InstanceId:         data.InstanceId.ValueString(),
+		ClusterId:          data.ClusterId.ValueString(),
+		OwnerGroupId:       data.Owners.ValueString(),
+		AuthorizedGroupIds: authorizedGroupIdsForRequest(data.AuthorizedGroups),
+		Config:             ksmlRuntimeConfigForRequest(data),
+	}
+}
+
+func updateKsmlRuntimeRequestFromData(data *KsmlRuntimeResourceData) webclient.KsmlRuntimeUpdateRequest {
+	return webclient.KsmlRuntimeUpdateRequest{
+		Description:        ksmlRuntimeDescriptionForRequest(data),
+		OwnerGroupId:       data.Owners.ValueString(),
+		AuthorizedGroupIds: authorizedGroupIdsForRequest(data.AuthorizedGroups),
+		Config:             ksmlRuntimeConfigForRequest(data),
+	}
+}
+
+// ksmlRuntimeDescriptionForRequest returns nil when the attribute has no value. A create leaves that out,
+// and an update sends it as an explicit null, which clears the description.
+func ksmlRuntimeDescriptionForRequest(data *KsmlRuntimeResourceData) *string {
+	if data.Description.IsNull() || data.Description.IsUnknown() {
+		return nil
+	}
+	description := data.Description.ValueString()
+	return &description
+}
+
+// ksmlRuntimeConfigForRequest sends schema registries without a value as an empty list: on a create
+// that is none, and on an update it empties the stored list.
+func ksmlRuntimeConfigForRequest(data *KsmlRuntimeResourceData) webclient.KsmlRuntimeConfig {
+	registries := []webclient.SchemaRegistryConfig{}
+	if configured := schemaRegistriesForRequest(data.SchemaRegistries); configured != nil {
+		registries = *configured
+	}
+	return webclient.KsmlRuntimeConfig{Url: data.Url.ValueString(), SchemaRegistries: registries}
+}
+
+func mapKsmlRuntimeResponseToData(data *KsmlRuntimeResourceData, ksmlRuntime *webclient.KsmlRuntimeResponse) {
+	data.Id = types.StringValue(ksmlRuntime.Uid)
+	data.Name = types.StringValue(ksmlRuntime.Name)
+	data.Url = types.StringValue(ksmlRuntime.Config.Url)
+	data.SchemaRegistries = schemaRegistriesToList(ksmlRuntime.Config.SchemaRegistries)
+	data.AuthorizedGroups = authorizedGroupsToSet(ksmlRuntime.AuthorizedGroups)
+	// A runtime that was a KSML Provisioner before Platform Manager had KSML runtimes has no owner.
+	data.Owners = stringOrNull(ksmlRuntime.OwnerGroupId)
+	data.Description = stringOrNull(ksmlRuntime.Description)
+}
