@@ -72,9 +72,7 @@ func TestEnvironmentDeleteRetriesALostLock(t *testing.T) {
 	}
 }
 
-// An environment deleted outside Terraform is removed from the state, so the plan creates it again. Platform
-// Manager answers a deleted environment with 400 "... converted to null" (15.0.11, 16.0.5 and master), not 404.
-// Other errors still fail the read.
+// A deleted environment (404, or PM's 400 "... converted to null") is removed from the state. Other errors fail the read.
 func TestEnvironmentReadDropsAGoneEnvironment(t *testing.T) {
 	for name, tc := range map[string]struct {
 		status      int

@@ -7,7 +7,35 @@ import (
 	. "axual.com/terraform-provider-axual/internal/tests"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 )
+
+// deleteVersionOutsideTerraform deletes one version of a schema with the API, as a user does in Self-Service.
+func deleteVersionOutsideTerraform(t *testing.T, fullName string, version string) func() {
+	return func() {
+		client, err := ApiClient()
+		if err != nil {
+			t.Fatalf("building API client: %v", err)
+		}
+		schemas, err := client.GetSchemaByName(fullName)
+		if err != nil || len(schemas.Embedded.Schemas) != 1 {
+			t.Fatalf("finding schema %s: %v", fullName, err)
+		}
+		versions, err := client.GetSchemaVersionsBySchema(schemas.Embedded.Schemas[0].Links.Self.Href)
+		if err != nil {
+			t.Fatalf("listing versions of %s: %v", fullName, err)
+		}
+		for _, v := range versions.Embedded.SchemaVersion {
+			if v.Version == version {
+				if err := client.DeleteSchemaVersion(v.Uid); err != nil {
+					t.Fatalf("deleting %s %s: %v", fullName, version, err)
+				}
+				return
+			}
+		}
+		t.Fatalf("version %s of %s not found", version, fullName)
+	}
+}
 
 func TestSchemaVersionAvroResource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
@@ -73,6 +101,16 @@ func TestSchemaVersionAvroResource(t *testing.T) {
 						"axual_schema_version.test_v2", "schema_id",
 					),
 				),
+			},
+			{
+				// A schema version is deleted outside Terraform. The plan creates it again.
+				PreConfig: deleteVersionOutsideTerraform(t, "io.axual.qa.general.GitOpsTest1", "2.0.0"),
+				Config:    GetProvider() + GetFile("axual_schema_version_avro_multiple_versions_for_same_schema.tf"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("axual_schema_version.test_v2", plancheck.ResourceActionCreate),
+					},
+				},
 			},
 			{
 				ResourceName:      "axual_schema_version.test_v1",

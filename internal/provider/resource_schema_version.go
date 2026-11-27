@@ -166,7 +166,7 @@ func (r *schemaVersionResource) Read(ctx context.Context, req resource.ReadReque
 
 	svResp, err := r.provider.client.GetSchemaVersion(data.Id.ValueString())
 	if err != nil {
-		if errors.Is(err, webclient.NotFoundError) {
+		if isGone(err) {
 			tflog.Warn(ctx, fmt.Sprintf("Schema version not found. Version ID: %s", data.Id.ValueString()))
 			resp.State.RemoveResource(ctx)
 		} else {

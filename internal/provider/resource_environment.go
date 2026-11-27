@@ -238,7 +238,6 @@ func (r *environmentResource) Read(ctx context.Context, req resource.ReadRequest
 
 	environment, err := r.provider.client.GetEnvironment(data.Id.ValueString())
 	if err != nil {
-		// Platform Manager answers a deleted environment with 400 "... converted to null", not 404.
 		if isGone(err) {
 			tflog.Warn(ctx, fmt.Sprintf("Environment not found. Id: %s", data.Id.ValueString()))
 			resp.State.RemoveResource(ctx)
