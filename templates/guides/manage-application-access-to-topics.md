@@ -81,7 +81,7 @@ Then open a PR in the topic team's repository that adds the decision (see below)
 
 ### Seeing the Answer
 
-`status`, `decision_reason`, `decided_at` and `decided_by` show the topic team's decision. They are null while the grant is Pending. When the grant is Rejected, Revoked or Cancelled, every plan warns:
+`status` shows where the grant is (`Pending`, `Approved`, ...). `decision_reason`, `decided_at` and `decided_by` show the topic team's decision; they are null while the grant is Pending. When the grant is Rejected, Revoked or Cancelled, every plan warns:
 
 ```
 Warning: Grant Log Scraper (CONSUMER on logs, dev) is Rejected by tom@example.com
@@ -196,7 +196,7 @@ The decision finds the grant itself, by application name or UID, topic, environm
 | Give up access | Application team | Delete the grant (cancels or revokes). Adding it back later is approved again under `APPROVED` |
 | CONSUMER to PRODUCER | Both | A new grant block and a new decision. Removing the old decision revokes the old grant |
 
-See the [Multi-Repo Guide](multi-repo) for the full setup.
+See the [Multi-Repo Guide](multi-repo.md) for the full setup.
 
 ---
 
@@ -208,7 +208,7 @@ Requests are approved straight away. A decision is optional. `decision = "DENIED
 
 ## Platform Manager Versions
 
-Public and private applications from Platform Manager 15.0.3. On 15.0.1 and 15.0.2 the topic owner can't see the requests of private applications. IAM-managed groups have a known limit. See [Platform Manager versions](../resources/application_access_grant_decision.md#platform-manager-versions).
+Public and private applications from Platform Manager 15.0.3. Before 15.0.3 (15.0.0 to 15.0.2) the topic owner can't see the requests of private applications. Before 17.0.0, a topic owner who is in the owner group only through the IAM token doesn't see its requests. See [Platform Manager versions](../resources/application_access_grant_decision.md#platform-manager-versions).
 
 ---
 

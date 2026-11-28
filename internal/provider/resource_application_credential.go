@@ -96,7 +96,7 @@ func (r *applicationCredentialResource) Schema(ctx context.Context, req resource
 			},
 			"target": schema.StringAttribute{
 				Required:            true,
-				MarkdownDescription: "The authentication credential provider (e.g., Apache Kafka, Schema Registry).",
+				MarkdownDescription: "What the credential is for: `KAFKA` (a SASL/SCRAM user on the Kafka cluster) or `SCHEMA_REGISTRY` (a Basic-Auth client of the schema registry; needs an Apicurio schema registry with Keycloak on the instance). A change fails at apply; replace the resource instead.",
 				Validators: []validator.String{
 					stringvalidator.OneOf("KAFKA", "SCHEMA_REGISTRY"),
 				},

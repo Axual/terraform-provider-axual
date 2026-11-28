@@ -5,11 +5,11 @@
 # Order: deployment -> credential -> grant + approval -> deployment state. Platform Manager creates
 # the credential only for a deployment whose target is already stored.
 #
-# Replace every YOUR_* value below. This example uses its own directory, and therefore its own
-# terraform.tfstate.
+# Replace every YOUR_* and CHANGEME value below. This example uses its own directory, and therefore
+# its own terraform.tfstate.
 
 data "axual_instance" "example" {
-  short_name = "YOUR_INSTANCE_SHORT_NAME" # short name of an existing instance
+  short_name = "CHANGEME" # short name of an existing instance
 }
 
 data "axual_group" "example" {
@@ -72,7 +72,7 @@ resource "axual_application_deployment" "example" {
   application    = axual_application.example.id
   environment    = axual_environment.example.id
   target_id      = data.axual_connect_cluster.example.id
-  target_version = "1.0.0" # the plugin version installed on the Kafka Connect cluster
+  target_version = "YOUR_PLUGIN_VERSION" # the plugin version installed on the Kafka Connect cluster
   autostart      = false
   configs = {
     "topics"          = axual_topic.example.name,

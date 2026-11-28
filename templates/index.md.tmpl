@@ -7,7 +7,7 @@ The **Axual Terraform Provider** integrates Axual's Self-Service for Apache Kafk
 
 This empowers teams to monitor, manage, and automate their Kafka streaming environments efficiently.
 
-Learn more: [Axual Self-Service Documentation](https://docs.axual.io/axual/2026.1/self-service/index.html)
+Learn more: [Axual Self-Service Documentation](https://docs.axual.io/axual/2026.3/self-service/index.html)
 
 ## Example Usage
 
@@ -26,7 +26,7 @@ terraform {
 }
 
 variable "axual_client_secret" {
-  description = "Client secret of the service account. Set it with TF_VAR_axual_client_secret, or omit client_secret below and set AXUAL_CLIENT_SECRET instead."
+  description = "Client secret of the service account. Set it with TF_VAR_axual_client_secret. To use AXUAL_CLIENT_SECRET instead, remove this variable and the client_secret line below."
   type        = string
   sensitive   = true
 }
@@ -49,7 +49,12 @@ provider "axual" {
 
 A tenant admin creates the service account and gives you its client ID and secret. The
 secret is shown once, so keep it somewhere your pipeline can read it and pass it in with
-`AXUAL_CLIENT_SECRET` rather than writing it into a `.tf` file.
+`AXUAL_CLIENT_SECRET` rather than writing it into a `.tf` file. The tenant admin also gives the
+service account the roles in "Required Roles" below, and adds it to the group that
+owns your resources.
+
+Service accounts need Platform Manager 16.0.0 or later. On Platform Manager 15.0.x, use the
+deprecated `username` and `password` instead (see the guide below).
 
 Service accounts can also authenticate with **no secret at all**, using a token from your
 own identity provider. See the
@@ -66,7 +71,12 @@ Before using the provider:
 
 - Ensure users are created in both Axual Self-Service and the authentication system.
 - Use the `axual_user` data source to reference yourself.
-- Use the `axual_instance` data source to reference existing clusters.
+- Set `service_account_uid` to the uid of the service account from Step 1. The example adds it to
+  the group that owns all resources. Without that, the service account can create the resources,
+  but it cannot create the principal, topic config, grant and decision, and it cannot change or
+  delete anything. On Platform Manager 15.0.x (username and password), remove `service_account_uid`
+  from the example.
+- Use the `axual_instance` data source to reference an existing instance.
 
 #### Full Example
 - The following example demonstrates the basic functionality of Axual Self-Service. For more advanced features, refer to the 'Resources' and 'Guides' sections.
@@ -87,23 +97,30 @@ This will:
 - Deploy a topic and ACL
 - Approve application access
 
+The same identity requests and approves the access. This works only when self-approval is on for
+the instance (the default).
 
 #### Required Roles
 
-To run the above configuration, your user must have the following roles:
+To run the above configuration, the identity in the provider block (normally the service account)
+must have the following roles. A role lets it create a resource. To change or delete the resource,
+and to create a principal, topic config, grant or decision, it must also be a member of the group
+in `owners`. The example does this with `service_account_uid`.
 
 | Role                 | Required For                                                                         |
 |----------------------|--------------------------------------------------------------------------------------|
-| `TENANT_ADMIN`       | `axual_user`, `axual_group`                                                          |
+| `TENANT_ADMIN`       | `axual_group`                                                                        |
 | `SCHEMA_AUTHOR`      | `axual_schema_version`                                                               |
 | `STREAM_AUTHOR`      | `axual_topic`, `axual_topic_config`, `axual_application_access_grant_decision`       |
 | `APPLICATION_AUTHOR` | `axual_application`, `axual_application_principal`, `axual_application_access_grant` |
 | `ENVIRONMENT_AUTHOR` | `axual_environment`                                                                  |
 
 ### Step 3 – Verify & Continue
-- Go to `/overview` in Axual Self-Service UI to confirm the application is producing to the topic.
+- Go to the topic in the Axual Self-Service UI to confirm the application has consume access.
 - Connect any Kafka client (e.g. Java) using the created certificate or credentials.
-- Terraform will store sensitive values (such as credentials) in the `terraform.tfstate` file — please ensure that it is properly secured.
+- Terraform will store sensitive values (such as credentials) in the `terraform.tfstate` file - please ensure that it is properly secured.
+
+{{ .SchemaMarkdown | trimspace }}
 
 ## GitOps: Multi-Repo Architecture
 
@@ -124,8 +141,8 @@ The Axual Terraform provider enables a distributed GitOps setup across teams:
 - Resources are shared via data sources
 
 ##  Limitations
-- Terraform-created users are **not** added to the authentication system (e.g. Keycloak), and cannot log in.
-  - Instead, use `data.axual_user` to reference existing users
+- Terraform cannot create users. Create them in the authentication system (e.g. Keycloak) and in Self-Service first.
+  - Then use `data.axual_user` to reference existing users
   - Or import them: [`terraform import`](https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/user#import)
 
 ## Compatibility
@@ -145,6 +162,11 @@ The Axual Terraform provider enables a distributed GitOps setup across teams:
 | 3.1.x                      | 15.0.x - onward                      |   2026.2 - onwards          |
 | 3.2.x                      | 15.0.x - onward                      |   2026.2 - onwards          |
 | 3.3.x                      | 15.0.x - onward                      |   2026.2 - onwards          |
+
+Some resources and attributes need a newer Platform Manager than 15.0.x. Service accounts,
+`axual_connect_cluster` and Connector deployments on a Kafka Connect cluster need 16.0.0 or later.
+`axual_flink_cluster` needs 17.0.0 or later with 3.3.x, and 3.2.x cannot manage an
+`axual_flink_cluster` on Platform Manager 17.0.0 or later. Each page says which version it needs.
 
 ## IDE support (IntelliJ)
 

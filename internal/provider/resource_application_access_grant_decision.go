@@ -666,11 +666,12 @@ func (r *grantDecisionResource) warnWaiting(plan grantDecisionData, resp *resour
 	resp.Diagnostics.AddWarning(summary, detail+" "+iamHiddenRequests)
 }
 
-// iamHiddenRequests names the other cause of a request the topic owner can't see: Platform Manager's
-// grant search reads the stored member list of the owner group, so a member who is in an IAM-managed
-// group only through the IAM gets no grants (the single GET and the actions use the token and work).
+// iamHiddenRequests names the other cause of a request the topic owner can't see: before 17.0.0,
+// Platform Manager's grant search reads the stored member list of the owner group, so a member who is in
+// an IAM-managed group only through the IAM gets no grants (the single GET and the actions use the token
+// and work). The 17.0.0 search (findSummariesByAttributes) uses the token groups.
 const iamHiddenRequests = "If the topic's owner group is managed in an IAM and this user is a member only through the IAM, " +
-	"Platform Manager's grant search doesn't return the group's requests (a known Platform Manager issue). " +
+	"Platform Manager before 17.0.0 doesn't return the group's requests in its grant search (a known Platform Manager issue, fixed in 17.0.0). " +
 	"Run the topic repository as a service account, set grant_id, or approve in the UI."
 
 // warnOldGrant warns, for a block that is replaced because it points at another grant, that the old

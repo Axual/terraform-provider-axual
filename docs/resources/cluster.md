@@ -7,7 +7,7 @@ A Cluster is a Kafka cluster that Platform Manager governs. Add it to an Instanc
 - `broker` is how Platform Manager itself connects to the brokers, to create topics and ACLs. The client must be allowed to do that, for example a superuser.
   - For `MTLS`, set `certificate` and `private_key` (PEM). For `SASL/...`, set `username` and `password`.
   - `certificate`, `private_key` and `truststore` take PEM. Platform Manager keeps them base64-encoded, the way the Self-Service UI sends them, so the provider does the encoding. An already base64-encoded value is also accepted.
-- The private key and the passwords are stored in Vault. Platform Manager never returns them, so they are sent from the configuration on every update and cannot be imported.
+- The private key and the passwords are stored in Vault. Platform Manager 15.0.10, 16.0.4 and later never return them; older versions return them in the answer of an update. The provider does not read them back, so they are sent from the configuration on every update and cannot be imported.
 - `shared` and `provider_type` cannot change: changing either one replaces the Cluster. An imported Cluster that has no provider type, made by an older Platform Manager, gets the configured one in place.
 - A Tenant Admin keeps the default `shared = false`. Only a Super Admin can change or delete a shared Cluster.
 - Platform Manager refuses a change of `topic_pattern`, `group_pattern` or `transactional_pattern` once topics exist on the Cluster.
@@ -20,6 +20,7 @@ A Cluster is a Kafka cluster that Platform Manager governs. Add it to an Instanc
 
 ## Platform Manager version
 - Platform Manager 15.0.9 or later. `provider_type = "strimzi"` and the `strimzi` block need Platform Manager 17.0.0 or later; with an older one, the plan fails.
+- For a shared Cluster, use Platform Manager 15.0.10, 16.0.4 or later. Older versions accept a second shared Cluster with the same name, and it overwrites the connection details of the first one.
 - Platform Manager does not move the schema registry secrets of the Instance-Clusters when a Cluster is renamed. 15.0.x and 16.0.x then lose the whole schema registry; newer versions keep it but lose its password and private key. The next plan shows it, and the next `terraform apply` configures it again from `axual_instance_cluster`. Until then, topics with a schema fail.
 
 ## Required Roles
@@ -31,7 +32,7 @@ A Cluster is a Kafka cluster that Platform Manager governs. Add it to an Instanc
 ### Required
 
 - `broker` (Attributes) How Platform Manager connects to the brokers. Platform Manager checks the connection when the Cluster is created. (see [below for nested schema](#nestedatt--broker))
-- `name` (String) The name of the Cluster, unique in the tenant. Must be between 3 and 50 characters: letters, digits, `.`, `-` and `_`.
+- `name` (String) The name of the Cluster. Must be between 3 and 50 characters: letters, digits, `.`, `-` and `_`. It must be unique, ignoring case, among the Clusters of the tenant, or among the shared Clusters for a shared Cluster.
 - `provider_type` (String) How Platform Manager manages the Cluster: `apache-kafka` or `strimzi`. Changing it creates a new Cluster. An imported Cluster that has none gets it in place.
 
 ### Optional
@@ -66,8 +67,8 @@ Optional:
 
 - `ca_validation` (Boolean) Whether Platform Manager checks that `truststore` holds a valid CA. Default `true`.
 - `certificate` (String) PEM client certificate (chain) for `MTLS`. Requires `private_key`.
-- `password` (String, Sensitive) SASL password. Platform Manager never returns it, so it is not read back and cannot be imported. This field is Sensitive.
-- `private_key` (String, Sensitive) PEM private key of `certificate`. Platform Manager never returns it, so it is not read back and cannot be imported. This field is Sensitive.
+- `password` (String, Sensitive) SASL password. Platform Manager 15.0.10, 16.0.4 and later never return it. It is not read back and cannot be imported. This field is Sensitive.
+- `private_key` (String, Sensitive) PEM private key of `certificate`. Platform Manager 15.0.10, 16.0.4 and later never return it. It is not read back and cannot be imported. This field is Sensitive.
 - `security_protocol` (String) Kafka security protocol for SASL: `SASL_SSL` or `SASL_PLAINTEXT`. Platform Manager uses `SASL_SSL` when it is not set.
 - `truststore` (String) PEM CA certificates that sign the broker certificates.
 - `username` (String) SASL username. Requires `password`.

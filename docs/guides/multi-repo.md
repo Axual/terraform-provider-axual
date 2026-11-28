@@ -18,7 +18,7 @@ This guide demonstrates how to use Axual Self Service with the Axual Terraform p
 
 The teams will have the following responsibilities and roles:
 
-- **Admin Team**: Manages `axual_user`, `axual_group`, `axual_environment`, `axual_instance`, `axual_cluster`, `axual_instance_cluster` and `axual_flink_cluster` resources.
+- **Admin Team**: Manages `axual_user`, `axual_group`, `axual_environment`, `axual_instance`, `axual_cluster`, `axual_instance_cluster` and `axual_flink_cluster` resources. `axual_flink_cluster` needs Platform Manager 17.0.0 or later.
   - Roles: `TENANT_ADMIN`, `ENVIRONMENT_ADMIN`
 
 - **Application Team**: Manages `axual_application`, `axual_application_principal`, and `axual_application_access_grant` resources.
@@ -28,16 +28,16 @@ The teams will have the following responsibilities and roles:
   - Roles: `STREAM_AUTHOR`, `SCHEMA_AUTHOR`
 
 ## Scenario
-The Application Team submits a request to produce to a topic. The Topic Team, owning the topic, will approve or reject this request.
+The Application Team submits a request to consume from a topic. The Topic Team, owning the topic, will approve or reject this request.
 
 ### Setup
 - Please do `terraform init` in each folder and replace username and password with that team's Terraform user credentials.
 
 ### 1. Admin Team
-- The Admin team creates `Environments`, `Users` and `Groups` within its Terraform state using an Admin-level user account.
+- The Admin team creates `Environments` and `Groups` within its Terraform state using an Admin-level user account.
   It can also manage `Instances` and `Clusters` there. The example does not create them: it reads an existing Instance with the `axual_instance` data source.
   - [Admin Team's Terraform Resources](https://github.com/Axual/terraform-provider-axual/blob/master/examples/3-team-guide/admin-team/main.tf)
-- Please note that Users can be already registered using Keycloak or another authentication service. In that case, Admin team will define the configuration for these users that already exist and use `terraform import` to import them into `axual_user` resources. Please see more details here [User resource](../../docs/resources/user.md) 
+- Please note that Terraform cannot create users. Users must already be registered in Keycloak (or another authentication service) and in Self-Service. The Admin team reads them with the `axual_user` data source, as the example does, or uses `terraform import` to import them into `axual_user` resources. Please see more details here [User resource](../../docs/resources/user.md) 
 
 ### 2. Topic team
 - Topic Team creates `Topic` and `Topic Configuration` in a specific environment.
@@ -45,7 +45,7 @@ The Application Team submits a request to produce to a topic. The Topic Team, ow
   - [Topic Team's Terraform Resources](https://github.com/Axual/terraform-provider-axual/blob/master/examples/3-team-guide/topic-team/main.tf)
 
 ### 3. Application team
-- Application Team creates `Application`, `Application Deployment`, `Application Principal` and `Application Access Grant`(to request to produce to or consume from a topic) in the same environment as `Topic Configuration`.
+- Application Team creates `Application`, `Application Principal` and `Application Access Grant`(to request to produce to or consume from a topic) in the same environment as `Topic Configuration`.
 These resources are managed in a separate Terraform state using a user account with Application-specific roles.
   - [Application Team's Terraform Resources](https://github.com/Axual/terraform-provider-axual/blob/master/examples/3-team-guide/application-team/main.tf)
 

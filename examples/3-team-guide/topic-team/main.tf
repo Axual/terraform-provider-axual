@@ -32,7 +32,7 @@ data "axual_environment" "environment-author-team" {
 
 resource "axual_topic_config" "logs_in_dev" {
   partitions = 1
-  retention_time = 864000
+  retention_time = 864000000 # 10 days, in milliseconds
   topic = axual_topic.logs.id
   environment = data.axual_environment.environment-author-team.id
   key_schema_version = axual_schema_version.axual_gitops_test_schema_version1.id

@@ -276,7 +276,7 @@ func (r *instanceClusterResource) Schema(ctx context.Context, req resource.Schem
 						},
 					},
 					"api": schema.StringAttribute{
-						MarkdownDescription: "The API the registry at `url` speaks: `APICURIO_V2` or `APICURIO_V3` for `APICURIO`, `CONFLUENT_V7` for `CONFLUENT`. Needs Platform Manager 17.0.0 or later, which refuses `APICURIO_V2`; `client_endpoints` still accept it. When it is not set, Platform Manager derives it from `type` and `version`, and the provider keeps it until `type` or `version` changes.",
+						MarkdownDescription: "The API the registry at `url` speaks: `APICURIO_V2` or `APICURIO_V3` for `APICURIO`, `CONFLUENT_V7` for `CONFLUENT`. Needs Platform Manager 17.0.0 or later, which refuses `APICURIO_V2`; `client_endpoints` still accept it. When it is not set, Platform Manager derives it from `type`: `CONFLUENT_V7` or `APICURIO_V3`. The provider keeps it until `type` or `version` changes.",
 						Optional:            true,
 						Computed:            true,
 						Validators: []validator.String{

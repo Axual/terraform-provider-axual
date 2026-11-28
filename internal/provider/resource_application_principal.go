@@ -125,14 +125,14 @@ func (r *applicationPrincipalResource) Schema(ctx context.Context, req resource.
 
 		Attributes: map[string]schema.Attribute{
 			"principal": schema.StringAttribute{
-				MarkdownDescription: "The principal of an Application for an Environment. Must be PEM-format.",
+				MarkdownDescription: "The principal of an Application for an Environment: the PEM certificate (chain), or the client ID when `custom = true`. Platform Manager checks that a certificate is not expired and, when the instance has CA certificates, that it chains to one of them.",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					trimSpaceSemanticallyEqual{},
 				},
 			},
 			"private_key": schema.StringAttribute{
-				MarkdownDescription: "The private key of a Connector Application for an Environment. Must be PEM-format. If committing terraform configuration(.tf) file in version control repository, please make sure there is a secure way of providing private key for a Connector application's Application Principal. Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/.",
+				MarkdownDescription: "The private key of the certificate in `principal`. Required for a Connector or KSML application; Platform Manager refuses it for a Custom application. Must be an unencrypted RSA key in PKCS#8 PEM format (`-----BEGIN PRIVATE KEY-----`). If committing terraform configuration(.tf) file in version control repository, please make sure there is a secure way of providing private key for a Connector application's Application Principal. Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/.",
 				Optional:            true,
 				Sensitive:           true,
 				PlanModifiers: []planmodifier.String{

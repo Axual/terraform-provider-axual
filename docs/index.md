@@ -7,7 +7,7 @@ The **Axual Terraform Provider** integrates Axual's Self-Service for Apache Kafk
 
 This empowers teams to monitor, manage, and automate their Kafka streaming environments efficiently.
 
-Learn more: [Axual Self-Service Documentation](https://docs.axual.io/axual/2026.1/self-service/index.html)
+Learn more: [Axual Self-Service Documentation](https://docs.axual.io/axual/2026.3/self-service/index.html)
 
 ## Example Usage
 
@@ -26,7 +26,7 @@ terraform {
 }
 
 variable "axual_client_secret" {
-  description = "Client secret of the service account. Set it with TF_VAR_axual_client_secret, or omit client_secret below and set AXUAL_CLIENT_SECRET instead."
+  description = "Client secret of the service account. Set it with TF_VAR_axual_client_secret. To use AXUAL_CLIENT_SECRET instead, remove this variable and the client_secret line below."
   type        = string
   sensitive   = true
 }
@@ -49,7 +49,12 @@ provider "axual" {
 
 A tenant admin creates the service account and gives you its client ID and secret. The
 secret is shown once, so keep it somewhere your pipeline can read it and pass it in with
-`AXUAL_CLIENT_SECRET` rather than writing it into a `.tf` file.
+`AXUAL_CLIENT_SECRET` rather than writing it into a `.tf` file. The tenant admin also gives the
+service account the roles in "Required Roles" below, and adds it to the group that
+owns your resources.
+
+Service accounts need Platform Manager 16.0.0 or later. On Platform Manager 15.0.x, use the
+deprecated `username` and `password` instead (see the guide below).
 
 Service accounts can also authenticate with **no secret at all**, using a token from your
 own identity provider. See the
@@ -66,18 +71,31 @@ Before using the provider:
 
 - Ensure users are created in both Axual Self-Service and the authentication system.
 - Use the `axual_user` data source to reference yourself.
-- Use the `axual_instance` data source to reference existing clusters.
+- Set `service_account_uid` to the uid of the service account from Step 1. The example adds it to
+  the group that owns all resources. Without that, the service account can create the resources,
+  but it cannot create the principal, topic config, grant and decision, and it cannot change or
+  delete anything. On Platform Manager 15.0.x (username and password), remove `service_account_uid`
+  from the example.
+- Use the `axual_instance` data source to reference an existing instance.
 
 #### Full Example
 - The following example demonstrates the basic functionality of Axual Self-Service. For more advanced features, refer to the 'Resources' and 'Guides' sections.
 
 ```terraform
-# This TerraForm file shows the basic capabilities of the TerraForm provider for Axual
+# This Terraform file shows the basic capabilities of the Terraform provider for Axual
 
 # The Terraform provider cannot be used to create a user. Please ensure that a user already exists in the self-service before proceeding. To verify, please try logging into the UI.
-# Look up yourself by e-mail – change the address
+# Look up yourself by e-mail - change the address
 data "axual_user" "my-user" {
   email = "<your_email>"
+}
+
+# The uid of the service account that the provider signs in with (see provider.tf).
+# It must be a member of the group that owns the resources below. Without that, it can
+# create them, but it cannot create the principal, topic config, grant and decision, and
+# it cannot change or delete anything. A tenant admin can add a service account to a group.
+variable "service_account_uid" {
+  type = string
 }
 
 # Replace with the short name of your instance
@@ -92,6 +110,7 @@ resource "axual_group" "tenant_admin_group" {
  name          = "Tenant Admin Group"
  members       = [
    data.axual_user.my-user.id,
+   var.service_account_uid,
  ]
 }
 
@@ -124,7 +143,8 @@ resource "axual_application" "log_scraper" {
 }
 
 # Principal for the log_scraper app in the ‘development’ environment
-# Please make sure the certificate matches the CA of the instance
+# Use your own certificate: it must chain to a CA certificate of the instance.
+# The certificate in certs/ only works on an instance that trusts the Axual dummy CA.
 resource "axual_application_principal" "log_scraper_in_dev_principal" {
   environment = axual_environment.development.id
   application = axual_application.log_scraper.id
@@ -145,6 +165,8 @@ resource "axual_schema_version" "axual_gitops_test_schema_version1" {
   body = file("avro-schemas/gitops_test_v1.avsc")
   version = "1.0.0"
   description = "Gitops test schema version"
+  # Members of the owner group may delete the schema. Without owners, a delete can need SCHEMA_ADMIN.
+  owners = axual_group.tenant_admin_group.id
 }
 
 resource "axual_topic" "logs" {
@@ -159,7 +181,7 @@ resource "axual_topic" "logs" {
 
 resource "axual_topic_config" "logs_in_dev" {
   partitions = 1
-  retention_time = 864000  # 10 days
+  retention_time = 864000000  # 10 days, in milliseconds
   topic = axual_topic.logs.id
   environment = axual_environment.development.id
   properties = {"segment.ms"="600012", "retention.bytes"="-1"}
@@ -199,23 +221,50 @@ This will:
 - Deploy a topic and ACL
 - Approve application access
 
+The same identity requests and approves the access. This works only when self-approval is on for
+the instance (the default).
 
 #### Required Roles
 
-To run the above configuration, your user must have the following roles:
+To run the above configuration, the identity in the provider block (normally the service account)
+must have the following roles. A role lets it create a resource. To change or delete the resource,
+and to create a principal, topic config, grant or decision, it must also be a member of the group
+in `owners`. The example does this with `service_account_uid`.
 
 | Role                 | Required For                                                                         |
 |----------------------|--------------------------------------------------------------------------------------|
-| `TENANT_ADMIN`       | `axual_user`, `axual_group`                                                          |
+| `TENANT_ADMIN`       | `axual_group`                                                                        |
 | `SCHEMA_AUTHOR`      | `axual_schema_version`                                                               |
 | `STREAM_AUTHOR`      | `axual_topic`, `axual_topic_config`, `axual_application_access_grant_decision`       |
 | `APPLICATION_AUTHOR` | `axual_application`, `axual_application_principal`, `axual_application_access_grant` |
 | `ENVIRONMENT_AUTHOR` | `axual_environment`                                                                  |
 
 ### Step 3 – Verify & Continue
-- Go to `/overview` in Axual Self-Service UI to confirm the application is producing to the topic.
+- Go to the topic in the Axual Self-Service UI to confirm the application has consume access.
 - Connect any Kafka client (e.g. Java) using the created certificate or credentials.
-- Terraform will store sensitive values (such as credentials) in the `terraform.tfstate` file — please ensure that it is properly secured.
+- Terraform will store sensitive values (such as credentials) in the `terraform.tfstate` file - please ensure that it is properly secured.
+
+<!-- schema generated by tfplugindocs -->
+## Schema
+
+### Required
+
+- `apiurl` (String) URL that will be used by the client for all resource requests
+- `authurl` (String) Token URL
+
+### Optional
+
+- `audience` (String, Deprecated) Audience for OAUTH.
+- `authmode` (String, Deprecated) Authentication mode.
+- `client_id` (String) Client ID of the service account. Not used by federated service accounts, which Keycloak identifies from the assertion. Can be omitted if the environment variable `AXUAL_CLIENT_ID` is set.
+- `client_secret` (String, Sensitive) Client secret of the service account. Setting it selects service account authentication with a secret. Can be omitted if the environment variable `AXUAL_CLIENT_SECRET` is set. Needs Platform Manager 16.0.0 or later.
+- `clientid` (String, Deprecated) Client ID to be used for oauth.
+- `oidc_token` (String, Sensitive) The assertion a federated service account authenticates with: a token issued by your own identity provider, not an Axual token. Setting it selects federated authentication, which sends no client secret at all. Can be omitted if the environment variable `AXUAL_OIDC_TOKEN` is set, which is the usual way to supply it from a CI pipeline. Needs Platform Manager 16.0.0 or later.
+- `oidc_token_file` (String) Path to a file holding the assertion a federated service account authenticates with. The file is read again every time the access token is renewed, so use this rather than `oidc_token` when something rewrites the assertion as it rotates. Can be omitted if the environment variable `AXUAL_OIDC_TOKEN_FILE` is set. Needs Platform Manager 16.0.0 or later.
+- `password` (String, Sensitive) Password belonging to the user. Can be omitted if the environment variable `AXUAL_AUTH_PASSWORD` is set. Deprecated: use a service account instead.
+- `realm` (String) Axual realm used for the requests. This is your tenant's short name.
+- `scopes` (List of String) OAuth authorization server scopes. Only applies to username and password authentication; service account authentication does not send a scope.
+- `username` (String) Username for all requests. Will be used to acquire a token. Can be omitted if the environment variable `AXUAL_AUTH_USERNAME` is set. Deprecated: use a service account instead.
 
 ## GitOps: Multi-Repo Architecture
 
@@ -236,8 +285,8 @@ The Axual Terraform provider enables a distributed GitOps setup across teams:
 - Resources are shared via data sources
 
 ##  Limitations
-- Terraform-created users are **not** added to the authentication system (e.g. Keycloak), and cannot log in.
-  - Instead, use `data.axual_user` to reference existing users
+- Terraform cannot create users. Create them in the authentication system (e.g. Keycloak) and in Self-Service first.
+  - Then use `data.axual_user` to reference existing users
   - Or import them: [`terraform import`](https://registry.terraform.io/providers/Axual/axual/latest/docs/resources/user#import)
 
 ## Compatibility
@@ -257,6 +306,11 @@ The Axual Terraform provider enables a distributed GitOps setup across teams:
 | 3.1.x                      | 15.0.x - onward                      |   2026.2 - onwards          |
 | 3.2.x                      | 15.0.x - onward                      |   2026.2 - onwards          |
 | 3.3.x                      | 15.0.x - onward                      |   2026.2 - onwards          |
+
+Some resources and attributes need a newer Platform Manager than 15.0.x. Service accounts,
+`axual_connect_cluster` and Connector deployments on a Kafka Connect cluster need 16.0.0 or later.
+`axual_flink_cluster` needs 17.0.0 or later with 3.3.x, and 3.2.x cannot manage an
+`axual_flink_cluster` on Platform Manager 17.0.0 or later. Each page says which version it needs.
 
 ## IDE support (IntelliJ)
 

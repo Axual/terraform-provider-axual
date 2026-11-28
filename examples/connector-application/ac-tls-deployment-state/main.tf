@@ -3,11 +3,12 @@
 #
 # Order: deployment -> principal -> grant + approval -> deployment state.
 #
-# Replace every YOUR_* value below. This example uses its own directory, and therefore its own
-# terraform.tfstate.
+# Replace every YOUR_* and CHANGEME value below, and put the connector's certificate and private key
+# (PEM) in a certs/ folder next to this file. This example uses its own directory, and therefore its
+# own terraform.tfstate.
 
 data "axual_instance" "example" {
-  short_name = "YOUR_INSTANCE_SHORT_NAME" # short name of an existing instance
+  short_name = "CHANGEME" # short name of an existing instance
 }
 
 data "axual_group" "example" {

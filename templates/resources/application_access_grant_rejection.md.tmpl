@@ -2,11 +2,12 @@
 
 {{ .Description | trimspace }}
 
-~> **Deprecated:** use [`axual_application_access_grant_decision`](application_access_grant_decision) with `decision = "DENIED"`. Existing blocks move with a `moved` block (Terraform 1.8 or later); see that page.
+~> **Deprecated:** use [`axual_application_access_grant_decision`](application_access_grant_decision.md) with `decision = "DENIED"`. Existing blocks move with a `moved` block (Terraform 1.8 or later); see that page.
 
 ## Note
 - Rejection cannot be edited
 - Only Pending grants can be rejected
+- Destroying the rejection only removes it from the state. The grant stays Rejected.
 - Read more: https://docs.axual.io/axual/2026.1/self-service/topic-authorizations.html#contents
 
 ## Usage
@@ -14,6 +15,7 @@
 
 ## Required Roles
 - STREAM_ADMIN or be part of the Team that owns the Topic
+- When the tenant allows only resource managers to change resources, a member must also be a resource manager of that team.
 
 {{ .SchemaMarkdown | trimspace }}
 

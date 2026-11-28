@@ -81,7 +81,7 @@ func (r *environmentResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"short_name": schema.StringAttribute{
-				MarkdownDescription: "A short name that will uniquely identify this environment. The short name should be between 1 and 20 characters. Only alphanumeric characters are allowed.",
+				MarkdownDescription: "A short name that will uniquely identify this environment. The short name should be between 1 and 20 characters. Only letters and digits are allowed, and it must start with a letter.",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(1, 20),
@@ -104,14 +104,14 @@ func (r *environmentResource) Schema(ctx context.Context, req resource.SchemaReq
 					),
 				}},
 			"visibility": schema.StringAttribute{
-				MarkdownDescription: "Can be `Public` or `Private`. The Private environments are only visible to the owning group (your team). They are not included in dashboard visualisations.",
+				MarkdownDescription: "Can be `Public` or `Private`. The Private environments are only visible to the owning group (your team), and to Tenant Admins and Environment Admins. They are not included in dashboard visualisations.",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.OneOf("Public", "Private"),
 				},
 			},
 			"authorization_issuer": schema.StringAttribute{
-				MarkdownDescription: "Allowed values: `Stream owner` and `Auto`. This indicates if any deployments on this environment should be AUTO approved or requires approval from Stream Owner. For private environments, only AUTO can be selected.",
+				MarkdownDescription: "Allowed values: `Stream owner` and `Auto`. This decides whether access requests (grants) to topics in this environment are approved at once (`Auto`) or need approval from the topic owner (`Stream owner`). For private environments, only `Auto` can be selected.",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.OneOf("Stream owner", "Auto"),
@@ -143,7 +143,7 @@ func (r *environmentResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"partitions": schema.Int64Attribute{
-				MarkdownDescription: "Defines the number of partitions configured for every topic of this tenant. If not specified, default value is 2. Value must be between 1 and 120000",
+				MarkdownDescription: "The number of partitions for topics in this environment. If not specified, default value is 2 (the Platform Manager default). Value must be between 1 and 120000",
 				Optional:            true,
 				Computed:            true,
 				Validators: []validator.Int64{

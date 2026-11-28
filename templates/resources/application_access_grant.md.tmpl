@@ -17,7 +17,10 @@
 - A new `short_name` of the application can need the grant to be replaced. See "Changing `short_name`" in [`axual_application`](application.md).
 
 ## Required Roles
-- APPLICATION_ADMIN or be part of the Team that owns the Application
+- Request: APPLICATION_ADMIN, or a member of the team that owns the application. STREAM_ADMIN and the team that owns the topic may also request.
+- Cancel a Pending grant: APPLICATION_ADMIN, or a member of the team that owns the application.
+- Revoke an Approved grant (on destroy): either team, APPLICATION_ADMIN or STREAM_ADMIN.
+- When the tenant allows only resource managers to change resources, a member must also be a resource manager of that team.
 
 {{ .SchemaMarkdown | trimspace }}
 
@@ -96,7 +99,7 @@ The `status` attribute determines what actions are available:
 
 ```hcl
 resource "axual_application_access_grant" "dash_consume_from_logs_in_dev" {
-  application = axual_application.dev_dashboard.id
+  application = axual_application.log_scraper.id
   topic = axual_topic.logs.id
   environment = axual_environment.development.id
   access_type = "CONSUMER"

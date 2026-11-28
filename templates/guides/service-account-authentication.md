@@ -20,8 +20,8 @@ it a real person's username and password. That still works, and emits a deprecat
 warning, but it puts a password into every pipeline that needs it and ties your automation
 to whoever owns the account. Use a service account instead.
 
-A tenant admin creates service accounts. Ask yours for one, and say which groups and roles
-it needs — a service account can only manage what its roles and group memberships allow,
+A Tenant Admin creates service accounts. Ask yours for one, and say which groups and roles
+it needs. A service account can only manage what its roles and group memberships allow,
 exactly like a person.
 
 ## Choosing a mode
@@ -56,7 +56,7 @@ provider "axual" {
 ```
 
 Every credential can come from the environment instead, which is usually what you want in
-a pipeline — a secret in a `.tf` file ends up in version control.
+a pipeline: a secret in a `.tf` file ends up in version control.
 
 | Attribute | Environment variable |
 |---|---|
@@ -76,8 +76,9 @@ provider "axual" {
 ```
 
 The secret is shown once, when the account is created and again each time it is rotated.
-Axual does not store it and cannot show it to you later. Rotation replaces the old secret
-immediately, so update your pipeline first.
+Axual does not store it and cannot show it to you later. Rotation replaces the old secret at
+once: the old secret stops working. Rotate when no pipeline run is busy, and put the new secret
+in the pipeline right away.
 
 ## Federated
 
@@ -98,17 +99,17 @@ provider "axual" {
 ```
 
 ~> Do not write `oidc_token = "${AXUAL_OIDC_TOKEN}"`. Terraform has no shell-environment
-interpolation, so that is a reference to a Terraform object of that name and fails with
-"Reference to undeclared resource". Either leave the attribute out and let the provider
+interpolation, so Terraform reads it as a reference to an object of that name and fails with
+"Invalid reference". Either leave the attribute out and let the provider
 read the environment variable, or use `oidc_token = var.axual_token` with
 `TF_VAR_axual_token`.
 
 ### Getting the assertion
 
-Producing the assertion is your pipeline's job, not the provider's — how a workload proves
+Producing the assertion is your pipeline's job, not the provider's. How a workload proves
 its identity depends entirely on where it runs. The provider only transports it.
 
-Your tenant admin will tell you which identity provider Axual trusts and which audience
+Your Tenant Admin will tell you which identity provider Axual trusts and which audience
 the assertion must carry. In most cases the workload first exchanges its own CI or cluster
 token for one from that provider, as a normal pipeline step, and the result is what the
 provider uses.
@@ -128,7 +129,7 @@ deploy:
 
 ### `oidc_token` or `oidc_token_file`
 
-Use `oidc_token_file` whenever something rewrites the assertion as it rotates — Kubernetes
+Use `oidc_token_file` whenever something rewrites the assertion as it rotates. Kubernetes
 projected service account tokens are the common case. The provider reads the file again
 every time it renews its access token, so a rotated assertion is picked up automatically.
 
@@ -147,22 +148,26 @@ enough to cover the whole run.
 
 ## Migrating from username and password
 
-1. Ask a tenant admin for a service account with the groups and roles your configuration
+1. Ask a Tenant Admin for a service account with the groups and roles your configuration
    needs. Start by matching what the person whose credentials you are replacing had.
 2. Put its client ID and secret where your pipeline keeps secrets, as `AXUAL_CLIENT_ID`
    and `AXUAL_CLIENT_SECRET`.
-3. Remove `username`, `password` and `scopes` from the provider block. Remove `authmode`
+3. Remove `username`, `password`, `scopes` and `clientid` from the provider block, and
+   remove `client_id` if it is `"self-service"` (or set it to the client ID of the service
+   account). A value in the provider block wins over `AXUAL_CLIENT_ID`. Remove `authmode`
    and `audience` too if they are there; they no longer do anything.
-4. Run `terraform plan`. It should report no changes — you have changed who is calling, not
+4. Check that `realm` is your tenant's short name, and that `authurl` uses the same realm.
+   Service accounts live in that realm, which can differ from the realm where people sign in.
+5. Run `terraform plan`. It should report no changes: you have changed who is calling, not
    what is being managed.
-5. Remove `AXUAL_AUTH_USERNAME` and `AXUAL_AUTH_PASSWORD` from your pipeline.
+6. Remove `AXUAL_AUTH_USERNAME` and `AXUAL_AUTH_PASSWORD` from your pipeline.
 
-You can do step 5 whenever you like. If a service account credential is present the
+You can do step 6 whenever you like. If a service account credential is present the
 provider uses it and ignores any leftover username and password, telling you what it
 ignored. A stale environment variable will not break your pipeline.
 
-If the plan in step 4 is **not** empty, the service account is missing a group membership
-or a role that the person had. Ask your tenant admin to compare the two.
+If the plan in step 5 fails with `403`, or is **not** empty, the service account is missing a
+group membership or a role that the person had. Ask your Tenant Admin to compare the two.
 
 ## What changed, and what still works
 

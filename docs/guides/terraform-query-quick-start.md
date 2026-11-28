@@ -5,7 +5,7 @@ page_title: "Quick start: export your resources with terraform query"
 This page shows in five steps how to turn resources you made in the Self-Service UI into Terraform
 files. You need Terraform 1.14 or newer.
 
-For all filters and details, see [Exporting existing resources with terraform query](export-with-terraform-query).
+For all filters and details, see [Exporting existing resources with terraform query](export-with-terraform-query.md).
 
 ## 1. Make a folder with the provider
 
@@ -29,6 +29,10 @@ provider "axual" {
   client_secret = "YOUR_SERVICE_ACCOUNT_CLIENT_SECRET"
 }
 ```
+
+Service accounts need Platform Manager 16.0.0 or later. On Platform Manager 15.0.x, sign in with the
+deprecated `username` and `password` instead, see the
+[Service account authentication guide](service-account-authentication.md).
 
 ## 2. Say what to export
 

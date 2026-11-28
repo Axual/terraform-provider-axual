@@ -56,7 +56,7 @@ func firstNonEmptyString(values ...string) string {
 
 func decisionReasonAttribute() schema.StringAttribute {
 	return schema.StringAttribute{
-		MarkdownDescription: "The reason the topic team gave when it rejected or revoked the grant. Null unless the status is `Rejected` or `Revoked`.",
+		MarkdownDescription: "The comment of the last reject or revoke, usually the reason the topic team gave. It can also be the comment of a revoke by the application team or an admin. Null unless the status is `Rejected` or `Revoked`.",
 		Computed:            true,
 	}
 }

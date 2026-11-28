@@ -2,7 +2,7 @@
 
 {{ .Description | trimspace }}
 
-~> **Deprecated:** use [`axual_application_access_grant_decision`](application_access_grant_decision) with `decision = "APPROVED"`. Existing blocks move with a `moved` block (Terraform 1.8 or later); see that page.
+~> **Deprecated:** use [`axual_application_access_grant_decision`](application_access_grant_decision.md) with `decision = "APPROVED"`. Existing blocks move with a `moved` block (Terraform 1.8 or later); see that page.
 
 ## Note
 - Approval cannot be edited
@@ -18,6 +18,7 @@
 
 ## Required Roles
 - STREAM_ADMIN or be part of the Team that owns the Topic
+- When the tenant allows only resource managers to change resources, a member must also be a resource manager of that team.
 
 {{ .SchemaMarkdown | trimspace }}
 
@@ -85,7 +86,7 @@ The grant UID can be found in:
 
 2. **Axual Self-Service UI** - Navigate to the grant details page
 
-3. **Axual API** - Query the `/application_access_grants` endpoint
+3. **Axual API** - Search with `/application_access_grants/search/findByAttributes` (Platform Manager 17.0.0 or later also `findSummariesByAttributes`), or use the `axual_application_access_grants` data source
 
 ### Notes
 

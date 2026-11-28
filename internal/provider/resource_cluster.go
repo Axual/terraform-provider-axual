@@ -156,7 +156,7 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 				},
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "The name of the Cluster, unique in the tenant. Must be between 3 and 50 characters: letters, digits, `.`, `-` and `_`.",
+				MarkdownDescription: "The name of the Cluster. Must be between 3 and 50 characters: letters, digits, `.`, `-` and `_`. It must be unique, ignoring case, among the Clusters of the tenant, or among the shared Clusters for a shared Cluster.",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(clusterNameMinLength, clusterNameMaxLength),
@@ -239,7 +239,7 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 						},
 					},
 					"private_key": schema.StringAttribute{
-						MarkdownDescription: "PEM private key of `certificate`. Platform Manager never returns it, so it is not read back and cannot be imported. This field is Sensitive.",
+						MarkdownDescription: "PEM private key of `certificate`. Platform Manager 15.0.10, 16.0.4 and later never return it. It is not read back and cannot be imported. This field is Sensitive.",
 						Optional:            true,
 						Sensitive:           true,
 						Validators: []validator.String{
@@ -256,7 +256,7 @@ func (r *clusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 						},
 					},
 					"password": schema.StringAttribute{
-						MarkdownDescription: "SASL password. Platform Manager never returns it, so it is not read back and cannot be imported. This field is Sensitive.",
+						MarkdownDescription: "SASL password. Platform Manager 15.0.10, 16.0.4 and later never return it. It is not read back and cannot be imported. This field is Sensitive.",
 						Optional:            true,
 						Sensitive:           true,
 						Validators: []validator.String{

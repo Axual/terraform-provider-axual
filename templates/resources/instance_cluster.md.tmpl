@@ -56,7 +56,7 @@ resource "axual_instance_cluster" "production" {
   cluster  = axual_cluster.production.id
   schema_registry = {
     type           = "APICURIO"
-    url            = "https://apicurio.example.com/apis/registry/v3"
+    url            = "https://apicurio.example.com/apis/registry/v3" # Platform Manager 15.0.x and 16.0.x: an Apicurio 2.x registry, .../apis/registry/v2
     authentication = "Basic-Auth"
     username       = "platform-manager"
     password       = "YOUR_PASSWORD" # replace with the registry password

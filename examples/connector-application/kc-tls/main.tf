@@ -5,11 +5,12 @@
 # Order: deployment -> principal -> grant + approval -> deployment state. The deployment comes
 # first so the principal's private key goes straight to the Connect cluster's Vault.
 #
-# Replace every YOUR_* value below. This example uses its own directory, and therefore its own
-# terraform.tfstate.
+# Replace every YOUR_* and CHANGEME value below, and put the connector's certificate and private key
+# (PEM) in a certs/ folder next to this file. This example uses its own directory, and therefore its
+# own terraform.tfstate.
 
 data "axual_instance" "example" {
-  short_name = "YOUR_INSTANCE_SHORT_NAME" # short name of an existing instance
+  short_name = "CHANGEME" # short name of an existing instance
 }
 
 data "axual_group" "example" {
@@ -72,7 +73,7 @@ resource "axual_application_deployment" "example" {
   application    = axual_application.example.id
   environment    = axual_environment.example.id
   target_id      = data.axual_connect_cluster.example.id
-  target_version = "1.0.0" # the plugin version installed on the Kafka Connect cluster
+  target_version = "YOUR_PLUGIN_VERSION" # the plugin version installed on the Kafka Connect cluster
   autostart      = false
   configs = {
     "topics"          = axual_topic.example.name,

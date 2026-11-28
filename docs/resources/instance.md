@@ -4,11 +4,11 @@ An Instance is a group of one or more Clusters that get the same topics and ACLs
 
 ## Usage
 - `clusters` lists the Clusters of the Instance (at least one). Topics and ACLs of an environment mapped to the Instance are created on every one of them.
-- Removing a Cluster from `clusters` also removes its schema registry configuration. Platform Manager refuses it while a Kafka Connect or Flink cluster is registered on that Instance-Cluster.
+- Removing a Cluster from `clusters` also removes its schema registry configuration. Platform Manager refuses it while a Kafka Connect cluster, a Flink cluster or (Platform Manager 17.0.0 or later) a KSML runtime is registered on that Instance-Cluster.
 - `granular_browse_permission` turns on per-topic browse permissions; manage them with `axual_topic_browse_permissions`.
 - `authentication_methods` must be methods the tenant supports. Platform Manager enables `MUTUAL_TLS` when it is not set, and refuses removing a method that is in use.
 - Leaving out `ca_certificates`, `authentication_methods` or `properties` keeps what the Instance has. `properties = {}` removes all properties. `ca_certificates = []` removes all CA certificates. Platform Manager refuses that with "SSL enabled, but CA was not uploaded." while `MUTUAL_TLS` is enabled and a Cluster of the Instance has `ssl_auth_mode = "fullChainCertificate"`.
-- An Instance can only be deleted when no environment, Kafka Connect cluster, Flink cluster or connector deployment uses it.
+- An Instance can only be deleted when no environment, Kafka Connect cluster, Flink cluster, KSML runtime (Platform Manager 17.0.0 or later) or legacy Axual Connect connector deployment uses it.
 - The `axual_instance` data source looks up an existing Instance.
 
 ## Prerequisites
@@ -28,7 +28,7 @@ An Instance is a group of one or more Clusters that get the same topics and ACLs
 
 ### Required
 
-- `clusters` (Set of String) IDs of the Clusters in the Instance, at least one. Removing a Cluster deletes its schema registry configuration; Platform Manager refuses it while a Kafka Connect or Flink cluster is registered on it.
+- `clusters` (Set of String) IDs of the Clusters in the Instance, at least one. Removing a Cluster deletes its schema registry configuration; Platform Manager refuses it while a Kafka Connect cluster, a Flink cluster or (Platform Manager 17.0.0 or later) a KSML runtime is registered on it.
 - `name` (String) The name of the Instance, unique in the tenant. Must be between 3 and 50 characters: letters, digits, spaces, `.`, `-` and `_`.
 - `short_name` (String) The short name of the Instance, unique in the tenant and part of topic names. Lower-case letters and digits, starting with a letter, at most 12 characters. Platform Manager refuses a change while the Instance has environments.
 
@@ -55,14 +55,14 @@ An Instance is a group of one or more Clusters that get the same topics and ACLs
 
 ```hcl
 resource "axual_instance" "production" {
-  name                       = "Production"
-  short_name                 = "prod"
-  description                = "Production instance"
-  clusters                   = [axual_cluster.production.id]
-  ca_certificates            = [file("application-ca.crt")]
-  authentication_methods     = ["MUTUAL_TLS", "SCRAM_SHA_512"]
-  granular_browse_permission = true
-  self_approval              = false
+  name                         = "Production"
+  short_name                   = "prod"
+  description                  = "Production instance"
+  clusters                     = [axual_cluster.production.id]
+  ca_certificates              = [file("application-ca.crt")]
+  authentication_methods       = ["MUTUAL_TLS", "SCRAM_SHA_512"]
+  granular_browse_permission   = true
+  self_approval                = false
   certificate_reuse_prevention = "INSTANCE"
 }
 ```

@@ -231,7 +231,7 @@ func (r *groupResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanR
 	if !hasIamLink(state.IamReference) && isIamManaged(data) && (!state.Members.IsNull() || !state.Managers.IsNull()) {
 		resp.Diagnostics.AddAttributeWarning(path.Root("iam_reference"),
 			"Stored members and managers stay in Platform Manager",
-			"Linking keeps the stored members and managers; this plan only removes them from the Terraform state. Service accounts in the list stay members. From Platform Manager 16.0, a person in the list is a member only when the token has the group, so a stored manager can no longer change the group. Before 17.0.0 the stored members also decide who can create applications, topics and environments for the group.")
+			"Linking keeps the stored members and managers; this plan only removes them from the Terraform state. Service accounts in the list stay members (Platform Manager 16.0.0 or later). A person who signs in with SSO is a member only when the token has the group (from Platform Manager 16.0.0 also a person of the local realm), so a stored manager can no longer change the group. Before 17.0.0 the stored members also decide who can create applications, topics and environments for the group.")
 	}
 	if hasIamLink(state.IamReference) && !isIamManaged(data) {
 		resp.Diagnostics.AddAttributeWarning(path.Root("iam_reference"),
