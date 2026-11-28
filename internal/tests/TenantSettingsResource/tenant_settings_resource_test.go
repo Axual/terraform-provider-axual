@@ -59,6 +59,8 @@ func TestTenantSettingsResource(t *testing.T) {
 		t.Fatalf("Error loading provider config: %v", err)
 	}
 	saved := SaveTenantSettings(t)
+	// The platform value: the audit clean-up then deletes nothing that it would not delete anyway.
+	days := fmt.Sprint(PlatformRetentionDays(t))
 	methods := methodsByRank(saved.SupportedAuthenticationMethods)
 	reordered := slices.Clone(methods)
 	slices.Reverse(reordered)
@@ -79,7 +81,7 @@ resource "axual_tenant_settings" "test" {
   schema_roles_enforced                       = false
   data_masking_enabled                        = true
   only_resource_manager_can_update_and_deploy = false
-  history_retention_days                      = 30
+  history_retention_days                      = ` + days + `
   iam_group_management                        = true
   automatic_iam_group_creation                = true
   axual_group_management                      = true
@@ -138,16 +140,16 @@ resource "axual_tenant_settings" "test" {
 					checkList(settings, "authentication_methods", reordered),
 					resource.TestCheckResourceAttr(settings, "notifications_enabled", "true"),
 					resource.TestCheckResourceAttr(settings, "data_masking_enabled", "true"),
-					resource.TestCheckResourceAttr(settings, "history_retention_days", "30"),
+					resource.TestCheckResourceAttr(settings, "history_retention_days", days),
 					resource.TestCheckResourceAttr(settings, "automatic_iam_group_creation", "true"),
 					// The data source reads the same values.
 					checkList(tenant, "authentication_methods", reordered),
 					resource.TestCheckResourceAttr(tenant, "notifications_enabled", "true"),
 					resource.TestCheckResourceAttr(tenant, "iam_group_management", "true"),
-					resource.TestCheckResourceAttr(tenant, "history_retention_days", "30"),
+					resource.TestCheckResourceAttr(tenant, "history_retention_days", days),
 					// And Platform Manager has them.
 					CheckTenantSetting("notificationsEnabled", "true"),
-					CheckTenantSetting("historyRetentionDays", "30"),
+					CheckTenantSetting("historyRetentionDays", days),
 					CheckTenantSetting("autoIAMGroupCreationEnabled", "true"),
 				),
 			},
@@ -313,6 +315,11 @@ resource "axual_instance" "tenant_settings" {
 // refuses while Flink is off: depends_on orders them.
 func TestTenantSettingsBeforeApplication(t *testing.T) {
 	SkipBefore(t, 16, 1, "the Connect, KSML and Flink switches of a tenant")
+	config, err := LoadProviderConfig()
+	if err != nil {
+		t.Fatalf("Error loading provider config: %v", err)
+	}
+	SkipWithInstanceRuntimeSwitches(t, config)
 	saved := SaveTenantSettings(t)
 	if !SwitchRuntimeOff(t, saved, "flinkRuntimeEnabled") {
 		t.Skip("the tenant uses Flink, so Flink cannot be switched off before the test")

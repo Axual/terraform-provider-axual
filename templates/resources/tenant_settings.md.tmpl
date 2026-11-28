@@ -5,9 +5,9 @@
 ## Usage
 - `axual_tenant_settings` manages the settings of the tenant that the provider is logged in to. It cannot manage another tenant, and it does not create a tenant.
 - Only the attributes that you set are managed. An attribute that you leave out keeps its value in Platform Manager, and the state shows that value. So one team can take over a single setting of a tenant in use without touching the others.
-- Removing an attribute from the configuration stops managing it: the setting keeps its last value.
+- Removing an attribute from the configuration stops managing it: the setting keeps its last value. Terraform cannot set `history_retention_days` back to the platform value (empty).
 - `terraform destroy` changes nothing in the tenant, and the plan says so in a warning. The settings have no "empty" value to go back to, and Instances and applications depend on them.
-- Use one `axual_tenant_settings` for each tenant. Two of them would overwrite each other's changes, and Terraform cannot see that.
+- Two `axual_tenant_settings` must not manage the same attribute. When this resource changes the tenant, the attributes it does not manage show as `(known after apply)` in the plan.
 - Create takes over the tenant as it is: it sends only the attributes that differ from what Platform Manager has.
 - The order of `authentication_methods` is the rank. A different order is a change.
 - `iam_group_management`, `axual_group_management` and `automatic_iam_group_creation` are changed together, with the same call as the Self-Service UI. At least one of the first two must be `true`, and automatic creation needs IAM group management: the plan refuses anything else. Switching IAM group management off also switches automatic creation off.

@@ -2,11 +2,8 @@ package webclient
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"net/http"
 	"strings"
-	"time"
 )
 
 // TenantAuthenticationMethod is one login method that the Instances of a tenant may use. A lower rank comes first.
@@ -51,13 +48,6 @@ type AxualGroupManagement struct {
 	Enabled bool `json:"enabled"`
 }
 
-// tenantConflictRetries and tenantConflictWait bound the retries of a tenant change that loses the
-// optimistic lock (409): Platform Manager answers 409 when two changes of the tenant meet.
-var (
-	tenantConflictRetries = 5
-	tenantConflictWait    = time.Second
-)
-
 // GetTenant returns the tenant of the login.
 func (c *Client) GetTenant() (*TenantResponse, error) {
 	o := TenantResponse{}
@@ -67,40 +57,20 @@ func (c *Client) GetTenant() (*TenantResponse, error) {
 	return &o, nil
 }
 
-// PatchTenantSettings changes the settings and login methods of tenant id. It retries a 409.
+// PatchTenantSettings changes the settings and login methods of tenant id.
 func (c *Client) PatchTenantSettings(id string, patch TenantSettingsPatch) error {
 	body, err := json.Marshal(patch)
 	if err != nil {
 		return err
 	}
-	return retryTenantConflict(func() error {
-		return c.RequestAndMap("PATCH", fmt.Sprintf("%s/tenants/%s", c.ApiURL, id), strings.NewReader(string(body)), nil, nil)
-	})
+	return c.RequestAndMap("PATCH", fmt.Sprintf("%s/tenants/%s", c.ApiURL, id), strings.NewReader(string(body)), nil, nil)
 }
 
-// UpdateGroupManagementSettings changes how the groups of the tenant of the login are managed. It retries a 409.
+// UpdateGroupManagementSettings changes how the groups of the tenant of the login are managed.
 func (c *Client) UpdateGroupManagementSettings(settings GroupManagementSettings) error {
 	body, err := json.Marshal(settings)
 	if err != nil {
 		return err
 	}
-	return retryTenantConflict(func() error {
-		return c.RequestAndMap("POST", fmt.Sprintf("%s/tenant/settings/group-management", c.ApiURL), strings.NewReader(string(body)), nil, nil)
-	})
-}
-
-func retryTenantConflict(call func() error) error {
-	var err error
-	for attempt := 0; attempt <= tenantConflictRetries; attempt++ {
-		if err = call(); !isConflict(err) {
-			return err
-		}
-		time.Sleep(tenantConflictWait * time.Duration(attempt+1))
-	}
-	return err
-}
-
-func isConflict(err error) bool {
-	var httpErr *HTTPError
-	return errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusConflict
+	return c.RequestAndMap("POST", fmt.Sprintf("%s/tenant/settings/group-management", c.ApiURL), strings.NewReader(string(body)), nil, nil)
 }

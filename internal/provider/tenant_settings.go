@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -166,8 +167,8 @@ func (c tenantChanges) empty() bool {
 }
 
 // computeTenantChanges compares the configured values (null = not managed) with the current ones and returns only
-// what differs. The group settings go to the group-management call, always with automatic creation next to the
-// IAM switch, so automatic creation cannot stay on while IAM is off.
+// what differs. The group settings go to the group-management call. The IAM block always has automatic creation
+// next to the IAM switch, so automatic creation cannot stay on while IAM is off.
 func computeTenantChanges(ctx context.Context, configured, current tenantSettingsValues) (tenantChanges, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	changes := tenantChanges{patch: webclient.TenantSettingsPatch{Settings: map[string]string{}}}
@@ -209,28 +210,42 @@ func computeTenantChanges(ctx context.Context, configured, current tenantSetting
 	if !iam {
 		auto = false
 	}
-	if iamManaged || axualManaged || autoManaged {
-		if iam != current.Bools["iam_group_management"].ValueBool() ||
-			axual != current.Bools["axual_group_management"].ValueBool() ||
-			auto != current.Bools["automatic_iam_group_creation"].ValueBool() {
-			changes.group = &webclient.GroupManagementSettings{
-				IamGroupManagement:   &webclient.IamGroupManagement{Enabled: iam, AutomaticGroupCreationEnabled: &auto},
-				AxualGroupManagement: &webclient.AxualGroupManagement{Enabled: axual},
-			}
+	// Send only the block that changes. Platform Manager keeps the values of a block that is not sent, so two
+	// resources that manage the IAM settings and the Axual setting do not undo each other in one apply.
+	iamChanged := (iamManaged || autoManaged) &&
+		(iam != current.Bools["iam_group_management"].ValueBool() || auto != current.Bools["automatic_iam_group_creation"].ValueBool())
+	axualChanged := axualManaged && axual != current.Bools["axual_group_management"].ValueBool()
+	if iamChanged || axualChanged {
+		changes.group = &webclient.GroupManagementSettings{}
+		if iamChanged {
+			changes.group.IamGroupManagement = &webclient.IamGroupManagement{Enabled: iam, AutomaticGroupCreationEnabled: &auto}
+		}
+		if axualChanged {
+			changes.group.AxualGroupManagement = &webclient.AxualGroupManagement{Enabled: axual}
 		}
 	}
 	return changes, diags
 }
 
+// tenantWriteAttempts and tenantWriteDelay retry a tenant change that lost the lock of the tenant row.
+var (
+	tenantWriteAttempts = 10
+	tenantWriteDelay    = time.Second
+)
+
 // applyTenantChanges sends the changes one after the other: first the PATCH, then the group-management call.
-func applyTenantChanges(client *webclient.Client, tenantId string, changes tenantChanges) error {
+func applyTenantChanges(ctx context.Context, client *webclient.Client, tenantId string, changes tenantChanges) error {
 	if len(changes.patch.Settings) > 0 || changes.patch.SupportedAuthenticationMethods != nil {
-		if err := client.PatchTenantSettings(tenantId, changes.patch); err != nil {
+		if err := RetryIfJittered(ctx, tenantWriteAttempts, tenantWriteDelay, isConflict, func() error {
+			return client.PatchTenantSettings(tenantId, changes.patch)
+		}); err != nil {
 			return fmt.Errorf("changing the tenant settings: %s", platformManagerMessage(err))
 		}
 	}
 	if changes.group != nil {
-		if err := client.UpdateGroupManagementSettings(*changes.group); err != nil {
+		if err := RetryIfJittered(ctx, tenantWriteAttempts, tenantWriteDelay, isConflict, func() error {
+			return client.UpdateGroupManagementSettings(*changes.group)
+		}); err != nil {
 			return fmt.Errorf("changing the group management settings: %s", platformManagerMessage(err))
 		}
 	}

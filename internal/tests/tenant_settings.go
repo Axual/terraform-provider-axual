@@ -113,29 +113,6 @@ func CheckTenantSetting(key, want string) resource.TestCheckFunc {
 	}
 }
 
-// CheckBefore runs check only on a Platform Manager older than major.minor.
-func CheckBefore(major, minor int, check resource.TestCheckFunc) resource.TestCheckFunc {
-	return func(s *terraform.State) error {
-		version, err := platformVersion()
-		if err != nil {
-			return err
-		}
-		if versionAtLeast(version, major, minor) {
-			return nil
-		}
-		return check(s)
-	}
-}
-
-// SkipStepFrom returns the SkipFunc of a test step that checks the refusal of a feature: it skips the step on
-// Platform Manager major.minor or later, which has the feature.
-func SkipStepFrom(major, minor int, feature string) func() (bool, error) {
-	return func() (bool, error) {
-		return skipStepUnless(func(version string) bool { return !versionAtLeast(version, major, minor) },
-			fmt.Sprintf("the refusal of %s (Platform Manager %d.%d.0 has it)", feature, major, minor))
-	}
-}
-
 // InstanceMethodInUse returns a login method that the test Instance uses, so a test can try to remove it from the
 // tenant. It returns "" when the Instance has none.
 func InstanceMethodInUse(t *testing.T, config ProviderConfig) string {
@@ -184,16 +161,6 @@ func UnusedTenantMethod(t *testing.T, tenant *webclient.TenantResponse) string {
 	return ""
 }
 
-// SkipBefore skips a test on a Platform Manager older than major.minor.
-func SkipBefore(t *testing.T, major, minor int, feature string) {
-	t.Helper()
-	config, err := LoadProviderConfig()
-	if err != nil {
-		t.Fatalf("Error loading provider config: %v", err)
-	}
-	skipBefore(t, config, major, minor, feature)
-}
-
 // SwitchRuntimeOff switches a Connect, KSML or Flink switch of the tenant off with the API, so a test can switch it
 // on again with Terraform. It returns false when Platform Manager refuses, because the tenant uses that runtime.
 // SaveTenantSettings puts the old value back.
@@ -209,4 +176,37 @@ func SwitchRuntimeOff(t *testing.T, tenant *webclient.TenantResponse, key string
 		return false
 	}
 	return true
+}
+
+// PlatformRetentionDays returns the platform value of the audit history retention (GET /audit-settings).
+func PlatformRetentionDays(t *testing.T) int {
+	t.Helper()
+	client, err := apiClient()
+	if err != nil {
+		t.Fatalf("unable to build API client: %v", err)
+	}
+	var settings struct {
+		HistoryRetentionDaysDefault int `json:"historyRetentionDaysDefault"`
+	}
+	if err := client.RequestAndMap("GET", client.ApiURL+"/audit-settings", nil, nil, &settings); err != nil {
+		t.Fatalf("unable to read the audit settings: %v", err)
+	}
+	return settings.HistoryRetentionDaysDefault
+}
+
+// SkipWithInstanceRuntimeSwitches skips a test on a Platform Manager that still switches Connect and Flink per
+// Instance: the test Instance answer still has connectEnabled. Master builds from before AXPD-12487 report 16.1 too.
+func SkipWithInstanceRuntimeSwitches(t *testing.T, config ProviderConfig) {
+	t.Helper()
+	client, err := apiClient()
+	if err != nil {
+		t.Fatalf("unable to build API client: %v", err)
+	}
+	instance, err := client.GetInstanceByName(config.InstanceName)
+	if err != nil {
+		t.Fatalf("unable to read instance %s: %v", config.InstanceName, err)
+	}
+	if instance.ConnectEnabled != nil {
+		t.Skip("this Platform Manager switches Connect and Flink per Instance, not per tenant")
+	}
 }

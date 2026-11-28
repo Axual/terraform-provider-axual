@@ -4,6 +4,7 @@ import (
 	webclient "axual-webclient"
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
@@ -141,7 +142,7 @@ func (r *tenantSettingsResource) apply(ctx context.Context, config tfsdk.Config,
 		return diags
 	}
 	if !changes.empty() {
-		if err := applyTenantChanges(r.provider.client, tenant.Uid, changes); err != nil {
+		if err := applyTenantChanges(ctx, r.provider.client, tenant.Uid, changes); err != nil {
 			diags.AddError("Unable to change the settings of tenant "+tenant.ShortName, err.Error())
 			return diags
 		}
@@ -194,7 +195,7 @@ func (r *tenantSettingsResource) ImportState(ctx context.Context, req resource.I
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read the tenant of the login: %s", err))
 		return
 	}
-	if req.ID != tenant.Uid && req.ID != tenant.ShortName {
+	if req.ID != tenant.Uid && !strings.EqualFold(req.ID, tenant.ShortName) {
 		resp.Diagnostics.AddError("Not the tenant of the login",
 			fmt.Sprintf("%q is not the ID or the short name of the tenant of the login, %s (%s). An axual_tenant_settings can only manage the tenant of the login.", req.ID, tenant.ShortName, tenant.Uid))
 		return
@@ -217,6 +218,22 @@ func (r *tenantSettingsResource) ModifyPlan(ctx context.Context, req resource.Mo
 	}
 
 	r.checkRuntimeVersion(configured, &resp.Diagnostics)
+
+	// An update reads the whole tenant back. A setting that this resource does not manage can change in the
+	// same apply (another axual_tenant_settings, the UI), so plan it as unknown, not as its old value.
+	if !req.State.Raw.IsNull() && !req.Plan.Raw.Equal(req.State.Raw) {
+		if configured.AuthenticationMethods.IsNull() {
+			resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("authentication_methods"), types.ListUnknown(types.StringType))...)
+		}
+		if configured.HistoryRetentionDays.IsNull() {
+			resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("history_retention_days"), types.Int64Unknown())...)
+		}
+		for _, s := range tenantBoolSettings {
+			if configured.Bools[s.attr].IsNull() {
+				resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root(s.attr), types.BoolUnknown())...)
+			}
+		}
+	}
 
 	iam, axual := planned.Bools["iam_group_management"], planned.Bools["axual_group_management"]
 	if isFalse(iam) && isFalse(axual) {

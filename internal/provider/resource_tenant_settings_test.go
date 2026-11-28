@@ -134,15 +134,22 @@ func TestComputeTenantChanges(t *testing.T) {
 			t.Errorf("methods = %+v", got)
 		}
 	})
-	t.Run("IAM off sends automatic creation off and keeps Axual", func(t *testing.T) {
+	t.Run("IAM off sends automatic creation off and leaves the Axual block out", func(t *testing.T) {
 		changes, _ := computeTenantChanges(ctx, testTenantValues(t, map[string]types.Bool{"iam_group_management": types.BoolValue(false)}, types.Int64Null()), current)
 		g := changes.group
-		if g == nil || g.IamGroupManagement.Enabled || g.IamGroupManagement.AutomaticGroupCreationEnabled == nil ||
-			*g.IamGroupManagement.AutomaticGroupCreationEnabled || !g.AxualGroupManagement.Enabled {
-			t.Fatalf("group = %+v", g)
+		if g == nil || g.IamGroupManagement == nil || g.IamGroupManagement.Enabled || g.IamGroupManagement.AutomaticGroupCreationEnabled == nil ||
+			*g.IamGroupManagement.AutomaticGroupCreationEnabled || g.AxualGroupManagement != nil {
+			t.Fatalf("group = %+v, expected only the IAM block, with automatic creation off", g)
 		}
 		if len(changes.patch.Settings) != 0 {
 			t.Errorf("group settings must not go through the PATCH: %v", changes.patch.Settings)
+		}
+	})
+	t.Run("only the Axual setting sends only the Axual block", func(t *testing.T) {
+		changes, _ := computeTenantChanges(ctx, testTenantValues(t, map[string]types.Bool{"axual_group_management": types.BoolValue(false)}, types.Int64Null()), current)
+		g := changes.group
+		if g == nil || g.IamGroupManagement != nil || g.AxualGroupManagement == nil || g.AxualGroupManagement.Enabled {
+			t.Fatalf("group = %+v, expected only the Axual block", g)
 		}
 	})
 	t.Run("a group setting equal to the current value sends nothing", func(t *testing.T) {
@@ -178,8 +185,9 @@ type fakeTenantPM struct {
 	methods  []webclient.TenantAuthenticationMethod
 	patches  []string
 	groups   []string
-	// conflicts is how many PATCH calls answer 409 before one succeeds.
+	// conflicts and lostLocks are how many PATCH calls answer 409, and then 403 with a lock error, before one succeeds.
 	conflicts int
+	lostLocks int
 }
 
 func newFakeTenantPM(version string) *fakeTenantPM {
@@ -203,6 +211,13 @@ func (f *fakeTenantPM) handler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusConflict)
 			return
 		}
+		if f.lostLocks > 0 {
+			// A lost lock of the tenant row: Platform Manager answers 403, not 409.
+			f.lostLocks--
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte(`Request processing failed: org.springframework.orm.ObjectOptimisticLockingFailureException: Unexpected row count`))
+			return
+		}
 		f.patches = append(f.patches, string(body))
 		var patch webclient.TenantSettingsPatch
 		_ = json.Unmarshal(body, &patch)
@@ -217,9 +232,13 @@ func (f *fakeTenantPM) handler(w http.ResponseWriter, r *http.Request) {
 		f.groups = append(f.groups, string(body))
 		var g webclient.GroupManagementSettings
 		_ = json.Unmarshal(body, &g)
-		f.settings["iamGroupManagementEnabled"] = strPtr(boolText(g.IamGroupManagement.Enabled))
-		f.settings["autoIAMGroupCreationEnabled"] = strPtr(boolText(*g.IamGroupManagement.AutomaticGroupCreationEnabled))
-		f.settings["axualGroupManagementEnabled"] = strPtr(boolText(g.AxualGroupManagement.Enabled))
+		if g.IamGroupManagement != nil {
+			f.settings["iamGroupManagementEnabled"] = strPtr(boolText(g.IamGroupManagement.Enabled))
+			f.settings["autoIAMGroupCreationEnabled"] = strPtr(boolText(*g.IamGroupManagement.AutomaticGroupCreationEnabled))
+		}
+		if g.AxualGroupManagement != nil {
+			f.settings["axualGroupManagementEnabled"] = strPtr(boolText(g.AxualGroupManagement.Enabled))
+		}
 		w.WriteHeader(http.StatusNoContent)
 	default:
 		w.WriteHeader(http.StatusNotFound)
@@ -277,7 +296,8 @@ func tenantSettingsRaw(t *testing.T, r *tenantSettingsResource, values map[strin
 func TestTenantSettingsCreateSendsOnlyTheConfiguredChanges(t *testing.T) {
 	ctx := context.Background()
 	pm := newFakeTenantPM("16.1.0-SNAPSHOT")
-	pm.conflicts = 2 // the PATCH is retried
+	pm.conflicts, pm.lostLocks = 2, 1 // the PATCH is retried after both
+	tenantWriteDelay = 0
 	r := newTenantSettingsTestResource(t, pm)
 	methods, _ := types.ListValueFrom(ctx, types.StringType, []string{"MUTUAL_TLS", "SCRAM_SHA_512"})
 	config := tenantSettingsRaw(t, r, map[string]attr.Value{
@@ -294,7 +314,7 @@ func TestTenantSettingsCreateSendsOnlyTheConfiguredChanges(t *testing.T) {
 	if len(pm.patches) != 1 || pm.patches[0] != `{"settings":{"connectRuntimeEnabled":"true"},"supportedAuthenticationMethods":[{"rank":0,"protocol":"SSL","mechanism":"MUTUAL_TLS"},{"rank":1,"protocol":"SASL","mechanism":"SCRAM_SHA_512"}]}` {
 		t.Errorf("patches = %v", pm.patches)
 	}
-	if len(pm.groups) != 1 || pm.groups[0] != `{"iamGroupManagement":{"enabled":true,"automaticGroupCreationEnabled":false},"axualGroupManagement":{"enabled":true}}` {
+	if len(pm.groups) != 1 || pm.groups[0] != `{"iamGroupManagement":{"enabled":true,"automaticGroupCreationEnabled":false}}` {
 		t.Errorf("group calls = %v", pm.groups)
 	}
 	var id types.String
@@ -369,6 +389,29 @@ func TestTenantSettingsModifyPlan(t *testing.T) {
 			t.Error("expected an error")
 		}
 	})
+	t.Run("an update plans the settings it does not manage as unknown", func(t *testing.T) {
+		r := newTenantSettingsTestResource(t, newFakeTenantPM("16.0.5"))
+		state := tenantSettingsRaw(t, r, map[string]attr.Value{"id": types.StringValue("t1"),
+			"notifications_enabled": types.BoolValue(false), "data_masking_enabled": types.BoolValue(true), "history_retention_days": types.Int64Value(30)})
+		config := tenantSettingsRaw(t, r, map[string]attr.Value{"notifications_enabled": types.BoolValue(true)})
+		plan := tenantSettingsRaw(t, r, map[string]attr.Value{"id": types.StringValue("t1"),
+			"notifications_enabled": types.BoolValue(true), "data_masking_enabled": types.BoolValue(true), "history_retention_days": types.Int64Value(30)})
+		resp := modifyTenantPlan(t, r, config, plan, state)
+		var notifications, masking types.Bool
+		var days types.Int64
+		resp.Plan.GetAttribute(ctx, path.Root("notifications_enabled"), &notifications)
+		resp.Plan.GetAttribute(ctx, path.Root("data_masking_enabled"), &masking)
+		resp.Plan.GetAttribute(ctx, path.Root("history_retention_days"), &days)
+		if resp.Diagnostics.HasError() || !notifications.ValueBool() || !masking.IsUnknown() || !days.IsUnknown() {
+			t.Errorf("notifications_enabled %v, data_masking_enabled %v, history_retention_days %v, diagnostics %v", notifications, masking, days, resp.Diagnostics)
+		}
+		// Without a change, nothing is unknown.
+		same := modifyTenantPlan(t, r, tenantSettingsRaw(t, r, map[string]attr.Value{"notifications_enabled": types.BoolValue(false)}), state, state)
+		same.Plan.GetAttribute(ctx, path.Root("data_masking_enabled"), &masking)
+		if masking.IsUnknown() {
+			t.Error("a plan without a change marks data_masking_enabled unknown")
+		}
+	})
 	t.Run("IAM off plans automatic creation off", func(t *testing.T) {
 		r := newTenantSettingsTestResource(t, newFakeTenantPM("16.0.5"))
 		config := tenantSettingsRaw(t, r, map[string]attr.Value{"iam_group_management": types.BoolValue(false)})
@@ -410,7 +453,7 @@ func TestTenantSettingsImportAndRead(t *testing.T) {
 	ctx := context.Background()
 	pm := newFakeTenantPM("16.0.5")
 	r := newTenantSettingsTestResource(t, pm)
-	for id, wantError := range map[string]bool{"t1": false, "tenant": false, "other": true} {
+	for id, wantError := range map[string]bool{"t1": false, "tenant": false, "TENANT": false, "other": true} {
 		resp := resource.ImportStateResponse{State: tenantSettingsRaw(t, r, nil)}
 		r.ImportState(ctx, resource.ImportStateRequest{ID: id}, &resp)
 		if resp.Diagnostics.HasError() != wantError {
