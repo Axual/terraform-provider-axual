@@ -22,8 +22,7 @@ New users are created by logging in through your organization's Single Sign-On (
 
 ## Required Roles
 
-- No role is needed to import and read a user. Without TENANT_ADMIN, import by uid: the search by email
-  (`email:`) can find no user.
+- No role is needed to import and read a user.
 - TENANT_ADMIN is needed for every change and for delete, also for your own user. Each update also sends the roles,
   and only a Tenant Admin may set roles.
 
