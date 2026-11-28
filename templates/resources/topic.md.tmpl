@@ -3,21 +3,28 @@
 {{ .Description | trimspace }}
 
 ## Required Roles
-- ENVIRONMENT_AUTHOR or ENVIRONMENT_ADMIN
+- Create: STREAM_AUTHOR (Topic Author in the Self-Service UI) or STREAM_ADMIN. `owners` must also be a group you are a
+  member of. Otherwise Platform Manager answers "You do not belong to this group/team."
+- Change or delete: STREAM_ADMIN, or a member of the owner group (a group manager when the tenant allows only resource managers to change resources).
 
 ## Limitations
-- If no properties please leave properties empty like this: properties = { }
+- Leaving out `properties` keeps the properties the topic has. `properties = {}` removes them.
+- `name`, `key_type`, `value_type`, `key_schema` and `value_schema` cannot change while the topic has an `axual_topic_config`: Platform Manager refuses it, for example with "Name cannot be changed because the stream has active stream configuration." Remove the topic configs first.
 
 {{ .SchemaMarkdown | trimspace }}
 
 ## Example Usage
 
 ```hcl
+data "axual_group" "team-bonanza" {
+  name = "Team Bonanza"
+}
+
 resource "axual_topic" "logs" {
   name = "logs"
   key_type = "String"
   value_type = "String"
-  owners = axual_group.team-bonanza.id
+  owners = data.axual_group.team-bonanza.id
   retention_policy = "delete"
   properties = { propertyKey1: "propertyValue1", propertyKey2: "propertyValue2"}
   description = "Logs from all applications"
@@ -30,14 +37,16 @@ resource "axual_topic" "example_avro" {
   key_schema = axual_schema_version.axual_gitops_test_schema_version1.schema_id
   value_type = "AVRO"
   value_schema = axual_schema_version.axual_gitops_test_schema_version2.schema_id
-  owners = axual_group.team-bonanza.id
+  owners = data.axual_group.team-bonanza.id
   retention_policy = "delete"
   properties = { }
   description = "Logs from all applications with Avro schema"
 }
 ```
 
-For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
+The schema versions `axual_gitops_test_schema_version1` and `axual_gitops_test_schema_version2` are defined in the `axual_schema_version` example.
+
+For a full example which shows the capabilities of the latest Terraform provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 
 ## Import
 

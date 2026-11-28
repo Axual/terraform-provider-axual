@@ -83,7 +83,7 @@ func listSpecs() []listSpec {
 			newResource: NewApplicationResource,
 			filters: []listFilter{filterName, filterOwners,
 				{"short_name", "Only applications whose short name contains this text (case-insensitive)."},
-				{"application_type", "Only applications of this type, as in `axual_application`: `Custom`, `Connector`, `Ksml` or `FLINK_SQL`."},
+				{"application_type", "Only applications of this type, as in `axual_application`: `Custom`, `Connector`, `Ksml` or `FLINK_SQL`. `FLINK_SQL` needs Platform Manager 16.0.0 or later."},
 			},
 			find: findApplications,
 		},

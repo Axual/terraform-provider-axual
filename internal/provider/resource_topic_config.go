@@ -64,7 +64,7 @@ func (r *topicConfigResource) Schema(ctx context.Context, req resource.SchemaReq
 
 		Attributes: map[string]schema.Attribute{
 			"partitions": schema.Int64Attribute{
-				MarkdownDescription: "The number of partitions define how many consumer instances can be started in parallel on this topic. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#partitions-number",
+				MarkdownDescription: "The number of partitions define how many consumer instances can be started in parallel on this topic. Between 1 and 120000. It cannot be changed: the apply fails, so remove the topic config and create it again. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#partitions-number",
 				Required:            true,
 			},
 			"retention_time": schema.Int64Attribute{
@@ -75,11 +75,11 @@ func (r *topicConfigResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"topic": schema.StringAttribute{
-				MarkdownDescription: "The Topic this topic configuration is associated with",
+				MarkdownDescription: "The Topic this topic configuration is associated with. It cannot be changed: the apply fails, so remove the topic config and create it again.",
 				Required:            true,
 			},
 			"environment": schema.StringAttribute{
-				MarkdownDescription: "The environment this topic configuration is associated with",
+				MarkdownDescription: "The environment this topic configuration is associated with. It cannot be changed: the apply fails, so remove the topic config and create it again.",
 				Required:            true,
 			},
 			"key_schema_version": schema.StringAttribute{

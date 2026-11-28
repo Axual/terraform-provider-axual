@@ -153,7 +153,7 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				Optional:            true,
 			},
 			"deployment_size": schema.StringAttribute{
-				MarkdownDescription: "The t-shirt size of the deployment. Optional for KSML and FLINK_SQL deployments; for FLINK_SQL it sizes the Flink TaskManager. The accepted sizes are configured per Platform Manager install (`axual.application-deployment.flink.deployment-sizes`, `...ksml.deployment-sizes`) and default to `XS`, `S`, `M`, `L` and `XL`, so your instance may accept a different set; the match is case-insensitive. No endpoint lists them, so an unknown size is only rejected once the apply reaches the API. If not specified, the Platform Manager will assign a default value.",
+				MarkdownDescription: "The t-shirt size of the deployment. Optional for KSML and FLINK_SQL deployments; for FLINK_SQL it sizes the Flink TaskManager. The accepted sizes are configured per Platform Manager install (`axual.application-deployment.flink.deployment-sizes`, `...ksml.deployment-sizes`) and default to `XS`, `S`, `M`, `L` and `XL`, so your instance may accept a different set; the match is case-insensitive. Platform Manager lists them at `GET /application-deployments/deployment-sizes?type=KSML` (or `FLINK_SQL`). The provider does not check the value, so an unknown size is only rejected once the apply reaches the API. If not specified, the Platform Manager will assign a default value.",
 				Optional:            true,
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
@@ -161,7 +161,7 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				},
 			},
 			"restart_policy": schema.StringAttribute{
-				MarkdownDescription: "The restart policy for KSML applications. Valid values are 'on_exit' and 'never'. Required for KSML deployments.",
+				MarkdownDescription: "The restart policy for KSML applications. Valid values are 'on_exit' and 'never'. Optional for KSML deployments.",
 				Optional:            true,
 				Validators: []validator.String{
 					stringvalidator.OneOf("on_exit", "never"),
@@ -172,7 +172,7 @@ func (r *applicationDeploymentResource) Schema(ctx context.Context, req resource
 				// set, and UseStateForUnknown keeps an omitted `target_id` on that value.
 				// Only FLINK_SQL has to be replaced for a changed target: it rejects the change
 				// outright (AXPD-11759), while the API patches the target of the other types.
-				MarkdownDescription: "The id of the deployment target to deploy to. Required for FLINK_SQL deployments, where it must be the id of an `axual_flink_cluster` registered for the environment. For other deployment types the Platform Manager assigns a default target if not specified. Changing this value replaces a FLINK_SQL Application Deployment, whose deployment target can only be set when the deployment is created; for the other types the target is updated in place. Available targets can be listed via `GET /applications/{applicationId}/deployment-targets?environmentId={environmentId}`.",
+				MarkdownDescription: "The id of the deployment target to deploy to. Required for FLINK_SQL deployments, where it must be the id of an `axual_flink_cluster` registered for the environment. From Platform Manager 17.0.0 it is also required for KSML deployments, where it must be the id of a KSML runtime that the owner group of the application may deploy to. For a Connector, Platform Manager uses legacy Axual Connect if not specified. Changing this value replaces a FLINK_SQL Application Deployment, whose deployment target can only be set when the deployment is created; for the other types the target is updated in place. Available targets can be listed via `GET /applications/{applicationId}/deployment-targets?environmentId={environmentId}`.",
 				Optional:            true,
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
@@ -578,8 +578,8 @@ func (r *applicationDeploymentResource) checkStartPrerequisites(data *Applicatio
 // refuseClearingDeployment stops a plan that clears configs, a definition or a SQL script. A
 // configuration that leaves them out would stop the deployment.
 func refuseClearingDeployment(plan, state *ApplicationDeploymentResourceData, diags *diag.Diagnostics) {
-	const howTo = "Set it."
-	const configsHowTo = "Set it. Configuration from `terraform query` leaves it out, because it is sensitive."
+	const howTo = "Set it. To delete the deployment, set it again or remove the resource block, then apply or destroy."
+	const configsHowTo = "Set it. Configuration from `terraform query` leaves it out, because it is sensitive. To delete the deployment, set it again or remove the resource block, then apply or destroy."
 	if plan.Configs.IsNull() && len(state.Configs.Elements()) > 0 {
 		diags.AddAttributeError(path.Root("configs"), "Missing configs",
 			"configs is not set, but the deployment has configs. This apply would remove them and stop the deployment. "+

@@ -8,7 +8,7 @@ resources for you, so you do not need to look up the ID of every resource.
 
 This needs Terraform 1.14 or newer.
 
-New to this? Start with the [Quick start](terraform-query-quick-start).
+New to this? Start with the [Quick start](terraform-query-quick-start.md).
 
 ## When to use it
 
@@ -16,7 +16,7 @@ New to this? Start with the [Quick start](terraform-query-quick-start).
 - You want to copy resources to another environment or another Axual installation.
 - You want to split resources over the repositories of several teams, for example by owner group.
   Grant approvals and rejections belong to the topic team, so their `owners` filter is the owner of
-  the topic (see the [Multi-Repo Guide](multi-repo)).
+  the topic (see the [Multi-Repo Guide](multi-repo.md)).
 
 ## Step 1: provider configuration
 
@@ -26,7 +26,7 @@ Use the normal provider configuration in a `.tf` file:
 terraform {
   required_providers {
     axual = {
-      source  = "axual/axual"
+      source  = "Axual/axual"
       version = ">= 3.3.0" # the first release with terraform query
     }
   }
@@ -40,6 +40,10 @@ provider "axual" {
   client_secret = "YOUR_SERVICE_ACCOUNT_CLIENT_SECRET" # replace with your service account secret
 }
 ```
+
+Service accounts need Platform Manager 16.0.0 or later. On Platform Manager 15.0.x, sign in with the
+deprecated `username` and `password` instead, see the
+[Service account authentication guide](service-account-authentication.md).
 
 ## Step 2: a query file
 
@@ -112,6 +116,7 @@ resource "axual_topic" "team_a_0" {
   owners           = "9f12688e64d5417ab780fd104e9e9712"
   retention_policy = "delete"
   properties       = {}
+  tags             = []
 }
 
 import {
@@ -171,7 +176,8 @@ in the Terraform state only.
   generated `axual_cluster` before you apply it.
 - **Access grants**: revoked and cancelled grants are left out, unless the `status` filter asks for
   them.
-- **Browse permissions**: topic configurations whose browse permissions you may not manage are left
+- **Browse permissions**: only topic configurations with at least one user or group with browse
+  permission are listed. Topic configurations whose browse permissions you may not manage are left
   out, with one warning that names them.
 - **Deployments** are generated with `autostart = false`, so an `axual_application_deployment_state`
   decides whether they run, and a change leaves a stopped deployment stopped.
@@ -208,6 +214,8 @@ in the Terraform state only.
 | `axual_application_deployment_state` | `application`, `environment`, `owners` |
 
 - `name`, `short_name` and `email` match when the value contains the text, ignoring case.
+- `application_type = "FLINK_SQL"` needs Platform Manager 16.0.0 or later. Platform Manager 15.0.x
+  refuses the value, and the list fails.
 - `owners`, `environment`, `application` and `topic` take an ID or an exact name, with the same
   upper and lower case (an environment or application also by its short name).
 - `owners` means the owner of the topic or application a resource belongs to. For

@@ -13,7 +13,8 @@ An Application Credential is a security credential (SASL) that uniquely authenti
   later. Other credentials work with every supported version.
 
 ## Required Roles
-- APPLICATION_ADMIN or be part of the Team that owns the Application
+- APPLICATION_ADMIN, or a member of the group that owns the application. When the tenant allows only
+  resource managers to update and deploy, you must be a resource manager of that group.
 
 ## Connector applications on a registered Kafka Connect cluster
 
@@ -27,7 +28,15 @@ start the connector with an `axual_application_deployment_state`. See the
 
 Legacy Axual Connect does not support SASL. For a `Connector` application with no Kafka Connect
 cluster target, Platform Manager refuses the credential with "Select a target Kafka Connect cluster
-first."
+first." Platform Manager 15.0.x refuses every Kafka credential of a `Connector` with "Kafka SASL
+credentials are not allowed for Connector applications."
+
+## Changing a credential
+
+A credential cannot be changed. The plan shows a change of `application`, `environment` or `target`
+as an in-place update, but the apply then fails with "API does not allow update of application
+credential". To change one of them, replace the credential: `terraform apply -replace=<address>`.
+The new credential has a new username and password.
 
 ## A credential replaced outside Terraform
 
@@ -48,7 +57,7 @@ OAuth credential makes a Basic-Auth credential.
 
 - `application` (String) A valid Id of an existing application
 - `environment` (String) A valid Id of an existing environment
-- `target` (String) The authentication credential provider (e.g., Apache Kafka, Schema Registry).
+- `target` (String) What the credential is for: `KAFKA` (a SASL/SCRAM user on the Kafka cluster) or `SCHEMA_REGISTRY` (a Basic-Auth client of the schema registry; needs an Apicurio schema registry with Keycloak on the instance). A change fails at apply; replace the resource instead.
 
 ### Read-Only
 
@@ -72,7 +81,7 @@ resource "axual_application_credential" "credentials" {
 ```
 
 - For a full example which shows the capabilities of the latest TerraForm provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
-  - Please note that in this full example, `axual_application_principal` can be interchanged with `axual_application_credential` as an alternative way to authenticate.
+  - Please note that in this full example, `axual_application_principal` can be interchanged with `axual_application_credential` as an alternative way to authenticate. This is true for a `Custom` application. A `Connector` on Axual Connect or on an `MTLS` Kafka Connect cluster needs a principal, a `Connector` on a `SASL_SCRAM` cluster and a `FLINK_SQL` application need a credential, and a `Ksml` application can have one principal or one credential, not both.
 
 ## Viewing Credentials
 

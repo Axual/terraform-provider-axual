@@ -3,7 +3,21 @@
 {{ .Description | trimspace }}
 
 ## Required Roles
-- ENVIRONMENT_AUTHOR or ENVIRONMENT_ADMIN
+- Create: ENVIRONMENT_AUTHOR or ENVIRONMENT_ADMIN. `owners` must be a group you are a member of, unless you are TENANT_ADMIN or APPLICATION_ADMIN.
+- Update and delete: ENVIRONMENT_ADMIN, or a member of the group in `owners`.
+
+## Deleting an environment
+
+- A public environment is deleted only when nothing uses it. Platform Manager refuses the delete while it has topic configs, application principals or credentials, approved access grants or deployments, and names them in the error.
+- A private environment is deleted together with everything in it: its topic configs, application principals, credentials, deployments and access grants. Other Terraform configurations that manage those resources lose them.
+
+## Changes that Platform Manager refuses
+
+The plan shows these changes as in-place updates, but the apply fails:
+
+- `short_name`, when the environment has topic configs or deployments.
+- `instance`, when the environment has topic configs.
+- `visibility`, unless the environment is private, or only one team uses it.
 
 {{ .SchemaMarkdown | trimspace }}
 

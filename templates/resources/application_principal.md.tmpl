@@ -8,10 +8,12 @@
 		- Read more: https://docs.axual.io/axual/2026.1/self-service/application-management.html#ssl-application-principals
 	- SASL (OAUTHBEARER) as a Custom Principal that specifies the ID referenced in URI and tokens. To use it please set `custom = true` and provide the client ID as `principal` property. For example, `my-client`.
 		- Read more: https://docs.axual.io/axual/2026.1/self-service/application-management.html#application-custom-principal
+- Platform Manager checks the certificate: when the instance has CA certificates, it must chain to one of them, and it must not be expired. The private key must be an unencrypted RSA key in PKCS#8 format (`-----BEGIN PRIVATE KEY-----`) that matches the certificate. A `Connector` or `Ksml` application takes one certificate per principal.
+- A `FLINK_SQL` application cannot have a principal; use an [`axual_application_credential`](application_credential.md). A `Ksml` application can have one principal or one credential, not both.
 - While an application has a principal, Platform Manager refuses a new `short_name` for it. See "Changing `short_name`" in [`axual_application`](application.md).
 
 ## Security
-- If using Application Principal for a Connector application private key is required.
+- `private_key` is required for a `Connector` or `Ksml` application. Platform Manager refuses it for a `Custom` application.
    - If committing terraform configuration(.tf) file in version control repository, please make sure there is a secure way of providing private key for a Connector application's Application Principal.
    - Here are best practices for handling secrets in Terraform: https://blog.gitguardian.com/how-to-handle-secrets-in-terraform/
    - The query from this Terraform provider to Axual Platform Manager API is secured with a TLS connection, just like in Axual Self Service UI.
@@ -22,7 +24,8 @@
   later. Other principals work with every supported version.
 
 ## Required Roles
-- APPLICATION_ADMIN or be part of the Team that owns the Application
+- APPLICATION_ADMIN, or a member of the group that owns the application. When the tenant allows only
+  resource managers to update and deploy, you must be a resource manager of that group.
 
 {{ .SchemaMarkdown | trimspace }}
 
@@ -49,10 +52,11 @@ Because `active` is not refreshed from the API, Terraform will **not** detect dr
 
 When switching which principal is active, remove `active = true` (or set `active = false`) from the old resource in the same config change. This keeps the config accurate and avoids confusion — even though Terraform will not endlessly try to re-activate the old principal, the state would still reflect `active = true` for a principal that is no longer active in the API.
 
-**Recommended approach — explicit transition:**
+**Recommended approach - explicit transition:**
+
+Step 1, the old principal is active:
 
 ```hcl
-# Step 1: old principal was active
 resource "axual_application_principal" "old" {
   environment = axual_environment.dev.id
   application = axual_application.connector.id
@@ -60,14 +64,17 @@ resource "axual_application_principal" "old" {
   private_key = file("certs/old.key")
   active      = true
 }
+```
 
-# Step 2: switch to new principal — remove active=true from old at the same time
+Step 2, switch to the new principal and remove `active = true` from the old one in the same change:
+
+```hcl
 resource "axual_application_principal" "old" {
   environment = axual_environment.dev.id
   application = axual_application.connector.id
   principal   = file("certs/old.pem")
   private_key = file("certs/old.key")
-  # active removed — Terraform no longer tries to keep it active
+  # active removed - Terraform no longer tries to keep it active
 }
 
 resource "axual_application_principal" "new" {
@@ -123,12 +130,13 @@ resource "axual_application_principal" "dev_dashboard_in_dev_principal" {
 
 resource "axual_application_principal" "example_connector_application" {
   environment = axual_environment.development.id
-  application = axual_application.dev_dashboard.id
-  principal = file("certs/certificate.pem")
+  application = axual_application.example_connector.id # an application with application_type = "Connector"
+  principal   = file("certs/example-connector.pem")
   private_key = file("certs/example-connector.key")
+  active      = true
 }
 
-resource "axual_application_principal" "example_sasl_oathbearer_app_principal" {
+resource "axual_application_principal" "example_sasl_oauthbearer_app_principal" {
   environment = "c82f56c4f8064a729e393c04f031c7bf"
   application = "2de280a38df6490ea4ccf2f9b6e649a4"
   principal = "example-principal"
@@ -157,9 +165,9 @@ not rotating it, so no `lifecycle { ignore_changes }` block is needed.
 
 One trade-off follows from this: since state alone cannot distinguish "imported, never had a key
 seen" from "created without one," if you deliberately add `private_key` to a principal that was
-originally created *without* one, the provider will also treat that as adoption — the value is
-saved to state but never sent to the API. This is rare in practice (only non-Connector SSL
-principals can omit `private_key` at all); if you hit it, rotate through a new resource instead
+originally created *without* one, the provider will also treat that as adoption - the value is
+saved to state but never sent to the API. This is rare in practice (only SSL principals of `Custom`
+applications can omit `private_key`); if you hit it, rotate through a new resource instead
 (see "In-place certificate rotation" above).
 
 ### Custom principals (`custom`)

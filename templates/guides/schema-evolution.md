@@ -8,7 +8,7 @@ This guide explains how schemas and schema versions work in Axual Platform Manag
 
 ### Schema in Platform Manager
 
-A **Schema** in Axual Platform Manager is a parent entity that groups related schema versions together. It is identified by the combination of `namespace` and `name` in the schema body (for AVRO schemas).
+A **Schema** in Axual Platform Manager is a parent entity that groups related schema versions together. It is identified by the combination of `namespace` and `name` in the schema body (for AVRO schemas). For PROTOBUF and JSON_SCHEMA schemas, set `type`; Platform Manager reads the full name from the body in its own way. Check `full_name` after the first apply.
 
 For example, this AVRO schema body defines a Schema with the full name `io.axual.qa.keys.GitOpsTestKey`:
 
@@ -26,15 +26,16 @@ For example, this AVRO schema body defines a Schema with the full name `io.axual
 ### Schema Version in Platform Manager
 
 A **Schema Version** is a specific version of a Schema. Multiple schema versions can belong to the same parent Schema as long as they share the same `namespace` and `name`. Each schema version has:
-- A `version` string (e.g., "1.0.0", "2.0.0")
+- A `version` string (e.g., "1.0.0", "2.0.0"). It must be new for that Schema: Platform Manager refuses a duplicate with `Duplicate schema version uploaded`
 - A `body` containing the actual schema definition
-- An optional `description`
+
+The `description` belongs to the Schema, not to each version: the last version uploaded with a description sets it for all versions. Give every `axual_schema_version` of one Schema the same `description`, or leave it out on all of them. Otherwise every plan shows a change of `description`, and the apply fails with `API does not allow update of schema version`.
 
 ### How axual_schema_version Relates to These Concepts
 
 The Terraform resource `axual_schema_version` creates a **Schema Version** in Platform Manager. When you create an `axual_schema_version`:
 
-1. The provider parses the schema body to extract `namespace` and `name`
+1. Platform Manager parses the schema body to extract `namespace` and `name`
 2. If a Schema with that `namespace + name` already exists, the new version is added to it
 3. If no such Schema exists, a new Schema is created automatically
 
@@ -50,6 +51,8 @@ axual_schema_version (v2.0.0)  ─┘
 
 - `axual_topic.key_schema` and `axual_topic.value_schema` reference the **parent Schema** (via `schema_id` attribute)
 - `axual_topic_config.key_schema_version` and `axual_topic_config.value_schema_version` reference specific **Schema Versions** (via `id` attribute)
+
+The examples on this page show only the attributes that matter here. A real `axual_topic` and `axual_topic_config` also need their other required attributes (for example `name`, `key_type`, `owners`, `partitions`, `retention_time` and `environment`).
 
 ```hcl
 resource "axual_topic" "logs" {
@@ -96,7 +99,7 @@ resource "axual_topic" "logs" {
 
 **How this simplifies workflows:**
 
-1. **Flexible referencing**: You can reference `schema_id` from whichever schema version is most convenient in your Terraform configuration. Changing the reference from `key_v1.schema_id` to `key_v2.schema_id` results in **no changes** for Terraform.
+1. **Flexible referencing**: You can reference `schema_id` from whichever schema version is most convenient in your Terraform configuration. Changing the reference from `key_v1.schema_id` to `key_v2.schema_id` results in **no changes** for Terraform, when both versions already exist. When the new version is created in the same apply, the plan shows the topic's `key_schema` as known after apply; the value does not change, and the apply succeeds.
 
 2. **Clean module design**: When passing schema references between Terraform modules, you only need to pass one schema version's `schema_id` - it works regardless of which version you choose.
 
@@ -164,7 +167,7 @@ resource "axual_topic_config" "logs_in_dev" {
 ```
 
 This change requires only a single `terraform apply` because:
-- The topic's `key_schema` remains unchanged (same parent Schema)
+- The topic's `key_schema` remains unchanged (same parent Schema). The plan can still show it as known after apply, because `key_v2` is new
 - Only the topic_config's `key_schema_version` is updated
 
 ### Incompatible Schema Changes (Requires force=true)
@@ -205,9 +208,11 @@ Without `force = true`, you will receive an error:
 Incompatible schema_version change identified. Retry with force=true in the axual_topic_config resource
 ```
 
+Remove `force = true` after the apply. While it is set, every later incompatible change is applied without this check.
+
 ## Changing the Topic's Base Schema
 
-A topic once created with a specific key or value schema must continue to use the same schema for its lifetime. **If the schema itself needs changing then there is no option but to delete and recreate the topic.**
+Platform Manager refuses a change of `axual_topic.key_schema` or `axual_topic.value_schema` while the topic has topic configs. Without topic configs, the topic keeps its id and gets the new schema.
 
 If you attempt to change `axual_topic.key_schema` or `axual_topic.value_schema` while a topic_config exists, you will receive an error:
 ```
@@ -215,10 +220,10 @@ Value Schema cannot be changed because the stream has active stream configuratio
 ```
 
 To change the base schema:
-1. Delete all `axual_topic_config` resources for the topic
-2. Delete the `axual_topic` resource
-3. Recreate the topic with the new schema
-4. Recreate the topic configs
+1. Remove all `axual_topic_config` resources of the topic, and change `key_schema` or `value_schema` on the `axual_topic`. One `terraform apply` is enough: Terraform deletes the topic configs first.
+2. Add the topic configs again, with schema versions of the new schema, and apply.
+
+~> **Warning:** Removing a topic config deletes the topic and its messages in that environment. Plan for this, for example by moving consumers and data first.
 
 ## Why Schema Body Updates Are Not Allowed
 

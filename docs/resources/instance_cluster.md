@@ -50,7 +50,7 @@ Required:
 
 Optional:
 
-- `api` (String) The API the registry at `url` speaks: `APICURIO_V2` or `APICURIO_V3` for `APICURIO`, `CONFLUENT_V7` for `CONFLUENT`. Needs Platform Manager 17.0.0 or later, which refuses `APICURIO_V2`; `client_endpoints` still accept it. When it is not set, Platform Manager derives it from `type` and `version`, and the provider keeps it until `type` or `version` changes.
+- `api` (String) The API the registry at `url` speaks: `APICURIO_V2` or `APICURIO_V3` for `APICURIO`, `CONFLUENT_V7` for `CONFLUENT`. Needs Platform Manager 17.0.0 or later, which refuses `APICURIO_V2`; `client_endpoints` still accept it. When it is not set, Platform Manager derives it from `type`: `CONFLUENT_V7` or `APICURIO_V3`. The provider keeps it until `type` or `version` changes.
 - `certificate` (String) PEM client certificate for `MTLS`. Requires `private_key`.
 - `client_endpoints` (Attributes Map) The registry endpoints applications use, by name. Needs Platform Manager 17.0.0 or later. When set, it replaces all endpoints of the Instance-Cluster, and an endpoint keeps its identity in Platform Manager while its name stays the same. Leaving it out keeps the endpoints Platform Manager has, and `{}` removes them all. When it is not set, the endpoints follow `listeners`. Conflicts with `listeners`, which Platform Manager ignores when the endpoints are sent. (see [below for nested schema](#nestedatt--schema_registry--client_endpoints))
 - `keycloak` (Attributes) `APICURIO` only, and not with `No-Auth`: the Keycloak behind the registry. Platform Manager creates the client of every schema registry credential of an application there, Basic-Auth and OAuth, so at least one Cluster of the Instance needs it. Leaving it out removes the stored Keycloak details and admin password. (see [below for nested schema](#nestedatt--schema_registry--keycloak))
@@ -113,7 +113,7 @@ resource "axual_instance_cluster" "production" {
   cluster  = axual_cluster.production.id
   schema_registry = {
     type           = "APICURIO"
-    url            = "https://apicurio.example.com/apis/registry/v3"
+    url            = "https://apicurio.example.com/apis/registry/v3" # Platform Manager 15.0.x and 16.0.x: an Apicurio 2.x registry, .../apis/registry/v2
     authentication = "Basic-Auth"
     username       = "platform-manager"
     password       = "YOUR_PASSWORD" # replace with the registry password

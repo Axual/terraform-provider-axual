@@ -73,7 +73,7 @@ func (r *applicationResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"application_id": schema.StringAttribute{
-				MarkdownDescription: "The Application ID of the Application, usually a fully qualified class name. Must be unique. The application ID, used in logging and to determine the consumer group (if applicable). Read more: https://docs.axual.io/axual/2026.1/self-service/application-management.html#app-id",
+				MarkdownDescription: "The Application ID of the Application, usually a fully qualified class name. Must be unique when the tenant requires unique consumer groups. The application ID, used in logging and to determine the consumer group (if applicable). Read more: https://docs.axual.io/axual/2026.1/self-service/application-management.html#app-id",
 				Required:            true,
 			},
 			"name": schema.StringAttribute{
@@ -85,7 +85,7 @@ func (r *applicationResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"short_name": schema.StringAttribute{
-				MarkdownDescription: "Application short name. Unique human-readable name for the application. Only Alphanumeric and underscore allowed. Must be unique",
+				MarkdownDescription: "Application short name. Unique human-readable name for the application. Only lower case letters, digits and `_`, 3 to 60 characters, not starting with `_`. Must be unique.",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(3, 60),
@@ -106,7 +106,7 @@ func (r *applicationResource) Schema(ctx context.Context, req resource.SchemaReq
 			},
 			"type": schema.StringAttribute{
 				Optional:            true,
-				MarkdownDescription: "If application_type is Custom, type can be: Java, Kafka Streams, Pega, SAP, DotNet, Bridge, Python, KSML, Other. If application_type is Connector, type can be: SINK, SOURCE. If application_type is Ksml, this field must be null/omitted. Use 'Other' when the desired application type is not available in the predefined list.",
+				MarkdownDescription: "If application_type is Custom, type can be: Java, Kafka Streams, Pega, SAP, DotNet, Bridge, Python, KSML, Other. If application_type is Connector, type is required: SINK or SOURCE. If application_type is Ksml, this field must be null/omitted. If application_type is FLINK_SQL, leave it out. Use 'Other' when the desired application type is not available in the predefined list.",
 				Validators: []validator.String{
 					stringvalidator.OneOf("Java", "Kafka Streams", "Pega", "SAP", "DotNet", "Bridge", "Python", "KSML", "Other", "SINK", "SOURCE"),
 					custom_validator.NewKsmlApplicationTypeValidator(),

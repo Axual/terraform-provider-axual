@@ -28,7 +28,7 @@ data "axual_application_access_grant" "logs_producer_produce_to_logs_in_dev" {
 
 - `decided_at` (String) When the grant was approved, rejected or revoked. Null while the grant is `Pending` or `Cancelled`, also when it was decided before and has been requested again.
 - `decided_by` (String) Who approved, rejected or revoked the grant. Null while the grant is `Pending` or `Cancelled`.
-- `decision_reason` (String) The reason the topic team gave when it rejected or revoked the grant. Null unless the status is `Rejected` or `Revoked`.
+- `decision_reason` (String) The comment of the last reject or revoke, usually the reason the topic team gave. It can also be the comment of a revoke by the application team or an admin. Null unless the status is `Rejected` or `Revoked`.
 - `id` (String) Application Access Grant Unique Identifier
 - `status` (String) Status of Application Access Grant
 

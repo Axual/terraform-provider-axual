@@ -2,6 +2,13 @@
 
 {{ .Description | trimspace }}
 
+~> **Warning:** Destroying an `axual_user`, or removing its block, deletes the user in Platform Manager. The user
+leaves every group (as member and as manager). When Platform Manager manages the logins in Keycloak, it also
+deletes the user's Keycloak login in the realm that has the tenant's short name. To refer to a user, use the
+[`axual_user` data source](https://registry.terraform.io/providers/Axual/axual/latest/docs/data-sources/user). To stop
+managing an imported user without deleting it, use a `removed` block with `lifecycle { destroy = false }`
+(Terraform 1.7 or later), or `terraform state rm`. See "Stop managing a user" below.
+
 ## User creation is not supported
 
 Terraform cannot create users. Users created through the API were only added to Self-Service, not to the
@@ -15,8 +22,9 @@ New users are created by logging in through your organization's Single Sign-On (
 
 ## Required Roles
 
-- **No role required** for importing and managing your own user
-- **TENANT_ADMIN** required for update and delete operations on other users
+- No role is needed to import and read a user.
+- TENANT_ADMIN is needed for every change and for delete, also for your own user. Each update also sends the roles,
+  and only a Tenant Admin may set roles.
 
 
 {{ .SchemaMarkdown | trimspace }}
@@ -52,6 +60,23 @@ data "axual_user" "john" {
 # Use data.axual_user.john.id to reference the user
 ```
 
+### Stop managing a user
+
+Do not just remove the `axual_user` block: that deletes the user. Replace the block with a `removed` block
+(Terraform 1.7 or later). Terraform then forgets the user, and the user stays in Platform Manager:
+
+```terraform
+removed {
+  from = axual_user.john
+
+  lifecycle {
+    destroy = false
+  }
+}
+```
+
+To protect a managed user against a delete, add `lifecycle { prevent_destroy = true }` to its `axual_user` block.
+
 For a full example which shows the capabilities of the latest Terraform provider, check https://github.com/Axual/terraform-provider-axual/tree/master/examples/axual.
 
 ## Import
@@ -65,7 +90,8 @@ terraform import axual_user.<LOCAL NAME> email:<EMAIL ADDRESS>
 terraform import axual_user.test_user 'email:jane.doe@example.com'
 ```
 
-The case of the email address does not matter. An `import` block (Terraform 1.5 or later) takes the same IDs:
+Use the email address as Platform Manager shows it: depending on the database, the search can be case-sensitive.
+An `import` block (Terraform 1.5 or later) takes the same IDs:
 
 ```terraform
 import {

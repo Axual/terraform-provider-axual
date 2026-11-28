@@ -54,7 +54,7 @@ func (r *userResource) Metadata(ctx context.Context, req resource.MetadataReques
 func (r *userResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "User resource. Creating new users via Terraform is not supported. Use the axual_user data source to reference existing users, or use terraform import to manage existing users. New users are created by logging in through your organization's SSO provider. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#users",
+		MarkdownDescription: "User resource. Creating new users via Terraform is not supported. Use the axual_user data source to reference existing users, or use terraform import to manage existing users. Destroying an axual_user, or removing its block, deletes the user in Platform Manager. New users are created by logging in through your organization's SSO provider. Read more: https://docs.axual.io/axual/2026.1/self-service/user-group-management.html#users",
 		Attributes: map[string]schema.Attribute{
 			"first_name": schema.StringAttribute{
 				MarkdownDescription: "User's first name",
@@ -72,7 +72,7 @@ func (r *userResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Required:            true,
 			},
 			"email_address": schema.StringAttribute{
-				MarkdownDescription: "User's email address",
+				MarkdownDescription: "User's email address. It must be the address that Platform Manager has: Platform Manager refuses a change of the email address.",
 				Required:            true,
 			},
 			"phone_number": schema.StringAttribute{
@@ -80,9 +80,12 @@ func (r *userResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Optional:            true,
 			},
 			"roles": schema.SetNestedAttribute{
-				MarkdownDescription: "Roles attributed to the user. Leave it out to keep the roles the user has; `roles = []` removes all roles. All possible roles with descriptions are listed here: https://docs.axual.io/apidocs/mgmt-api/8.5.0/index.html#valid-roles",
-				Optional:            true,
-				Computed:            true,
+				MarkdownDescription: "Roles attributed to the user. Leave it out to keep the roles the user has; `roles = []` removes all roles. " +
+					"Valid names: `TENANT_ADMIN`, `APPLICATION_ADMIN`, `APPLICATION_AUTHOR`, `STREAM_ADMIN`, `STREAM_AUTHOR`, `ENVIRONMENT_ADMIN`, " +
+					"`ENVIRONMENT_AUTHOR`, `SCHEMA_ADMIN`, `SCHEMA_AUTHOR`, `BILLING_VIEWER`, and `PLATFORM_ADMIN` from Platform Manager 17.0.0. " +
+					"Only a Super Admin can set `SUPER_ADMIN` and `BILLING_INTERNAL`. Every change of an `axual_user` sends the roles, so it needs TENANT_ADMIN.",
+				Optional: true,
+				Computed: true,
 				PlanModifiers: []planmodifier.Set{
 					setplanmodifier.UseStateForUnknown(),
 				},

@@ -36,7 +36,9 @@ or credential after the deployment exists. With `autostart = true` the provider 
 ### Example files
 
 Each example is a full, separate configuration with its own environment, topic and application. It
-uses the HTTP sink connector. Replace the `YOUR_*` values.
+uses the HTTP sink connector. Replace the `YOUR_*` and `CHANGEME` values. For a certificate, put the
+connector's certificate and private key (PEM) in a `certs/` folder next to `main.tf`. For KC, set
+`target_version` to the version of the plugin that is installed on your Kafka Connect cluster.
 
 | Case | Example |
 | --- | --- |
@@ -46,7 +48,7 @@ uses the HTTP sink connector. Replace the `YOUR_*` values.
 | KC+SASL with a deployment state | [`examples/connector-application/kc-sasl`](https://github.com/Axual/terraform-provider-axual/tree/master/examples/connector-application/kc-sasl) |
 
 The snippets below show only the connector part. The environment, topic, topic config and
-application are the same in every example:
+application are built the same way in every example (only the names differ):
 
 ```hcl
 resource "axual_application" "example" {
@@ -71,8 +73,9 @@ resource "axual_application" "example" {
 
 AC uses a certificate: an `axual_application_principal` with `private_key`. The private key is
 sensitive and is not shown in the output. The `configs` of the deployment are sensitive too. AC does
-not support SASL: Platform Manager refuses an `axual_application_credential` for an AC connector with
-"Select a target Kafka Connect cluster first."
+not support SASL: Platform Manager refuses an `axual_application_credential` for an AC connector
+("Select a target Kafka Connect cluster first." from Platform Manager 16.0.0, "Kafka SASL credentials
+are not allowed for Connector applications." on 15.0.x).
 
 AC supports both ways to start a connector.
 
@@ -217,7 +220,7 @@ resource "axual_application_deployment" "example" {
   application    = axual_application.example.id
   environment    = axual_environment.example.id
   target_id      = data.axual_connect_cluster.example.id
-  target_version = "1.0.0"
+  target_version = "YOUR_PLUGIN_VERSION" # the plugin version installed on the Kafka Connect cluster
   autostart      = false
   configs = {
     "topics"          = axual_topic.example.name,
@@ -270,7 +273,7 @@ resource "axual_application_deployment" "example" {
   application    = axual_application.example.id
   environment    = axual_environment.example.id
   target_id      = data.axual_connect_cluster.example.id
-  target_version = "1.0.0"
+  target_version = "YOUR_PLUGIN_VERSION" # the plugin version installed on the Kafka Connect cluster
   autostart      = false
   configs = {
     "topics"          = axual_topic.example.name,
@@ -326,8 +329,10 @@ These points apply to AC+TLS with a deployment state, KC+TLS and KC+SASL.
 
 ## The `depends_on` entries also set the destroy order
 
-A destroy runs in the opposite order. It stops the connector, then revokes the grant, then deletes
-the principal or credential, and deletes the deployment last. Keep these entries:
+A destroy runs in the opposite order. With a deployment state, it stops the connector, then revokes
+the grant, then deletes the principal or credential, and deletes the deployment last. With
+`autostart = true`, the deployment is deleted first (this stops the connector), then the grant is
+revoked and the principal is deleted. Keep these entries:
 
 - The grant `depends_on` the principal or credential. Platform Manager refuses to delete the last
   principal while a grant is still approved.
@@ -346,4 +351,4 @@ the principal or credential, and deletes the deployment last. Keep these entries
    import it: `terraform import axual_application_deployment_state.<LOCAL NAME> <APPLICATION DEPLOYMENT UID>`.
 3. Change the `depends_on` entries to the deployment-state order shown above.
 
-To read more about Connector applications on the Axual Platform: https://docs.axual.io/connect/Axual-Connect/index-developer.html
+To read more about Connector applications on the Axual Platform: https://docs.axual.io/connect/Axual-Connect/getting-started/index-developer.html

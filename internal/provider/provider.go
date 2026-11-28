@@ -245,13 +245,15 @@ func (p *AxualProvider) Schema(ctx context.Context, req provider.SchemaRequest, 
 
 			"username": schema.StringAttribute{
 				MarkdownDescription: "Username for all requests. Will be used to acquire a token. " +
+					"Can be omitted if the environment variable `AXUAL_AUTH_USERNAME` is set. " +
 					"Deprecated: use a service account instead.",
 				Optional: true,
 			},
 			"password": schema.StringAttribute{
-				MarkdownDescription: "Password belonging to the user. Deprecated: use a service account instead.",
-				Optional:            true,
-				Sensitive:           true,
+				MarkdownDescription: "Password belonging to the user. Can be omitted if the environment variable " +
+					"`AXUAL_AUTH_PASSWORD` is set. Deprecated: use a service account instead.",
+				Optional:  true,
+				Sensitive: true,
 			},
 			"scopes": schema.ListAttribute{
 				MarkdownDescription: "OAuth authorization server scopes. Only applies to username and password " +

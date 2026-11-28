@@ -15,7 +15,7 @@
 
 ## Prerequisites
 
-- The instance must have Flink enabled, or the API refuses the create with "Flink is not enabled for this instance".
+- Flink must be enabled for the tenant: a Tenant Admin sets the tenant setting `flinkRuntimeEnabled`. Without it, the API refuses the create with "Flink is disabled for this tenant. A Tenant Admin can enable it in the tenant settings."
 - You can register more than one Flink Cluster per Instance-Cluster combination. The name must be unique within your tenant.
 - Both create and update validate the connection live against Ververica Platform, so a wrong `namespace`, `workspace` or `deployment_target` fails the apply rather than the first deployment: expect "The provided namespace is invalid" or "The provided deployment-target: `<name>` was not found". An unreachable `url` or a rejected `api_token` fails the same way.
 
@@ -69,7 +69,7 @@ For a full example of a Flink SQL setup, check https://github.com/Axual/terrafor
 
 ## Import
 
-Import is supported using the following syntax. Because a Flink Cluster's uid is only unique within the Instance-Cluster it is registered on, the import identifier is the instance uid, the cluster uid and the Flink Cluster uid separated by `/`:
+Import is supported using the following syntax. The API reaches a Flink Cluster through its Instance and Cluster, so the import identifier is the instance uid, the cluster uid and the Flink Cluster uid, separated by `/`:
 
 ```shell
 terraform import axual_flink_cluster.<LOCAL NAME> <INSTANCE UID>/<CLUSTER UID>/<FLINK CLUSTER UID>

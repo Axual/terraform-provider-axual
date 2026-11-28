@@ -20,15 +20,16 @@ Data sources are read-only - they fetch information but don't create, update, or
 | Data Source | Lookup By | Attributes Returned |
 |-------------|-----------|---------------------|
 | `axual_user` | `email` | `id`, `first_name`, `last_name`, `middle_name`, `phone_number` |
-| `axual_group` | `name` | `id`, `members`, `email_address`, `phone_number` |
+| `axual_group` | `name` | `id`, `members`, `managers`, `iam_reference`, `email_address`, `phone_number` |
 | `axual_instance` | `name` or `short_name` | `id`, `name`, `short_name`, `description` |
 | `axual_cluster` | `name` | `id`, `description`, `location`, `provider_type`, `shared`, `topic_pattern`, `group_pattern`, `transactional_pattern`, `kafka_version`, `bootstrap_urls_by_authentication` |
-| `axual_environment` | `name` or `short_name` | `id`, `name`, `short_name`, `description`, `color`, `visibility`, `authorization_issuer`, `owners`, `instance`, `retention_time`, `partitions`, `properties` |
-| `axual_topic` | `name` | `id`, `description`, `key_type`, `key_schema`, `value_type`, `value_schema`, `owners`, `retention_policy`, `properties` |
-| `axual_application` | `name` or `short_name` | `id`, `name`, `short_name`, `description`, `application_type`, `application_id`, `application_class`, `type`, `owners`, `visibility` |
+| `axual_environment` | `name` or `short_name` | `id`, `name`, `short_name`, `description`, `color`, `visibility`, `authorization_issuer`, `owners`, `viewers`, `instance`, `retention_time`, `partitions`, `properties` |
+| `axual_topic` | `name` | `id`, `description`, `key_type`, `key_schema`, `value_type`, `value_schema`, `owners`, `viewers`, `retention_policy`, `properties`, `tags` |
+| `axual_application` | `name` or `short_name` | `id`, `name`, `short_name`, `description`, `application_type`, `application_id`, `application_class`, `type`, `owners`, `viewers`, `visibility` |
 | `axual_schema_version` | `full_name` and `version` | `id`, `schema_id`, `body`, `description`, `owners` |
-| `axual_application_access_grant` | `application`, `topic`, `environment`, `access_type` | `id`, `status` |
-| `axual_connect_cluster` | `instance_id` and `cluster_id`, plus `id` or `name` | `id`, `name`, `description`, `connect_url`, `auth_method`, `log_viewer_url`, `owner_group_id`, `owner_group_name`, `authorized_group_ids` |
+| `axual_application_access_grant` | `application`, `topic`, `environment`, `access_type` | `id`, `status`, `decision_reason`, `decided_at`, `decided_by` |
+| `axual_application_access_grants` | at least one of `topic`, `application`, `environment` | `grants` |
+| `axual_connect_cluster` (Platform Manager 16.0.0 or later) | `instance_id` and `cluster_id`, plus `id` or `name` | `id`, `name`, `description`, `connect_url`, `auth_method`, `log_viewer_url`, `owner_group_id`, `owner_group_name`, `authorized_group_ids` |
 
 ## Example Usage
 
@@ -81,7 +82,7 @@ resource "axual_topic" "logs" {
 }
 ```
 
-**Available attributes:** `id`, `name`, `members`, `email_address`, `phone_number`
+**Available attributes:** `id`, `name`, `members`, `managers`, `iam_reference`, `email_address`, `phone_number`
 
 ### axual_instance
 
@@ -164,7 +165,7 @@ resource "axual_topic_config" "logs_in_dev" {
 }
 ```
 
-**Available attributes:** `id`, `name`, `short_name`, `description`, `color`, `visibility`, `authorization_issuer`, `owners`, `instance`, `retention_time`, `partitions`, `properties`
+**Available attributes:** `id`, `name`, `short_name`, `description`, `color`, `visibility`, `authorization_issuer`, `owners`, `viewers`, `instance`, `retention_time`, `partitions`, `properties`
 
 ### axual_topic
 
@@ -188,7 +189,7 @@ resource "axual_topic_config" "logs_in_dev" {
 }
 ```
 
-**Available attributes:** `id`, `name`, `description`, `key_type`, `key_schema`, `value_type`, `value_schema`, `owners`, `retention_policy`, `properties`
+**Available attributes:** `id`, `name`, `description`, `key_type`, `key_schema`, `value_type`, `value_schema`, `owners`, `viewers`, `retention_policy`, `properties`, `tags`
 
 ### axual_application
 
@@ -216,7 +217,7 @@ resource "axual_application_access_grant" "logs_producer_produce_to_logs_in_dev"
 }
 ```
 
-**Available attributes:** `id`, `name`, `short_name`, `description`, `application_type`, `application_id`, `application_class`, `type`, `owners`, `visibility`
+**Available attributes:** `id`, `name`, `short_name`, `description`, `application_type`, `application_id`, `application_class`, `type`, `owners`, `viewers`, `visibility`
 
 ### axual_schema_version
 
@@ -269,13 +270,14 @@ resource "axual_application_access_grant_decision" "logs_producer_approval" {
 }
 ```
 
-**Available attributes:** `id`, `application`, `topic`, `environment`, `access_type`, `status`
+**Available attributes:** `id`, `application`, `topic`, `environment`, `access_type`, `status`, `decision_reason`, `decided_at`, `decided_by`
 
 ### axual_connect_cluster
 
 To define an `axual_connect_cluster` data source, provide `instance_id` and `cluster_id`, plus
 either the cluster's `id` or its `name`. A Kafka Connect cluster is registered by an administrator,
-not by Terraform, so this data source is the only way to reference one:
+not by Terraform, so this data source is the only way to reference one. Needs Platform Manager
+16.0.0 or later:
 
 ```hcl
 data "axual_connect_cluster" "jsonlog" {
@@ -293,8 +295,12 @@ resource "axual_application_deployment" "example" {
   application    = axual_application.example.id
   target_id      = data.axual_connect_cluster.jsonlog.id
   target_version = "4.1.1"
+  autostart      = false # required on a Kafka Connect cluster; start it with axual_application_deployment_state
   configs        = { /* ... */ }
 }
 ```
+
+A Connector on a Kafka Connect cluster needs `autostart = false`. See the
+[Connector Application guide](connector-application) for the full order.
 
 **Available attributes:** `id`, `name`, `description`, `connect_url`, `auth_method`, `log_viewer_url`, `owner_group_id`, `owner_group_name`, `authorized_group_ids`

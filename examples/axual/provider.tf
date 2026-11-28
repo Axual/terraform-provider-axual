@@ -8,7 +8,7 @@ terraform {
 }
 
 variable "axual_client_secret" {
-  description = "Client secret of the service account. Set it with TF_VAR_axual_client_secret, or omit client_secret below and set AXUAL_CLIENT_SECRET instead."
+  description = "Client secret of the service account. Set it with TF_VAR_axual_client_secret. To use AXUAL_CLIENT_SECRET instead, remove this variable and the client_secret line below."
   type        = string
   sensitive   = true
 }

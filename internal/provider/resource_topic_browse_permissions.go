@@ -42,7 +42,7 @@ func (r *topicBrowsePermissionsResource) Schema(ctx context.Context, req resourc
 		MarkdownDescription: "With this resource you can configure who can browse a topic's messages in a specified environment.\n> Only works if the Environment's Instance has Granular Stream Browse Permissions turned on.\n>\n> Granular Stream browse permissions are disabled in private environments and in public environments with the authorization issuer set to \"auto\".\n\nEither users or groups need to be specified — both can't be empty.\n\nRead more: https://docs.axual.io/axual/2026.1/self-service/topic-browse.html#controlling-permissions-to-browse-a-topic",
 		Attributes: map[string]schema.Attribute{
 			"topic_config": schema.StringAttribute{
-				MarkdownDescription: "UID of the Topic configuration.",
+				MarkdownDescription: "UID of the Topic configuration. A change does not move the permissions: they stay on the old topic configuration, and the next plan creates them on the new one. To move them, remove the block in one apply and add it again in the next.",
 				Required:            true,
 			},
 			"users": schema.SetAttribute{
@@ -54,7 +54,7 @@ func (r *topicBrowsePermissionsResource) Schema(ctx context.Context, req resourc
 				},
 			},
 			"groups": schema.SetAttribute{
-				MarkdownDescription: "Set of groups who are given Topic Browse permissions. User can't add a group where he himself is a member, because user can't give himself Granular Stream Browse Permissions.",
+				MarkdownDescription: "Set of groups who are given Topic Browse permissions.",
 				Optional:            true,
 				ElementType:         types.StringType,
 				PlanModifiers: []planmodifier.Set{

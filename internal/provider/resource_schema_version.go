@@ -54,7 +54,7 @@ func (r *schemaVersionResource) Schema(ctx context.Context, req resource.SchemaR
 
 		Attributes: map[string]schema.Attribute{
 			"body": schema.StringAttribute{
-				MarkdownDescription: "Schema definition. For AVRO schemas, provide valid JSON. For PROTOBUF, provide .proto file content. For JSON_SCHEMA, provide valid JSON Schema definition. A change only in JSON whitespace or key order is not a change.",
+				MarkdownDescription: "Schema definition. For AVRO schemas, provide valid JSON. For PROTOBUF, provide .proto file content. For JSON_SCHEMA, provide valid JSON Schema definition; Platform Manager 16.0.0 and later refuse drafts 2019-09 and 2020-12, so use draft-07. A change only in JSON whitespace or key order is not a change.",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					sameJSONBody{},

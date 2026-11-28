@@ -65,7 +65,7 @@ func (r *topicResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 		MarkdownDescription: "A topic represents a flow of information (messages), which is continuously updated. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				MarkdownDescription: "The name of the topic. Can only contain letters, numbers, dots, dashes and underscores and cannot begin with an underscore, dot or dash, but can't start with underscore, dot or dash. The topic name is usually discussed and finalized as part of the Intake session or a follow up.",
+				MarkdownDescription: "The name of the topic: 3 to 180 characters, letters, numbers, dots, dashes and underscores, not starting with an underscore, dot or dash. The topic name is usually discussed and finalized as part of the Intake session or a follow up.",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.LengthBetween(3, 180),
@@ -80,25 +80,25 @@ func (r *topicResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				},
 			},
 			"key_type": schema.StringAttribute{
-				MarkdownDescription: "The key type and reference to the schema. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#key-type",
+				MarkdownDescription: "The key type: `AVRO`, `JSON_SCHEMA` or `PROTOBUF` (these need `key_schema`), or `JSON`, `String`, `Binary` or `Xml`. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#key-type",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.OneOf("AVRO", "JSON", "Binary", "String", "Xml", "PROTOBUF", "JSON_SCHEMA"),
 				},
 			},
 			"key_schema": schema.StringAttribute{
-				MarkdownDescription: "(if `key_type` is `AVRO`, `PROTOBUF`, or `JSON_SCHEMA`) The key type and reference to the schema (if applicable).",
+				MarkdownDescription: "The ID of the key schema (`schema_id` of an `axual_schema_version`). Required when `key_type` is `AVRO`, `PROTOBUF` or `JSON_SCHEMA`.",
 				Optional:            true,
 			},
 			"value_type": schema.StringAttribute{
-				MarkdownDescription: "The value type and reference to the schema. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#value-type",
+				MarkdownDescription: "The value type: `AVRO`, `JSON_SCHEMA` or `PROTOBUF` (these need `value_schema`), or `JSON`, `String`, `Binary` or `Xml`. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#value-type",
 				Required:            true,
 				Validators: []validator.String{
 					stringvalidator.OneOf("AVRO", "JSON", "Binary", "String", "Xml", "PROTOBUF", "JSON_SCHEMA"),
 				},
 			},
 			"value_schema": schema.StringAttribute{
-				MarkdownDescription: "(if `value_type` is `AVRO`, `PROTOBUF`, or `JSON_SCHEMA`) The value type and reference to the schema (if applicable).",
+				MarkdownDescription: "The ID of the value schema (`schema_id` of an `axual_schema_version`). Required when `value_type` is `AVRO`, `PROTOBUF` or `JSON_SCHEMA`.",
 				Optional:            true,
 			},
 			"owners": schema.StringAttribute{
@@ -123,7 +123,7 @@ func (r *topicResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 			// Optional+Computed: omitting properties from config keeps the previous state (no-op).
 			// To remove all properties, set properties = {} explicitly.
 			"properties": schema.MapAttribute{
-				MarkdownDescription: "Advanced (Kafka) properties for a topic in a given environment. If no properties please leave properties empty like this: properties = { }.  Read more: https://docs.axual.io/axual/2026.1/self-service/advanced-features.html#configuring-topic-properties",
+				MarkdownDescription: "Properties of the topic, as key and value pairs. Leaving it out keeps the properties the topic has; `properties = {}` removes them. Read more: https://docs.axual.io/axual/2026.1/self-service/topic-management.html#topic-properties",
 				Optional:            true,
 				Computed:            true,
 				ElementType:         types.StringType,

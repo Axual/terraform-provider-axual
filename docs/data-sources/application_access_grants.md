@@ -37,7 +37,7 @@ Read-Only:
 - `application_name` (String) Application name.
 - `decided_at` (String) When the grant was approved, rejected or revoked. Null while the grant is `Pending` or `Cancelled`, also when it was decided before and has been requested again.
 - `decided_by` (String) Who approved, rejected or revoked the grant. Null while the grant is `Pending` or `Cancelled`.
-- `decision_reason` (String) The reason the topic team gave when it rejected or revoked the grant. Null unless the status is `Rejected` or `Revoked`.
+- `decision_reason` (String) The comment of the last reject or revoke, usually the reason the topic team gave. It can also be the comment of a revoke by the application team or an admin. Null unless the status is `Rejected` or `Revoked`.
 - `environment` (String) Environment UID.
 - `id` (String) Grant UID.
 - `requested_at` (String) When the application team last requested access.

@@ -3,7 +3,8 @@
 {{ .Description | trimspace }}
 
 ## Required Roles
-- Be part of the group owning the Stream
+- Be part of the group owning the Stream. TENANT_ADMIN and STREAM_ADMIN are not enough.
+- When the tenant allows only resource managers to change resources, a member must also be a resource manager of that team.
 
 {{ .SchemaMarkdown | trimspace }}
 
@@ -12,7 +13,7 @@
 ```hcl
 resource "axual_topic_browse_permissions" "support_browse_users_and_groups" {
   topic_config = axual_topic_config.support_in_production.id
-  users = [axual_user.jane.id, axual_user.john.id]
+  users = [data.axual_user.jane.id, data.axual_user.john.id]
   groups = [axual_group.team-awesome.id, axual_group.team-bonanza.id]
 }
 ```
