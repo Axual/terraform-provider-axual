@@ -163,7 +163,7 @@ func (r *environmentResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"settings": schema.MapAttribute{
-				MarkdownDescription: "A list of Environment specific settings in Key,Value format. The options are: `enforceDataMasking`(boolean). Please note that setting `enforceDataMasking` to `true` only works if Data Masking is enabled in Tenant settings.",
+				MarkdownDescription: "A list of Environment specific settings in Key,Value format. The options are: `enforceDataMasking`(boolean). Please note that setting `enforceDataMasking` to `true` only works if Data Masking is enabled for the tenant: `data_masking_enabled` of `axual_tenant_settings`.",
 				Optional:            true,
 				Computed:            true,
 				ElementType:         types.StringType,

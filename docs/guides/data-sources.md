@@ -22,6 +22,7 @@ Data sources are read-only - they fetch information but don't create, update, or
 | `axual_user` | `email` | `id`, `first_name`, `last_name`, `middle_name`, `phone_number` |
 | `axual_group` | `name` | `id`, `members`, `email_address`, `phone_number` |
 | `axual_instance` | `name` or `short_name` | `id`, `name`, `short_name`, `description` |
+| `axual_tenant` | nothing: the tenant of the login | `id`, `name`, `short_name`, `authentication_methods`, the settings of `axual_tenant_settings`, `onboarding_completed`, `unique_consumer_group`, `data_classification_enabled` |
 | `axual_cluster` | `name` | `id`, `description`, `location`, `provider_type`, `shared`, `topic_pattern`, `group_pattern`, `transactional_pattern`, `kafka_version`, `bootstrap_urls_by_authentication` |
 | `axual_environment` | `name` or `short_name` | `id`, `name`, `short_name`, `description`, `color`, `visibility`, `authorization_issuer`, `owners`, `instance`, `retention_time`, `partitions`, `properties` |
 | `axual_topic` | `name` | `id`, `description`, `key_type`, `key_schema`, `value_type`, `value_schema`, `owners`, `retention_policy`, `properties` |
@@ -136,6 +137,20 @@ resource "axual_instance" "test" {
 ```
 
 **Available attributes:** `id`, `description`, `location`, `provider_type`, `shared`, `topic_pattern`, `group_pattern`, `transactional_pattern`, `kafka_version`, `bootstrap_urls_by_authentication`
+
+### axual_tenant
+
+The `axual_tenant` data source reads the tenant of the login. It has no arguments:
+
+```hcl
+data "axual_tenant" "this" {}
+
+output "tenant_short_name" {
+  value = data.axual_tenant.this.short_name
+}
+```
+
+**Available attributes:** `id`, `name`, `short_name`, `authentication_methods`, `connect_runtime_enabled`, `ksml_runtime_enabled`, `flink_runtime_enabled`, `iam_group_management`, `axual_group_management`, `automatic_iam_group_creation`, `notifications_enabled`, `schema_roles_enforced`, `data_masking_enabled`, `only_resource_manager_can_update_and_deploy`, `history_retention_days`, `onboarding_completed`, `unique_consumer_group`, `data_classification_enabled`
 
 ### axual_environment
 

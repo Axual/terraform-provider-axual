@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 ### Added
+* `axual_tenant_settings` resource and `axual_tenant` data source: manage the settings of the tenant of the login, such as login methods, group management and the Connect, KSML and Flink switches (Platform Manager 17.0.0 or later). Only the settings in the configuration are managed, and destroy changes nothing (AXPD-12468)
 * `managers` on the `axual_group` data source, and `viewers` on the `axual_topic`, `axual_application` and `axual_environment` data sources, so a data source shows the same lists as its resource. An empty list is `[]`, not null (AXPD-9556)
 
 ### Fixed
@@ -18,6 +19,7 @@ All notable changes to this project will be documented in this file.
 * The data source pages of the documentation list every attribute with its type, generated from the schema like the resource pages. Before, they were written by hand, badly formatted and missed attributes (AXPD-9556)
 
 ### Changed
+* The `axual_instance` warning for `connect_enabled` and `flink_enabled` names the new `axual_tenant_settings` attributes. The docs no longer say to change tenant settings in the UI (AXPD-12468)
 * The `axual_schema_version` data source warns when `owners` is set. It never filtered anything: the data source always reads the owner of the schema. Remove `owners` from the data source block (AXPD-9556)
 
 ## [3.3.0](https://github.com/Axual/terraform-provider-axual/releases/tag/v3.3.0) - 2026-11-24

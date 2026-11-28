@@ -1,0 +1,36 @@
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+## Usage
+- `axual_tenant` reads the tenant of the login. It has no arguments.
+- Any user or service account of the tenant can read it. No role is needed.
+- Use it to name things after the tenant, to check a setting before other resources need it, or to get the ID for an import of `axual_tenant_settings`.
+- A setting that Platform Manager has never stored reads as its Platform Manager default: `false`, and `true` for `axual_group_management`.
+- `connect_runtime_enabled`, `ksml_runtime_enabled` and `flink_runtime_enabled` are `null` on Platform Manager versions before 17.0.0, which switch Connect and Flink on per Instance.
+
+## Platform Manager version
+- Platform Manager 15.0.0 or later.
+
+## Required Roles
+- Any role.
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Example Usage
+
+```hcl
+data "axual_tenant" "this" {}
+
+output "tenant_short_name" {
+  value = data.axual_tenant.this.short_name
+}
+
+# Fail the plan early when Connect is switched off for the tenant.
+check "connect_is_on" {
+  assert {
+    condition     = data.axual_tenant.this.connect_runtime_enabled != false
+    error_message = "Connect is switched off for tenant ${data.axual_tenant.this.short_name}. Set connect_runtime_enabled in axual_tenant_settings."
+  }
+}
+```

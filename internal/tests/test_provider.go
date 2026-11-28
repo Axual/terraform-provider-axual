@@ -217,6 +217,44 @@ func CheckFrom(major, minor int, check resource.TestCheckFunc) resource.TestChec
 	}
 }
 
+// CheckBefore runs check only on a Platform Manager older than major.minor.
+func CheckBefore(major, minor int, check resource.TestCheckFunc) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		version, err := platformVersion()
+		if err != nil {
+			return err
+		}
+		if versionAtLeast(version, major, minor) {
+			return nil
+		}
+		return check(s)
+	}
+}
+
+// SkipStepFrom returns the SkipFunc of a test step that checks the refusal of a feature: it skips the step on
+// Platform Manager major.minor or later, which has the feature.
+func SkipStepFrom(major, minor int, feature string) func() (bool, error) {
+	return func() (bool, error) {
+		return skipStepUnless(func(version string) bool { return !versionAtLeast(version, major, minor) },
+			fmt.Sprintf("the refusal of %s (Platform Manager %d.%d.0 has it)", feature, major, minor))
+	}
+}
+
+// SkipBefore skips a test on a Platform Manager older than major.minor, also without strict: true.
+func SkipBefore(t *testing.T, major, minor int, feature string) {
+	t.Helper()
+	if os.Getenv(resource.EnvTfAcc) == "" {
+		t.Skipf("Acceptance tests skipped unless env '%s' set", resource.EnvTfAcc)
+	}
+	version, err := platformVersion()
+	if err != nil {
+		t.Fatalf("Error reading the Platform Manager version: %v", err)
+	}
+	if !versionAtLeast(version, major, minor) {
+		t.Skipf("Platform Manager %s has no %s (needs %d.%d.0)", version, feature, major, minor)
+	}
+}
+
 // SkipWithoutServiceAccount skips a test that adds a service account to a group unless
 // test_config.yaml names one. Platform Manager before 16.0.0 has no service accounts.
 func SkipWithoutServiceAccount(t *testing.T, config ProviderConfig) {
